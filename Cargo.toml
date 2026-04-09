@@ -128,14 +128,12 @@ toml = "0.8"
 dirs = "5.0"
 hostname = "0.4"
 metrics-exporter-prometheus = "0.12"
-pprof = "0.13"
 iai = "0.1"
 nvml-wrapper = "0.10"
 
 # HTTP / AI client (optional; ai-tools + mcp)
 tokio-stream = { version = "0.1", features = ["sync"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
-openai = { version = "1.1", default-features = false, features = ["rustls"] }
 axum = { version = "0.7", features = ["json"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace"] }
@@ -145,9 +143,8 @@ serde_bytes = "0.11"
 futures-util = "0.3"
 tokio-tungstenite = "0.20"
 zstd = "0.12"
-flate2 = "1.0"
+flate2 = { version = "1.0", default-features = false, features = ["rust_backend"] }
 lz4 = "1.24"
-libloading = "0.8"
 
 # Internal crate dependencies
 squirrel-ai-tools = { path = "crates/tools/ai-tools", version = "0.1.0" }

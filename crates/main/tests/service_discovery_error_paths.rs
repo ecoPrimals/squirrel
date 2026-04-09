@@ -54,7 +54,6 @@
 use squirrel::error::PrimalError;
 
 // Stub types for compilation
-#[allow(dead_code)]
 struct DiscoveredService {
     endpoint: String,
     metadata: std::collections::HashMap<String, String>,

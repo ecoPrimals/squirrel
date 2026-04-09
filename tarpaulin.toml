@@ -3,7 +3,7 @@
 
 [tarpaulin]
 # Minimum line coverage threshold; CI fails below this.
-fail-under = 85.0
+fail-under = 90.0
 
 # Workspace-wide coverage
 all-features = true

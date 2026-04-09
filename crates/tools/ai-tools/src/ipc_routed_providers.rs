@@ -62,6 +62,42 @@ pub enum VendorKind {
     Gemini,
 }
 
+impl VendorKind {
+    /// Base URL for this vendor's API, resolved from environment or well-known default.
+    ///
+    /// Environment overrides (capability-based, no hardcoded assumptions):
+    /// - `OPENAI_API_BASE` / `OPENAI_BASE_URL`
+    /// - `ANTHROPIC_API_BASE` / `ANTHROPIC_BASE_URL`
+    /// - `GEMINI_API_BASE` / `GEMINI_BASE_URL`
+    fn base_url(self) -> String {
+        match self {
+            Self::OpenAI => std::env::var("OPENAI_API_BASE")
+                .or_else(|_| std::env::var("OPENAI_BASE_URL"))
+                .unwrap_or_else(|_| "https://api.openai.com".to_string()),
+            Self::Anthropic => std::env::var("ANTHROPIC_API_BASE")
+                .or_else(|_| std::env::var("ANTHROPIC_BASE_URL"))
+                .unwrap_or_else(|_| "https://api.anthropic.com".to_string()),
+            Self::Gemini => std::env::var("GEMINI_API_BASE")
+                .or_else(|_| std::env::var("GEMINI_BASE_URL"))
+                .unwrap_or_else(|_| "https://generativelanguage.googleapis.com".to_string()),
+        }
+    }
+
+    /// Chat completions endpoint for this vendor.
+    fn chat_endpoint(self) -> String {
+        match self {
+            Self::OpenAI => format!("{}/v1/chat/completions", self.base_url()),
+            Self::Anthropic => format!("{}/v1/messages", self.base_url()),
+            Self::Gemini => self.base_url(),
+        }
+    }
+
+    /// Models listing endpoint for this vendor.
+    fn models_endpoint(self) -> String {
+        format!("{}/v1/models", self.base_url())
+    }
+}
+
 /// Ecosystem router service id for [`NeuralHttpClient::discover`].
 fn ipc_service_id() -> String {
     std::env::var("SQUIRREL_ECOSYSTEM_IPC_SERVICE")
@@ -146,7 +182,7 @@ impl<D: IpcHttpDelegate> IpcRoutedVendorClient<D> {
         let resp = self
             .http
             .post_json(
-                "https://api.openai.com/v1/chat/completions",
+                &self.vendor.chat_endpoint(),
                 vec![(
                     "Authorization".to_string(),
                     format!("Bearer {}", self.api_key),
@@ -193,7 +229,7 @@ impl<D: IpcHttpDelegate> IpcRoutedVendorClient<D> {
         let resp = self
             .http
             .post_json(
-                "https://api.anthropic.com/v1/messages",
+                &self.vendor.chat_endpoint(),
                 vec![
                     ("x-api-key".to_string(), self.api_key.clone()),
                     ("anthropic-version".to_string(), "2023-06-01".to_string()),
@@ -368,7 +404,7 @@ impl<D: IpcHttpDelegate + 'static> AIClient for IpcRoutedVendorClient<D> {
                 let resp = self
                     .http
                     .get(
-                        "https://api.openai.com/v1/models",
+                        &self.vendor.models_endpoint(),
                         vec![(
                             "Authorization".to_string(),
                             format!("Bearer {}", self.api_key),

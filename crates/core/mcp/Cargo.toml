@@ -58,9 +58,6 @@ lz4 = { workspace = true, optional = true }
 # Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider. See docs/CRYPTO_MIGRATION.md.
 reqwest = { workspace = true, optional = true }
 
-# Plugin system (optional)
-libloading = { workspace = true, optional = true }
-
 # Utilities
 rand.workspace = true
 blake3.workspace = true
@@ -124,7 +121,7 @@ websocket = ["dep:tokio-tungstenite"]
 tarpc = []
 streaming = ["dep:tokio-stream"]
 ai-providers = ["direct-http"]
-plugins = ["dep:libloading"]
+plugins = []
 persistence = []
 metrics = ["dep:metrics"]
 compression = ["dep:zstd", "dep:flate2", "dep:lz4"]

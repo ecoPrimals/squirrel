@@ -25,6 +25,7 @@ const STATUS_RUNNING: &str = "running";
 pub mod agent_deployment;
 pub mod ai_intelligence;
 pub mod context_state;
+mod context_state_types;
 pub mod manifest;
 pub mod mcp_integration;
 pub mod optimized_implementations;

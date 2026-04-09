@@ -80,11 +80,11 @@ impl Default for SecurityProviderConfig {
             if std::path::Path::new(&standard_socket).exists() {
                 format!("unix://{standard_socket}")
             } else {
-                // Last resort: use localhost with standard port
+                // Last resort: use localhost with standard port (capability-based discovery)
                 let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8443);
+                    .unwrap_or(universal_constants::network::DEFAULT_SECURITY_PORT);
                 format!("http://localhost:{port}")
             }
         });

@@ -32,16 +32,7 @@ use tracing::{debug, info, warn};
 /// mDNS discovery client
 #[derive(Debug, Clone)]
 pub struct MdnsDiscovery {
-    #[allow(
-        dead_code,
-        reason = "reserved for full mDNS browse/resolver wiring (Phase 2)"
-    )]
     service_type: String,
-
-    #[allow(
-        dead_code,
-        reason = "reserved for mDNS query timeout configuration (Phase 2)"
-    )]
     timeout: Duration,
 
     /// Enable/disable mDNS
@@ -84,11 +75,12 @@ impl MdnsDiscovery {
         }
 
         info!(
-            "🔍 Attempting mDNS discovery for capability: {}",
-            capability
+            service_type = %self.service_type,
+            timeout_ms = self.timeout.as_millis() as u64,
+            "Attempting mDNS discovery for capability: {capability}"
         );
 
-        debug!("mDNS query for capability: {}", capability);
+        debug!("mDNS query for capability: {capability}");
 
         warn!("mDNS not available (requires multicast/C deps); falling back to socket registry");
 

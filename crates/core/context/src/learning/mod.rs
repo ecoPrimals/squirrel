@@ -37,6 +37,7 @@ mod experience;
 mod integration;
 mod integration_types;
 mod manager;
+mod manager_types;
 mod metrics;
 mod policy;
 mod reward;

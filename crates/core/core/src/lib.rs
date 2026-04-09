@@ -10,9 +10,12 @@
 //! This module re-exports types from `squirrel_context` for backward compatibility.
 
 // Core modules for Squirrel MCP ecosystem coordination
-/// HTTP API surface for Squirrel MCP when the `http-api` feature is enabled.
+/// HTTP API server, handlers, and wire types.
 #[cfg(feature = "http-api")]
 pub mod api;
+/// HTTP API surface for Squirrel MCP when the `http-api` feature is enabled.
+#[cfg(feature = "http-api")]
+mod api_types;
 /// Configuration loading and validation.
 pub mod config;
 /// Primal coordination primitives for mesh deployments.

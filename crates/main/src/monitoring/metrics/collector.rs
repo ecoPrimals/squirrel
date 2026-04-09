@@ -2,9 +2,12 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Metrics collector implementation
-#![expect(dead_code, reason = "Monitoring infrastructure awaiting activation")]
 //!
 //! Core metrics collection engine with system monitoring.
+//!
+//! The public API (`MetricsCollector`, `MetricsSummary`, `HttpMetrics`) is live.
+//! Stubbed system metric helpers (`get_disk_usage`, etc.) carry per-method
+//! `#[expect(dead_code)]` until wired to real `/proc`-based collection.
 
 use chrono::Utc;
 use dashmap::DashMap;
@@ -450,6 +453,10 @@ impl MetricsCollector {
     }
 
     #[cfg(feature = "system-metrics")]
+    #[expect(
+        dead_code,
+        reason = "wired when system-metrics feature ships /proc CPU parsing"
+    )]
     async fn get_cpu_usage(&self) -> Result<f64, PrimalError> {
         let cpu_usage = universal_constants::sys_info::system_cpu_usage_percent().unwrap_or(0.0);
         debug!("Current CPU usage: {:.2}%", cpu_usage);
@@ -457,6 +464,10 @@ impl MetricsCollector {
     }
 
     #[cfg(feature = "system-metrics")]
+    #[expect(
+        dead_code,
+        reason = "wired when system-metrics feature ships /proc memory parsing"
+    )]
     async fn get_memory_usage(&self) -> Result<u64, PrimalError> {
         let used_memory = universal_constants::sys_info::memory_info()
             .map(|m| m.used)
@@ -466,6 +477,10 @@ impl MetricsCollector {
     }
 
     #[cfg(feature = "system-metrics")]
+    #[expect(
+        dead_code,
+        reason = "wired when system-metrics feature ships /proc memory parsing"
+    )]
     async fn get_memory_percentage(&self) -> Result<f64, PrimalError> {
         let mem = universal_constants::sys_info::memory_info().unwrap_or_default();
         if mem.total == 0 {
@@ -504,6 +519,10 @@ impl MetricsCollector {
         Ok(125.3)
     }
 
+    #[expect(
+        dead_code,
+        reason = "stub until wired to /proc uptime or session tracker"
+    )]
     async fn get_uptime(&self) -> Result<u64, PrimalError> {
         Ok(universal_constants::sys_info::uptime_seconds().unwrap_or(3600 * 24 * 5))
     }

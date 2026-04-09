@@ -6,6 +6,8 @@
 //! This module provides the Context Learning Manager that integrates reinforcement learning
 //! with the existing Context Management System. It manages learning episodes, coordinates
 //! between the learning engine and context components, and handles learning lifecycle.
+//!
+//! Type definitions (config, episodes, sessions, observations) are in [`super::manager_types`].
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -17,211 +19,20 @@ use tokio::time::Duration;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use crate::error::Result;
-use crate::manager::ContextManager;
-// Removed unused import: crate::ContextTracker
 use super::{
     LearningEngine, LearningState, LearningSystemConfig,
     engine::{RLAction, RLExperience, RLState},
 };
+use crate::error::Result;
+use crate::manager::ContextManager;
 use crate::rules::RuleManager;
 use squirrel_interfaces::context::ContextManager as ContextManagerTrait;
 
-/// Context learning manager configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextLearningManagerConfig {
-    /// Episode timeout in seconds
-    pub episode_timeout: u64,
-
-    /// Maximum episodes per session
-    pub max_episodes_per_session: usize,
-
-    /// Learning update interval
-    pub learning_update_interval: Duration,
-
-    /// Context observation interval
-    pub context_observation_interval: Duration,
-
-    /// Enable automatic episode detection
-    pub auto_episode_detection: bool,
-
-    /// Enable context state preprocessing
-    pub enable_preprocessing: bool,
-
-    /// Feature extraction method
-    pub feature_extraction: FeatureExtractionMethod,
-
-    /// State space dimensionality
-    pub state_space_size: usize,
-
-    /// Action space size
-    pub action_space_size: usize,
-
-    /// Reward calculation parameters
-    pub reward_params: RewardParameters,
-}
-
-impl Default for ContextLearningManagerConfig {
-    fn default() -> Self {
-        Self {
-            episode_timeout: 3600, // 1 hour
-            max_episodes_per_session: 1000,
-            learning_update_interval: Duration::from_secs(10),
-            context_observation_interval: Duration::from_secs(1),
-            auto_episode_detection: true,
-            enable_preprocessing: true,
-            feature_extraction: FeatureExtractionMethod::Statistical,
-            state_space_size: 128,
-            action_space_size: 32,
-            reward_params: RewardParameters::default(),
-        }
-    }
-}
-
-/// Feature extraction method
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum FeatureExtractionMethod {
-    /// Simple statistical features
-    Statistical,
-    /// Rule-based features
-    RuleBased,
-    /// Context-aware features
-    ContextAware,
-    /// Custom feature extraction
-    Custom(String),
-}
-
-/// Reward calculation parameters
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RewardParameters {
-    /// Success reward
-    pub success_reward: f64,
-
-    /// Failure penalty
-    pub failure_penalty: f64,
-
-    /// Step penalty
-    pub step_penalty: f64,
-
-    /// Context improvement reward
-    pub context_improvement_reward: f64,
-
-    /// Rule efficiency reward
-    pub rule_efficiency_reward: f64,
-
-    /// Synchronization reward
-    pub synchronization_reward: f64,
-
-    /// Error penalty
-    pub error_penalty: f64,
-}
-
-impl Default for RewardParameters {
-    fn default() -> Self {
-        Self {
-            success_reward: 10.0,
-            failure_penalty: -5.0,
-            step_penalty: -0.1,
-            context_improvement_reward: 5.0,
-            rule_efficiency_reward: 2.0,
-            synchronization_reward: 1.0,
-            error_penalty: -10.0,
-        }
-    }
-}
-
-/// Learning episode
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LearningEpisode {
-    /// Episode ID
-    pub id: String,
-
-    /// Episode start time
-    pub start_time: DateTime<Utc>,
-
-    /// Episode end time
-    pub end_time: Option<DateTime<Utc>>,
-
-    /// Context ID
-    pub context_id: String,
-
-    /// Initial state
-    pub initial_state: RLState,
-
-    /// Final state
-    pub final_state: Option<RLState>,
-
-    /// Actions taken
-    pub actions: Vec<RLAction>,
-
-    /// Rewards received
-    pub rewards: Vec<f64>,
-
-    /// Total reward
-    pub total_reward: f64,
-
-    /// Episode success
-    pub success: bool,
-
-    /// Episode metadata
-    pub metadata: Option<Value>,
-
-    /// Episode duration
-    pub duration: Option<Duration>,
-}
-
-/// Context observation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextObservation {
-    /// Observation ID
-    pub id: String,
-
-    /// Observation timestamp
-    pub timestamp: DateTime<Utc>,
-
-    /// Context ID
-    pub context_id: String,
-
-    /// Context state snapshot
-    pub context_state: Value,
-
-    /// Extracted features
-    pub features: Vec<f64>,
-
-    /// Rule evaluation results
-    pub rule_results: Option<Value>,
-
-    /// Performance metrics
-    pub performance_metrics: Option<Value>,
-}
-
-/// Learning session
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LearningSession {
-    /// Session ID
-    pub id: String,
-
-    /// Session start time
-    pub start_time: DateTime<Utc>,
-
-    /// Session end time
-    pub end_time: Option<DateTime<Utc>>,
-
-    /// Episodes in this session
-    pub episodes: Vec<String>,
-
-    /// Total episodes
-    pub total_episodes: usize,
-
-    /// Successful episodes
-    pub successful_episodes: usize,
-
-    /// Average reward
-    pub average_reward: f64,
-
-    /// Session metadata
-    pub metadata: Option<Value>,
-}
+pub use super::manager_types::{
+    ContextLearningManagerConfig, ContextObservation, LearningEpisode, LearningSession,
+};
+#[cfg(test)]
+pub use super::manager_types::{FeatureExtractionMethod, RewardParameters};
 
 /// Context Learning Manager implementation
 #[derive(Debug)]
@@ -564,18 +375,13 @@ impl ContextLearningManager {
 
     /// Observe context states using the context manager for MCP/AI coordination
     async fn observe_contexts(
-        _manager: &Arc<ContextManager>,
+        manager: &Arc<ContextManager>,
         observations: &Arc<RwLock<HashMap<String, Vec<ContextObservation>>>>,
     ) -> Result<()> {
-        // Leverage the context manager for intelligent context observation
         debug!("🐿️ Starting MCP-aware context observation using manager");
 
-        // Get active contexts from the actual context manager (simplified since method doesn't exist)
-        // FUTURE: [API-Enhancement] Implement get_active_context_ids when ContextManager API is enhanced
-        // Tracking: Planned for v0.2.0 - ContextManager API enhancement
-        let active_contexts: Vec<String> = Vec::new(); // Placeholder since method doesn't exist
+        let active_contexts = manager.list_sessions().await;
 
-        // If no active contexts, create default observation point for MCP coordination
         let context_ids = if active_contexts.is_empty() {
             info!("🧠 No active contexts detected, creating MCP coordination baseline");
             vec!["mcp_coordination_default".to_string()]
@@ -589,26 +395,28 @@ impl ContextLearningManager {
         );
 
         for context_id in &context_ids {
-            // Use simplified context state since get_context_state doesn't exist
-            // FUTURE: [API-Enhancement] Implement get_context_state when ContextManager API is enhanced
-            // Tracking: Planned for v0.2.0 - ContextManager API enhancement
-            let now = std::time::SystemTime::now();
-            let epoch_secs = now
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            let context_state = crate::ContextState {
-                id: context_id.clone(),
-                version: 1,
-                timestamp: epoch_secs,
-                data: serde_json::json!({
-                    "context_type": "mcp_coordination",
-                    "observed_at_epoch": epoch_secs,
-                    "observation_source": "learning_manager",
-                }),
-                metadata: std::collections::HashMap::new(),
-                synchronized: false,
-                last_modified: now,
+            let context_state = match manager.get_context_state(context_id).await {
+                Ok(state) => state,
+                Err(_) => {
+                    let now = std::time::SystemTime::now();
+                    let epoch_secs = now
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
+                    crate::ContextState {
+                        id: context_id.clone(),
+                        version: 1,
+                        timestamp: epoch_secs,
+                        data: serde_json::json!({
+                            "context_type": "mcp_coordination",
+                            "observed_at_epoch": epoch_secs,
+                            "observation_source": "learning_manager",
+                        }),
+                        metadata: std::collections::HashMap::new(),
+                        synchronized: false,
+                        last_modified: now,
+                    }
+                }
             };
 
             // Create intelligent observation based on actual context state

@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 8, 2026
-**Version**: 0.1.0-alpha.45
+**Last Updated**: April 9, 2026
+**Version**: 0.1.0-alpha.46
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,27 +10,27 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 6,875 passing / 0 failures / 107 ignored across 22 workspace members (default features) |
+| Tests | 7,203 passing / 0 failures / 107 ignored across 22 workspace members (`--all-features`) |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
 | Unsafe Code | 0 in production — `unsafe_code = "forbid"` in workspace `[lints.rust]` (all 22 crates) |
-| Pure Rust | 100% default features (zero C deps, zero non-Rust crypto); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed; `ed25519-dalek` feature-gated behind `local-crypto` |
+| Pure Rust | 100% default features (zero C deps, zero non-Rust crypto); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed; `ed25519-dalek` feature-gated behind `local-crypto`; `flate2` → pure Rust `miniz_oxide` backend; `pprof`, `openai`, `libloading` removed |
 | ecoBin | Compliant v3.0 — `deny.toml` bans 14 C-dep crates (groundSpring V115 standard); pure Rust `sys_info` via `/proc` parsing |
 | Coverage | ~86% line coverage via `cargo-llvm-cov` (target: 90%); remaining gap is IPC/network code, demo binaries, and binary entry points |
 | `.unwrap()` in code | 0 — workspace-wide elimination; all Results use `?` or `.expect("invariant")` |
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`) |
 | Crates | 22 workspace members |
-| Files >1000 lines | 0 — all 1,006 `.rs` files under 1,000 lines (test files extracted: `jsonrpc_ai_router_tests.rs`, `validation_tests.rs`, `shutdown_tests.rs`, `integration_lifecycle_tests.rs`) |
+| Files >1000 lines | 0 — all `.rs` files under 1,000 lines (test files extracted: `jsonrpc_ai_router_tests.rs`, `validation_tests.rs`, `shutdown_tests.rs`, `integration_lifecycle_tests.rs`, `session_tests.rs`, `client_tests.rs`, `api_tests.rs`; types extracted: `context_state_types.rs`, `api_types.rs`) |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
 | cargo deny | `advisories ok, bans ok, licenses ok, sources ok` |
-| Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; `SecurePluginStub` rejects execution (security sandbox); `NoOpPluginManager` returns errors for all lookups (honest default); SDK MCP `OperationHandler` returns honest empty/error until IPC connected; SDK fs.rs returns false/empty for WASM stubs; all test mocks behind `#[cfg(any(test, feature = "testing"))]`; `MockAIClient` fully isolated |
+| Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; `SecurePluginStub` rejects execution (security sandbox); `NoOpPluginManager` returns errors for all lookups (honest default); SDK MCP `OperationHandler` branches on `connected` state (returns empty/error when disconnected, attempts IPC when connected); SDK fs.rs returns false/empty for WASM stubs; all test mocks behind `#[cfg(any(test, feature = "testing"))]`; `MockAIClient` fully isolated |
 | Legacy aliases | Backward-compatible aliases for ecosystem compat; `capabilities.list` canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1 |
-| TODO/FIXME in code | 0 — no TODO/FIXME/HACK markers in committed code; Phase 2 placeholders documented with `#[expect(dead_code, reason)]` |
+| TODO/FIXME in code | 0 — no TODO/FIXME/HACK markers in committed code; Phase 2 placeholders wired with capability fallback or documented with `#[expect(dead_code, reason)]` |
 | Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
 | Zero-copy | Hot-path clones audited; `ServiceInfo` string fields evolved to `Arc<str>`; `Arc::clone()` for intent clarity; `mem::take` for payload moves; `String` → borrow in MCP task client |
 

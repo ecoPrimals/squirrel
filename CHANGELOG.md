@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.46] - 2026-04-09
+
+Deep debt cleanup and evolution: BTSP Phase 2 handshake-on-accept, production stub evolution,
+smart large-file refactoring, dependency purge (pprof, openai, libloading removed; flate2 → pure
+Rust backend), learning manager wired to real ContextManager API, plugin dependency resolver
+activated. 7,203 tests passing, zero clippy warnings, all gates green.
+
+### Added
+
+- **BTSP Phase 2** — `btsp_handshake.rs` server-side handshake-on-accept for UDS listeners; 4-step challenge/response with BearDog delegation; conditional on `FAMILY_ID` (production mode)
+- **`OperationHandler.is_connected()`** — public accessor for MCP connection state
+- **`context_state_types.rs`** — extracted DTOs from `context_state.rs` (smart refactor)
+- **`api_types.rs`** + **`api_tests.rs`** — extracted DTOs and tests from `api.rs` (smart refactor)
+- **`session_tests.rs`** — extracted from `session/mod.rs` (892→380 lines)
+- **`client_tests.rs`** — extracted from `transport/client.rs` (884→529 lines)
+
+### Changed
+
+- **`OperationHandler`** — `connected` field no longer dead code; `with_connection()` sets `true`; all methods branch on connection state
+- **`MCPAdapter`** — `config` field no longer dead code; endpoint logged in discovery and error messages
+- **`PluginManager`** — `dependency_resolver` field wired; plugins registered with resolver on add; `init()` calls `resolve_dependencies()`
+- **`LearningManager.observe_contexts`** — placeholder `Vec::new()` replaced with `manager.list_sessions().await`; inner loop uses `manager.get_context_state()` with graceful fallback
+- **`flate2`** — evolved to `default-features = false, features = ["rust_backend"]` (pure Rust miniz_oxide)
+
+### Removed
+
+- **`pprof`** — unused in source (0 code references); deny.toml migration to samply documented
+- **`openai` crate** — unused in source (0 code references); AI routing uses IPC/capability discovery
+- **`libloading`** — unused in source (0 code references); `plugins` feature emptied
+
 ## [0.1.0-alpha.45] - 2026-04-08
 
 Deep debt cleanup: self-knowledge violations, production mock evolution, dependency hygiene.

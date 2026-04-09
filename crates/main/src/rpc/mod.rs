@@ -32,6 +32,7 @@
 //! - Feature-gated behind `tarpc-rpc` feature flag
 
 // Core modules (Pure Rust!)
+pub mod btsp_handshake;
 mod handlers_ai;
 mod handlers_capability;
 mod handlers_context;

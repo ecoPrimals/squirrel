@@ -56,7 +56,6 @@ mod capability_discovery_error_tests {
     use super::*;
 
     // Stub types for compilation
-    #[allow(dead_code)]
     struct EcosystemServiceDiscovery;
 
     impl EcosystemServiceDiscovery {

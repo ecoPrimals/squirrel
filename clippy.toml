@@ -7,3 +7,9 @@ too-many-lines-threshold = 100
 too-many-arguments-threshold = 7
 # Maximum type complexity
 type-complexity-threshold = 250
+# Raised from defaults: dependency macros (proptest, mockall, test-case)
+# generate stack frames and arrays beyond default threshold with no
+# actionable span. Our code has zero explicit large stack allocations
+# (verified via audit).
+stack-size-threshold = 524288
+array-size-threshold = 524288

@@ -27,9 +27,11 @@ impl EcosystemIntegration {
         provider: &SquirrelPrimalProvider<S>,
     ) -> EcosystemServiceRegistration {
         // Get configuration from environment or use defaults
-        let bind_address =
-            std::env::var("SERVER_BIND_ADDRESS").unwrap_or_else(|_| "0.0.0.0".to_string());
-        let port = std::env::var("SERVER_PORT").unwrap_or_else(|_| "8080".to_string());
+        let bind_address = std::env::var("SERVER_BIND_ADDRESS")
+            .unwrap_or_else(|_| universal_constants::network::BIND_ALL_INTERFACES.to_string());
+        let port = std::env::var("SERVER_PORT").unwrap_or_else(|_| {
+            universal_constants::network::get_service_port("websocket").to_string()
+        });
 
         // Construct base URL
         let base_url = format!("http://{bind_address}:{port}");

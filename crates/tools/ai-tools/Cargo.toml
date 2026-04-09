@@ -39,11 +39,9 @@ reqwest = { workspace = true, optional = true }
 # Logging and tracing
 tracing.workspace = true
 
-# AI service clients (OPTIONAL - for dev/testing only!)
-# Production delegates to service mesh via Unix sockets!
-# anthropic-sdk REMOVED: pulls reqwest with default native-tls (chimeric C dep).
-# Direct HTTP providers return Err("not yet implemented") - use capability_ai instead.
-openai = { workspace = true, optional = true }
+# AI service clients: anthropic-sdk REMOVED, openai crate REMOVED (unused — AI routing
+# uses IPC / capability discovery, never calls the `openai` SDK directly).
+# Direct HTTP providers use `reqwest` when feature-gated.
 
 # IPC client from universal patterns (primal autonomy - no shared external IPC crates!)
 universal-patterns.workspace = true
@@ -92,7 +90,7 @@ capability-ai = []
 # Direct HTTP to AI vendors (DEV/TESTING ONLY!)
 # Brings reqwest → rustls → ring
 # Use for development without service mesh
-direct-http = ["dep:reqwest", "dep:openai"]
+direct-http = ["dep:reqwest"]
 
 # Legacy feature flags (kept for compatibility)
 anthropic = ["direct-http"]

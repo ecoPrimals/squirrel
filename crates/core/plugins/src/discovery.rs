@@ -108,20 +108,22 @@ impl PluginManifest {
 }
 
 /// Plugin loader trait for loading plugins
-#[allow(async_fn_in_trait)]
 pub trait PluginLoader: Send + Sync {
     /// Load a plugin from a manifest
-    async fn load_plugin(&self, manifest: &PluginManifest, path: &Path) -> Result<Arc<dyn Plugin>>;
+    fn load_plugin(
+        &self,
+        manifest: &PluginManifest,
+        path: &Path,
+    ) -> impl std::future::Future<Output = Result<Arc<dyn Plugin>>> + Send;
 }
 
 /// Plugin discovery trait
-#[expect(
-    async_fn_in_trait,
-    reason = "internal trait — all impls are Send + Sync"
-)]
 pub trait PluginDiscovery: Send + Sync {
     /// Discover plugins in a directory
-    async fn discover_plugins(&self, directory: &Path) -> Result<Vec<Arc<dyn Plugin>>>;
+    fn discover_plugins(
+        &self,
+        directory: &Path,
+    ) -> impl std::future::Future<Output = Result<Vec<Arc<dyn Plugin>>>> + Send;
 }
 
 /// File-based plugin discovery

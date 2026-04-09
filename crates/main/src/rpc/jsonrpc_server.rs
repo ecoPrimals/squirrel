@@ -243,10 +243,22 @@ impl JsonRpcServer {
         // Accept connections loop (primary transport)
         loop {
             match listener.accept().await {
-                Ok((transport, _remote_addr)) => {
+                Ok((mut transport, _remote_addr)) => {
                     debug!("📥 New connection accepted");
                     let server = Arc::clone(&self);
                     tokio::spawn(async move {
+                        // BTSP Phase 2: handshake when FAMILY_ID is set
+                        match super::btsp_handshake::maybe_handshake(&mut transport).await {
+                            Ok(session) => {
+                                if let Some(ref s) = session {
+                                    debug!(session_id = %s.session_id, "BTSP authenticated");
+                                }
+                            }
+                            Err(e) => {
+                                warn!("BTSP handshake failed, refusing connection: {e}");
+                                return;
+                            }
+                        }
                         if let Err(e) = server.clone().handle_universal_connection(transport).await
                         {
                             error!("Error handling connection: {}", e);
@@ -273,7 +285,19 @@ impl JsonRpcServer {
                     debug!("📥 Filesystem socket connection accepted");
                     let srv = Arc::clone(&server);
                     tokio::spawn(async move {
-                        let transport = UniversalTransport::UnixSocket(stream);
+                        let mut transport = UniversalTransport::UnixSocket(stream);
+                        // BTSP Phase 2: handshake when FAMILY_ID is set
+                        match super::btsp_handshake::maybe_handshake(&mut transport).await {
+                            Ok(session) => {
+                                if let Some(ref s) = session {
+                                    debug!(session_id = %s.session_id, "BTSP authenticated (fs)");
+                                }
+                            }
+                            Err(e) => {
+                                warn!("BTSP handshake failed on filesystem socket: {e}");
+                                return;
+                            }
+                        }
                         if let Err(e) = srv.clone().handle_universal_connection(transport).await {
                             error!("Error handling filesystem socket connection: {}", e);
                         }

@@ -73,11 +73,7 @@ pub struct PluginManager {
     statuses: RwLock<HashMap<Uuid, PluginStatus>>,
     /// Plugin name to ID mapping
     name_to_id: RwLock<HashMap<String, Uuid>>,
-    /// Dependency resolver for proper plugin initialization order (reserved for dependency resolution system)
-    #[expect(
-        dead_code,
-        reason = "Phase 2 placeholder — dependency resolution system"
-    )]
+    /// Dependency resolver for proper plugin initialization order.
     dependency_resolver: RwLock<DependencyResolver>,
 }
 
@@ -96,11 +92,31 @@ impl PluginManager {
 
     /// Initialize the plugin manager
     ///
+    /// Registers built-in plugins and resolves the dependency graph.
+    ///
     /// # Errors
     ///
-    /// Returns [`PluginError`] if built-in plugin registration fails.
+    /// Returns [`PluginError`] if built-in plugin registration or dependency
+    /// resolution fails.
     pub async fn init(&self) -> Result<()> {
         self.register_built_in_plugins().await?;
+
+        let result = {
+            let mut resolver = self.dependency_resolver.write().await;
+            resolver.resolve_dependencies()
+        };
+        match result {
+            Ok(resolution) => {
+                debug!(
+                    "Dependency resolution complete: {} plugins in init order",
+                    resolution.initialization_order.len()
+                );
+            }
+            Err(e) => {
+                tracing::warn!("Dependency resolution produced warnings: {e}");
+            }
+        }
+
         debug!("Plugin manager initialized");
         Ok(())
     }
@@ -148,6 +164,13 @@ impl PluginManager {
             .write()
             .await
             .insert(metadata.name.clone(), id);
+
+        {
+            let mut resolver = self.dependency_resolver.write().await;
+            if let Err(e) = resolver.register_plugin(Arc::clone(&plugin)) {
+                debug!("Dependency resolver: {e} (non-fatal)");
+            }
+        }
 
         info!(
             "Plugin {} (ID: {}) registered successfully with signature verification",

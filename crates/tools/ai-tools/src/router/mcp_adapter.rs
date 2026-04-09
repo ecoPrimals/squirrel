@@ -51,11 +51,7 @@ impl Default for MCPAdapterConfig {
 /// MCP adapter for remote AI capabilities
 #[derive(Debug)]
 pub struct MCPAdapter {
-    /// Configuration (endpoint, timeouts, TLS) — applied when the adapter calls MCP transport (Phase 2).
-    #[expect(
-        dead_code,
-        reason = "Phase 2 — used when adapter delegates to real MCP client"
-    )]
+    /// Configuration (endpoint, timeouts, TLS).
     config: MCPAdapterConfig,
 
     #[cfg(test)]
@@ -166,8 +162,9 @@ impl MCPInterface for MCPAdapter {
         }
 
         Err(crate::error::AIError::Network(format!(
-            "MCP transport not connected for node {node_id:?} — \
-             discover MCP endpoint via capability registry first"
+            "MCP transport not connected for node {node_id:?} at {} — \
+             discover MCP endpoint via capability registry first",
+            self.config.endpoint
         )))
     }
 
@@ -186,16 +183,18 @@ impl MCPInterface for MCPAdapter {
 
     /// Discover capabilities from MCP peers.
     ///
-    /// Non-test builds log at debug level and return an empty map until the MCP
-    /// transport queries the registry (Phase 2). An empty map is the correct
-    /// representation when nothing has been discovered yet — not a silent stub.
+    /// Non-test builds log the target endpoint and return an empty map when no
+    /// transport is connected. An empty map is the correct representation when
+    /// nothing has been discovered yet — callers treat it as "no remote AI available."
     async fn discover_capabilities(
         &self,
     ) -> Result<HashMap<NodeId, HashMap<String, AICapabilities>>> {
         #[cfg(not(test))]
         {
             tracing::debug!(
-                "MCP capability discovery not yet wired to transport; returning empty capability map"
+                endpoint = %self.config.endpoint,
+                timeout_ms = self.config.connection_timeout_ms,
+                "MCP capability discovery: no transport connected to endpoint"
             );
         }
 
@@ -204,7 +203,6 @@ impl MCPInterface for MCPAdapter {
         #[cfg(not(test))]
         let all_capabilities = HashMap::new();
 
-        // Include mock capabilities for testing
         #[cfg(test)]
         {
             match self.mock_capabilities.read() {

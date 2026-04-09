@@ -784,7 +784,10 @@ mod tests {
     #[tokio::test]
     async fn test_registered_platform_executor_clone() {
         let b = RegisteredPlatformExecutor::Linux(LinuxExecutor::new(true));
-        #[allow(clippy::redundant_clone)]
+        #[expect(
+            clippy::redundant_clone,
+            reason = "intentional: verifies Clone impl works"
+        )]
         let c = b.clone();
         assert_eq!(c.platform_info(), Platform::Linux(LinuxVariant::Ubuntu));
     }

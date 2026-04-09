@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![allow(deprecated)]
+#![expect(
+    deprecated,
+    reason = "security module uses deprecated config types during migration"
+)]
 
 //! # Production Security System
 //!

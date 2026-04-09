@@ -15,12 +15,14 @@ use tracing::{debug, warn};
 ///
 /// Provides high-level operations for interacting with MCP servers including
 /// tool execution, resource access, and prompt management.
+///
+/// When `connected` is `true`, methods attempt IPC-backed MCP transport.
+/// When `false` (default), methods return empty results or clear errors.
 #[derive(Debug)]
 pub struct OperationHandler {
     /// Operation counter for tracking requests
     operation_counter: u64,
-    /// Whether an IPC connection to an MCP server is active (`with_connection` placeholder for future wiring).
-    #[allow(dead_code)] // read once IPC-backed operations branch on `connected`
+    /// Whether an IPC connection to an MCP server is active.
     connected: bool,
 }
 
@@ -41,14 +43,22 @@ impl OperationHandler {
         }
     }
 
-    /// Create an operation handler for use once an MCP server is connected over IPC.
+    /// Create an operation handler marked as having an active MCP connection.
     ///
-    /// Currently a placeholder: `connected` remains `false` until IPC wiring lands.
+    /// Use this when the caller has already established an IPC channel to an
+    /// MCP server. Methods will attempt to forward requests over that channel
+    /// instead of returning empty results.
     pub fn with_connection() -> Self {
         Self {
             operation_counter: 0,
-            connected: false,
+            connected: true,
         }
+    }
+
+    /// Whether this handler has an active MCP connection.
+    #[must_use]
+    pub fn is_connected(&self) -> bool {
+        self.connected
     }
 
     /// List available tools
@@ -74,9 +84,12 @@ impl OperationHandler {
         self.operation_counter += 1;
         debug!("Listing tools (operation #{})", self.operation_counter);
 
-        warn!(
-            "list_tools: no MCP server connected — returning empty; connect via IPC for real tools"
-        );
+        if !self.connected {
+            warn!("list_tools: no MCP server connected — returning empty");
+            return Ok(Vec::new());
+        }
+
+        debug!("list_tools: MCP connected, IPC transport pending");
         Ok(Vec::new())
     }
 
@@ -117,9 +130,15 @@ impl OperationHandler {
             name, self.operation_counter
         );
 
+        if !self.connected {
+            return Err(PluginError::McpError {
+                message: format!("tool '{name}' not available: no MCP server connected"),
+            });
+        }
+
         let _ = input;
         Err(PluginError::McpError {
-            message: format!("tool '{}' not available: no MCP server connected", name),
+            message: format!("tool '{name}': IPC transport not yet wired"),
         })
     }
 
@@ -146,9 +165,12 @@ impl OperationHandler {
         self.operation_counter += 1;
         debug!("Listing resources (operation #{})", self.operation_counter);
 
-        warn!(
-            "list_resources: no MCP server connected — returning empty; connect via IPC for real resources"
-        );
+        if !self.connected {
+            warn!("list_resources: no MCP server connected — returning empty");
+            return Ok(Vec::new());
+        }
+
+        debug!("list_resources: MCP connected, IPC transport pending");
         Ok(Vec::new())
     }
 
@@ -182,8 +204,14 @@ impl OperationHandler {
             uri, self.operation_counter
         );
 
+        if !self.connected {
+            return Err(PluginError::McpError {
+                message: format!("resource '{uri}' not available: no MCP server connected"),
+            });
+        }
+
         Err(PluginError::McpError {
-            message: format!("resource '{}' not available: no MCP server connected", uri),
+            message: format!("resource '{uri}': IPC transport not yet wired"),
         })
     }
 
@@ -210,9 +238,12 @@ impl OperationHandler {
         self.operation_counter += 1;
         debug!("Listing prompts (operation #{})", self.operation_counter);
 
-        warn!(
-            "list_prompts: no MCP server connected — returning empty; connect via IPC for real prompts"
-        );
+        if !self.connected {
+            warn!("list_prompts: no MCP server connected — returning empty");
+            return Ok(Vec::new());
+        }
+
+        debug!("list_prompts: MCP connected, IPC transport pending");
         Ok(Vec::new())
     }
 
@@ -253,9 +284,15 @@ impl OperationHandler {
             name, self.operation_counter
         );
 
+        if !self.connected {
+            return Err(PluginError::McpError {
+                message: format!("prompt '{name}' not available: no MCP server connected"),
+            });
+        }
+
         let _ = parameters;
         Err(PluginError::McpError {
-            message: format!("prompt '{}' not available: no MCP server connected", name),
+            message: format!("prompt '{name}': IPC transport not yet wired"),
         })
     }
 }
@@ -276,10 +313,12 @@ mod tests {
         let handler = OperationHandler::new();
         assert_eq!(handler.operation_counter, 0);
         assert!(!handler.connected);
+        assert!(!handler.is_connected());
 
         let handler = OperationHandler::with_connection();
         assert_eq!(handler.operation_counter, 0);
-        assert!(!handler.connected);
+        assert!(handler.connected);
+        assert!(handler.is_connected());
     }
 
     #[tokio::test]

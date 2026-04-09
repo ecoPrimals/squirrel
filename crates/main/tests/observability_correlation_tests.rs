@@ -19,7 +19,6 @@ use squirrel::observability::CorrelationId;
 use std::time::Duration;
 
 // Stub types for compilation
-#[allow(dead_code)]
 #[derive(Clone)]
 struct CorrelationConfig {
     max_operations_history: usize,

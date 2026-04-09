@@ -1,7 +1,7 @@
 # Squirrel Universal AI Primal - Deployment Guide
 
 **Date**: April 2026  
-**Status**: **PRE-ALPHA** (v0.1.0-alpha.45) — functional for development and testing; not yet validated for production deployment
+**Status**: **PRE-ALPHA** (v0.1.0-alpha.46) — functional for development and testing; not yet validated for production deployment
 
 > **Architecture**: Squirrel uses **Unix sockets + JSON-RPC 2.0** exclusively. There are no HTTP endpoints. All communication is via Unix domain sockets and JSON-RPC. Optional tarpc provides high-performance binary RPC. biomeOS lifecycle integration uses `lifecycle.register` on startup and `lifecycle.status` heartbeat every 30 seconds.
 
