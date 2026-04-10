@@ -44,9 +44,10 @@ pub enum Commands {
     /// Supports multiple AI providers (cloud APIs, local servers, model hubs) with
     /// intelligent routing based on cost, quality, and latency.
     Server {
-        /// TCP port for JSON-RPC on localhost `127.0.0.1` (env: `SQUIRREL_SERVER_PORT`)
-        #[arg(short, long, default_value_t = universal_constants::deployment::ports::squirrel_server())]
-        port: u16,
+        /// TCP port for JSON-RPC on localhost `127.0.0.1` (env: `SQUIRREL_SERVER_PORT`).
+        /// Omit to run UDS-only (Tower Atomic standard).
+        #[arg(short, long)]
+        port: Option<u16>,
 
         /// Run as background daemon
         ///
@@ -175,7 +176,7 @@ mod tests {
             ..
         } = cli.command
         {
-            assert_eq!(port, 9010);
+            assert!(port.is_none(), "No --port = UDS-only (Tower Atomic)");
             assert!(!daemon);
             assert!(socket.is_none());
         } else {
@@ -188,7 +189,7 @@ mod tests {
         let cli =
             Cli::try_parse_from(["squirrel", "server", "--port", "8080"]).expect("should succeed");
         if let Commands::Server { port, .. } = cli.command {
-            assert_eq!(port, 8080);
+            assert_eq!(port, Some(8080));
         } else {
             unreachable!("Expected Server command");
         }
@@ -298,7 +299,7 @@ mod tests {
             verbose,
         } = cli.command
         {
-            assert_eq!(port, 3000);
+            assert_eq!(port, Some(3000));
             assert!(daemon);
             assert_eq!(socket, Some("/custom/socket.sock".to_string()));
             assert!(verbose);
@@ -508,7 +509,7 @@ mod tests {
             ..
         } = cli.command
         {
-            assert_eq!(port, 8080);
+            assert_eq!(port, Some(8080));
             assert!(daemon);
             assert!(verbose);
         } else {
@@ -528,7 +529,7 @@ mod tests {
             ..
         } = cli.command
         {
-            assert_eq!(port, 3000);
+            assert_eq!(port, Some(3000));
             assert!(daemon);
             assert!(verbose);
         } else {
@@ -584,7 +585,7 @@ mod tests {
             Cli::try_parse_from(["squirrel", "server", "--port", "9010"]).expect("should succeed");
 
         if let Commands::Server { port, .. } = cli.command {
-            assert_eq!(port, 9010);
+            assert_eq!(port, Some(9010));
         } else {
             unreachable!("Expected Server command");
         }
@@ -596,7 +597,7 @@ mod tests {
             .expect("should succeed");
 
         if let Commands::Server { port, verbose, .. } = cli.command {
-            assert_eq!(port, 8080);
+            assert_eq!(port, Some(8080));
             assert!(verbose);
         } else {
             unreachable!("Expected Server command");

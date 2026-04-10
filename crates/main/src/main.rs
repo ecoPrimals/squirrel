@@ -150,7 +150,7 @@ async fn run_client(
     clippy::too_many_lines,
     reason = "Server orchestration; refactor planned"
 )]
-async fn run_server(port: u16, daemon: bool, socket: Option<String>, _verbose: bool) -> Result<()> {
+async fn run_server(port: Option<u16>, daemon: bool, socket: Option<String>, _verbose: bool) -> Result<()> {
     use squirrel::rpc::JsonRpcServer;
     use squirrel::rpc::unix_socket;
 
@@ -169,7 +169,9 @@ async fn run_server(port: u16, daemon: bool, socket: Option<String>, _verbose: b
     if daemon {
         config.server.daemon = true;
     }
-    config.server.port = port;
+    if let Some(p) = port {
+        config.server.port = p;
+    }
 
     // Tracing already initialized in run() with verbose-based level
 
@@ -226,7 +228,11 @@ async fn run_server(port: u16, daemon: bool, socket: Option<String>, _verbose: b
 
     info!("Starting JSON-RPC server...");
     info!("Socket: {socket_path}");
-    info!("Port: {port} (TCP JSON-RPC on 127.0.0.1:{port})");
+    if let Some(p) = port {
+        info!("Port: {p} (TCP JSON-RPC on 127.0.0.1:{p})");
+    } else {
+        info!("UDS-only mode (no TCP listener)");
+    }
     info!("Squirrel AI/MCP Primal Ready!");
 
     // Write primal manifest for biomeOS manifest-based discovery
@@ -269,9 +275,13 @@ async fn run_server(port: u16, daemon: bool, socket: Option<String>, _verbose: b
     };
 
     let server = ai_router.map_or_else(
-        || Arc::new(JsonRpcServer::new(socket_path.clone()).with_tcp_port(port)),
+        || {
+            let s = JsonRpcServer::new(socket_path.clone());
+            Arc::new(if let Some(p) = port { s.with_tcp_port(p) } else { s })
+        },
         |router| {
-            Arc::new(JsonRpcServer::with_ai_router(socket_path.clone(), router).with_tcp_port(port))
+            let s = JsonRpcServer::with_ai_router(socket_path.clone(), router);
+            Arc::new(if let Some(p) = port { s.with_tcp_port(p) } else { s })
         },
     );
     let server_clone = Arc::clone(&server);

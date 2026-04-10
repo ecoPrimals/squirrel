@@ -450,9 +450,14 @@ async fn query_registry(
     }
 
     if let Some(result) = response.get("result") {
-        // Neural API returns: {"capability": "...", "primary_socket": "...", "primals": [...]}
-        // Extract primary_socket and build CapabilityProvider
-        if let Some(socket_path) = result.get("primary_socket").and_then(|s| s.as_str()) {
+        // Neural API returns: {"capability": "...", "primary_endpoint": "unix:///...", "primals": [...]}
+        // Accept both field names and strip unix:// prefix
+        let raw_path = result
+            .get("primary_socket")
+            .or_else(|| result.get("primary_endpoint"))
+            .and_then(|s| s.as_str());
+        if let Some(raw) = raw_path {
+            let socket_path = raw.strip_prefix("unix://").unwrap_or(raw);
             info!("✅ Neural API discovered {} at {}", capability, socket_path);
             Ok(CapabilityProvider {
                 id: result
@@ -466,7 +471,7 @@ async fn query_registry(
                 discovered_via: "neural_api".to_string(),
             })
         } else {
-            warn!("Neural API result has no primary_socket: {:?}", result);
+            warn!("Neural API result has no primary_socket/primary_endpoint: {:?}", result);
             Err(DiscoveryError::CapabilityNotFound(capability.to_string()))
         }
     } else {

@@ -60,10 +60,22 @@ struct OpenAiMessage {
 #[derive(Debug, Deserialize)]
 #[expect(dead_code, reason = "Fields used by serde deserialization")]
 struct OpenAiResponse {
+    #[serde(default)]
     id: String,
     model: String,
     choices: Vec<OpenAiChoice>,
     usage: OpenAiUsage,
+}
+
+/// OpenAI-compatible error response (returned by Ollama etc. on failure)
+#[derive(Debug, Deserialize)]
+struct OpenAiErrorResponse {
+    error: OpenAiErrorDetail,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAiErrorDetail {
+    message: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -110,9 +122,12 @@ impl OpenAiAdapter {
         let api_key = std::env::var("OPENAI_API_KEY")
             .map_err(|_| PrimalError::ConfigError("OPENAI_API_KEY not set".to_string()))?;
 
+        let default_model = std::env::var("OPENAI_DEFAULT_MODEL")
+            .unwrap_or_else(|_| "gpt-4".to_string());
+
         Ok(Self {
             api_key,
-            default_model: "gpt-4".to_string(),
+            default_model,
         })
     }
 
@@ -232,10 +247,17 @@ impl OpenAiAdapter {
             serde_json::Value::String(s) => serde_json::from_str(&s).map_err(|e| {
                 PrimalError::ParsingError(format!("Failed to parse body JSON: {e}"))
             })?,
-            other => other, // Already parsed (for future compatibility)
+            other => other,
         };
 
-        // Parse OpenAI response
+        // Check for OpenAI-compatible error response before parsing as success
+        if let Ok(err_resp) = serde_json::from_value::<OpenAiErrorResponse>(http_response.clone()) {
+            return Err(PrimalError::OperationFailed(format!(
+                "OpenAI API error: {}",
+                err_resp.error.message
+            )));
+        }
+
         let openai_response: OpenAiResponse = serde_json::from_value(http_response)?;
 
         // Calculate cost based on token usage (approximate pricing per 1K tokens)

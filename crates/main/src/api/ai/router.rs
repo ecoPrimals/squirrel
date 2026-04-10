@@ -501,37 +501,16 @@ impl AiRouter {
             }
         }
 
-        // No toadStool socket — create a metadata-only provider so the router
-        // knows the endpoint exists. Actual requests will need HTTP delegation
-        // through the ecosystem (songBird http.request capability).
-        let metadata = ProviderMetadata {
-            primal_id: "local-ai".to_string(),
-            name: format!("Local AI ({endpoint})"),
-            is_local: Some(true),
-            quality: Some("standard".to_string()),
-            cost: Some(0.0),
-            max_tokens: Some(4096),
-            additional: {
-                let mut m = HashMap::new();
-                m.insert(
-                    "endpoint".to_string(),
-                    serde_json::Value::String(endpoint.to_string()),
-                );
-                m.insert(
-                    "transport".to_string(),
-                    serde_json::Value::String("tcp".to_string()),
-                );
-                m
-            },
-        };
-
-        let adapter = UniversalAiAdapter::from_discovery(
-            "ai:text-generation",
-            PathBuf::from(endpoint),
-            metadata,
-        );
-
-        Ok(Arc::new(adapter))
+        // No toadStool socket wrapping the HTTP endpoint.
+        // UniversalAiAdapter only works with Unix sockets; registering an
+        // HTTP URL as a socket_path would cause every request to fail with
+        // "No such file or directory".  Skip and let the HTTP-based adapters
+        // (OpenAI/Anthropic via Songbird) handle the endpoint instead.
+        Err(PrimalError::OperationFailed(format!(
+            "Local AI at {endpoint} is reachable but no toadStool socket wraps it. \
+             Use the OpenAI adapter (OPENAI_API_KEY + OPENAI_BASE_URL) to \
+             route through Songbird's http.request capability instead."
+        )))
     }
 
     // All providers now use capability discovery (TRUE PRIMAL pattern)
