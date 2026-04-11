@@ -40,20 +40,14 @@ impl EcosystemPrimalType {
             Self::BiomeOS => primal_names::BIOMEOS,
         }
     }
+    /// Prefix for `{PREFIX}_ENDPOINT`-style configuration, derived from [`Self::capability`].
+    ///
+    /// Hyphens in capability strings become underscores, then the result is uppercased
+    /// (for example `service-mesh` → `SERVICE_MESH`). This avoids embedding other primals'
+    /// marketing names in env var keys.
     #[must_use]
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use generic env vars like SERVICE_MESH_ENDPOINT"
-    )]
-    pub const fn env_name(&self) -> &'static str {
-        match self {
-            Self::ToadStool => "TOADSTOOL",
-            Self::Songbird => "SONGBIRD",
-            Self::BearDog => "BEARDOG",
-            Self::NestGate => "NESTGATE",
-            Self::Squirrel => "SQUIRREL",
-            Self::BiomeOS => "BIOMEOS",
-        }
+    pub fn endpoint_env_prefix(&self) -> String {
+        self.capability().replace('-', "_").to_uppercase()
     }
     #[must_use]
     #[deprecated(since = "0.1.0", note = "Use CapabilityRegistry for discovery")]
@@ -465,7 +459,14 @@ mod tests {
     }
 
     #[test]
-    fn ecosystem_primal_type_env_name() {
-        assert_eq!(EcosystemPrimalType::BearDog.env_name(), "BEARDOG");
+    fn ecosystem_primal_type_endpoint_env_prefix() {
+        assert_eq!(
+            EcosystemPrimalType::BearDog.endpoint_env_prefix(),
+            "SECURITY"
+        );
+        assert_eq!(
+            EcosystemPrimalType::Songbird.endpoint_env_prefix(),
+            "SERVICE_MESH"
+        );
     }
 }

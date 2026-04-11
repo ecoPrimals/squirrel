@@ -109,13 +109,31 @@ fn test_ecosystem_primal_type_service_name() {
 }
 
 #[test]
-fn test_ecosystem_primal_type_env_name() {
-    assert_eq!(EcosystemPrimalType::ToadStool.env_name(), "TOADSTOOL");
-    assert_eq!(EcosystemPrimalType::Songbird.env_name(), "SONGBIRD");
-    assert_eq!(EcosystemPrimalType::BearDog.env_name(), "BEARDOG");
-    assert_eq!(EcosystemPrimalType::NestGate.env_name(), "NESTGATE");
-    assert_eq!(EcosystemPrimalType::Squirrel.env_name(), "SQUIRREL");
-    assert_eq!(EcosystemPrimalType::BiomeOS.env_name(), "BIOMEOS");
+fn test_ecosystem_primal_type_endpoint_env_prefix() {
+    assert_eq!(
+        EcosystemPrimalType::ToadStool.endpoint_env_prefix(),
+        "COMPUTE"
+    );
+    assert_eq!(
+        EcosystemPrimalType::Songbird.endpoint_env_prefix(),
+        "SERVICE_MESH"
+    );
+    assert_eq!(
+        EcosystemPrimalType::BearDog.endpoint_env_prefix(),
+        "SECURITY"
+    );
+    assert_eq!(
+        EcosystemPrimalType::NestGate.endpoint_env_prefix(),
+        "STORAGE"
+    );
+    assert_eq!(
+        EcosystemPrimalType::Squirrel.endpoint_env_prefix(),
+        "SQUIRREL"
+    );
+    assert_eq!(
+        EcosystemPrimalType::BiomeOS.endpoint_env_prefix(),
+        "ECOSYSTEM"
+    );
 }
 
 #[test]

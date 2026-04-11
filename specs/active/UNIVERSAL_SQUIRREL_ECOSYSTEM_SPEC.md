@@ -9,6 +9,8 @@ crossRefs:
 
 # Universal Squirrel Ecosystem Integration Specification
 
+> **Note (April 2026):** WebSocket transport was removed from Squirrel in v0.1.0-alpha.47 (Tower Atomic pattern — WebSocket provided by Songbird service mesh). WebSocket references below are historical.
+
 ## Context
 - When implementing Squirrel AI primal as part of the ecoPrimals ecosystem
 - When integrating with Songbird service mesh for universal orchestration

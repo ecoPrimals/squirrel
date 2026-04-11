@@ -35,10 +35,11 @@ use super::types::{
 };
 use crate::error::PrimalError;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
+use universal_constants::network::resolve_capability_unix_socket;
 
 /// AI request router
 pub struct AiRouter {
@@ -72,6 +73,12 @@ fn run_dignity_check(prompt: &str, model: Option<&str>, context: Option<&str>) {
     }
 }
 
+/// Unix socket path for the local compute capability (`COMPUTE_SOCKET` → tiered resolution).
+#[inline]
+fn compute_capability_unix_socket() -> PathBuf {
+    resolve_capability_unix_socket("COMPUTE_SOCKET", "toadstool")
+}
+
 impl AiRouter {
     /// Create a new AI router with capability-based discovery (TRUE PRIMAL!)
     ///
@@ -80,7 +87,7 @@ impl AiRouter {
     /// 2. `LOCAL_AI_ENDPOINT` / `OLLAMA_ENDPOINT` / `OLLAMA_URL` (local inference)
     /// 3. Default Ollama probe at `localhost:11434` (implicit discovery)
     /// 4. `AI_PROVIDER_SOCKETS` hint (Unix socket providers)
-    /// 5. biomeOS socket scan for local compute primals (toadStool)
+    /// 5. `COMPUTE_SOCKET` / tiered Unix resolution for local compute capability sockets
     ///
     /// # Arguments
     ///
@@ -232,33 +239,28 @@ impl AiRouter {
                     }
                 }
 
-                // 3. biomeOS socket scan: probe for local AI inference providers
-                // Any primal exposing compute.ai.* capabilities can serve
-                // (capability-based — no primal name hardcoded).
+                // 3. Unix socket scan: probe for local AI inference providers
+                // (`COMPUTE_SOCKET` → tiered capability resolution — no hardcoded paths).
                 if local_providers.is_empty() {
-                    info!("🔍 Scanning biomeOS sockets for AI compute providers...");
-                    let uid = nix::unistd::getuid();
-                    let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
-                    let compute_hint = crate::primal_names::TOADSTOOL;
-                    let compute_candidates = [
-                        format!("/run/user/{uid}/{dir}/{compute_hint}.sock"),
-                        format!("/tmp/{compute_hint}.sock"),
-                    ];
+                    info!("🔍 Scanning for AI compute provider Unix sockets...");
+                    let compute_socket = compute_capability_unix_socket();
+                    let compute_candidates = [compute_socket];
 
                     for socket_path in &compute_candidates {
-                        let path = PathBuf::from(socket_path);
+                        let path: &Path = socket_path.as_path();
                         if !path.exists() {
                             continue;
                         }
+                        let socket_path = path.to_string_lossy();
                         debug!("Probing potential AI provider: {}", socket_path);
                         match tokio::time::timeout(
                             std::time::Duration::from_secs(2),
-                            Self::create_universal_adapter_from_path(socket_path),
+                            Self::create_universal_adapter_from_path(socket_path.as_ref()),
                         )
                         .await
                         {
                             Ok(Ok(adapter)) => {
-                                info!("✅ Discovered AI compute provider at {}", socket_path);
+                                info!("✅ Discovered AI compute provider at {}", socket_path.as_ref());
                                 local_providers.push(Arc::new(adapter));
                                 break;
                             }
@@ -293,7 +295,10 @@ impl AiRouter {
         if providers.is_empty() {
             warn!("⚠️  No AI providers available!");
             warn!("⚠️  For local AI (Ollama/llama.cpp/vLLM):");
-            warn!("     - Set LOCAL_AI_ENDPOINT=http://localhost:11434");
+            warn!(
+                "     - Set LOCAL_AI_ENDPOINT={} (or your configured Ollama endpoint)",
+                universal_constants::deployment::endpoints::ollama()
+            );
             warn!("     - Or start Ollama (auto-discovered at default port)");
             warn!("⚠️  For external AI APIs:");
             warn!("     - Set ANTHROPIC_API_KEY or OPENAI_API_KEY");
@@ -453,8 +458,8 @@ impl AiRouter {
     /// If the endpoint is a Unix socket path (starts with `/` and ends with
     /// `.sock`), delegates to `create_universal_adapter_from_path`.
     /// If it is an HTTP URL, performs a TCP probe to verify the server is
-    /// listening and creates a socket-scan candidate from the biomeOS
-    /// toadStool socket directory (the ecosystem pattern for local inference).
+    /// listening and prefers a compute-primal Unix socket (`COMPUTE_SOCKET` /
+    /// tiered resolution) when present for local inference.
     async fn probe_local_ai_endpoint(
         endpoint: &str,
     ) -> Result<Arc<dyn AiProviderAdapter>, PrimalError> {
@@ -478,38 +483,35 @@ impl AiRouter {
             .await
             .map_err(|e| PrimalError::OperationFailed(format!("Cannot reach {addr}: {e}")))?;
 
-        // Server is reachable. Check for a toadStool socket wrapping it.
-        let uid = nix::unistd::getuid();
-        let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
-        let compute_hint = crate::primal_names::TOADSTOOL;
-        let socket_candidates = [
-            format!("/run/user/{uid}/{dir}/{compute_hint}.sock"),
-            format!("/tmp/{compute_hint}.sock"),
-        ];
+        // Server is reachable. Prefer a compute-primal Unix socket if present.
+        let socket_candidates = [compute_capability_unix_socket()];
 
         for socket_path in &socket_candidates {
-            let path = PathBuf::from(socket_path);
-            if !path.exists() {
+            if !socket_path.exists() {
                 continue;
             }
-            if let Ok(adapter) = Self::create_universal_adapter_from_path(socket_path).await {
+            let socket_path_str = socket_path.to_string_lossy();
+            if let Ok(adapter) =
+                Self::create_universal_adapter_from_path(socket_path_str.as_ref()).await
+            {
                 info!(
-                    "✅ Wired LOCAL_AI_ENDPOINT {} via toadStool socket {}",
-                    endpoint, socket_path
+                    "✅ Wired LOCAL_AI_ENDPOINT {} via compute primal Unix socket {}",
+                    endpoint,
+                    socket_path_str.as_ref()
                 );
                 return Ok(Arc::new(adapter));
             }
         }
 
-        // No toadStool socket wrapping the HTTP endpoint.
+        // No compute primal socket wrapping the HTTP endpoint.
         // UniversalAiAdapter only works with Unix sockets; registering an
         // HTTP URL as a socket_path would cause every request to fail with
         // "No such file or directory".  Skip and let the HTTP-based adapters
-        // (OpenAI/Anthropic via Songbird) handle the endpoint instead.
+        // handle the endpoint via the service mesh instead.
         Err(PrimalError::OperationFailed(format!(
-            "Local AI at {endpoint} is reachable but no toadStool socket wraps it. \
+            "Local AI at {endpoint} is reachable but no compute primal Unix socket wraps it. \
              Use the OpenAI adapter (OPENAI_API_KEY + OPENAI_BASE_URL) to \
-             route through Songbird's http.request capability instead."
+             route through the service mesh http.request capability instead."
         )))
     }
 
@@ -816,6 +818,20 @@ impl AiRouter {
         }
 
         all_providers
+    }
+
+    /// Register a remote spring as an inference provider.
+    ///
+    /// Called by `inference.register_provider` JSON-RPC handler. Creates a
+    /// `RemoteInferenceAdapter` and adds it to the live provider list.
+    pub async fn register_remote_provider(&self, config: super::adapters::RemoteProviderConfig) {
+        let adapter = super::adapters::RemoteInferenceAdapter::new(config);
+        let mut providers = self.providers.write().await;
+        providers.push(adapter);
+        info!(
+            "Registered remote inference provider (total: {})",
+            providers.len()
+        );
     }
 }
 

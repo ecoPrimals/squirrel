@@ -84,23 +84,28 @@ impl ConfigLoader {
     }
 
     fn load_service_mesh_config(&self) -> Result<ServiceMeshConfig, ConfigError> {
+        // Legacy env var — prefer SERVICE_MESH_DISCOVERY_ENDPOINT
         let discovery_endpoint = self.get_required_env_with_legacy_fallback(
             "SERVICE_MESH_DISCOVERY_ENDPOINT",
             "SONGBIRD_DISCOVERY_ENDPOINT",
         )?;
+        // Legacy env var — prefer SERVICE_MESH_REGISTRATION_ENDPOINT
         let registration_endpoint = self.get_required_env_with_legacy_fallback(
             "SERVICE_MESH_REGISTRATION_ENDPOINT",
             "SONGBIRD_REGISTRATION_ENDPOINT",
         )?;
+        // Legacy env var — prefer SERVICE_MESH_HEALTH_ENDPOINT
         let health_endpoint = self.get_required_env_with_legacy_fallback(
             "SERVICE_MESH_HEALTH_ENDPOINT",
             "SONGBIRD_HEALTH_ENDPOINT",
         )?;
+        // Legacy env var — prefer SERVICE_MESH_AUTH_TOKEN
         let auth_token = self.get_optional_env_with_legacy_fallback(
             "SERVICE_MESH_AUTH_TOKEN",
             "SONGBIRD_AUTH_TOKEN",
         );
         let heartbeat_interval_secs = self
+            // Legacy env var — prefer SERVICE_MESH_HEARTBEAT_INTERVAL
             .get_env_or_default_with_legacy_fallback(
                 "SERVICE_MESH_HEARTBEAT_INTERVAL",
                 "SONGBIRD_HEARTBEAT_INTERVAL",
@@ -114,6 +119,7 @@ impl ConfigLoader {
 
         let retry_config = RetryConfig {
             max_retries: self
+                // Legacy env var — prefer SERVICE_MESH_MAX_RETRIES
                 .get_env_or_default_with_legacy_fallback(
                     "SERVICE_MESH_MAX_RETRIES",
                     "SONGBIRD_MAX_RETRIES",
@@ -125,6 +131,7 @@ impl ConfigLoader {
                     value: e.to_string(),
                 })?,
             initial_delay_ms: self
+                // Legacy env var — prefer SERVICE_MESH_INITIAL_DELAY_MS
                 .get_env_or_default_with_legacy_fallback(
                     "SERVICE_MESH_INITIAL_DELAY_MS",
                     "SONGBIRD_INITIAL_DELAY_MS",
@@ -136,6 +143,7 @@ impl ConfigLoader {
                     value: e.to_string(),
                 })?,
             max_delay_ms: self
+                // Legacy env var — prefer SERVICE_MESH_MAX_DELAY_MS
                 .get_env_or_default_with_legacy_fallback(
                     "SERVICE_MESH_MAX_DELAY_MS",
                     "SONGBIRD_MAX_DELAY_MS",
@@ -147,6 +155,7 @@ impl ConfigLoader {
                     value: e.to_string(),
                 })?,
             backoff_multiplier: self
+                // Legacy env var — prefer SERVICE_MESH_BACKOFF_MULTIPLIER
                 .get_env_or_default_with_legacy_fallback(
                     "SERVICE_MESH_BACKOFF_MULTIPLIER",
                     "SONGBIRD_BACKOFF_MULTIPLIER",
@@ -352,7 +361,10 @@ impl ConfigLoader {
         let primary_full = format!("{}_{}", self.env_prefix, primary_var);
         let legacy_full = format!("{}_{}", self.env_prefix, legacy_var);
         env::var(&primary_full)
-            .or_else(|_| env::var(&legacy_full))
+            .or_else(|_| {
+                // Legacy env var — prefer capability-based name (`primary_var`, prefixed).
+                env::var(&legacy_full)
+            })
             .map_err(|_| ConfigError::MissingEnvVar(primary_full))
     }
 
@@ -368,9 +380,10 @@ impl ConfigLoader {
     ) -> Option<String> {
         let primary_full = format!("{}_{}", self.env_prefix, primary_var);
         let legacy_full = format!("{}_{}", self.env_prefix, legacy_var);
-        env::var(&primary_full)
-            .ok()
-            .or_else(|| env::var(&legacy_full).ok())
+        env::var(&primary_full).ok().or_else(|| {
+            // Legacy env var — prefer capability-based name (`primary_var`, prefixed).
+            env::var(&legacy_full).ok()
+        })
     }
 
     pub(crate) fn get_env_or_default(&self, var_name: &str, default: &str) -> String {

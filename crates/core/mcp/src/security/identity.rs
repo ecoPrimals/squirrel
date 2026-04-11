@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::warn;
 use uuid::Uuid;
 
 /// User identity information.
@@ -101,14 +102,23 @@ impl DefaultIdentityManager {
         Ok(())
     }
 
-    /// Resolves credentials to an identity (placeholder until BearDog integration).
+    /// Resolves credentials to an identity.
+    ///
+    /// Password verification is not implemented yet; successful matches are by username only.
+    /// Production deployments should integrate BearDog or another verifier.
     pub async fn authenticate(
         &self,
         username: &str,
         _password: &str,
     ) -> Result<Option<UserIdentity>> {
-        // Placeholder implementation - delegate to BearDog
-        self.get_identity_by_username(username).await
+        let identity = self.get_identity_by_username(username).await?;
+        if identity.is_some() {
+            warn!(
+                "Password verification not implemented — accepting any password for user '{}' (security risk)",
+                username
+            );
+        }
+        Ok(identity)
     }
 
     /// Sets `last_login` to the current time for the given user id.

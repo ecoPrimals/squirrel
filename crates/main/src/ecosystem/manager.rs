@@ -297,6 +297,15 @@ impl EcosystemManager {
     }
 
     pub async fn get_ecosystem_status(&self) -> EcosystemIntegrationStatus {
+        let socket_config = crate::rpc::unix_socket::SocketConfig::from_env();
+        let node_id = crate::rpc::unix_socket::get_node_id_with(&socket_config);
+        let self_socket_path = std::path::PathBuf::from(
+            crate::rpc::unix_socket::get_socket_path_with(&socket_config, &node_id),
+        );
+        let self_socket_canonical = self_socket_path
+            .canonicalize()
+            .unwrap_or_else(|_| self_socket_path.clone());
+
         let (discovered_services, peer_count) =
             match crate::capabilities::discovery::discover_all_capabilities().await {
                 Ok(capabilities_map) => {
@@ -304,6 +313,13 @@ impl EcosystemManager {
                     let mut seen = std::collections::HashSet::<std::path::PathBuf>::new();
                     for providers in capabilities_map.values() {
                         for provider in providers {
+                            let provider_canonical = provider
+                                .socket
+                                .canonicalize()
+                                .unwrap_or_else(|_| provider.socket.clone());
+                            if provider_canonical == self_socket_canonical {
+                                continue;
+                            }
                             if seen.insert(provider.socket.clone()) {
                                 let socket_str = provider.socket.display().to_string();
                                 let caps: Vec<&str> = provider

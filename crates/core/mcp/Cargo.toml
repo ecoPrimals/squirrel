@@ -23,8 +23,6 @@ serde_json.workspace = true
 serde_bytes.workspace = true
 uuid.workspace = true
 
-# Networking & Transport
-tokio-tungstenite = { workspace = true, optional = true }
 
 # Internal crates
 squirrel-mcp-config.workspace = true
@@ -50,7 +48,7 @@ toml.workspace = true
 # Compression (optional)
 zstd = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
-lz4 = { workspace = true, optional = true }
+lz4_flex = { workspace = true, optional = true }
 
 # AI providers (optional) - openai-api-rs/anthropic-sdk REMOVED: pulled reqwest 0.11 (native-tls/openssl).
 # Providers use reqwest directly via direct-http (rustls). See coordinator/providers.rs.
@@ -78,7 +76,7 @@ insta = "1.34"
 temp-env = "0.3"
 
 [features]
-# Integration tests gated until API rewrite (websocket, MCPMessage) — tracked in CURRENT_STATUS.md
+# Integration tests gated until API rewrite for UDS transport — tracked in CURRENT_STATUS.md
 integration-tests = []
 disabled_until_rewrite = []
 
@@ -96,7 +94,6 @@ direct-http = ["dep:reqwest"]
 tls = []
 
 enhanced = [
-    "websocket",
     "tarpc",
     "streaming",
     "ai-providers",
@@ -107,7 +104,6 @@ enhanced = [
     "local-crypto"
 ]
 full = [
-    "websocket",
     "tarpc",
     "streaming",
     "ai-providers",
@@ -117,14 +113,13 @@ full = [
     "compression",
     "local-crypto"
 ]
-websocket = ["dep:tokio-tungstenite"]
 tarpc = []
 streaming = ["dep:tokio-stream"]
 ai-providers = ["direct-http"]
 plugins = []
 persistence = []
 metrics = ["dep:metrics"]
-compression = ["dep:zstd", "dep:flate2", "dep:lz4"]
+compression = ["dep:zstd", "dep:flate2", "dep:lz4_flex"]
 sync-placeholders = []
 
 [lints]

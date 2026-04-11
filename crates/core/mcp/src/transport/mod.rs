@@ -9,13 +9,8 @@ pub mod frame;
 pub mod framing;
 /// Transport types and metadata
 pub mod types;
-#[cfg(feature = "websocket")]
-pub mod websocket;
 
-// Re-export core types
 pub use types::*;
-#[cfg(feature = "websocket")]
-pub use websocket::WebSocketTransport;
 
 // Simplified transport trait
 use crate::error::Result;

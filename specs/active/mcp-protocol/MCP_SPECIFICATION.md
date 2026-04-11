@@ -7,6 +7,8 @@ author: ecoPrimals Contributors
 
 # Machine Context Protocol (MCP) Specification
 
+> **Note (April 2026):** WebSocket transport was removed from Squirrel in v0.1.0-alpha.47 (Tower Atomic pattern — WebSocket provided by Songbird service mesh). WebSocket references below are historical.
+
 ## Overview
 
 The Machine Context Protocol (MCP) provides a standardized communication layer for exchanging messages between AI models, tools, and their runtime environments. This specification defines the architecture, message format, and interfaces of the MCP implementation.

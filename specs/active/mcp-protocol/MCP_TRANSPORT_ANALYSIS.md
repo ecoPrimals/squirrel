@@ -7,6 +7,8 @@ author: ecoPrimals Contributors
 
 # MCP Transport Layer and Adapter Analysis
 
+> **Note (April 2026):** WebSocket transport was removed from Squirrel in v0.1.0-alpha.47 (Tower Atomic pattern — WebSocket provided by Songbird service mesh). WebSocket references below are historical.
+
 ## Overview
 
 This document analyzes our current Machine Context Protocol (MCP) implementation against the open-source [mcp-rust-sdk](https://github.com/Derek-X-Wang/mcp-rust-sdk) repository. The goal is to identify improvements for our transport layer and protocol adapters based on this comparison.

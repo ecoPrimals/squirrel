@@ -44,10 +44,16 @@ impl DefaultEndpoints {
     #[must_use]
     pub fn service_mesh_endpoint() -> String {
         env::var("SERVICE_MESH_ENDPOINT")
-            .or_else(|_| env::var("SONGBIRD_ENDPOINT"))
+            .or_else(|_| {
+                // Legacy env var — prefer SERVICE_MESH_ENDPOINT
+                env::var("SONGBIRD_ENDPOINT")
+            })
             .unwrap_or_else(|_| {
                 let port = env::var("SERVICE_MESH_PORT")
-                    .or_else(|_| env::var("SONGBIRD_PORT"))
+                    .or_else(|_| {
+                        // Legacy env var — prefer SERVICE_MESH_PORT
+                        env::var("SONGBIRD_PORT")
+                    })
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("discovery"));
@@ -65,11 +71,17 @@ impl DefaultEndpoints {
     #[must_use]
     pub fn compute_endpoint() -> String {
         env::var("COMPUTE_SERVICE_ENDPOINT")
-            .or_else(|_| env::var("TOADSTOOL_ENDPOINT"))
+            .or_else(|_| {
+                // Legacy env var — prefer COMPUTE_SERVICE_ENDPOINT
+                env::var("TOADSTOOL_ENDPOINT")
+            })
             .unwrap_or_else(|_| {
                 let port = env::var("COMPUTE_PORT")
                     .or_else(|_| env::var("COMPUTE_SERVICE_PORT"))
-                    .or_else(|_| env::var("TOADSTOOL_PORT"))
+                    .or_else(|_| {
+                        // Legacy env var — prefer COMPUTE_PORT / COMPUTE_SERVICE_PORT
+                        env::var("TOADSTOOL_PORT")
+                    })
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("http"));
@@ -87,11 +99,17 @@ impl DefaultEndpoints {
     #[must_use]
     pub fn storage_endpoint() -> String {
         env::var("STORAGE_SERVICE_ENDPOINT")
-            .or_else(|_| env::var("NESTGATE_ENDPOINT"))
+            .or_else(|_| {
+                // Legacy env var — prefer STORAGE_SERVICE_ENDPOINT
+                env::var("NESTGATE_ENDPOINT")
+            })
             .unwrap_or_else(|_| {
                 let port = env::var("STORAGE_PORT")
                     .or_else(|_| env::var("STORAGE_SERVICE_PORT"))
-                    .or_else(|_| env::var("NESTGATE_PORT"))
+                    .or_else(|_| {
+                        // Legacy env var — prefer STORAGE_PORT / STORAGE_SERVICE_PORT
+                        env::var("NESTGATE_PORT")
+                    })
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("admin"));

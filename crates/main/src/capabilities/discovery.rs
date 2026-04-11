@@ -471,7 +471,10 @@ async fn query_registry(
                 discovered_via: "neural_api".to_string(),
             })
         } else {
-            warn!("Neural API result has no primary_socket/primary_endpoint: {:?}", result);
+            warn!(
+                "Neural API result has no primary_socket/primary_endpoint: {:?}",
+                result
+            );
             Err(DiscoveryError::CapabilityNotFound(capability.to_string()))
         }
     } else {
@@ -497,32 +500,33 @@ async fn query_registry(
 /// - Nest Atomic discovery (Tower + NestGate)
 /// - Full NUCLEUS discovery (all primals)
 fn get_socket_directories() -> Vec<PathBuf> {
-    let mut dirs = vec![];
-
-    // Priority 1: Check explicit environment variable override
+    // Exclusive override: when SOCKET_SCAN_DIR is set, scan ONLY that directory.
+    // This enables deterministic test isolation and custom deployment topologies.
     if let Ok(dir) = std::env::var("SOCKET_SCAN_DIR") {
-        dirs.push(PathBuf::from(dir));
+        let dirs = vec![PathBuf::from(dir)];
+        debug!("Socket scan directories (exclusive override): {:?}", dirs);
+        return dirs;
     }
 
-    // Priority 2: Standard biomeOS socket directory (NUCLEUS-compliant!)
-    // This is where ecosystem primal sockets live (BearDog, NestGate, etc.)
+    let mut dirs = vec![];
+
+    // Priority 1: Standard biomeOS socket directory (NUCLEUS-compliant!)
     let uid = nix::unistd::getuid();
     let biomeos_dir = PathBuf::from(format!("/run/user/{uid}/biomeos"));
     if biomeos_dir.exists() {
         dirs.push(biomeos_dir);
     }
 
-    // Priority 3: XDG Runtime Directory with biomeos subdirectory
+    // Priority 2: XDG Runtime Directory with biomeos subdirectory
     if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
         let xdg_biomeos = PathBuf::from(format!("{runtime_dir}/biomeos"));
         if xdg_biomeos.exists() {
             dirs.push(xdg_biomeos);
         }
-        // Also check XDG root (for backward compatibility)
         dirs.push(PathBuf::from(runtime_dir));
     }
 
-    // Priority 4: Fallback to standard temp/run directories (dev/testing)
+    // Priority 3: Fallback to standard temp/run directories (dev/testing)
     dirs.push(PathBuf::from("/tmp"));
     dirs.push(PathBuf::from("/var/run"));
 

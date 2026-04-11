@@ -513,28 +513,14 @@ impl PluginMarketplaceClient {
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
-    async fn install_plugin(&self, plugin_id: Uuid) -> Result<WebResponse> {
-        let installation_id = Uuid::new_v4();
-
-        // Create installation status
-        let installation_status = InstallationStatus {
-            id: installation_id,
-            plugin_id,
-            status: InstallationStatusType::Queued,
-            progress: 0,
-            current_step: "Queued for installation".to_string(),
-            logs: vec!["Installation queued".to_string()],
-            error: None,
-            started_at: chrono::Utc::now(),
-            completed_at: None,
-        };
-
-        // In real implementation, this would start an async installation process
-        // For now, return the installation status
+    async fn install_plugin(&self, _plugin_id: Uuid) -> Result<WebResponse> {
         Ok(WebResponse {
-            status: HttpStatus::Accepted,
+            status: HttpStatus::NotImplemented,
             headers: HashMap::new(),
-            body: Some(serde_json::to_value(installation_status)?),
+            body: Some(serde_json::json!({
+                "error": "plugin_installation_unavailable",
+                "message": "Plugin installation requires WebAssembly runtime integration (Phase 2)"
+            })),
         })
     }
 

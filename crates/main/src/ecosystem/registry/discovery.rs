@@ -48,9 +48,8 @@ impl DiscoveryOps {
     /// ## Discovery Priority (Highest to Lowest)
     ///
     /// 1. **Environment Variables** (Production)
-    ///    - `{PRIMAL}_ENDPOINT` - Direct endpoint specification (runtime config)
-    ///    - `SONGBIRD_ENDPOINT` - Ecosystem registry endpoint (service mesh)
-    ///    - `BEARDOG_ENDPOINT` - Security provider endpoint (auth/crypto)
+    ///    - `{CAPABILITY_PREFIX}_ENDPOINT` — prefix from [`EcosystemPrimalType::endpoint_env_prefix`]
+    ///      (capability-derived, e.g. `SERVICE_MESH_ENDPOINT`, `SECURITY_ENDPOINT`)
     ///
     /// 2. **Service Discovery Systems** (Production)
     ///    - `SERVICE_DISCOVERY_URL` - Registry endpoint (Consul, etcd, etc.)
@@ -74,7 +73,7 @@ impl DiscoveryOps {
     /// - Services can be swapped without code changes
     fn build_service_endpoint(primal_type: EcosystemPrimalType) -> String {
         // 1. Try environment variable first (highest priority)
-        let env_var = format!("{}_ENDPOINT", primal_type.env_name());
+        let env_var = format!("{}_ENDPOINT", primal_type.endpoint_env_prefix());
         if let Ok(endpoint) = std::env::var(&env_var) {
             tracing::debug!(
                 "Using environment variable {} for {:?}",
@@ -117,7 +116,7 @@ impl DiscoveryOps {
             tracing::error!(
                 "No endpoint configured for {:?} - set {}_ENDPOINT or SERVICE_DISCOVERY_URL",
                 primal_type,
-                primal_type.env_name()
+                primal_type.endpoint_env_prefix()
             );
             // Return an invalid endpoint that will fail discovery
             "http://unconfigured.endpoint".to_string()
@@ -144,8 +143,7 @@ impl DiscoveryOps {
     ///
     /// ⚠️ WARNING: These are development defaults only!
     /// In production, you MUST set environment variables:
-    /// - `SQUIRREL_ENDPOINT`, `SONGBIRD_ENDPOINT` (ecosystem registry), etc., OR
-    /// - `BEARDOG_ENDPOINT` (security provider) for auth/crypto, OR
+    /// - Capability-prefixed endpoints such as `SQUIRREL_ENDPOINT`, `SERVICE_MESH_ENDPOINT`, or
     /// - `SERVICE_DISCOVERY_URL` for dynamic capability-based discovery
     ///
     /// This function uses universal-constants for all port assignments to ensure
@@ -574,7 +572,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("SERVICE_DISCOVERY_URL", Some("http://discovery.local")),
-                ("SONGBIRD_ENDPOINT", None::<&str>),
+                ("SERVICE_MESH_ENDPOINT", None::<&str>),
             ],
             || {
                 let endpoint = DiscoveryOps::build_service_endpoint(EcosystemPrimalType::Songbird);
@@ -591,7 +589,7 @@ mod tests {
     fn test_build_service_endpoint_falls_back_to_default() {
         temp_env::with_vars_unset(
             [
-                "BEARDOG_ENDPOINT",
+                "SECURITY_ENDPOINT",
                 "SERVICE_DISCOVERY_URL",
                 "SQUIRREL_CONFIG",
             ],

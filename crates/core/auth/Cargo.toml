@@ -35,7 +35,6 @@ chrono = { version = "0.4", features = ["serde"] }
 # - Dev/testing (local-jwt): Local JWT validation (brings ring C dep)
 jsonwebtoken = { version = "9.3", optional = true }
 
-nix = { workspace = true }
 base64 = "0.22"
 rand = "0.8"
 zeroize = { version = "1.7", features = ["zeroize_derive"] }

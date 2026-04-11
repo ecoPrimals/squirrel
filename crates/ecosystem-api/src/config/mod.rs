@@ -186,14 +186,17 @@ mod tests {
                     format!("{prefix}_SERVICE_DESCRIPTION"),
                     Some("Legacy env service mesh vars"),
                 ),
+                // Legacy env var — prefer SERVICE_MESH_DISCOVERY_ENDPOINT
                 (
                     format!("{prefix}_SONGBIRD_DISCOVERY_ENDPOINT"),
                     Some("http://legacy-disc:1"),
                 ),
+                // Legacy env var — prefer SERVICE_MESH_REGISTRATION_ENDPOINT
                 (
                     format!("{prefix}_SONGBIRD_REGISTRATION_ENDPOINT"),
                     Some("http://legacy-reg:2"),
                 ),
+                // Legacy env var — prefer SERVICE_MESH_HEALTH_ENDPOINT
                 (
                     format!("{prefix}_SONGBIRD_HEALTH_ENDPOINT"),
                     Some("http://legacy-health:3"),

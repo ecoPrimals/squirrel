@@ -9,7 +9,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tracing::{debug, info};
 
 use super::{IntelligenceRequest, IntelligenceResponse, Optimization, Prediction};
@@ -507,24 +507,23 @@ impl AiIntelligence {
         &self,
         request: IntelligenceRequest,
     ) -> Result<IntelligenceResponse, PrimalError> {
+        debug!("Intelligence request processing — engine delegation pending");
         debug!("Processing intelligence request: {}", request.request_id);
 
-        let _recommendations = [
-            "Monitor resource usage".to_string(),
-            "Update security policies".to_string(),
-            "Analyze ecosystem health".to_string(),
-        ];
-        let processing_time = 100; // Placeholder for actual processing time
+        let started = Instant::now();
+        let _recommendations: Vec<String> = Vec::new();
+
+        let processing_time_ms = started.elapsed().as_millis() as u64;
 
         Ok(IntelligenceResponse {
             request_id: request.request_id,
             intelligence_type: "analysis".to_string(),
             result: serde_json::json!({
-                "analysis": "completed",
-                "confidence": 0.9
+                "analysis": "delegated",
+                "engine_status": "awaiting_capability_wiring"
             }),
-            confidence: 0.9,
-            processing_time_ms: processing_time,
+            confidence: 0.0,
+            processing_time_ms,
             metadata: std::collections::HashMap::new(),
         })
     }

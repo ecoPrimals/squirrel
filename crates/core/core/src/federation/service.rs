@@ -55,8 +55,8 @@ pub struct FederationService {
 #[derive(Debug)]
 struct FederationState {
     status: RwLock<FederationStatus>,
-    federation_id: String,
-    leader_node: RwLock<Option<String>>,
+    federation_id: Arc<str>,
+    leader_node: RwLock<Option<Arc<str>>>,
     last_scale_event: RwLock<Option<DateTime<Utc>>>,
     total_capacity: RwLock<u32>,
     current_utilization: RwLock<f64>,
@@ -69,7 +69,7 @@ impl FederationService {
     ///
     /// Returns [`Error`] if the service cannot be constructed.
     pub fn new(config: FederationConfig) -> Result<Self> {
-        let federation_id = format!("fed-{}", uuid::Uuid::new_v4());
+        let federation_id: Arc<str> = format!("fed-{}", uuid::Uuid::new_v4()).into();
 
         let state = Arc::new(FederationState {
             status: RwLock::new(FederationStatus::Forming),
@@ -157,7 +157,7 @@ impl FederationService {
         // Determine if we should be the leader or join existing federation
         if self.instances.is_empty() {
             // No other nodes found, we become the leader
-            *self.state.leader_node.write() = Some(self.config.node_id.clone());
+            *self.state.leader_node.write() = Some(Arc::from(self.config.node_id.as_str()));
             *self.state.status.write() = FederationStatus::Active;
             tracing::info!("No existing federation found, becoming leader node");
         } else {
@@ -616,7 +616,7 @@ impl FederationService {
     /// **Phase 2**: Uses metrics from peers and `FederationTopology` to rebalance
     /// or reconfigure routing; no-op until mesh telemetry is available.
     fn optimize_topology(&self) {
-        let topology = self.federation_topology.read().clone();
+        let topology = *self.federation_topology.read();
         tracing::trace!(
             ?topology,
             "optimize_topology: deferred to Phase 2 (topology-aware routing)"
@@ -642,17 +642,20 @@ impl FederationService {
             .unwrap_or_else(|_| universal_constants::network::DEFAULT_LOCALHOST.to_string())
     }
 
-    /// Get current node capabilities
-    #[expect(dead_code, reason = "Phase 2 placeholder — capability discovery")]
+    /// Get current node capabilities from niche self-knowledge ([`universal_constants::capabilities::SQUIRREL_EXPOSED_CAPABILITIES`]).
+    #[expect(
+        dead_code,
+        reason = "Phase 2 — peer advertisements will use discovered capability sets"
+    )]
     fn get_node_capabilities() -> Vec<String> {
-        vec![
-            "mcp".to_string(),
-            "ai-task-routing".to_string(),
-            "multi-mcp-coordination".to_string(),
-            "context-management".to_string(),
-            "federation".to_string(),
-            "scaling".to_string(),
-        ]
+        let caps = universal_constants::capabilities::SQUIRREL_EXPOSED_CAPABILITIES;
+        if caps.is_empty() {
+            tracing::debug!(
+                "Federation: niche self-knowledge capabilities unavailable; returning no capabilities"
+            );
+            return Vec::new();
+        }
+        caps.iter().map(|s| (*s).to_string()).collect()
     }
 
     /// Get federation statistics
@@ -661,13 +664,18 @@ impl FederationService {
         let instance_count = usize_to_u32_saturating(self.instances.len());
         FederationStats {
             node_id: self.config.node_id.clone(),
-            federation_id: self.state.federation_id.clone(),
-            status: self.state.status.read().clone(),
+            federation_id: (*self.state.federation_id).to_string(),
+            status: *self.state.status.read(),
             local_instances: instance_count,
             federation_nodes: instance_count,
             total_capacity: *self.state.total_capacity.read(),
             current_utilization: *self.state.current_utilization.read(),
-            is_leader: self.state.leader_node.read().as_ref() == Some(&self.config.node_id),
+            is_leader: self
+                .state
+                .leader_node
+                .read()
+                .as_deref()
+                .is_some_and(|leader| leader == self.config.node_id),
         }
     }
 
@@ -761,7 +769,7 @@ impl SwarmManager for FederationService {
         };
 
         Ok(FederationResult {
-            federation_id: self.state.federation_id.clone(),
+            federation_id: (*self.state.federation_id).to_string(),
             nodes_joined,
             total_capacity: joined_capacity.max(1),
             status,

@@ -22,7 +22,11 @@
 // Universal adapter (always available - Unix socket providers)
 mod universal;
 
+/// Remote inference adapter — forwards to springs registered via `inference.register_provider`.
+pub mod remote_inference;
+
 // Re-exports (always available)
+pub use remote_inference::{RemoteInferenceAdapter, RemoteProviderConfig};
 pub use universal::{ProviderMetadata, UniversalAiAdapter};
 
 // DEPRECATED: HTTP-delegating adapters (v0.3.0 removal planned)

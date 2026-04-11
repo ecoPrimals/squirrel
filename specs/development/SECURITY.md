@@ -8,6 +8,8 @@ priority: high
 
 # Cross-Cutting Security Specification
 
+> **Note (April 2026):** WebSocket transport was removed from Squirrel in v0.1.0-alpha.47 (Tower Atomic pattern — WebSocket provided by Songbird service mesh). WebSocket references below are historical.
+
 ## Overview
 
 This document outlines the security requirements, patterns, and best practices that apply across all components of the Squirrel platform. Security is a critical cross-cutting concern that must be addressed consistently throughout the system architecture to ensure protection of data, prevention of unauthorized access, and maintenance of system integrity.

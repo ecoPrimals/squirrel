@@ -1,5 +1,7 @@
 # Machine Context Protocol (MCP) Integration
 
+> **Note (April 2026):** WebSocket transport was removed from Squirrel in v0.1.0-alpha.47 (Tower Atomic pattern — WebSocket provided by Songbird service mesh). WebSocket references below are historical.
+
 ## Overview
 
 The Machine Context Protocol (MCP) is a core component of the Squirrel platform, allowing communication between various components and services. The Squirrel CLI integrates with MCP to provide command-line access to MCP functionality.

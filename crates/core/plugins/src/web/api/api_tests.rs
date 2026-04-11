@@ -227,18 +227,15 @@ async fn handle_get_plugin_details_and_config() {
         ))
         .await
         .expect("should succeed");
-    assert_eq!(cfg.status, HttpStatus::Ok);
-    assert!(
-        cfg.body
-            .as_ref()
-            .expect("should succeed")
-            .get("configuration")
-            .is_some()
+    assert_eq!(cfg.status, HttpStatus::NotImplemented);
+    assert_eq!(
+        cfg.body.as_ref().expect("should succeed")["error"],
+        "configuration_unavailable"
     );
 }
 
 #[tokio::test]
-async fn handle_install_post_accepted() {
+async fn handle_install_post_not_implemented() {
     let manager = Arc::new(DefaultPluginManager::new());
     let api = PluginManagementAPI::new(manager);
     let res = api
@@ -252,10 +249,10 @@ async fn handle_install_post_accepted() {
         ))
         .await
         .expect("should succeed");
-    assert_eq!(res.status, HttpStatus::Accepted);
+    assert_eq!(res.status, HttpStatus::NotImplemented);
     assert_eq!(
-        res.body.as_ref().expect("should succeed")["status"],
-        "installing"
+        res.body.as_ref().expect("should succeed")["error"],
+        "plugin_installation_unavailable"
     );
 }
 
@@ -407,8 +404,11 @@ async fn handle_uninstall_start_stop_restart_execute_config() {
         ))
         .await
         .expect("should succeed");
-    assert_eq!(ex.status, HttpStatus::Ok);
-    assert_eq!(ex.body.as_ref().expect("should succeed")["command"], "ping");
+    assert_eq!(ex.status, HttpStatus::NotImplemented);
+    assert_eq!(
+        ex.body.as_ref().expect("should succeed")["error"],
+        "execution_unavailable"
+    );
 }
 
 #[tokio::test]

@@ -8,6 +8,8 @@ priority: high
 
 # Cross-Cutting Testing Specification
 
+> **Note (April 2026):** WebSocket transport was removed from Squirrel in v0.1.0-alpha.47 (Tower Atomic pattern — WebSocket provided by Songbird service mesh). WebSocket references below are historical.
+
 ## Overview
 
 This document defines the testing requirements, methodologies, and standards that apply across all components of the Squirrel platform. Comprehensive testing is essential for ensuring the reliability, security, and performance of the system. This specification establishes consistent testing practices to be implemented throughout the development lifecycle.

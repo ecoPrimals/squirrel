@@ -26,10 +26,57 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tracing::{debug, error, info};
+use universal_constants::network::resolve_capability_unix_socket;
+
+/// Primary env for tiered resolution of the `crypto.sign` / signing socket (see [`resolve_capability_unix_socket`]).
+const CRYPTO_SIGN_CAPABILITY_SOCKET_ENV: &str = "CRYPTO_CAPABILITY_SOCKET";
+/// Basename stem for `BearDog` under `$XDG_RUNTIME_DIR/biomeos/` (e.g. `beardog.sock`).
+const BEARDOG_BIOMEOS_SOCKET_STEM: &str = "beardog";
+
+fn push_unique_path(paths: &mut Vec<PathBuf>, path: PathBuf) {
+    if !paths.iter().any(|p| p == &path) {
+        paths.push(path);
+    }
+}
+
+/// Candidate Unix socket paths for crypto signing (security primal / `BearDog`), ordered by precedence.
+///
+/// Order:
+/// 1. `SECURITY_SOCKET` — primary override for the security primal socket
+/// 2. `BEARDOG_SOCKET` — legacy compat
+/// 3. [`resolve_capability_unix_socket`] for capability `crypto.sign` (tiered env + standard `XDG_RUNTIME_DIR/biomeos/beardog.sock`)
+/// 4. `/tmp/beardog.sock` — last resort
+#[must_use]
+fn candidate_crypto_signing_socket_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+
+    if let Ok(p) = std::env::var("SECURITY_SOCKET")
+        && !p.is_empty()
+    {
+        push_unique_path(&mut paths, PathBuf::from(p));
+    }
+    if let Ok(p) = std::env::var("BEARDOG_SOCKET")
+        && !p.is_empty()
+    {
+        push_unique_path(&mut paths, PathBuf::from(p));
+    }
+
+    push_unique_path(
+        &mut paths,
+        resolve_capability_unix_socket(
+            CRYPTO_SIGN_CAPABILITY_SOCKET_ENV,
+            BEARDOG_BIOMEOS_SOCKET_STEM,
+        ),
+    );
+    push_unique_path(&mut paths, PathBuf::from("/tmp/beardog.sock"));
+
+    paths
+}
 
 /// Capability-based crypto provider (replaces hardcoded `BearDogClient`)
 #[derive(Clone)]
@@ -56,7 +103,8 @@ impl CapabilityCryptoProvider {
     /// Uses environment-first discovery:
     /// 1. Check `CRYPTO_SIGNING_ENDPOINT` env var
     /// 2. Check `CRYPTO_ENDPOINT` env var
-    /// 3. Try well-known socket paths
+    /// 3. Try [`candidate_crypto_signing_socket_paths`] (`SECURITY_SOCKET`, `BEARDOG_SOCKET`,
+    ///    [`resolve_capability_unix_socket`] for `crypto.sign` / `beardog.sock`, then `/tmp/beardog.sock`)
     /// 4. Return error if not found
     async fn discover_endpoint(&mut self) -> Result<Arc<str>> {
         // Check cache first
@@ -82,28 +130,19 @@ impl CapabilityCryptoProvider {
             return Ok(endpoint_arc);
         }
 
-        // Strategy 2: biomeOS socket scan + well-known paths
-        // Prioritize the standard biomeOS socket directory, then fall back to legacy paths.
-        let uid = nix::unistd::getuid();
-        let well_known_paths: Vec<String> = vec![
-            format!("/run/user/{uid}/biomeos/security.sock"),
-            format!("/run/user/{uid}/biomeos/crypto.sock"),
-            format!("/run/user/{uid}/biomeos/beardog.sock"),
-            format!("/run/user/{uid}/biomeos/primal-crypto.sock"),
-            "/tmp/primal-crypto.sock".to_string(),
-            "/tmp/beardog.sock".to_string(),
-        ];
-
-        for path in &well_known_paths {
-            debug!("Trying well-known socket path: {}", path);
-            if tokio::fs::metadata(path).await.is_ok() {
+        // Strategy 2: capability-based paths (SECURITY_SOCKET, BEARDOG_SOCKET,
+        // universal-constants tiered resolution for crypto.sign → `/tmp/beardog.sock` last)
+        for path in candidate_crypto_signing_socket_paths() {
+            let path_str = path.to_string_lossy();
+            debug!("Trying candidate crypto signing socket path: {}", path_str);
+            if tokio::fs::metadata(&path).await.is_ok() {
                 // Socket exists, verify it provides crypto.signing
                 if matches!(
-                    self.verify_capability(path, "crypto.signing").await,
+                    self.verify_capability(&path_str, "crypto.signing").await,
                     Ok(true)
                 ) {
-                    info!("✅ Discovered crypto.signing at: {}", path);
-                    let endpoint_arc: Arc<str> = Arc::from(path.as_str());
+                    info!("✅ Discovered crypto.signing at: {}", path_str);
+                    let endpoint_arc: Arc<str> = path_str.as_ref().into();
                     self.endpoint = Some(Arc::clone(&endpoint_arc));
                     return Ok(endpoint_arc);
                 }
@@ -114,11 +153,13 @@ impl CapabilityCryptoProvider {
         // For now, fail with helpful error
 
         error!("❌ Cannot discover crypto.signing capability");
-        error!("   Set CRYPTO_SIGNING_ENDPOINT or CRYPTO_ENDPOINT environment variable");
-        error!("   Example: export CRYPTO_SIGNING_ENDPOINT=/tmp/primal-crypto.sock");
+        error!(
+            "   Set CRYPTO_SIGNING_ENDPOINT, CRYPTO_ENDPOINT, SECURITY_SOCKET, or BEARDOG_SOCKET"
+        );
+        error!("   Example: export SECURITY_SOCKET=\"$XDG_RUNTIME_DIR/biomeos/beardog.sock\"");
 
         Err(anyhow::anyhow!(
-            "Crypto capability not found. Set CRYPTO_SIGNING_ENDPOINT environment variable."
+            "Crypto capability not found. Set CRYPTO_SIGNING_ENDPOINT, CRYPTO_ENDPOINT, or SECURITY_SOCKET."
         ))
     }
 

@@ -150,7 +150,12 @@ async fn run_client(
     clippy::too_many_lines,
     reason = "Server orchestration; refactor planned"
 )]
-async fn run_server(port: Option<u16>, daemon: bool, socket: Option<String>, _verbose: bool) -> Result<()> {
+async fn run_server(
+    port: Option<u16>,
+    daemon: bool,
+    socket: Option<String>,
+    _verbose: bool,
+) -> Result<()> {
     use squirrel::rpc::JsonRpcServer;
     use squirrel::rpc::unix_socket;
 
@@ -277,11 +282,19 @@ async fn run_server(port: Option<u16>, daemon: bool, socket: Option<String>, _ve
     let server = ai_router.map_or_else(
         || {
             let s = JsonRpcServer::new(socket_path.clone());
-            Arc::new(if let Some(p) = port { s.with_tcp_port(p) } else { s })
+            Arc::new(if let Some(p) = port {
+                s.with_tcp_port(p)
+            } else {
+                s
+            })
         },
         |router| {
             let s = JsonRpcServer::with_ai_router(socket_path.clone(), router);
-            Arc::new(if let Some(p) = port { s.with_tcp_port(p) } else { s })
+            Arc::new(if let Some(p) = port {
+                s.with_tcp_port(p)
+            } else {
+                s
+            })
         },
     );
     let server_clone = Arc::clone(&server);

@@ -9,8 +9,6 @@ use serde_json; // Needed for MCPMessage
 use std::time::SystemTime;
 
 use crate::error::Result;
-#[cfg(feature = "websocket")]
-use tokio_tungstenite::tungstenite::Message;
 use uuid; // Needed for MessageId
 
 /// Message type for MCP communications.
@@ -262,47 +260,6 @@ impl Default for MCPMessage {
             version: ProtocolVersion::default(),
             trace_id: None,
         }
-    }
-}
-
-#[cfg(feature = "websocket")]
-impl TryFrom<Message> for MCPMessage {
-    type Error = crate::error::MCPError;
-
-    fn try_from(message: Message) -> std::result::Result<Self, Self::Error> {
-        let json_str = match message {
-            Message::Text(text) => text,
-            Message::Binary(data) => String::from_utf8(data).map_err(|e| {
-                crate::error::MCPError::Transport(
-                    format!("Invalid UTF-8 in binary message: {e}").into(),
-                )
-            })?,
-            Message::Ping(_) | Message::Pong(_) | Message::Close(_) => {
-                return Err(crate::error::MCPError::Transport(
-                    "Cannot convert control message to MCPMessage".into(),
-                ));
-            }
-            Message::Frame(_) => {
-                return Err(crate::error::MCPError::Transport(
-                    "Cannot convert raw frame to MCPMessage".into(),
-                ));
-            }
-        };
-
-        let mcp_message: Self = serde_json::from_str(&json_str).map_err(|e| {
-            crate::error::MCPError::Transport(format!("Failed to parse JSON message: {e}").into())
-        })?;
-
-        Ok(mcp_message)
-    }
-}
-
-#[cfg(feature = "websocket")]
-impl From<MCPMessage> for Message {
-    fn from(mcp_message: MCPMessage) -> Self {
-        let json_str = serde_json::to_string(&mcp_message)
-            .unwrap_or_else(|_| r#"{"error": "Failed to serialize message"}"#.to_string());
-        Self::Text(json_str)
     }
 }
 

@@ -56,39 +56,14 @@ impl PluginManagementAPI {
     /// Install a new plugin
     pub(super) async fn install_plugin(
         &self,
-        request: PluginInstallRequest,
+        _request: PluginInstallRequest,
     ) -> Result<WebResponse> {
-        // This would integrate with the plugin distribution system
-        // For now, return a placeholder response
-        let plugin_id = Uuid::new_v4();
-
-        // Emit WebSocket event for installation progress
-        self.emit_websocket_event(WebSocketMessage {
-            event_type: "plugin.install.started".to_string(),
-            plugin_id: Some(plugin_id),
-            data: serde_json::json!({
-                "source": request.source,
-                "version": request.version
-            }),
-            timestamp: chrono::Utc::now(),
-        })
-        .await;
-
-        // Simulate installation process
-        // In real implementation, this would:
-        // 1. Download plugin from source
-        // 2. Verify plugin integrity
-        // 3. Install dependencies
-        // 4. Register plugin with manager
-        // 5. Initialize plugin
-
         Ok(WebResponse {
-            status: HttpStatus::Accepted,
+            status: HttpStatus::NotImplemented,
             headers: HashMap::new(),
             body: Some(serde_json::json!({
-                "plugin_id": plugin_id,
-                "status": "installing",
-                "message": "Plugin installation started"
+                "error": "plugin_installation_unavailable",
+                "message": "Plugin installation requires WebAssembly runtime integration (Phase 2)"
             })),
         })
     }
@@ -198,18 +173,13 @@ impl PluginManagementAPI {
     }
 
     /// Get plugin configuration
-    pub(super) async fn get_plugin_config(&self, plugin_id: Uuid) -> Result<WebResponse> {
-        // In real implementation, this would fetch plugin configuration
-        // from the plugin manager or configuration store
+    pub(super) async fn get_plugin_config(&self, _plugin_id: Uuid) -> Result<WebResponse> {
         Ok(WebResponse {
-            status: HttpStatus::Ok,
+            status: HttpStatus::NotImplemented,
             headers: HashMap::new(),
             body: Some(serde_json::json!({
-                "plugin_id": plugin_id,
-                "configuration": {
-                    "enabled": true,
-                    "log_level": "info"
-                }
+                "error": "configuration_unavailable",
+                "message": "Plugin configuration requires persistence backend (Phase 2)"
             })),
         })
     }
@@ -251,19 +221,15 @@ impl PluginManagementAPI {
     )]
     pub(super) async fn execute_plugin_command(
         &self,
-        plugin_id: Uuid,
-        exec_request: PluginExecutionRequest,
+        _plugin_id: Uuid,
+        _exec_request: PluginExecutionRequest,
     ) -> Result<WebResponse> {
-        // In real implementation, this would execute the command on the plugin
-        // For now, return a placeholder response
         Ok(WebResponse {
-            status: HttpStatus::Ok,
+            status: HttpStatus::NotImplemented,
             headers: HashMap::new(),
             body: Some(serde_json::json!({
-                "plugin_id": plugin_id,
-                "command": exec_request.command,
-                "result": "Command executed successfully",
-                "output": "Sample output"
+                "error": "execution_unavailable",
+                "message": "Plugin command execution requires sandboxed runtime (Phase 2)"
             })),
         })
     }

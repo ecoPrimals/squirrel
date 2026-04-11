@@ -122,8 +122,8 @@ impl OpenAiAdapter {
         let api_key = std::env::var("OPENAI_API_KEY")
             .map_err(|_| PrimalError::ConfigError("OPENAI_API_KEY not set".to_string()))?;
 
-        let default_model = std::env::var("OPENAI_DEFAULT_MODEL")
-            .unwrap_or_else(|_| "gpt-4".to_string());
+        let default_model =
+            std::env::var("OPENAI_DEFAULT_MODEL").unwrap_or_else(|_| "gpt-4".to_string());
 
         Ok(Self {
             api_key,

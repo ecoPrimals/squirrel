@@ -44,8 +44,11 @@ impl PredictiveLoader {
     }
 
     pub(super) async fn generate_predictions(&self) -> Vec<PredictiveLoad> {
-        debug!("Generating predictive loads");
-        Vec::new() // Placeholder
+        let patterns = self.usage_patterns.read().await;
+        if patterns.is_empty() {
+            debug!("Predictive loading — no usage patterns collected yet");
+        }
+        Vec::new()
     }
 
     pub(super) async fn start_predictive_loading(&self) {

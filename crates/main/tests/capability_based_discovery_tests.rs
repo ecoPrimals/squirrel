@@ -50,13 +50,31 @@ use squirrel::ecosystem::EcosystemPrimalType;
 use std::str::FromStr;
 
 #[test]
-fn test_env_name_all_primals() {
-    assert_eq!(EcosystemPrimalType::Squirrel.env_name(), "SQUIRREL");
-    assert_eq!(EcosystemPrimalType::Songbird.env_name(), "SONGBIRD");
-    assert_eq!(EcosystemPrimalType::ToadStool.env_name(), "TOADSTOOL");
-    assert_eq!(EcosystemPrimalType::BearDog.env_name(), "BEARDOG");
-    assert_eq!(EcosystemPrimalType::NestGate.env_name(), "NESTGATE");
-    assert_eq!(EcosystemPrimalType::BiomeOS.env_name(), "BIOMEOS");
+fn test_endpoint_env_prefix_all_primals() {
+    assert_eq!(
+        EcosystemPrimalType::Squirrel.endpoint_env_prefix(),
+        "SQUIRREL"
+    );
+    assert_eq!(
+        EcosystemPrimalType::Songbird.endpoint_env_prefix(),
+        "SERVICE_MESH"
+    );
+    assert_eq!(
+        EcosystemPrimalType::ToadStool.endpoint_env_prefix(),
+        "COMPUTE"
+    );
+    assert_eq!(
+        EcosystemPrimalType::BearDog.endpoint_env_prefix(),
+        "SECURITY"
+    );
+    assert_eq!(
+        EcosystemPrimalType::NestGate.endpoint_env_prefix(),
+        "STORAGE"
+    );
+    assert_eq!(
+        EcosystemPrimalType::BiomeOS.endpoint_env_prefix(),
+        "ECOSYSTEM"
+    );
 }
 
 #[test]
@@ -84,8 +102,8 @@ fn test_service_name_matches_as_str() {
 }
 
 #[test]
-fn test_env_name_format() {
-    // Verify all env names are uppercase
+fn test_endpoint_env_prefix_format() {
+    // Verify capability-derived prefixes are uppercase (and non-empty)
     for primal in &[
         EcosystemPrimalType::Squirrel,
         EcosystemPrimalType::Songbird,
@@ -94,9 +112,9 @@ fn test_env_name_format() {
         EcosystemPrimalType::NestGate,
         EcosystemPrimalType::BiomeOS,
     ] {
-        let env_name = primal.env_name();
-        assert_eq!(env_name, env_name.to_uppercase());
-        assert!(!env_name.is_empty());
+        let prefix = primal.endpoint_env_prefix();
+        assert_eq!(prefix, prefix.to_uppercase());
+        assert!(!prefix.is_empty());
     }
 }
 
@@ -161,17 +179,17 @@ fn test_all_primals_unique_names() {
         .collect();
     assert_eq!(service_names.len(), primals.len());
 
-    // Check all env names are unique
-    let env_names: HashSet<_> = primals
+    // Check all capability-derived endpoint prefixes are unique
+    let env_prefixes: HashSet<_> = primals
         .iter()
-        .map(squirrel::EcosystemPrimalType::env_name)
+        .map(squirrel::EcosystemPrimalType::endpoint_env_prefix)
         .collect();
-    assert_eq!(env_names.len(), primals.len());
+    assert_eq!(env_prefixes.len(), primals.len());
 }
 
 #[test]
-fn test_env_name_uppercase_consistency() {
-    // Verify env_name is uppercase version of service_name
+fn test_endpoint_env_prefix_matches_capability_transform() {
+    // Prefix is uppercase with hyphens from capability replaced by underscores
     for primal in &[
         EcosystemPrimalType::Squirrel,
         EcosystemPrimalType::Songbird,
@@ -180,7 +198,9 @@ fn test_env_name_uppercase_consistency() {
         EcosystemPrimalType::NestGate,
         EcosystemPrimalType::BiomeOS,
     ] {
-        assert_eq!(primal.env_name().to_lowercase(), primal.service_name());
+        let cap = primal.capability();
+        let expected = cap.replace('-', "_").to_uppercase();
+        assert_eq!(primal.endpoint_env_prefix(), expected);
     }
 }
 

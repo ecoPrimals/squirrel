@@ -1,5 +1,7 @@
 # Configuration Validation Guide
 
+> **Note (April 2026):** WebSocket transport was removed from Squirrel in v0.1.0-alpha.47 (Tower Atomic pattern — WebSocket provided by Songbird service mesh). WebSocket references below are historical.
+
 **Date**: November 10, 2025 (updated March 22, 2026)  
 **Status**: Active
 

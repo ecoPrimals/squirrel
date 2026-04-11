@@ -41,7 +41,7 @@ pub mod routing;
 /// Pluggable service registry and discovery queries.
 #[cfg(feature = "mesh")]
 pub mod service_discovery;
-/// Swarm-level coordination placeholder for future orchestration.
+/// Swarm-level coordination for multi-instance orchestration (Phase 2).
 #[cfg(feature = "mesh")]
 pub mod swarm;
 

@@ -7,16 +7,8 @@
 
 pub mod handler;
 pub mod types;
-#[cfg(feature = "websocket")]
-pub mod websocket;
 
-#[cfg(all(test, feature = "websocket"))]
-mod websocket_tests;
-
-// Re-export commonly used types
 pub use types::*;
-#[cfg(feature = "websocket")]
-pub use websocket::*;
 
 use crate::error::Result;
 

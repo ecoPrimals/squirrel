@@ -120,14 +120,10 @@ impl UniversalPrimalEcosystem {
     /// Discover services via service mesh
     async fn discover_via_service_mesh(&mut self) -> UniversalResult<()> {
         if let Some(mesh_endpoint) = &self.service_mesh_endpoint {
-            // Query service mesh for available services
+            debug!(endpoint = %mesh_endpoint, "Trying service mesh discovery endpoint");
             debug!(
-                "Discovering services through service mesh: {}",
-                mesh_endpoint
+                "Service mesh discovery pending capability wiring — capability.call pattern replaces direct HTTP"
             );
-
-            // Implementation would query the service mesh discovery API
-            // This is a placeholder for the actual service mesh integration
         }
 
         Ok(())

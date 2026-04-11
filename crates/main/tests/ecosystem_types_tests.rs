@@ -184,45 +184,45 @@ fn test_primal_type_as_str_biomeos() {
 }
 
 #[test]
-fn test_primal_type_env_name_toadstool() {
+fn test_primal_type_endpoint_env_prefix_toadstool() {
     let primal = EcosystemPrimalType::ToadStool;
 
-    assert_eq!(primal.env_name(), "TOADSTOOL");
+    assert_eq!(primal.endpoint_env_prefix(), "COMPUTE");
 }
 
 #[test]
-fn test_primal_type_env_name_songbird() {
+fn test_primal_type_endpoint_env_prefix_songbird() {
     let primal = EcosystemPrimalType::Songbird;
 
-    assert_eq!(primal.env_name(), "SONGBIRD");
+    assert_eq!(primal.endpoint_env_prefix(), "SERVICE_MESH");
 }
 
 #[test]
-fn test_primal_type_env_name_beardog() {
+fn test_primal_type_endpoint_env_prefix_beardog() {
     let primal = EcosystemPrimalType::BearDog;
 
-    assert_eq!(primal.env_name(), "BEARDOG");
+    assert_eq!(primal.endpoint_env_prefix(), "SECURITY");
 }
 
 #[test]
-fn test_primal_type_env_name_nestgate() {
+fn test_primal_type_endpoint_env_prefix_nestgate() {
     let primal = EcosystemPrimalType::NestGate;
 
-    assert_eq!(primal.env_name(), "NESTGATE");
+    assert_eq!(primal.endpoint_env_prefix(), "STORAGE");
 }
 
 #[test]
-fn test_primal_type_env_name_squirrel() {
+fn test_primal_type_endpoint_env_prefix_squirrel() {
     let primal = EcosystemPrimalType::Squirrel;
 
-    assert_eq!(primal.env_name(), "SQUIRREL");
+    assert_eq!(primal.endpoint_env_prefix(), "SQUIRREL");
 }
 
 #[test]
-fn test_primal_type_env_name_biomeos() {
+fn test_primal_type_endpoint_env_prefix_biomeos() {
     let primal = EcosystemPrimalType::BiomeOS;
 
-    assert_eq!(primal.env_name(), "BIOMEOS");
+    assert_eq!(primal.endpoint_env_prefix(), "ECOSYSTEM");
 }
 
 #[test]
@@ -286,7 +286,7 @@ fn test_primal_type_as_str_lowercase() {
 }
 
 #[test]
-fn test_primal_type_env_name_uppercase() {
+fn test_primal_type_endpoint_env_prefix_uppercase() {
     let primals = vec![
         EcosystemPrimalType::ToadStool,
         EcosystemPrimalType::Songbird,
@@ -297,8 +297,8 @@ fn test_primal_type_env_name_uppercase() {
     ];
 
     for primal in primals {
-        let env_name = primal.env_name();
-        assert_eq!(env_name, env_name.to_uppercase());
+        let prefix = primal.endpoint_env_prefix();
+        assert_eq!(prefix, prefix.to_uppercase());
     }
 }
 
@@ -356,17 +356,17 @@ fn test_primal_type_all_as_str() {
 }
 
 #[test]
-fn test_primal_type_all_env_names() {
+fn test_primal_type_all_endpoint_env_prefixes() {
     let expected = vec![
-        ("TOADSTOOL", EcosystemPrimalType::ToadStool),
-        ("SONGBIRD", EcosystemPrimalType::Songbird),
-        ("BEARDOG", EcosystemPrimalType::BearDog),
-        ("NESTGATE", EcosystemPrimalType::NestGate),
+        ("COMPUTE", EcosystemPrimalType::ToadStool),
+        ("SERVICE_MESH", EcosystemPrimalType::Songbird),
+        ("SECURITY", EcosystemPrimalType::BearDog),
+        ("STORAGE", EcosystemPrimalType::NestGate),
         ("SQUIRREL", EcosystemPrimalType::Squirrel),
-        ("BIOMEOS", EcosystemPrimalType::BiomeOS),
+        ("ECOSYSTEM", EcosystemPrimalType::BiomeOS),
     ];
 
-    for (expected_env, primal) in expected {
-        assert_eq!(primal.env_name(), expected_env);
+    for (expected_prefix, primal) in expected {
+        assert_eq!(primal.endpoint_env_prefix(), expected_prefix);
     }
 }

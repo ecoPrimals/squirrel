@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 9, 2026
-**Version**: 0.1.0-alpha.46
+**Last Updated**: April 11, 2026
+**Version**: 0.1.0-alpha.48
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,25 +10,25 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,203 passing / 0 failures / 107 ignored across 22 workspace members (`--all-features`) |
+| Tests | 6,881 passing / 0 failures across 22 workspace members |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
 | Unsafe Code | 0 in production — `unsafe_code = "forbid"` in workspace `[lints.rust]` (all 22 crates) |
 | Pure Rust | 100% default features (zero C deps, zero non-Rust crypto); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed; `ed25519-dalek` feature-gated behind `local-crypto`; `flate2` → pure Rust `miniz_oxide` backend; `pprof`, `openai`, `libloading` removed |
-| ecoBin | Compliant v3.0 — `deny.toml` bans 14 C-dep crates (groundSpring V115 standard); pure Rust `sys_info` via `/proc` parsing |
+| ecoBin | Compliant v3.0 — `deny.toml` bans 14 C-dep crates + `tokio-tungstenite` (Tower Atomic) + `reqwest` (Tower Atomic); pure Rust `sys_info` via `/proc` parsing |
 | Coverage | ~86% line coverage via `cargo-llvm-cov` (target: 90%); remaining gap is IPC/network code, demo binaries, and binary entry points |
 | `.unwrap()` in code | 0 — workspace-wide elimination; all Results use `?` or `.expect("invariant")` |
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`) |
 | Crates | 22 workspace members |
-| Files >1000 lines | 0 — all `.rs` files under 1,000 lines (test files extracted: `jsonrpc_ai_router_tests.rs`, `validation_tests.rs`, `shutdown_tests.rs`, `integration_lifecycle_tests.rs`, `session_tests.rs`, `client_tests.rs`, `api_tests.rs`; types extracted: `context_state_types.rs`, `api_types.rs`) |
+| Files >1000 lines | 0 — all `.rs` files under 1,000 lines (test files extracted: `jsonrpc_ai_router_tests.rs`, `validation_tests.rs`, `shutdown_tests.rs`, `integration_lifecycle_tests.rs`, `session_tests.rs`, `client_tests.rs`, `api_tests.rs`, `self_healing_tests.rs`, `ecosystem_jwt_tests.rs`, `error_tests.rs`, `history_tests.rs`, `hardening_tests.rs`, `monitoring_tests.rs`, `unix_socket_tests.rs`, `retry_tests.rs`, `plugin_tests.rs`; types extracted: `context_state_types.rs`, `api_types.rs`) |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
 | cargo deny | `advisories ok, bans ok, licenses ok, sources ok` |
-| Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; `SecurePluginStub` rejects execution (security sandbox); `NoOpPluginManager` returns errors for all lookups (honest default); SDK MCP `OperationHandler` branches on `connected` state (returns empty/error when disconnected, attempts IPC when connected); SDK fs.rs returns false/empty for WASM stubs; all test mocks behind `#[cfg(any(test, feature = "testing"))]`; `MockAIClient` fully isolated |
+| Mocks in production | 0 — all production stubs evolved to honest capability-based patterns: `SecurePluginStub` rejects execution (security sandbox); `NoOpPluginManager` returns errors; plugin web API returns 501 (Phase 2); `WebVisualizationServer` logs capability-pending; `UnavailableServiceRegistry` returns empty (honest); predictive loader logs no-patterns-yet; identity auth warns on password skip; all test mocks behind `#[cfg(any(test, feature = "testing"))]` |
 | Legacy aliases | Backward-compatible aliases for ecosystem compat; `capabilities.list` canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1 |
 | TODO/FIXME in code | 0 — no TODO/FIXME/HACK markers in committed code; Phase 2 placeholders wired with capability fallback or documented with `#[expect(dead_code, reason)]` |
 | Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
@@ -40,7 +40,8 @@ Source of truth: [`capability_registry.toml`](capability_registry.toml)
 
 | Domain | Methods |
 |--------|---------|
-| AI | `ai.query`, `ai.list_providers`, `ai.complete`, `ai.chat` |
+| Inference | **`inference.complete`**, **`inference.embed`**, **`inference.models`**, **`inference.register_provider`** (canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.0 §7) |
+| AI | `ai.query`, `ai.list_providers`, `ai.complete`, `ai.chat` (backward-compat aliases → `inference.*` handlers) |
 | Capability | **`capabilities.list`** (canonical), `capabilities.announce`, `capabilities.discover`, `capability.announce` (alias), `capability.discover` (alias), `capability.list` (alias), `primal.capabilities` (alias) |
 | Identity | `identity.get` (CAPABILITY_BASED_DISCOVERY_STANDARD v1.0) |
 | Context | `context.create`, `context.update`, `context.summarize` |
@@ -73,7 +74,7 @@ Follows the groundSpring/wetSpring/airSpring niche pattern:
 
 | Constant | What |
 |----------|------|
-| `CAPABILITIES` | 25 exposed methods (ai, capabilities, capability, identity, system, health, discovery, tool, context, lifecycle, graph) |
+| `CAPABILITIES` | 29 exposed methods (inference, ai, capabilities, capability, identity, system, health, discovery, tool, context, lifecycle, graph) |
 | `CONSUMED_CAPABILITIES` | 32 external capabilities from BearDog, Songbird, ToadStool, NestGate, domain springs, rhizoCrypt, sweetGrass, primalSpring |
 | `COST_ESTIMATES` | Per-method latency and GPU hints for Pathway Learner scheduling |
 | `DEPENDENCIES` | 6 primals (beardog, songbird required; toadstool, nestgate, primalspring, petaltongue optional) |
@@ -274,7 +275,41 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `base64` duplicate (0.21 via `config`/`ron`, 0.22 direct) — transitive, benign
 5. `async-trait` — 129 annotations remaining (down from 228); 20+ trait definitions migrated to native `async fn` in trait with dyn→generics/enum dispatch; remaining usage is traits deeply embedded in heterogeneous `dyn` collections (`Plugin`, `Command`, `AIClient`, `MonitoringProvider`, `PrimalProvider`, etc.) — will be progressively removed as `dyn` surface shrinks
 
-## Changes Since Last Handoff (April 8, 2026)
+## Changes Since Last Handoff (April 11, 2026)
+
+### April 11, 2026 session S (Deep debt cleanup: test extraction, stub evolution, hardcoding elimination, dead code removal)
+
+- **9 large mixed files refactored** — inline `#[cfg(test)] mod tests { ... }` extracted to sibling `*_tests.rs` files via `#[path]` pattern: `self_healing_tests.rs` (470 lines), `ecosystem_jwt_tests.rs` (442), `error_tests.rs` (380), `history_tests.rs` (296), `hardening_tests.rs`, `monitoring_tests.rs`, `unix_socket_tests.rs`, `retry_tests.rs`, `plugin_tests.rs`; all production files now well under 600 lines
+- **Plugin web API evolved** — `install_plugin`, `get_plugin_config`, `execute_plugin_command` now return honest 501 (Not Implemented) with structured error JSON instead of placeholder fake success responses; marketplace `install_plugin` aligned
+- **No-op stubs evolved to capability-based patterns** — `WebVisualizationServer::start()` logs capability-pending; `ContextPluginManager::load_plugins_from_path` uses capability.call dispatch; `discover_via_service_mesh` logs endpoint and explains capability wiring
+- **AI intelligence evolved** — `process_intelligence_request` now measures real `Instant` timing, returns `confidence: 0.0` and `"engine_status": "awaiting_capability_wiring"` instead of fake 0.9 confidence
+- **Predictive loader evolved** — `generate_predictions()` checks usage patterns map, logs when empty, returns honest empty Vec
+- **Identity auth evolved** — `authenticate()` now `warn!` on password skip with username context (security risk visibility)
+- **State SVG evolved** — returns proper SVG with capability-pending message instead of minimal `<text>` stub
+- **Swarm service documented** — `#[expect(dead_code)]` with Phase 2 capability.call reason; placeholder wording replaced with capability description
+- **Federation capabilities evolved** — `get_node_capabilities()` now reads from `SQUIRREL_EXPOSED_CAPABILITIES` (shared with `niche.rs`) instead of hardcoded strings; single source of truth via `universal_constants::capabilities`
+- **`env_name()` removed** — deprecated method with hardcoded `TOADSTOOL`/`SONGBIRD`/`BEARDOG`/`NESTGATE` strings replaced by `endpoint_env_prefix()` derived from `capability()` (e.g. `service-mesh` → `SERVICE_MESH`); all callers migrated
+- **Crypto socket paths evolved** — `capability_crypto.rs` hardcoded `/run/user/.../beardog.sock` and `/tmp/beardog.sock` replaced with tiered `candidate_crypto_signing_socket_paths()`: `SECURITY_SOCKET` → `BEARDOG_SOCKET` (legacy) → `resolve_capability_unix_socket("CRYPTO_CAPABILITY_SOCKET", "beardog")` → `/tmp/beardog.sock` last resort; `nix` dependency removed from auth crate
+- **AI router hardcoding eliminated** — `primal_names::TOADSTOOL` socket construction replaced with `resolve_capability_unix_socket("COMPUTE_SOCKET", "toadstool")`; `localhost:11434` replaced with `deployment::endpoints::ollama()`; log messages use capability descriptions ("compute primal", "service mesh") instead of marketing names
+- **Ecosystem-api env vars documented** — legacy `SONGBIRD_*`/`TOADSTOOL_*`/`NESTGATE_*` fallbacks annotated with "prefer `SERVICE_MESH_*`/`COMPUTE_*`/`STORAGE_*`" comments
+- **Orphan visualization files removed** — `state_viz.rs`, `rule_viz.rs`, `metrics_viz.rs` deleted (not in module tree, referenced non-existent `Visualizable` trait)
+- **async-trait audit** — all 73 remaining `#[async_trait]` usages confirmed necessary (all on `dyn`-dispatched traits); no zero-dyn migration candidates
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓ (0 warnings), `test` ✓ (6,881 passed / 0 failures), `check --workspace` ✓
+
+### April 11, 2026 session R (Tower Atomic WebSocket removal, canonical inference namespace, provider registration)
+
+- **WebSocket transport removed from squirrel-mcp**: `websocket` feature, `tokio-tungstenite` dependency, and all gated modules (protocol/websocket, transport/websocket, websocket_tests) removed; Tower Atomic pattern — WebSocket provided by Songbird service mesh, not embedded in primals
+- **`tokio-tungstenite` banned in deny.toml**: Tower Atomic compliance; `squirrel-sdk` exempted via `wrappers` (migration debt: SDK MCP client evolve to IPC transport)
+- **`tokio-tungstenite` removed from workspace deps**: Comment documents Tower Atomic rationale
+- **Canonical `inference.*` namespace**: Per SEMANTIC_METHOD_NAMING_STANDARD v2.0 §7 — `inference.complete`, `inference.embed`, `inference.models`, `inference.register_provider` wired as first-class JSON-RPC methods
+- **`inference.register_provider` implemented**: Springs (neuralSpring, healthSpring, ludoSpring) can register as inference backends via JSON-RPC; creates `RemoteInferenceAdapter` that forwards `inference.complete` calls over UDS
+- **`RemoteInferenceAdapter` created**: New `adapters/remote_inference.rs` — forwards inference to registered springs via `send_jsonrpc_public` over Unix domain sockets
+- **`ai.*` methods → backward-compat aliases**: `ai.query`, `ai.complete`, `ai.chat` now route to `handle_inference_complete`; `ai.list_providers` unchanged
+- **`handlers_inference.rs` wired**: Previously orphan source file now declared in `rpc/mod.rs` and fully active in dispatch
+- **niche.rs updated**: `CAPABILITIES` (25→29), `SEMANTIC_MAPPINGS`, `COST_ESTIMATES`, `operation_dependencies()`, `cost_estimates_json()`, `semantic_mappings_json()` all include `inference.*` methods
+- **`capability_registry.toml` updated**: 4 new `inference.*` capability definitions with input schemas
+- **Test update**: `ai_query_dispatches_to_router_and_returns_echo` updated for `inference.complete` response format (`text` field instead of `response`)
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓ (0 warnings), `test` ✓ (2145 passed / 0 failures), `check --workspace` ✓
 
 ### April 8, 2026 session P (Deep Debt: Self-Knowledge Violations, Production Mocks, Dependency Cleanup)
 

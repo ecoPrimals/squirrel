@@ -192,7 +192,7 @@ async fn handle_request_featured_trending_repositories_install() {
         })
         .await
         .expect("should succeed");
-    assert_eq!(inst.status, HttpStatus::Accepted);
+    assert_eq!(inst.status, HttpStatus::NotImplemented);
 
     let installs = client
         .handle_request(WebRequest {

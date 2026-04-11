@@ -83,13 +83,25 @@ mod tests {
         assert!(status.initialized_at.is_some());
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_get_ecosystem_status_empty() {
-        let manager = create_test_manager();
+        let isolated_dir = tempfile::tempdir().expect("tempdir");
+        let dir_str = isolated_dir.path().to_str().expect("utf8").to_string();
+        let ecosystem_status = tokio::task::block_in_place(|| {
+            temp_env::with_vars(
+                [
+                    ("SOCKET_SCAN_DIR", Some(dir_str.as_str())),
+                    ("XDG_RUNTIME_DIR", Some(dir_str.as_str())),
+                ],
+                || {
+                    tokio::runtime::Handle::current().block_on(async {
+                        let manager = create_test_manager();
+                        manager.get_ecosystem_status().await
+                    })
+                },
+            )
+        });
 
-        let ecosystem_status = manager.get_ecosystem_status().await;
-
-        // When no peers are discovered, status is "degraded" and health is 0.5
         assert_eq!(ecosystem_status.status, "degraded");
         assert!((ecosystem_status.overall_health - 0.5).abs() < 0.01);
         assert_eq!(ecosystem_status.discovered_services.len(), 0);

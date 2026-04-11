@@ -9,8 +9,9 @@ use super::{VisualizationEvent, VisualizationSystemConfig};
 use crate::error::Result;
 use std::sync::Arc;
 use tokio::sync::broadcast;
+use tracing::debug;
 
-/// Web visualization server
+/// Web visualization server — capability stub pending petalTongue integration (`start`/`stop` reflect intent until discovery wiring lands).
 #[derive(Debug)]
 pub struct WebVisualizationServer {
     /// Configuration
@@ -36,14 +37,14 @@ impl WebVisualizationServer {
 
     /// Start the web server
     pub async fn start(&self) -> Result<()> {
-        // Start web server
-        // This is a placeholder implementation
+        debug!(
+            "Web visualization server not yet wired — awaiting petalTongue capability discovery"
+        );
         Ok(())
     }
 
     /// Stop the web server
     pub async fn stop(&self) -> Result<()> {
-        // Stop web server
         Ok(())
     }
 }

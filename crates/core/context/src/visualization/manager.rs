@@ -199,43 +199,41 @@ impl VisualizationManager {
         let visualization_id = Uuid::new_v4().to_string();
         let now = Utc::now();
 
-        // Create active visualization
+        let history_data = request.data.clone();
+        let render_format = request.config.format.clone();
+
         let active_viz = ActiveVisualization {
             id: visualization_id.clone(),
             visualization_type: request.visualization_type.clone(),
-            config: request.config.clone(),
+            config: request.config,
             created_at: now,
             updated_at: now,
-            data: request.data.clone(),
+            data: request.data,
             metadata: request.metadata.clone(),
         };
 
-        // Store active visualization
         {
             let mut active_vizs = self.active_visualizations.write().await;
             active_vizs.insert(visualization_id.clone(), active_viz);
         }
 
-        // Add to history
         self.add_to_history(
             visualization_id.clone(),
             VisualizationAction::Created,
-            request.data.clone(),
+            history_data,
         )
         .await;
 
-        // Render visualization
         let content = self
-            .render_visualization(&visualization_id, &request.config.format)
+            .render_visualization(&visualization_id, &render_format)
             .await?;
 
-        // Update statistics
         self.update_stats_created().await;
 
         Ok(VisualizationResponse {
-            visualization_id: visualization_id.clone(),
+            visualization_id,
             visualization_type: request.visualization_type,
-            format: request.config.format,
+            format: render_format,
             content,
             metadata: request.metadata,
             created_at: now,
@@ -402,16 +400,18 @@ impl VisualizationManager {
     }
 
     async fn cache_visualization(&self, cache_key: String, content: String) {
+        let format = cache_key.split(':').nth(1).unwrap_or("unknown").to_string();
+        let insert_key = cache_key.clone();
         let cached_viz = CachedVisualization {
             id: cache_key.clone(),
             content,
-            format: cache_key.split(':').nth(1).unwrap_or("unknown").to_string(),
+            format,
             cached_at: Utc::now(),
-            cache_key: cache_key.clone(),
+            cache_key,
         };
 
         let mut cache = self.visualization_cache.write().await;
-        cache.insert(cache_key, cached_viz);
+        cache.insert(insert_key, cached_viz);
     }
 
     async fn clear_cache(&self, visualization_id: &str) {

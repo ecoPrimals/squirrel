@@ -18,7 +18,70 @@ license = "AGPL-3.0-only"
 transport = "unix_socket"
 protocol = "json-rpc-2.0"
 
-# --- AI domain ---
+# --- Inference domain (CANONICAL per SEMANTIC_METHOD_NAMING_STANDARD v2.0 §7) ---
+
+[capabilities.inference_complete]
+method = "inference.complete"
+domain = "inference.execution"
+description = "Text/chat completion — canonical inference wire method"
+[capabilities.inference_complete.input_schema]
+type = "object"
+required = ["prompt"]
+[capabilities.inference_complete.input_schema.properties.prompt]
+type = "string"
+description = "Text prompt to complete"
+[capabilities.inference_complete.input_schema.properties.messages]
+type = "array"
+description = "Chat messages (alternative to prompt)"
+[capabilities.inference_complete.input_schema.properties.model]
+type = "string"
+description = "Model to use (optional, provider-specific)"
+[capabilities.inference_complete.input_schema.properties.temperature]
+type = "number"
+description = "Sampling temperature (0.0-2.0)"
+[capabilities.inference_complete.input_schema.properties.max_tokens]
+type = "integer"
+description = "Maximum tokens in response"
+
+[capabilities.inference_embed]
+method = "inference.embed"
+domain = "inference.execution"
+description = "Embedding generation (pending provider registration)"
+[capabilities.inference_embed.input_schema]
+type = "object"
+required = ["input"]
+[capabilities.inference_embed.input_schema.properties.input]
+type = "string"
+description = "Text to embed"
+[capabilities.inference_embed.input_schema.properties.model]
+type = "string"
+description = "Embedding model to use"
+
+[capabilities.inference_models]
+method = "inference.models"
+domain = "inference.discovery"
+description = "List available inference models across all providers"
+[capabilities.inference_models.input_schema]
+type = "object"
+
+[capabilities.inference_register_provider]
+method = "inference.register_provider"
+domain = "inference.lifecycle"
+description = "Register a spring as an inference backend (neuralSpring, etc.)"
+[capabilities.inference_register_provider.input_schema]
+type = "object"
+required = ["provider_id"]
+[capabilities.inference_register_provider.input_schema.properties.provider_id]
+type = "string"
+description = "Unique provider identifier"
+[capabilities.inference_register_provider.input_schema.properties.socket]
+type = "string"
+description = "Unix socket path for the provider"
+[capabilities.inference_register_provider.input_schema.properties.capabilities]
+type = "object"
+description = "Provider capabilities (supported_tasks, models, supports_streaming, max_context_size)"
+
+# --- AI domain (backward-compat aliases — route to inference.* handlers) ---
 
 [capabilities.ai_query]
 method = "ai.query"

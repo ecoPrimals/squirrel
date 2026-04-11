@@ -654,8 +654,14 @@ impl JsonRpcServer {
     ) -> Result<Value, JsonRpcError> {
         let method = normalize_method(original_method);
         match method {
-            // AI domain — semantic names (preferred)
-            "ai.query" | "ai.complete" | "ai.chat" => self.handle_query_ai(params).await,
+            // Inference domain — CANONICAL per SEMANTIC_METHOD_NAMING_STANDARD v2.0 §7
+            // ai.query / ai.complete / ai.chat are backward-compat aliases.
+            "inference.complete" | "ai.query" | "ai.complete" | "ai.chat" => {
+                self.handle_inference_complete(params).await
+            }
+            "inference.embed" => self.handle_inference_embed(params).await,
+            "inference.models" => self.handle_inference_models(params).await,
+            "inference.register_provider" => self.handle_inference_register_provider(params).await,
             "ai.list_providers" => self.handle_list_providers(params).await,
 
             // Capabilities domain — SEMANTIC_METHOD_NAMING_STANDARD v2.1

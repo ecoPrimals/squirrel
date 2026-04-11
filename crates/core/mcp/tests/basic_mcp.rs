@@ -3,8 +3,8 @@
 
 //! Basic MCP integration tests (`integration-tests` feature).
 
-// Integration tests gated behind `integration-tests` feature — API migration
-// (websocket, MCPMessage, WebSocketConfig) tracked in CURRENT_STATUS.md known issues.
+// Integration tests gated behind `integration-tests` feature — API migration needed
+// (WebSocket transport removed per Tower Atomic; tests need rewrite for UDS transport).
 #[cfg(not(feature = "integration-tests"))]
 #[tokio::test]
 async fn placeholder_basic_mcp_tests_disabled() {}

@@ -386,7 +386,7 @@ pub struct FederationResult {
 }
 
 /// Topology of the federation network.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FederationTopology {
     /// Hub-and-spoke: one central coordinator and dependent spokes.
     Star,
@@ -399,7 +399,7 @@ pub enum FederationTopology {
 }
 
 /// Status of the federation.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FederationStatus {
     /// Federation is forming.
     Forming,
@@ -414,7 +414,7 @@ pub enum FederationStatus {
 }
 
 /// Status of an instance.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum InstanceStatus {
     /// Instance is bootstrapping and not yet accepting work.
     Starting,

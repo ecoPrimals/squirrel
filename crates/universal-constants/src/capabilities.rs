@@ -57,3 +57,52 @@ pub const ECOSYSTEM_CAPABILITY: &str = "ecosystem";
 
 /// Network capability (alias for service mesh)
 pub const NETWORK_CAPABILITY: &str = "network";
+
+/// All capabilities this Squirrel primal exposes to biomeOS (niche self-knowledge).
+///
+/// Canonical list shared with `squirrel::niche::CAPABILITIES`. Each entry is a fully
+/// qualified capability name (`{domain}.{method}`) that biomeOS can route via
+/// `capability.call`.
+pub const SQUIRREL_EXPOSED_CAPABILITIES: &[&str] = &[
+    // Inference domain — CANONICAL per SEMANTIC_METHOD_NAMING_STANDARD v2.0 §7
+    "inference.complete",
+    "inference.embed",
+    "inference.models",
+    "inference.register_provider",
+    // AI domain — backward-compat aliases (route to inference.* handlers)
+    "ai.query",
+    "ai.complete",
+    "ai.chat",
+    "ai.list_providers",
+    // Capability routing (capabilities.list is canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1)
+    "capabilities.list",
+    "capability.announce",
+    "capability.discover",
+    "capability.list",
+    // Health probes — canonical per PRIMAL_IPC_PROTOCOL v3.0
+    "health.check",
+    "health.liveness",
+    "health.readiness",
+    // System monitoring (backward-compat aliases — prefer health.*)
+    "system.health",
+    "system.status",
+    "system.metrics",
+    "system.ping",
+    // Identity (CAPABILITY_BASED_DISCOVERY_STANDARD v1.0)
+    "identity.get",
+    // Peer discovery
+    "discovery.peers",
+    // Tool orchestration
+    "tool.execute",
+    "tool.list",
+    // Context management
+    "context.create",
+    "context.update",
+    "context.summarize",
+    // Lifecycle (biomeOS)
+    "lifecycle.register",
+    "lifecycle.status",
+    // Graph introspection (primalSpring BYOB)
+    "graph.parse",
+    "graph.validate",
+];

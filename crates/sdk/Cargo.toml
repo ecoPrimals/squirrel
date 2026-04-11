@@ -106,7 +106,7 @@ tokio = { version = "1.0", features = ["full"] }
 # Logging
 tracing = "0.1"
 
-# WebSocket support
+# WebSocket support — migration debt: evolve to IPC-based transport (Tower Atomic pattern)
 tokio-tungstenite = "0.20"
 
 # Utilities

@@ -49,44 +49,7 @@ pub const PROTOCOL: &str = universal_constants::protocol::JSONRPC_PROTOCOL_ID;
 ///
 /// Each string is a fully qualified capability name (`{domain}.{method}`)
 /// that biomeOS can route via `capability.call`.
-pub const CAPABILITIES: &[&str] = &[
-    // AI inference
-    "ai.query",
-    "ai.complete",
-    "ai.chat",
-    "ai.list_providers",
-    // Capability routing (capabilities.list is canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1)
-    "capabilities.list",
-    "capability.announce",
-    "capability.discover",
-    "capability.list",
-    // Health probes — canonical per PRIMAL_IPC_PROTOCOL v3.0
-    "health.check",
-    "health.liveness",
-    "health.readiness",
-    // System monitoring (backward-compat aliases — prefer health.*)
-    "system.health",
-    "system.status",
-    "system.metrics",
-    "system.ping",
-    // Identity (CAPABILITY_BASED_DISCOVERY_STANDARD v1.0)
-    "identity.get",
-    // Peer discovery
-    "discovery.peers",
-    // Tool orchestration
-    "tool.execute",
-    "tool.list",
-    // Context management
-    "context.create",
-    "context.update",
-    "context.summarize",
-    // Lifecycle (biomeOS)
-    "lifecycle.register",
-    "lifecycle.status",
-    // Graph introspection (primalSpring BYOB)
-    "graph.parse",
-    "graph.validate",
-];
+pub const CAPABILITIES: &[&str] = universal_constants::capabilities::SQUIRREL_EXPOSED_CAPABILITIES;
 
 /// Semantic mappings: short operation name → fully qualified capability.
 ///
@@ -94,6 +57,12 @@ pub const CAPABILITIES: &[&str] = &[
 /// `capability.call { domain: "ai", operation: "query" }` routes to
 /// the correct JSON-RPC method on our socket.
 pub const SEMANTIC_MAPPINGS: &[(&str, &str)] = &[
+    // Inference domain (canonical)
+    ("inference_complete", "inference.complete"),
+    ("inference_embed", "inference.embed"),
+    ("inference_models", "inference.models"),
+    ("inference_register", "inference.register_provider"),
+    // AI domain (backward-compat aliases)
     ("query", "ai.query"),
     ("complete", "ai.complete"),
     ("chat", "ai.chat"),
@@ -221,6 +190,10 @@ pub const DEPENDENCIES: &[(&str, bool, &str)] = &[
 /// Times are representative for typical workloads. The Pathway Learner
 /// uses these to make intelligent routing decisions.
 pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
+    ("inference.complete", 500, true),
+    ("inference.embed", 300, true),
+    ("inference.models", 1, false),
+    ("inference.register_provider", 5, false),
     ("ai.query", 500, true),
     ("ai.complete", 500, true),
     ("ai.chat", 800, true),
@@ -256,6 +229,10 @@ pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
 #[must_use]
 pub fn operation_dependencies() -> serde_json::Value {
     serde_json::json!({
+        "inference.complete": ["prompt"],
+        "inference.embed": ["input"],
+        "inference.models": [],
+        "inference.register_provider": ["provider_id"],
         "ai.query": ["prompt"],
         "ai.complete": ["prompt"],
         "ai.chat": ["prompt"],
@@ -292,6 +269,10 @@ pub fn operation_dependencies() -> serde_json::Value {
 #[must_use]
 pub fn cost_estimates_json() -> serde_json::Value {
     serde_json::json!({
+        "inference.complete":    { "latency_ms": 500, "cpu": "low",    "memory_bytes": 8192,  "gpu_beneficial": true },
+        "inference.embed":       { "latency_ms": 300, "cpu": "low",    "memory_bytes": 4096,  "gpu_beneficial": true },
+        "inference.models":      { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
+        "inference.register_provider": { "latency_ms": 5, "cpu": "low", "memory_bytes": 512, "gpu_beneficial": false },
         "ai.query":              { "latency_ms": 500, "cpu": "low",    "memory_bytes": 8192,  "gpu_beneficial": true },
         "ai.complete":           { "latency_ms": 500, "cpu": "low",    "memory_bytes": 8192,  "gpu_beneficial": true },
         "ai.chat":               { "latency_ms": 800, "cpu": "low",    "memory_bytes": 16384, "gpu_beneficial": true },
@@ -325,6 +306,10 @@ pub fn cost_estimates_json() -> serde_json::Value {
 #[must_use]
 pub fn semantic_mappings_json() -> serde_json::Value {
     serde_json::json!({
+        "inference_complete": "inference.complete",
+        "inference_embed":    "inference.embed",
+        "inference_models":   "inference.models",
+        "inference_register": "inference.register_provider",
         "query":          "ai.query",
         "complete":       "ai.complete",
         "chat":           "ai.chat",

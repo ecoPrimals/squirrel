@@ -7,6 +7,8 @@ author: ecoPrimals Contributors
 
 # MCP Implementation Comparison: Our Approach vs mcp-rust-sdk
 
+> **Note (April 2026):** WebSocket transport was removed from Squirrel in v0.1.0-alpha.47 (Tower Atomic pattern — WebSocket provided by Songbird service mesh). WebSocket references below are historical.
+
 ## Overview
 
 This document compares our Machine Context Protocol (MCP) implementation approach with the [mcp-rust-sdk](https://github.com/Derek-X-Wang/mcp-rust-sdk) repository. This analysis helps understand the architectural decisions we've made and how they relate to the reference implementation.
