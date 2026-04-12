@@ -7,10 +7,13 @@
 )]
 
 use super::*;
+use crate::AiClientImpl;
+use crate::common::AIClient;
 use crate::common::capability::{
     AICapabilities, AITask, CostTier, ModelType, PerformanceMetrics, RoutingPreferences,
     SecurityRequirements, TaskType,
 };
+use crate::router::harness::RouterHarnessClient;
 use crate::router::types::RoutingHint;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -26,112 +29,6 @@ fn base_task() -> AITask {
         security_requirements: SecurityRequirements::default(),
         complexity_score: None,
         priority: 50,
-    }
-}
-
-/// Mock provider with configurable [`AICapabilities`] and [`RoutingPreferences`].
-#[derive(Debug, Clone)]
-struct MockClient {
-    name: String,
-    caps: AICapabilities,
-    prefs: RoutingPreferences,
-    default_model: String,
-}
-
-impl MockClient {
-    fn new(name: &str) -> Self {
-        let mut caps = AICapabilities::new();
-        caps.add_task_type(TaskType::TextGeneration);
-        caps.add_model_type(ModelType::LargeLanguageModel);
-        caps.max_context_size = 8192;
-        caps.supports_streaming = true;
-        caps.supports_function_calling = true;
-        caps.supports_tool_use = true;
-        caps.performance_metrics.avg_latency_ms = Some(100);
-        Self {
-            name: name.to_string(),
-            caps,
-            prefs: RoutingPreferences::default(),
-            default_model: "mock-model".to_string(),
-        }
-    }
-
-    fn with_prefs(mut self, prefs: RoutingPreferences) -> Self {
-        self.prefs = prefs;
-        self
-    }
-
-    fn with_caps(mut self, caps: AICapabilities) -> Self {
-        self.caps = caps;
-        self
-    }
-
-    fn with_default_model(mut self, m: impl Into<String>) -> Self {
-        self.default_model = m.into();
-        self
-    }
-}
-
-#[async_trait::async_trait]
-impl crate::common::AIClient for MockClient {
-    async fn get_capabilities(&self, _model: &str) -> crate::error::Result<AICapabilities> {
-        Ok(self.caps.clone())
-    }
-
-    fn capabilities(&self) -> AICapabilities {
-        self.caps.clone()
-    }
-
-    fn routing_preferences(&self) -> RoutingPreferences {
-        self.prefs.clone()
-    }
-
-    fn provider_name(&self) -> &str {
-        &self.name
-    }
-
-    async fn is_available(&self) -> bool {
-        true
-    }
-
-    fn default_model(&self) -> &str {
-        &self.default_model
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    async fn list_models(&self) -> crate::error::Result<Vec<String>> {
-        Ok(vec![format!("{}-model", self.name)])
-    }
-
-    async fn chat(
-        &self,
-        _request: crate::common::ChatRequest,
-    ) -> crate::error::Result<crate::common::ChatResponse> {
-        Ok(crate::common::ChatResponse {
-            id: "mock-response".to_string(),
-            model: self.default_model.clone(),
-            choices: vec![crate::common::ChatChoice {
-                index: 0,
-                role: crate::common::MessageRole::Assistant,
-                content: Some("Mock response".to_string()),
-                finish_reason: Some("stop".to_string()),
-                tool_calls: None,
-            }],
-            usage: None,
-        })
-    }
-
-    async fn chat_stream(
-        &self,
-        _request: crate::common::ChatRequest,
-    ) -> crate::error::Result<crate::common::ChatResponseStream> {
-        Err(universal_error::tools::AIToolsError::Provider(
-            "Streaming not supported in mock".to_string(),
-        )
-        .into())
     }
 }
 
@@ -169,7 +66,9 @@ fn test_empty_providers_error() {
 #[test]
 fn test_single_provider_short_circuit() {
     let selector = ProviderSelector::new();
-    let p = Arc::new(MockClient::new("only")) as Arc<dyn crate::common::AIClient>;
+    let p = Arc::new(AiClientImpl::RouterHarness(RouterHarnessClient::new(
+        "only",
+    )));
     let ctx = crate::router::types::RequestContext::new(base_task());
     let out = selector
         .select_provider(
@@ -185,14 +84,18 @@ fn test_single_provider_short_circuit() {
 fn test_first_match_and_highest_priority() {
     let selector = ProviderSelector::new();
     let ctx = crate::router::types::RequestContext::new(base_task());
-    let low = Arc::new(MockClient::new("low").with_prefs(RoutingPreferences {
-        priority: 10,
-        ..RoutingPreferences::default()
-    })) as Arc<dyn crate::common::AIClient>;
-    let high = Arc::new(MockClient::new("high").with_prefs(RoutingPreferences {
-        priority: 99,
-        ..RoutingPreferences::default()
-    })) as Arc<dyn crate::common::AIClient>;
+    let low = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("low").with_prefs(RoutingPreferences {
+            priority: 10,
+            ..RoutingPreferences::default()
+        }),
+    ));
+    let high = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("high").with_prefs(RoutingPreferences {
+            priority: 99,
+            ..RoutingPreferences::default()
+        }),
+    ));
 
     let first = selector
         .select_provider(
@@ -231,10 +134,12 @@ fn test_lowest_latency_and_lowest_cost() {
     fast_caps.max_context_size = 4096;
     fast_caps.performance_metrics.avg_latency_ms = Some(50);
 
-    let slow =
-        Arc::new(MockClient::new("slow").with_caps(slow_caps)) as Arc<dyn crate::common::AIClient>;
-    let fast =
-        Arc::new(MockClient::new("fast").with_caps(fast_caps)) as Arc<dyn crate::common::AIClient>;
+    let slow = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("slow").with_caps(slow_caps),
+    ));
+    let fast = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("fast").with_caps(fast_caps),
+    ));
 
     let pick = selector
         .select_provider(
@@ -245,14 +150,18 @@ fn test_lowest_latency_and_lowest_cost() {
         .expect("should succeed");
     assert_eq!(pick.0, "fast");
 
-    let cheap = Arc::new(MockClient::new("cheap").with_prefs(RoutingPreferences {
-        cost_tier: CostTier::Free,
-        ..RoutingPreferences::default()
-    })) as Arc<dyn crate::common::AIClient>;
-    let pricey = Arc::new(MockClient::new("pricey").with_prefs(RoutingPreferences {
-        cost_tier: CostTier::High,
-        ..RoutingPreferences::default()
-    })) as Arc<dyn crate::common::AIClient>;
+    let cheap = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("cheap").with_prefs(RoutingPreferences {
+            cost_tier: CostTier::Free,
+            ..RoutingPreferences::default()
+        }),
+    ));
+    let pricey = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("pricey").with_prefs(RoutingPreferences {
+            cost_tier: CostTier::High,
+            ..RoutingPreferences::default()
+        }),
+    ));
 
     let cost_pick = selector
         .select_provider(
@@ -268,8 +177,8 @@ fn test_lowest_latency_and_lowest_cost() {
 fn test_round_robin_advances() {
     let selector = ProviderSelector::new();
     let ctx = crate::router::types::RequestContext::new(base_task());
-    let a = Arc::new(MockClient::new("a")) as Arc<dyn crate::common::AIClient>;
-    let b = Arc::new(MockClient::new("b")) as Arc<dyn crate::common::AIClient>;
+    let a = Arc::new(AiClientImpl::RouterHarness(RouterHarnessClient::new("a")));
+    let b = Arc::new(AiClientImpl::RouterHarness(RouterHarnessClient::new("b")));
     let v = vec![("a".to_string(), a), ("b".to_string(), b)];
     let first = selector
         .select_provider(
@@ -302,14 +211,17 @@ fn test_best_fit_picks_higher_score() {
     strong_caps.supports_streaming = true;
     strong_caps.performance_metrics.avg_latency_ms = Some(80);
 
-    let weak =
-        Arc::new(MockClient::new("weak").with_caps(weak_caps)) as Arc<dyn crate::common::AIClient>;
-    let strong = Arc::new(MockClient::new("strong").with_caps(strong_caps).with_prefs(
-        RoutingPreferences {
-            priority: 95,
-            ..RoutingPreferences::default()
-        },
-    )) as Arc<dyn crate::common::AIClient>;
+    let weak = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("weak").with_caps(weak_caps),
+    ));
+    let strong = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("strong")
+            .with_caps(strong_caps)
+            .with_prefs(RoutingPreferences {
+                priority: 95,
+                ..RoutingPreferences::default()
+            }),
+    ));
 
     let ctx = crate::router::types::RequestContext::new(task);
     let best = selector
@@ -324,14 +236,18 @@ fn test_best_fit_picks_higher_score() {
 
 #[test]
 fn test_filter_by_routing_hint() {
-    let providers: Vec<(String, Arc<dyn crate::common::AIClient>)> = vec![
+    let providers: Vec<(String, Arc<AiClientImpl>)> = vec![
         (
             "provider1".to_string(),
-            Arc::new(MockClient::new("provider1")) as Arc<dyn crate::common::AIClient>,
+            Arc::new(AiClientImpl::RouterHarness(RouterHarnessClient::new(
+                "provider1",
+            ))),
         ),
         (
             "provider2".to_string(),
-            Arc::new(MockClient::new("provider2")) as Arc<dyn crate::common::AIClient>,
+            Arc::new(AiClientImpl::RouterHarness(RouterHarnessClient::new(
+                "provider2",
+            ))),
         ),
     ];
 
@@ -352,44 +268,49 @@ fn test_filter_by_routing_hint() {
 
 #[test]
 fn test_filter_by_routing_hint_no_preference_returns_all() {
-    let providers: Vec<(String, Arc<dyn crate::common::AIClient>)> = vec![
+    let providers: Vec<(String, Arc<AiClientImpl>)> = vec![
         (
             "a".to_string(),
-            Arc::new(MockClient::new("a")) as Arc<dyn crate::common::AIClient>,
+            Arc::new(AiClientImpl::RouterHarness(RouterHarnessClient::new("a"))),
         ),
         (
             "b".to_string(),
-            Arc::new(MockClient::new("b")) as Arc<dyn crate::common::AIClient>,
+            Arc::new(AiClientImpl::RouterHarness(RouterHarnessClient::new("b"))),
         ),
     ];
     let ctx = crate::router::types::RequestContext::new(base_task());
     assert_eq!(
-        OptimizationUtils::filter_by_routing_hint(providers.clone(), &ctx).len(),
+        OptimizationUtils::filter_by_routing_hint(providers, &ctx).len(),
         2
     );
 }
 
 #[test]
 fn test_optimization_utils_sorts() {
-    let a = Arc::new(MockClient::new("a").with_prefs(RoutingPreferences {
-        priority: 10,
-        cost_tier: CostTier::High,
-        ..RoutingPreferences::default()
-    })) as Arc<dyn crate::common::AIClient>;
+    let a = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("a").with_prefs(RoutingPreferences {
+            priority: 10,
+            cost_tier: CostTier::High,
+            ..RoutingPreferences::default()
+        }),
+    ));
     let mut caps_b = AICapabilities::new();
     caps_b.add_task_type(TaskType::TextGeneration);
     caps_b.performance_metrics.avg_latency_ms = Some(500);
-    let b = Arc::new(
-        MockClient::new("b")
+    let b = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("b")
             .with_caps(caps_b)
             .with_prefs(RoutingPreferences {
                 priority: 90,
                 cost_tier: CostTier::Free,
                 ..RoutingPreferences::default()
             }),
-    ) as Arc<dyn crate::common::AIClient>;
+    ));
 
-    let v = vec![("x".to_string(), a.clone()), ("y".to_string(), b.clone())];
+    let v = vec![
+        ("x".to_string(), Arc::clone(&a)),
+        ("y".to_string(), Arc::clone(&b)),
+    ];
     let by_pri = OptimizationUtils::sort_by_priority(v.clone());
     assert_eq!(by_pri[0].0, "y");
 
@@ -403,8 +324,8 @@ fn test_optimization_utils_sorts() {
 #[test]
 fn test_provider_scorer_cost_tier_penalty_and_model_bonus() {
     let scorer = ProviderScorer::new();
-    let p = Arc::new(
-        MockClient::new("p")
+    let p = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("p")
             .with_default_model("special")
             .with_prefs(RoutingPreferences {
                 priority: 50,
@@ -412,7 +333,7 @@ fn test_provider_scorer_cost_tier_penalty_and_model_bonus() {
                 handles_sensitive_data: true,
                 ..RoutingPreferences::default()
             }),
-    ) as Arc<dyn crate::common::AIClient>;
+    ));
 
     let mut task = base_task();
     task.requires_streaming = true;
@@ -449,7 +370,7 @@ fn test_provider_scorer_cost_tier_penalty_and_model_bonus() {
 #[test]
 fn test_calculate_compatibility_and_performance_scores() {
     let scorer = ProviderScorer::new();
-    let p = Arc::new(MockClient::new("p")) as Arc<dyn crate::common::AIClient>;
+    let p = Arc::new(AiClientImpl::RouterHarness(RouterHarnessClient::new("p")));
 
     let mut task = base_task();
     task.required_model_type = Some(ModelType::LargeLanguageModel);
@@ -467,7 +388,9 @@ fn test_calculate_compatibility_and_performance_scores() {
         success_rate: Some(0.95),
         ..Default::default()
     };
-    let p2 = Arc::new(MockClient::new("p2").with_caps(caps)) as Arc<dyn crate::common::AIClient>;
+    let p2 = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("p2").with_caps(caps),
+    ));
     let perf = scorer.calculate_performance_score(&p2);
     assert!((0.0..=1.0).contains(&perf));
 }

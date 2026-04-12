@@ -2,16 +2,17 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use super::*;
+use crate::AiClientImpl;
+use crate::common::MockAIClient;
 use crate::common::capability::{
     AICapabilities, AITask, CostTier, ModelType, RoutingPreferences, SecurityRequirements, TaskType,
 };
 use crate::common::types::{ChatChoice, ChatRequest, ChatResponseChunk, MessageRole};
-use crate::common::{AIClient, MockAIClient};
+use crate::router::harness::RouterHarnessClient;
 use crate::router::types::{
     MCPInterface, NodeId, RemoteAIRequest, RemoteAIResponse, RemoteAIResponseStream, RouterConfig,
     RoutingHint, RoutingStrategy,
 };
-use async_trait::async_trait;
 use futures::Stream;
 use std::collections::HashMap;
 use std::pin::Pin;
@@ -40,111 +41,6 @@ fn request_context(task: AITask) -> RequestContext {
         routing_hint: None,
         task,
         timestamp: std::time::Instant::now(),
-    }
-}
-
-/// Configurable test double for routing strategy coverage (mirrors `optimization` tests).
-#[derive(Debug, Clone)]
-struct TestClient {
-    name: String,
-    caps: AICapabilities,
-    prefs: RoutingPreferences,
-    default_model: String,
-    chat_ok: bool,
-}
-
-impl TestClient {
-    fn new(name: &str) -> Self {
-        let mut caps = AICapabilities::new();
-        caps.add_task_type(TaskType::TextGeneration);
-        caps.add_model_type(ModelType::LargeLanguageModel);
-        caps.max_context_size = 8192;
-        caps.supports_streaming = true;
-        caps.supports_function_calling = true;
-        caps.supports_tool_use = true;
-        caps.performance_metrics.avg_latency_ms = Some(100);
-        Self {
-            name: name.to_string(),
-            caps,
-            prefs: RoutingPreferences::default(),
-            default_model: "mock-model".to_string(),
-            chat_ok: true,
-        }
-    }
-
-    fn with_prefs(mut self, prefs: RoutingPreferences) -> Self {
-        self.prefs = prefs;
-        self
-    }
-
-    fn with_caps(mut self, caps: AICapabilities) -> Self {
-        self.caps = caps;
-        self
-    }
-
-    fn with_chat_ok(mut self, ok: bool) -> Self {
-        self.chat_ok = ok;
-        self
-    }
-}
-
-#[async_trait]
-impl AIClient for TestClient {
-    async fn get_capabilities(&self, _model: &str) -> Result<AICapabilities> {
-        Ok(self.caps.clone())
-    }
-
-    fn capabilities(&self) -> AICapabilities {
-        self.caps.clone()
-    }
-
-    fn routing_preferences(&self) -> RoutingPreferences {
-        self.prefs.clone()
-    }
-
-    fn provider_name(&self) -> &str {
-        &self.name
-    }
-
-    async fn is_available(&self) -> bool {
-        true
-    }
-
-    fn default_model(&self) -> &str {
-        &self.default_model
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    async fn list_models(&self) -> Result<Vec<String>> {
-        Ok(vec![format!("{}-model", self.name)])
-    }
-
-    async fn chat(&self, _request: ChatRequest) -> Result<crate::common::ChatResponse> {
-        if !self.chat_ok {
-            return Err(Error::Configuration("chat failed".to_string()));
-        }
-        Ok(crate::common::ChatResponse {
-            id: "mock-response".to_string(),
-            model: self.default_model.clone(),
-            choices: vec![ChatChoice {
-                index: 0,
-                role: MessageRole::Assistant,
-                content: Some("ok".to_string()),
-                finish_reason: Some("stop".to_string()),
-                tool_calls: None,
-            }],
-            usage: None,
-        })
-    }
-
-    async fn chat_stream(&self, request: ChatRequest) -> Result<crate::common::ChatResponseStream> {
-        self.chat(request).await?;
-        Err(Error::Configuration(
-            "stream unsupported in TestClient".to_string(),
-        ))
     }
 }
 
@@ -204,7 +100,10 @@ impl MCPInterface for RecordingMcp {
 }
 
 fn register_text_provider<M: MCPInterface>(router: &AIRouter<M>, id: &str) -> Result<()> {
-    router.register_provider(id, Arc::new(TestClient::new(id)))
+    router.register_provider(
+        id,
+        Arc::new(AiClientImpl::RouterHarness(RouterHarnessClient::new(id))),
+    )
 }
 
 #[tokio::test]
@@ -225,14 +124,18 @@ async fn process_request_first_match_and_highest_priority() {
     let mut cfg = RouterConfig::default();
     cfg.routing_strategy = RoutingStrategy::HighestPriority;
     let router = AIRouter::new(cfg);
-    let low = Arc::new(TestClient::new("low").with_prefs(RoutingPreferences {
-        priority: 10,
-        ..RoutingPreferences::default()
-    })) as Arc<dyn AIClient>;
-    let high = Arc::new(TestClient::new("high").with_prefs(RoutingPreferences {
-        priority: 99,
-        ..RoutingPreferences::default()
-    })) as Arc<dyn AIClient>;
+    let low = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("low").with_prefs(RoutingPreferences {
+            priority: 10,
+            ..RoutingPreferences::default()
+        }),
+    ));
+    let high = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("high").with_prefs(RoutingPreferences {
+            priority: 99,
+            ..RoutingPreferences::default()
+        }),
+    ));
     router
         .register_provider("low", low)
         .expect("should succeed");
@@ -267,13 +170,17 @@ async fn process_request_lowest_latency_and_lowest_cost() {
     router
         .register_provider(
             "slow",
-            Arc::new(TestClient::new("slow").with_caps(slow_caps)),
+            Arc::new(AiClientImpl::RouterHarness(
+                RouterHarnessClient::new("slow").with_caps(slow_caps),
+            )),
         )
         .expect("should succeed");
     router
         .register_provider(
             "fast",
-            Arc::new(TestClient::new("fast").with_caps(fast_caps)),
+            Arc::new(AiClientImpl::RouterHarness(
+                RouterHarnessClient::new("fast").with_caps(fast_caps),
+            )),
         )
         .expect("should succeed");
 
@@ -288,14 +195,18 @@ async fn process_request_lowest_latency_and_lowest_cost() {
     let mut cfg = RouterConfig::default();
     cfg.routing_strategy = RoutingStrategy::LowestCost;
     let router = AIRouter::new(cfg);
-    let cheap = Arc::new(TestClient::new("cheap").with_prefs(RoutingPreferences {
-        cost_tier: CostTier::Free,
-        ..RoutingPreferences::default()
-    })) as Arc<dyn AIClient>;
-    let pricey = Arc::new(TestClient::new("pricey").with_prefs(RoutingPreferences {
-        cost_tier: CostTier::High,
-        ..RoutingPreferences::default()
-    })) as Arc<dyn AIClient>;
+    let cheap = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("cheap").with_prefs(RoutingPreferences {
+            cost_tier: CostTier::Free,
+            ..RoutingPreferences::default()
+        }),
+    ));
+    let pricey = Arc::new(AiClientImpl::RouterHarness(
+        RouterHarnessClient::new("pricey").with_prefs(RoutingPreferences {
+            cost_tier: CostTier::High,
+            ..RoutingPreferences::default()
+        }),
+    ));
     router
         .register_provider("cheap", cheap)
         .expect("should succeed");
@@ -515,7 +426,10 @@ async fn remote_blocked_by_routing_hint() {
 async fn process_stream_uses_registered_provider() {
     let router = AIRouter::new(RouterConfig::default());
     router
-        .register_provider("m", Arc::new(MockAIClient::new().with_latency(0)))
+        .register_provider(
+            "m",
+            Arc::new(AiClientImpl::Mock(MockAIClient::new().with_latency(0))),
+        )
         .expect("should succeed");
 
     let _stream = router
@@ -555,7 +469,7 @@ async fn process_stream_remote_path() {
 #[test]
 fn select_provider_for_task_exposes_selector() {
     let router = AIRouter::new(RouterConfig::default());
-    let p = Arc::new(TestClient::new("one")) as Arc<dyn AIClient>;
+    let p = Arc::new(AiClientImpl::RouterHarness(RouterHarnessClient::new("one")));
     let out = router
         .select_provider_for_task(
             vec![("one".to_string(), p)],
@@ -571,7 +485,10 @@ async fn stats_success_failure_and_reset() {
     cfg.routing_strategy = RoutingStrategy::FirstMatch;
     let mut router = AIRouter::new(cfg);
     router
-        .register_provider("ok", Arc::new(TestClient::new("ok")))
+        .register_provider(
+            "ok",
+            Arc::new(AiClientImpl::RouterHarness(RouterHarnessClient::new("ok"))),
+        )
         .expect("should succeed");
 
     // First request succeeds (only "ok" is registered for TextGeneration)
@@ -586,7 +503,12 @@ async fn stats_success_failure_and_reset() {
     // Second request uses ImageGeneration (no provider matches), falls through
     // to default_provider "bad" which fails
     router
-        .register_provider("bad", Arc::new(TestClient::new("bad").with_chat_ok(false)))
+        .register_provider(
+            "bad",
+            Arc::new(AiClientImpl::RouterHarness(
+                RouterHarnessClient::new("bad").with_chat_ok(false),
+            )),
+        )
         .expect("should succeed");
     let mut task = base_task();
     task.task_type = TaskType::ImageGeneration;
@@ -611,7 +533,10 @@ async fn stats_success_failure_and_reset() {
 fn unregister_and_list_providers() {
     let router = AIRouter::new(RouterConfig::default());
     router
-        .register_provider("z", Arc::new(TestClient::new("z")))
+        .register_provider(
+            "z",
+            Arc::new(AiClientImpl::RouterHarness(RouterHarnessClient::new("z"))),
+        )
         .expect("should succeed");
     assert!(router.has_provider("z"));
     router.unregister_provider("z").expect("should succeed");

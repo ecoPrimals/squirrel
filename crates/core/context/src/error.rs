@@ -70,6 +70,12 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for ContextError {
     }
 }
 
+impl From<anyhow::Error> for ContextError {
+    fn from(err: anyhow::Error) -> Self {
+        ContextError::Other(err.to_string())
+    }
+}
+
 #[cfg(test)]
 #[expect(
     clippy::unnecessary_literal_unwrap,

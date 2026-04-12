@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// ORC-Notice: AI coordination mechanics licensed under ORC
+// ORC-Notice: Core coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
@@ -225,6 +225,12 @@ async fn run_server(
         path
     };
 
+    // Normalize relative deploy/config paths (e.g. `squirrel.sock`) to `$XDG_RUNTIME_DIR/biomeos/...`
+    // or `/tmp/biomeos/...` so filesystem sockets match biomeOS composition scanning.
+    let socket_path = unix_socket::resolve_socket_path_for_ipc(&socket_path)
+        .to_string_lossy()
+        .into_owned();
+
     // Daemon mode: re-exec as a detached child with stdio closed.
     // The child sees SQUIRREL_DAEMONIZED=1 and skips re-exec.
     if daemon && std::env::var("SQUIRREL_DAEMONIZED").is_err() {
@@ -234,7 +240,10 @@ async fn run_server(
     info!("Starting JSON-RPC server...");
     info!("Socket: {socket_path}");
     if let Some(p) = port {
-        info!("Port: {p} (TCP JSON-RPC on 127.0.0.1:{p})");
+        info!(
+            "Port: {p} (TCP JSON-RPC on {}:{p})",
+            universal_constants::network::LOCALHOST_IPV4
+        );
     } else {
         info!("UDS-only mode (no TCP listener)");
     }

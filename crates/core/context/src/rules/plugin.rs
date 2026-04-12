@@ -12,7 +12,7 @@ use tokio::sync::RwLock;
 use super::ContextAdapterDyn;
 use super::ContextPlugin;
 use super::error::{Result, RuleError};
-use squirrel_interfaces::context::ContextTransformation;
+use squirrel_interfaces::context::DynContextTransformation;
 
 /// Rule plugin manager for managing custom conditions and actions
 #[derive(Debug)]
@@ -81,7 +81,7 @@ impl RulePluginManager {
     }
 
     /// Get a transformation by ID
-    pub async fn get_transformation(&self, id: &str) -> Result<Arc<dyn ContextTransformation>> {
+    pub async fn get_transformation(&self, id: &str) -> Result<Arc<dyn DynContextTransformation>> {
         self.core_plugin_manager
             .get_transformation(id)
             .await

@@ -167,8 +167,8 @@ async fn test_message_flow_integration() {
 /// Test client with custom configuration
 #[tokio::test]
 async fn test_client_with_custom_config() {
-    let client = McpClient::with_server_url("ws://custom.example.com:8080");
-    assert_eq!(client.config.server_url, "ws://custom.example.com:8080");
+    let client = McpClient::with_server_url("unix:///tmp/custom-mcp-test.sock");
+    assert_eq!(client.config.server_url, "unix:///tmp/custom-mcp-test.sock");
     assert_eq!(client.state, ConnectionState::Disconnected);
 }
 

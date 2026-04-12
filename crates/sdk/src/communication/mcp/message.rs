@@ -37,7 +37,7 @@ impl MessageHandler {
 
     /// Send a message through the connection
     ///
-    /// Serializes the message and sends it through the WebSocket connection.
+    /// Serializes the message and sends it through the MCP transport (IPC or WASM WebSocket).
     ///
     /// # Arguments
     ///
@@ -88,7 +88,7 @@ impl MessageHandler {
 
     /// Handle an incoming message
     ///
-    /// Deserializes and processes incoming messages from the WebSocket connection.
+    /// Deserializes and processes incoming messages from the MCP transport.
     ///
     /// # Arguments
     ///

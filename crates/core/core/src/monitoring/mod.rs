@@ -27,7 +27,7 @@ mod types;
 
 pub use config::{FallbackConfig, MonitoringConfig, MonitoringServiceConfig};
 pub use fallback::FallbackLogger;
-pub use monitoring_provider::MonitoringServiceProvider;
+pub use monitoring_provider::{MonitoringProviderImpl, MonitoringServiceProvider};
 pub use service::MonitoringService;
 pub use types::{
     Metric, MetricValue, MonitoringCapability, MonitoringEvent, MonitoringProvider,

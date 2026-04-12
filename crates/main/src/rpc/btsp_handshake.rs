@@ -8,8 +8,8 @@
 //! must complete the 4-step challenge-response before any JSON-RPC frames are
 //! processed.
 //!
-//! The handshake crypto is delegated to BearDog's `btsp.session.*` JSON-RPC
-//! methods (handshake-as-a-service). Squirrel does not hold the family seed.
+//! The handshake crypto is delegated to the BTSP provider's `btsp.session.*` JSON-RPC
+//! methods (handshake-as-a-service; typically the security primal). Squirrel does not hold the family seed.
 //!
 //! ## Wire format
 //!
@@ -22,9 +22,9 @@
 //!
 //! ```text
 //! Client ──ClientHello──▶ Server
-//! Client ◀──ServerHello── Server  (via BearDog btsp.session.create)
+//! Client ◀──ServerHello── Server  (via BTSP provider btsp.session.create)
 //! Client ──ChallengeResp─▶ Server
-//! Server verifies via BearDog btsp.session.verify
+//! Server verifies via BTSP provider btsp.session.verify
 //! Client ◀──Complete───── Server
 //! ═══ Authenticated ═══
 //! ```
@@ -171,12 +171,17 @@ pub fn is_btsp_required() -> bool {
 
 // ── Provider discovery ──────────────────────────────────────────────────
 
-/// Discover the BTSP provider (BearDog) socket for handshake delegation.
+/// Discover the BTSP provider socket for handshake delegation (`btsp.session.*`).
 ///
-/// Discovery order:
-/// 1. `BTSP_PROVIDER_SOCKET` env var (biomeOS orchestration override)
-/// 2. Manifest scan for `btsp.session` capability
-/// 3. Well-known socket convention: `beardog-{family_id}.sock`
+/// Routing is **capability- and env-first** (not “connect to BearDog by name”):
+///
+/// 1. `BTSP_PROVIDER_SOCKET` — explicit path (orchestration override)
+/// 2. `BTSP_CAPABILITY_SOCKET` — explicit path (capability-first; same role as tier-1 overrides elsewhere)
+/// 3. `SECURITY_SOCKET` — shared with the security/crypto IPC stack
+/// 4. `BEARDOG_SOCKET` — **legacy** filename compatibility only (same endpoint as security in many deployments)
+/// 5. Manifest scan for any `btsp.*` capability with a socket path
+/// 6. Well-known basename under [`universal_constants::network::get_socket_dir`] using
+///    [`primal_names::BEARDOG`] only for **on-disk legacy layout** (`{stem}.sock` / `{stem}-{family}.sock`)
 fn discover_btsp_provider() -> Result<PathBuf, BtspError> {
     if let Ok(path) = std::env::var("BTSP_PROVIDER_SOCKET") {
         let p = PathBuf::from(&path);
@@ -185,6 +190,37 @@ fn discover_btsp_provider() -> Result<PathBuf, BtspError> {
             return Ok(p);
         }
         warn!(path = %path, "BTSP_PROVIDER_SOCKET set but socket does not exist");
+    }
+
+    if let Ok(path) = std::env::var("BTSP_CAPABILITY_SOCKET")
+        && !path.is_empty()
+    {
+        let p = PathBuf::from(&path);
+        if p.exists() {
+            debug!(path = %p.display(), "BTSP provider from BTSP_CAPABILITY_SOCKET");
+            return Ok(p);
+        }
+        warn!(path = %p.display(), "BTSP_CAPABILITY_SOCKET set but socket does not exist");
+    }
+
+    if let Ok(path) = std::env::var("SECURITY_SOCKET")
+        && !path.is_empty()
+    {
+        let p = PathBuf::from(path);
+        if p.exists() {
+            debug!(path = %p.display(), "BTSP provider from SECURITY_SOCKET");
+            return Ok(p);
+        }
+    }
+
+    if let Ok(path) = std::env::var("BEARDOG_SOCKET")
+        && !path.is_empty()
+    {
+        let p = PathBuf::from(path);
+        if p.exists() {
+            debug!(path = %p.display(), "BTSP provider from legacy BEARDOG_SOCKET");
+            return Ok(p);
+        }
     }
 
     let manifests = universal_patterns::manifest_discovery::discover_manifests();
@@ -202,24 +238,22 @@ fn discover_btsp_provider() -> Result<PathBuf, BtspError> {
 
     let family_id = super::unix_socket::get_family_id();
     let socket_dir = universal_constants::network::get_socket_dir();
-    let candidates = if family_id.is_empty() || family_id == "default" {
-        vec!["beardog.sock".to_string()]
+    let stem = universal_constants::primal_names::BEARDOG;
+    let candidates: Vec<String> = if family_id.is_empty() || family_id == "default" {
+        vec![format!("{stem}.sock")]
     } else {
-        vec![
-            format!("beardog-{family_id}.sock"),
-            "beardog.sock".to_string(),
-        ]
+        vec![format!("{stem}-{family_id}.sock"), format!("{stem}.sock")]
     };
     for name in &candidates {
         let path = socket_dir.join(name);
         if path.exists() {
-            debug!(path = %path.display(), "BTSP provider from well-known path");
+            debug!(path = %path.display(), "BTSP provider from well-known path (legacy basename)");
             return Ok(path);
         }
     }
 
     Err(BtspError::ProviderUnavailable(
-        "no BTSP provider socket found (is BearDog running?)".into(),
+        "no BTSP provider socket found (set BTSP_PROVIDER_SOCKET, BTSP_CAPABILITY_SOCKET, SECURITY_SOCKET, or use manifest discovery)".into(),
     ))
 }
 
@@ -227,7 +261,7 @@ fn discover_btsp_provider() -> Result<PathBuf, BtspError> {
 
 /// Run the full BTSP handshake on an accepted connection (server side).
 ///
-/// Delegates crypto to BearDog via `btsp.session.create` and
+/// Delegates crypto to the BTSP provider via `btsp.session.create` and
 /// `btsp.session.verify` JSON-RPC calls.
 ///
 /// After successful completion with `BTSP_NULL` cipher, the transport is
@@ -262,7 +296,7 @@ where
     rand::thread_rng().fill_bytes(&mut challenge_bytes);
     let challenge_b64 = BASE64.encode(challenge_bytes);
 
-    // Step 2: Call BearDog btsp.session.create
+    // Step 2: Call BTSP provider btsp.session.create
     let create_params = serde_json::json!({
         "family_seed_ref": "env:FAMILY_SEED",
         "client_ephemeral_pub": client_hello.client_ephemeral_pub,
@@ -305,7 +339,7 @@ where
         "BTSP: received ChallengeResponse"
     );
 
-    // Step 5: Call BearDog btsp.session.verify
+    // Step 5: Call BTSP provider btsp.session.verify
     let verify_params = serde_json::json!({
         "session_id": session_id,
         "client_response": challenge_resp.response,

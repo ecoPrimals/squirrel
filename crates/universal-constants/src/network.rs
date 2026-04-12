@@ -226,22 +226,44 @@ pub const DEFAULT_HTTP_PORT: u16 = 8081;
 #[deprecated(since = "3.0.0", note = "Use get_service_port(\"admin\")")]
 pub const DEFAULT_ADMIN_PORT: u16 = 8082;
 
+/// Default TCP port for metrics and Prometheus scrape endpoints (`METRICS_PORT` fallback).
+pub const DEFAULT_METRICS_LISTEN_PORT: u16 = 9090;
+
 /// Fallback metrics port (use `get_service_port("metrics")` instead)
 ///
 /// **Deprecated**: Use `get_service_port("metrics")` for runtime discovery
 #[deprecated(since = "3.0.0", note = "Use get_service_port(\"metrics\")")]
-pub const DEFAULT_METRICS_PORT: u16 = 9090;
+pub const DEFAULT_METRICS_PORT: u16 = DEFAULT_METRICS_LISTEN_PORT;
+
+/// Default TCP port for Consul-style service discovery listens (`discovery` service fallback).
+pub const DEFAULT_DISCOVERY_LISTEN_PORT: u16 = 8500;
 
 /// Fallback discovery port (use `get_service_port("discovery")` instead)
 ///
 /// **Deprecated**: Use `get_service_port("discovery")` for runtime discovery
 #[deprecated(since = "3.0.0", note = "Use get_service_port(\"discovery\")")]
-pub const DEFAULT_DISCOVERY_PORT: u16 = 8500;
+pub const DEFAULT_DISCOVERY_PORT: u16 = DEFAULT_DISCOVERY_LISTEN_PORT;
 
 /// Legacy security port constant — prefer [`crate::deployment::ports::security_service`].
 ///
 /// Squirrel must not treat this as another primal’s fixed port; capability discovery applies.
 pub const DEFAULT_SECURITY_PORT: u16 = 8443;
+
+/// Default TCP listen port for CLI MCP server (`MCP_PORT` fallback in `squirrel-cli`).
+///
+/// Aligns with [`crate::deployment::ports::service_mesh`] default when coordinating mesh discovery.
+pub const DEFAULT_CLI_MCP_PORT: u16 = 8444;
+
+/// Default port for Ollama local inference API (`OLLAMA_PORT` fallback).
+///
+/// See [`crate::deployment::ports::ollama`].
+pub const DEFAULT_OLLAMA_PORT: u16 = 11434;
+
+/// Default base port for medium-memory biomeOS agent deployments.
+pub const DEFAULT_AGENT_DEPLOY_BASE_PORT_MEDIUM: u16 = 8085;
+
+/// Default base port for high-memory biomeOS agent deployments.
+pub const DEFAULT_AGENT_DEPLOY_BASE_PORT_HIGH: u16 = 8090;
 
 /// Legacy gRPC port constant — gRPC fully removed, kept only for config deserialization compat
 pub const DEFAULT_GRPC_PORT: u16 = 50051;
@@ -538,6 +560,12 @@ mod tests {
         assert_eq!(super::default_api_bind_addr(), "0.0.0.0:8080");
         assert_eq!(super::DEFAULT_JSON_RPC_PORT, 8080);
         assert_eq!(super::DEFAULT_BIOMEOS_PORT, 5000);
+        assert_eq!(super::DEFAULT_OLLAMA_PORT, 11434);
+        assert_eq!(super::DEFAULT_CLI_MCP_PORT, 8444);
+        assert_eq!(super::DEFAULT_AGENT_DEPLOY_BASE_PORT_MEDIUM, 8085);
+        assert_eq!(super::DEFAULT_AGENT_DEPLOY_BASE_PORT_HIGH, 8090);
+        assert_eq!(super::DEFAULT_METRICS_LISTEN_PORT, 9090);
+        assert_eq!(super::DEFAULT_DISCOVERY_LISTEN_PORT, 8500);
     }
 
     #[test]

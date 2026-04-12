@@ -33,7 +33,7 @@ use tokio::sync::RwLock;
 use anyhow::Result;
 use squirrel_context::ContextError as GenericContextError;
 use squirrel_interfaces::context::{
-    AdapterMetadata, ContextAdapterPlugin, ContextPlugin, ContextTransformation,
+    AdapterMetadata, DynContextAdapterPlugin, DynContextPlugin, DynContextTransformation,
 };
 use universal_constants::{limits, timeouts};
 
@@ -188,9 +188,9 @@ pub struct ContextAdapter {
     /// Plugin manager for transformations and format adapters
     plugin_manager: Option<Arc<squirrel_context::plugins::ContextPluginManager>>,
     /// Transformation cache for quick lookup
-    transformations: Arc<RwLock<HashMap<String, Arc<dyn ContextTransformation>>>>,
+    transformations: Arc<RwLock<HashMap<String, Arc<dyn DynContextTransformation>>>>,
     /// Adapter cache for quick lookup
-    adapters: Arc<RwLock<HashMap<String, Arc<dyn ContextAdapterPlugin>>>>,
+    adapters: Arc<RwLock<HashMap<String, Arc<dyn DynContextAdapterPlugin>>>>,
 }
 
 impl ContextAdapter {
@@ -255,7 +255,7 @@ impl ContextAdapter {
     /// # Errors
     ///
     /// Returns an error if plugin registration fails.
-    pub async fn register_plugin(&self, plugin: Box<dyn ContextPlugin>) -> Result<()> {
+    pub async fn register_plugin(&self, plugin: Box<dyn DynContextPlugin>) -> Result<()> {
         if let Some(plugin_manager) = &self.plugin_manager {
             plugin_manager.register_plugin(plugin).await.map_err(|e| {
                 anyhow::anyhow!(ContextAdapterError::OperationFailed(format!(
@@ -413,7 +413,7 @@ impl ContextAdapter {
             // For now, we'll use a simple check if any transformation supports validation
             let transformations = self.transformations.read().await;
             for (_id, transformation) in transformations.iter() {
-                // We cannot directly downcast Arc<dyn ContextTransformation> to Box<dyn ContextPlugin>
+                // We cannot directly downcast Arc<dyn DynContextTransformation> to plugin state
                 // Instead, let's use a simple validation check based on the transformation's ID
                 if transformation.get_id().starts_with("validation.") {
                     // This is a simplified implementation - in a real scenario, we'd have a dedicated validation method

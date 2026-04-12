@@ -10,7 +10,7 @@
 //!
 //! - **Types**: Core data structures for MCP messages, capabilities, and state
 //! - **Client**: Main client implementation with connection lifecycle management
-//! - **Connection**: WebSocket connection handling and management
+//! - **Connection**: Unix socket IPC (JSON-RPC) or browser WebSocket (WASM)
 //! - **Message**: Message serialization, deserialization, and processing
 //! - **Operations**: High-level MCP operations (tools, resources, prompts)
 //!

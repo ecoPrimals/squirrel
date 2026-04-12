@@ -3,8 +3,7 @@
 
 //! Integration tests for MCP auth (`integration-tests` feature).
 
-// Integration tests gated behind `integration-tests` feature — requires http-auth
-// for AuthService, which depends on reqwest/network access.
+// Integration tests gated behind `integration-tests` feature — requires http-auth for AuthService, which depends on reqwest/network access.
 #[cfg(not(feature = "integration-tests"))]
 #[tokio::test]
 async fn placeholder_auth_tests_disabled() {}

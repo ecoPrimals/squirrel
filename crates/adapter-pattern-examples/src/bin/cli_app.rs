@@ -10,7 +10,6 @@ use adapter_pattern_examples::{
     Auth, Command, CommandAdapter, CommandError, CommandResult, McpAdapter, RegistryAdapter,
     UserRole,
 };
-use async_trait::async_trait;
 use std::env;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -33,7 +32,6 @@ impl VersionCommand {
     }
 }
 
-#[async_trait]
 impl Command for VersionCommand {
     fn name(&self) -> &str {
         &self.name
@@ -66,7 +64,6 @@ impl HelpCommand {
     }
 }
 
-#[async_trait]
 impl Command for HelpCommand {
     fn name(&self) -> &str {
         &self.name
@@ -123,7 +120,6 @@ impl EchoCommand {
     }
 }
 
-#[async_trait]
 impl Command for EchoCommand {
     fn name(&self) -> &str {
         &self.name
@@ -157,7 +153,6 @@ impl GreetCommand {
     }
 }
 
-#[async_trait]
 impl Command for GreetCommand {
     fn name(&self) -> &str {
         &self.name
@@ -208,7 +203,6 @@ impl SecureCommand {
     }
 }
 
-#[async_trait]
 impl Command for SecureCommand {
     fn name(&self) -> &str {
         &self.name

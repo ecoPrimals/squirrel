@@ -29,18 +29,6 @@ mod tests {
         })
     }
 
-    // Helper function commented out as unused currently
-    // /// Helper to create a simple test rule
-    // fn test_rule(id: &str, conditions: Vec<RuleCondition>) -> Rule {
-    //     Rule::new(id)
-    //         .with_name("Test Rule")
-    //         .with_description("A test rule")
-    //         .with_condition(RuleCondition::Equals {
-    //             path: "user.name".to_string(),
-    //             value: json!("Test User"),
-    //         })
-    // }
-
     #[tokio::test]
     async fn test_evaluator_creation() {
         let evaluator = RuleEvaluator::new();

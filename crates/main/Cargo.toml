@@ -90,7 +90,6 @@ metrics-exporter-prometheus = { workspace = true, optional = true }
 
 # Benchmarking (optional)
 criterion = { workspace = true, optional = true }
-iai = { workspace = true, optional = true }
 
 # GPU detection (optional — production delegates to ToadStool)
 nvml-wrapper = { workspace = true, optional = true }
@@ -114,7 +113,7 @@ tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]  # High-performance binary RPC (
 # Optional features
 system-metrics = []  # Uses universal_constants::sys_info (pure Rust, /proc on Linux)
 monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]  # Metrics (optional)
-benchmarking = ["criterion", "iai"]     # Benchmarking tools
+benchmarking = ["criterion"]             # Benchmarking tools
 enhanced_error_handling = []                     # Enhanced error handling
 optimizations = []                               # Performance optimizations
 ## Enable deprecated vendor-specific AI adapters (Anthropic, OpenAI).

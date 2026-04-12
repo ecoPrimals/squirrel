@@ -50,6 +50,8 @@ pub struct SquirrelConfig {
 pub struct ServerConfig {
     /// Socket path override. When `None`, use `squirrel::rpc::unix_socket::get_socket_path(node_id)`
     /// for runtime discovery (XDG, env vars, capability-based).
+    /// Relative values (e.g. `squirrel.sock` from deploy graphs) resolve under the biomeOS socket
+    /// directory at startup — see `unix_socket::resolve_socket_path_for_ipc`.
     pub socket: Option<String>,
 
     /// Bind address — retained for config-file backward compatibility.

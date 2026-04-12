@@ -53,8 +53,8 @@ impl DiscoveryOps {
     ///
     /// 2. **Service Discovery Systems** (Production)
     ///    - `SERVICE_DISCOVERY_URL` - Registry endpoint (Consul, etcd, etc.)
-    ///    - Queries by capability, not by primal name
-    ///    - Example: Query for "service-mesh" capability, not "songbird"
+    ///    - Queries by capability, not by marketing primal name
+    ///    - Example: Query for `service-mesh` / `security` capability identifiers
     ///
     /// 3. **Configuration File** (Optional)
     ///    - `SQUIRREL_CONFIG` - Path to config file with service endpoints
@@ -90,9 +90,8 @@ impl DiscoveryOps {
                 discovery_url,
                 primal_type
             );
-            // In production, this would query a service registry by capability
-            // Example: Query for services with "security" capability, not "beardog"
-            return format!("{}/{}", discovery_url, primal_type.service_name());
+            // Registry path uses capability id (not primal product name)
+            return format!("{}/{}", discovery_url, primal_type.capability());
         }
 
         // 3. Try configuration file
@@ -133,7 +132,7 @@ impl DiscoveryOps {
         // Future: Configuration file parsing for service endpoints
         // Currently uses environment variables and discovery
         // This would read from TOML/JSON/YAML config file
-        // Example: { "endpoints": { "security": "https://beardog.example.com" } }
+        // Example: { "endpoints": { "security": "https://security.example.com" } }
         Err(PrimalError::NotImplemented(
             "Configuration file parsing not yet implemented".to_string(),
         ))
@@ -150,20 +149,18 @@ impl DiscoveryOps {
     /// consistency across the ecosystem. It does NOT use hardcoded primal names,
     /// instead deriving endpoints from the capability-based primal type.
     fn get_development_default(primal_type: EcosystemPrimalType) -> String {
-        use universal_constants::{builders, network};
+        use universal_constants::builders;
+        use universal_constants::capabilities as caps;
+        use universal_constants::network;
 
-        // Map primal types to their service names for runtime port discovery
-        // All ports are discovered at runtime via environment or capability discovery
-        let port = match primal_type {
-            EcosystemPrimalType::Squirrel => network::get_service_port("http"), // Squirrel AI service
-            EcosystemPrimalType::Songbird => network::get_service_port("service_mesh"), // Service mesh
-            EcosystemPrimalType::ToadStool => network::get_service_port("compute"),     // Compute
-            EcosystemPrimalType::BearDog => network::get_service_port("security"),      // Security
-            EcosystemPrimalType::NestGate => network::get_service_port("storage"),      // Storage
-            EcosystemPrimalType::BiomeOS => network::get_service_port("ui"),            // UI
+        // Port lookup follows capability ids (hyphenated in constants; get_service_port normalizes).
+        let svc_for_port = match primal_type.capability() {
+            c if c == caps::SELF_PRIMAL_NAME => "http",
+            c if c == caps::ECOSYSTEM_CAPABILITY => "ui",
+            c => c,
         };
+        let port = network::get_service_port(svc_for_port);
 
-        // Use builder functions from universal-constants for consistency
         builders::localhost_http(port)
     }
 

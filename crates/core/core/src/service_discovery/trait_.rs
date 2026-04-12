@@ -6,8 +6,6 @@
 //! This module defines the core service discovery trait that all implementations
 //! must follow.
 
-use async_trait::async_trait;
-
 use super::types::{
     ServiceDefinition, ServiceHealthStatus, ServiceQuery, ServiceStats, ServiceType,
 };
@@ -44,7 +42,10 @@ use crate::error::CoreResult;
 /// # Ok(())
 /// # }
 /// ```
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait ServiceDiscovery: Send + Sync {
     /// Register a service
     ///
@@ -60,7 +61,7 @@ pub trait ServiceDiscovery: Send + Sync {
     ///
     /// ```rust
     /// # use squirrel_core::{CoreResult, ServiceDefinition, ServiceDiscovery, ServiceType};
-    /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
+    /// # async fn example(discovery: impl ServiceDiscovery) -> CoreResult<()> {
     /// let service = ServiceDefinition::new(
     ///     "my-service".to_string(),
     ///     "My Service".to_string(),
@@ -87,7 +88,7 @@ pub trait ServiceDiscovery: Send + Sync {
     ///
     /// ```rust
     /// # use squirrel_core::{CoreResult, ServiceDiscovery};
-    /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
+    /// # async fn example(discovery: impl ServiceDiscovery) -> CoreResult<()> {
     /// discovery.deregister_service("my-service").await?;
     /// # Ok(())
     /// # }
@@ -108,7 +109,7 @@ pub trait ServiceDiscovery: Send + Sync {
     ///
     /// ```rust
     /// # use squirrel_core::{CoreResult, ServiceDiscovery, ServiceQuery, ServiceType};
-    /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
+    /// # async fn example(discovery: impl ServiceDiscovery) -> CoreResult<()> {
     /// let query = ServiceQuery::new()
     ///     .with_service_type(ServiceType::AI)
     ///     .limit(10);
@@ -128,7 +129,7 @@ pub trait ServiceDiscovery: Send + Sync {
     ///
     /// ```rust
     /// # use squirrel_core::{CoreResult, ServiceDiscovery};
-    /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
+    /// # async fn example(discovery: impl ServiceDiscovery) -> CoreResult<()> {
     /// let services = discovery.get_active_services().await?;
     /// println!("Found {} active services", services.len());
     /// # Ok(())
@@ -150,7 +151,7 @@ pub trait ServiceDiscovery: Send + Sync {
     ///
     /// ```rust
     /// # use squirrel_core::{CoreResult, ServiceDiscovery};
-    /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
+    /// # async fn example(discovery: impl ServiceDiscovery) -> CoreResult<()> {
     /// if let Some(service) = discovery.get_service("my-service").await? {
     ///     println!("Found service: {}", service.name);
     /// }
@@ -175,7 +176,7 @@ pub trait ServiceDiscovery: Send + Sync {
     /// ```rust
     /// # use squirrel_core::service_discovery::ServiceHealthStatus;
     /// # use squirrel_core::{CoreResult, ServiceDiscovery};
-    /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
+    /// # async fn example(discovery: impl ServiceDiscovery) -> CoreResult<()> {
     /// discovery.update_service_health("my-service", ServiceHealthStatus::Unhealthy).await?;
     /// # Ok(())
     /// # }
@@ -203,7 +204,7 @@ pub trait ServiceDiscovery: Send + Sync {
     ///
     /// ```rust
     /// # use squirrel_core::{CoreResult, ServiceDiscovery};
-    /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
+    /// # async fn example(discovery: impl ServiceDiscovery) -> CoreResult<()> {
     /// discovery.heartbeat("my-service").await?;
     /// # Ok(())
     /// # }
@@ -220,7 +221,7 @@ pub trait ServiceDiscovery: Send + Sync {
     ///
     /// ```rust
     /// # use squirrel_core::{CoreResult, ServiceDiscovery};
-    /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
+    /// # async fn example(discovery: impl ServiceDiscovery) -> CoreResult<()> {
     /// let stats = discovery.get_service_stats().await?;
     /// println!("Total services: {}", stats.total_services);
     /// println!("Healthy services: {}", stats.healthy_services);
@@ -244,7 +245,7 @@ pub trait ServiceDiscovery: Send + Sync {
     ///
     /// ```rust
     /// # use squirrel_core::{CoreResult, ServiceDiscovery, ServiceType};
-    /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
+    /// # async fn example(discovery: impl ServiceDiscovery) -> CoreResult<()> {
     /// let ai_services = discovery.get_services_by_type(ServiceType::AI).await?;
     /// println!("Found {} AI services", ai_services.len());
     /// # Ok(())
@@ -269,7 +270,7 @@ pub trait ServiceDiscovery: Send + Sync {
     ///
     /// ```rust
     /// # use squirrel_core::{CoreResult, ServiceDiscovery};
-    /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
+    /// # async fn example(discovery: impl ServiceDiscovery) -> CoreResult<()> {
     /// let chat_services = discovery.get_services_by_capability("chat").await?;
     /// println!("Found {} services with chat capability", chat_services.len());
     /// # Ok(())

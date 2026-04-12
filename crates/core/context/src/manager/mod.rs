@@ -21,6 +21,7 @@
 //! When working with the context manager in asynchronous code, it's important to
 //! follow these same patterns to avoid potential deadlocks or performance issues.
 
+use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::Value;
 use std::sync::Arc;
@@ -29,7 +30,7 @@ use tokio::sync::RwLock;
 use crate::ContextError;
 use crate::plugins::ContextPluginManager;
 use squirrel_interfaces::context::ContextManager as InterfaceContextManager;
-use squirrel_interfaces::context::{ContextPlugin, ContextTransformation};
+use squirrel_interfaces::context::{DynContextPlugin, DynContextTransformation};
 
 /// Configuration for the context manager
 #[derive(Debug, Clone)]
@@ -96,25 +97,21 @@ impl Default for ContextManager {
 }
 
 impl InterfaceContextManager for ContextManager {
-    /// Initialize the context manager
-    async fn initialize(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn initialize(&self) -> Result<()> {
         let mut initialized = self.initialized.write().await;
         if *initialized {
             return Ok(());
         }
 
-        // Initialize plugin manager if enabled
         if self.config.enable_plugins {
             let plugin_manager = Arc::new(ContextPluginManager::new());
 
-            // Load plugins from configured paths if specified
             if let Some(paths) = &self.config.plugin_paths {
                 for path in paths {
                     plugin_manager.load_plugins_from_path(path).await?;
                 }
             }
 
-            // Store the plugin manager
             *self.plugin_manager.write().await = Some(plugin_manager);
         }
 
@@ -122,89 +119,65 @@ impl InterfaceContextManager for ContextManager {
         Ok(())
     }
 
-    /// Transform data using the specified transformation ID
-    async fn transform_data(
-        &self,
-        transformation_id: &str,
-        data: Value,
-    ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
-        // Check if initialized
+    async fn transform_data(&self, transformation_id: &str, data: Value) -> Result<Value> {
         if !*self.initialized.read().await {
-            return Err(Box::new(ContextError::NotInitialized));
+            return Err(anyhow::Error::new(ContextError::NotInitialized));
         }
 
-        // Get plugin manager
         let plugin_manager = match &*self.plugin_manager.read().await {
             Some(manager) => manager.clone(),
-            None => return Err(Box::new(ContextError::PluginsDisabled)),
+            None => return Err(anyhow::Error::new(ContextError::PluginsDisabled)),
         };
 
-        // Transform the data
         plugin_manager
             .transform(transformation_id, data)
             .await
-            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+            .map_err(anyhow::Error::new)
     }
 
-    /// Get all available transformations
-    async fn get_transformations(
-        &self,
-    ) -> Result<Vec<Box<dyn ContextTransformation>>, Box<dyn std::error::Error + Send + Sync>> {
-        // Check if initialized
+    async fn get_transformations(&self) -> Result<Vec<Box<dyn DynContextTransformation>>> {
         if !*self.initialized.read().await {
-            return Err(Box::new(ContextError::NotInitialized));
+            return Err(anyhow::Error::new(ContextError::NotInitialized));
         }
 
-        // Get plugin manager
         let plugin_manager = match &*self.plugin_manager.read().await {
             Some(manager) => manager.clone(),
-            None => return Err(Box::new(ContextError::PluginsDisabled)),
+            None => return Err(anyhow::Error::new(ContextError::PluginsDisabled)),
         };
 
-        // Get transformations
         let transformations = plugin_manager.get_transformations().await;
 
-        // Convert to Box<dyn ContextTransformation>
-        let mut result: Vec<Box<dyn ContextTransformation>> = Vec::new();
+        let mut result: Vec<Box<dyn DynContextTransformation>> = Vec::new();
         for t in transformations {
-            // Create a wrapper type that can be converted to Box<dyn ContextTransformation>
-            let boxed: Box<dyn ContextTransformation> = Box::new(TransformationWrapper(t));
-            result.push(boxed);
+            result.push(Box::new(TransformationWrapper(t)));
         }
 
         Ok(result)
     }
 
-    /// Register a plugin
-    async fn register_plugin(
-        &self,
-        plugin: Box<dyn ContextPlugin>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // Check if initialized
+    async fn register_plugin(&self, plugin: Box<dyn DynContextPlugin>) -> Result<()> {
         if !*self.initialized.read().await {
-            return Err(Box::new(ContextError::NotInitialized));
+            return Err(anyhow::Error::new(ContextError::NotInitialized));
         }
 
-        // Get plugin manager
         let plugin_manager = match &*self.plugin_manager.read().await {
             Some(manager) => manager.clone(),
-            None => return Err(Box::new(ContextError::PluginsDisabled)),
+            None => return Err(anyhow::Error::new(ContextError::PluginsDisabled)),
         };
 
-        // Register the plugin
         plugin_manager
             .register_plugin(plugin)
             .await
-            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+            .map_err(anyhow::Error::new)
     }
 }
 
-// A wrapper type to handle the conversion
+/// Bridges `Arc<dyn DynContextTransformation>` to `Box<dyn DynContextTransformation>` for the interface.
 #[derive(Debug)]
-struct TransformationWrapper(Arc<dyn ContextTransformation>);
+struct TransformationWrapper(Arc<dyn DynContextTransformation>);
 
 #[async_trait]
-impl ContextTransformation for TransformationWrapper {
+impl DynContextTransformation for TransformationWrapper {
     fn get_id(&self) -> &str {
         self.0.get_id()
     }
@@ -217,10 +190,7 @@ impl ContextTransformation for TransformationWrapper {
         self.0.get_description()
     }
 
-    async fn transform(
-        &self,
-        data: Value,
-    ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+    async fn transform(&self, data: Value) -> Result<Value> {
         self.0.transform(data).await
     }
 }

@@ -23,15 +23,31 @@
 //! ## biomeOS Atomic Architecture Compliance
 //!
 //! This implementation follows the standardized socket configuration required for:
-//! - Tower atomics (BearDog + Songbird)
-//! - Node atomics (BearDog + Songbird + ToadStool)
-//! - Nest atomics (BearDog + Songbird + NestGate)
-//! - NUCLEUS deployments (all atomics)
+//! - Tower atomics (security + mesh primals)
+//! - Node atomics (security + mesh + compute primals)
+//! - Nest atomics (security + mesh + storage primals)
+//! - NUCLEUS deployments (full atomic set)
 //!
 //! See: `docs/sessions/2026-01-11/BIOMEOS_SOCKET_STANDARDS.md`
 
 use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
+
+/// Resolve a socket path for IPC binding, manifest registration, and SQ-01 filesystem bind.
+///
+/// Deploy descriptors (e.g. `squirrel_deploy.toml`) often use a basename such as
+/// `squirrel.sock`. That value is interpreted relative to the biomeOS socket directory
+/// (`$XDG_RUNTIME_DIR/biomeos`, or `/tmp/biomeos` when `XDG_RUNTIME_DIR` is unset) so
+/// `readdir()`-based discovery finds a stable path. Absolute paths are unchanged.
+#[must_use]
+pub fn resolve_socket_path_for_ipc(raw: &str) -> PathBuf {
+    let p = Path::new(raw);
+    if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        universal_constants::network::get_socket_dir().join(p)
+    }
+}
 
 /// Injectable socket configuration (airSpring `SocketConfig` pattern).
 ///
@@ -170,7 +186,7 @@ pub fn get_socket_path(node_id: &str) -> String {
 /// Returns `/run/user/<uid>/biomeos/squirrel.sock` - the standardized biomeOS path
 /// that enables inter-primal discovery and NUCLEUS deployment.
 ///
-/// This path is used by all primals: BearDog, Songbird, NestGate, Toadstool, Squirrel.
+/// This directory layout is shared across ecosystem primals (same inter-process discovery convention).
 fn get_xdg_socket_path(family_id: &str) -> Option<String> {
     let uid = nix::unistd::getuid();
     let xdg_runtime_dir = format!("/run/user/{uid}");

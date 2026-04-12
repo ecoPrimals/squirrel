@@ -393,8 +393,8 @@ impl PrimalSelfKnowledge {
                 crate::discovery::mechanisms::RegistryDiscovery::new(reg_type, registry_endpoint);
 
             // Get local IP address (simplified - use first non-loopback)
-            let address =
-                std::env::var("SERVICE_ADDRESS").unwrap_or_else(|_| "127.0.0.1".to_string());
+            let address = std::env::var("SERVICE_ADDRESS")
+                .unwrap_or_else(|_| universal_constants::network::LOCALHOST_IPV4.to_string());
 
             let health_endpoint = Some("/health".to_string());
 

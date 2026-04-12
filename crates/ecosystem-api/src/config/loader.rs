@@ -10,6 +10,7 @@ use crate::traits::{
 use crate::types::{SecurityConfig, SecurityLevel};
 use std::collections::HashMap;
 use std::env;
+use universal_constants::network::BIND_ALL_INTERFACES;
 
 /// Universal configuration loader
 pub struct ConfigLoader {
@@ -61,7 +62,7 @@ impl ConfigLoader {
         let name = self.get_required_env("SERVICE_NAME")?;
         let version = env!("CARGO_PKG_VERSION").to_string();
         let description = self.get_required_env("SERVICE_DESCRIPTION")?;
-        let bind_address = self.get_env_or_default("BIND_ADDRESS", "0.0.0.0");
+        let bind_address = self.get_env_or_default("BIND_ADDRESS", BIND_ALL_INTERFACES);
         let port = self
             .get_env_or_default("PORT", "0")
             .parse::<u16>()

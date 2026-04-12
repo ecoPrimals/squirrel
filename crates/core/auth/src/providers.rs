@@ -453,6 +453,7 @@ impl EncryptionService {
         // Discover encryption service through capability adapter - no hardcoded endpoints
         let base_url = Self::discover_encryption_service_endpoint().await?;
 
+        // Prefer SECURITY_API_KEY (capability-oriented). BEARDOG_API_KEY is legacy compatibility only.
         let api_key = std::env::var("SECURITY_API_KEY")
             .or_else(|_| std::env::var("BEARDOG_API_KEY"))
             .unwrap_or_default();
@@ -587,6 +588,7 @@ impl ComplianceMonitor {
         // Discover compliance service through capability adapter - no hardcoded endpoints  
         let base_url = Self::discover_compliance_service_endpoint().await?;
 
+        // Prefer SECURITY_API_KEY (capability-oriented). BEARDOG_API_KEY is legacy compatibility only.
         let api_key = std::env::var("SECURITY_API_KEY")
             .or_else(|_| std::env::var("BEARDOG_API_KEY"))
             .unwrap_or_default();

@@ -30,8 +30,9 @@ pub mod capability_http;
 // NO reqwest, NO ring! 100% Pure Rust via ecosystem routing!
 pub mod neural_http;
 
-#[cfg(any(feature = "openai", feature = "anthropic", feature = "gemini"))]
 mod ipc_routed_providers;
+
+mod ai_client_impl;
 
 pub mod common;
 pub mod config;
@@ -39,6 +40,7 @@ pub mod error;
 pub mod router;
 
 // Re-export commonly used types
+pub use ai_client_impl::AiClientImpl;
 pub use common::{
     AIClient, ChatMessage, ChatRequest, ChatResponse, MessageRole, ModelParameters,
     RateLimiterConfig, create_provider_client,
@@ -49,6 +51,7 @@ pub use error::{Error, Result};
 /// Multi-model dispatch system for seamless AI model integration
 pub mod dispatch {
     use super::{ChatRequest, ChatResponse, Result};
+    use crate::common::AIClient;
     use crate::common::ChatResponseStream;
     use crate::common::capability::AITask;
     use crate::router::RoutingStrategy;
@@ -336,7 +339,7 @@ pub mod clients {
     use std::sync::Arc;
 
     #[cfg(any(feature = "openai", feature = "anthropic", feature = "gemini"))]
-    use crate::{AIClient, Result, ipc_routed_providers};
+    use crate::{AiClientImpl, Result, ipc_routed_providers};
 
     /// Create an OpenAI-compatible client routed through the ecosystem IPC HTTP proxy.
     ///
@@ -344,7 +347,7 @@ pub mod clients {
     ///
     /// Returns an error if the IPC-routed vendor client fails to initialize.
     #[cfg(feature = "openai")]
-    pub fn openai(api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
+    pub fn openai(api_key: impl Into<String>) -> Result<Arc<AiClientImpl>> {
         ipc_routed_providers::IpcRoutedVendorClient::try_new(
             api_key,
             ipc_routed_providers::VendorKind::OpenAI,
@@ -357,7 +360,7 @@ pub mod clients {
     ///
     /// Returns an error if the IPC-routed vendor client fails to initialize.
     #[cfg(feature = "anthropic")]
-    pub fn anthropic(api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
+    pub fn anthropic(api_key: impl Into<String>) -> Result<Arc<AiClientImpl>> {
         ipc_routed_providers::IpcRoutedVendorClient::try_new(
             api_key,
             ipc_routed_providers::VendorKind::Anthropic,
@@ -370,7 +373,7 @@ pub mod clients {
     ///
     /// Returns an error if the IPC-routed vendor client fails to initialize.
     #[cfg(feature = "gemini")]
-    pub fn gemini(api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
+    pub fn gemini(api_key: impl Into<String>) -> Result<Arc<AiClientImpl>> {
         ipc_routed_providers::IpcRoutedVendorClient::try_new(
             api_key,
             ipc_routed_providers::VendorKind::Gemini,
@@ -493,6 +496,7 @@ pub mod workflows {
 mod lib_dispatch_tests {
     use std::sync::Arc;
 
+    use crate::AiClientImpl;
     use crate::common::capability::{AITask, SecurityRequirements, TaskType};
     use crate::common::{ChatRequest, MockAIClient};
     use crate::dispatch::{DispatcherBuilder, DispatcherConfig};
@@ -539,7 +543,10 @@ mod lib_dispatch_tests {
             .build()
             .expect("build");
         d.router()
-            .register_provider("mock", Arc::new(MockAIClient::new().with_latency(0)))
+            .register_provider(
+                "mock",
+                Arc::new(AiClientImpl::Mock(MockAIClient::new().with_latency(0))),
+            )
             .expect("register");
 
         let task = AITask {
@@ -564,7 +571,10 @@ mod lib_dispatch_tests {
     async fn dispatcher_stream_and_model_preference_paths() {
         let d = DispatcherBuilder::new().build().expect("build");
         d.router()
-            .register_provider("mock", Arc::new(MockAIClient::new().with_latency(0)))
+            .register_provider(
+                "mock",
+                Arc::new(AiClientImpl::Mock(MockAIClient::new().with_latency(0))),
+            )
             .expect("register");
 
         let task = AITask::default();
@@ -604,7 +614,10 @@ mod lib_dispatch_tests {
     async fn workflows_generate_text_with_registered_provider() {
         let d = DispatcherBuilder::new().build().expect("build");
         d.router()
-            .register_provider("mock", Arc::new(MockAIClient::new().with_latency(0)))
+            .register_provider(
+                "mock",
+                Arc::new(AiClientImpl::Mock(MockAIClient::new().with_latency(0))),
+            )
             .expect("register");
         let text = crate::workflows::generate_text(&d, "hello world", false)
             .await

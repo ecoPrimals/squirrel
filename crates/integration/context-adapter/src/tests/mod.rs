@@ -440,10 +440,10 @@ async fn test_context_adapter_config() {
 
 #[cfg(test)]
 mod plugin_integration {
+    use serde_json::Value;
     use serde_json::json;
     use std::sync::Arc;
 
-    use anyhow;
     use squirrel_interfaces::plugins::Plugin;
     use squirrel_interfaces::plugins::PluginMetadata;
 
@@ -453,6 +453,7 @@ mod plugin_integration {
     use squirrel_context::plugins::ContextPluginManager;
     use squirrel_interfaces::context::{
         AdapterMetadata, ContextAdapterPlugin, ContextPlugin, ContextTransformation,
+        DynContextAdapterPlugin, DynContextTransformation,
     };
 
     // Mock ContextPlugin for testing
@@ -504,7 +505,6 @@ mod plugin_integration {
         }
     }
 
-    #[async_trait::async_trait]
     impl Plugin for MockContextPlugin {
         fn metadata(&self) -> &squirrel_interfaces::plugins::PluginMetadata {
             // Create a static metadata instance
@@ -521,34 +521,24 @@ mod plugin_integration {
 
             &METADATA
         }
-
-        async fn initialize(&self) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        async fn shutdown(&self) -> anyhow::Result<()> {
-            Ok(())
-        }
     }
 
-    #[async_trait::async_trait]
     impl ContextPlugin for MockContextPlugin {
-        async fn get_transformations(&self) -> Vec<Arc<dyn ContextTransformation>> {
+        async fn get_transformations(&self) -> Vec<Arc<dyn DynContextTransformation>> {
             self.transformations
                 .iter()
-                .map(|t| t.clone() as Arc<dyn ContextTransformation>)
+                .map(|t| Arc::clone(t) as Arc<dyn DynContextTransformation>)
                 .collect()
         }
 
-        async fn get_adapters(&self) -> Vec<Arc<dyn ContextAdapterPlugin>> {
+        async fn get_adapters(&self) -> Vec<Arc<dyn DynContextAdapterPlugin>> {
             self.adapters
                 .iter()
-                .map(|a| a.clone() as Arc<dyn ContextAdapterPlugin>)
+                .map(|a| Arc::clone(a) as Arc<dyn DynContextAdapterPlugin>)
                 .collect()
         }
     }
 
-    #[async_trait::async_trait]
     impl ContextTransformation for MockTransformation {
         fn get_id(&self) -> &str {
             &self.id
@@ -562,53 +552,35 @@ mod plugin_integration {
             &self.description
         }
 
-        async fn transform(
-            &self,
-            data: serde_json::Value,
-        ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
-            // Simply add a marker field
+        async fn transform(&self, data: Value) -> anyhow::Result<Value> {
             let mut result = data;
-            if let serde_json::Value::Object(ref mut map) = result {
+            if let Value::Object(ref mut map) = result {
                 map.insert("transformed".to_string(), json!(true));
-                map.insert("transformation_id".to_string(), json!(self.id));
+                map.insert("transformation_id".to_string(), json!(self.id.clone()));
             }
             Ok(result)
         }
     }
 
-    #[async_trait::async_trait]
     impl ContextAdapterPlugin for MockAdapterPlugin {
         async fn get_metadata(&self) -> AdapterMetadata {
             self.metadata.clone()
         }
 
-        async fn convert(
-            &self,
-            data: serde_json::Value,
-        ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
-            // Simply add a marker field
+        async fn convert(&self, data: Value) -> anyhow::Result<Value> {
             let mut result = data;
-            if let serde_json::Value::Object(ref mut map) = result {
+            if let Value::Object(ref mut map) = result {
                 map.insert("converted".to_string(), json!(true));
-                map.insert("adapter_id".to_string(), json!(self.metadata.id));
+                map.insert("adapter_id".to_string(), json!(self.metadata.id.clone()));
             }
             Ok(result)
         }
     }
 
     // Add implementation of Plugin trait for MockAdapterPlugin
-    #[async_trait::async_trait]
     impl Plugin for MockAdapterPlugin {
         fn metadata(&self) -> &PluginMetadata {
             &self.plugin_metadata
-        }
-
-        async fn initialize(&self) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        async fn shutdown(&self) -> anyhow::Result<()> {
-            Ok(())
         }
     }
 

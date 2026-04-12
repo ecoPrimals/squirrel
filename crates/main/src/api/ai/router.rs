@@ -19,7 +19,7 @@
 //! ```
 
 // Always available (production + dev)
-use super::adapters::{AiProviderAdapter, ProviderMetadata, UniversalAiAdapter};
+use super::adapters::{AiProvider, AiProviderAdapter, ProviderMetadata, UniversalAiAdapter};
 
 // Deprecated adapters (feature-gated, v0.3.0 removal planned)
 #[cfg(feature = "deprecated-adapters")]
@@ -44,7 +44,7 @@ use universal_constants::network::resolve_capability_unix_socket;
 /// AI request router
 pub struct AiRouter {
     /// Available provider adapters
-    providers: Arc<RwLock<Vec<Arc<dyn AiProviderAdapter>>>>,
+    providers: Arc<RwLock<Vec<Arc<AiProvider>>>>,
 
     /// Provider selector
     selector: Arc<ProviderSelector>,
@@ -109,13 +109,13 @@ impl AiRouter {
     ) -> Result<Self, PrimalError> {
         info!("🔍 Initializing AI router with capability-based discovery...");
 
-        let mut providers: Vec<Arc<dyn AiProviderAdapter>> = Vec::new();
+        let mut providers: Vec<Arc<AiProvider>> = Vec::new();
 
         // Overall timeout to prevent hangs during provider initialization (10s max)
         let initialization_result = tokio::time::timeout(
             std::time::Duration::from_secs(10),
             async {
-                let mut local_providers: Vec<Arc<dyn AiProviderAdapter>> = Vec::new();
+                let mut local_providers: Vec<Arc<AiProvider>> = Vec::new();
 
                 // 1. ✅ VENDOR-AGNOSTIC: Discover HTTP providers from configuration
                 // TRUE PRIMAL: Zero compile-time coupling to specific vendors
@@ -227,7 +227,7 @@ impl AiRouter {
                         ).await {
                             Ok(Ok(adapter)) => {
                                 info!("✅ Connected to provider: {}", socket_path);
-                                local_providers.push(Arc::new(adapter));
+                                local_providers.push(Arc::new(AiProvider::Universal(adapter)));
                             }
                             Ok(Err(e)) => {
                                 warn!("⚠️  Failed to connect to {}: {}", socket_path, e);
@@ -261,7 +261,7 @@ impl AiRouter {
                         {
                             Ok(Ok(adapter)) => {
                                 info!("✅ Discovered AI compute provider at {}", socket_path.as_ref());
-                                local_providers.push(Arc::new(adapter));
+                                local_providers.push(Arc::new(AiProvider::Universal(adapter)));
                                 break;
                             }
                             Ok(Err(e)) => {
@@ -274,7 +274,7 @@ impl AiRouter {
                     }
                 }
 
-                Ok::<Vec<Arc<dyn AiProviderAdapter>>, PrimalError>(local_providers)
+                Ok::<Vec<Arc<AiProvider>>, PrimalError>(local_providers)
             }
         ).await;
 
@@ -328,7 +328,7 @@ impl AiRouter {
     /// Use capability-based discovery with UniversalAiAdapter instead.
     async fn init_http_provider(
         config: &HttpAiProviderConfig,
-    ) -> Result<Option<Arc<dyn AiProviderAdapter>>, PrimalError> {
+    ) -> Result<Option<Arc<AiProvider>>, PrimalError> {
         #[cfg(not(feature = "deprecated-adapters"))]
         {
             if config.provider_id == "anthropic" || config.provider_id == "openai" {
@@ -347,7 +347,7 @@ impl AiRouter {
 
         #[cfg(feature = "deprecated-adapters")]
         {
-            let adapter_result: Result<Arc<dyn AiProviderAdapter>, PrimalError> =
+            let adapter_result: Result<Arc<AiProvider>, PrimalError> =
                 match config.provider_id.as_str() {
                     "anthropic" => {
                         // Backward compatibility: deprecated-adapters feature, v0.3.0 removal planned
@@ -356,7 +356,7 @@ impl AiRouter {
                             reason = "backward compat: AnthropicAdapter until v0.3.0 removal"
                         )]
                         match AnthropicAdapter::new() {
-                            Ok(adapter) => Ok(Arc::new(adapter) as Arc<dyn AiProviderAdapter>),
+                            Ok(adapter) => Ok(Arc::new(AiProvider::Anthropic(adapter))),
                             Err(e) => Err(e),
                         }
                     }
@@ -367,7 +367,7 @@ impl AiRouter {
                             reason = "backward compat: OpenAiAdapter until v0.3.0 removal"
                         )]
                         match OpenAiAdapter::new() {
-                            Ok(adapter) => Ok(Arc::new(adapter) as Arc<dyn AiProviderAdapter>),
+                            Ok(adapter) => Ok(Arc::new(AiProvider::OpenAi(adapter))),
                             Err(e) => Err(e),
                         }
                     }
@@ -460,13 +460,11 @@ impl AiRouter {
     /// If it is an HTTP URL, performs a TCP probe to verify the server is
     /// listening and prefers a compute-primal Unix socket (`COMPUTE_SOCKET` /
     /// tiered resolution) when present for local inference.
-    async fn probe_local_ai_endpoint(
-        endpoint: &str,
-    ) -> Result<Arc<dyn AiProviderAdapter>, PrimalError> {
+    async fn probe_local_ai_endpoint(endpoint: &str) -> Result<Arc<AiProvider>, PrimalError> {
         // Socket path — delegate directly
         if endpoint.starts_with('/') {
             let adapter = Self::create_universal_adapter_from_path(endpoint).await?;
-            return Ok(Arc::new(adapter));
+            return Ok(Arc::new(AiProvider::Universal(adapter)));
         }
 
         // HTTP URL — extract host:port and probe
@@ -499,7 +497,7 @@ impl AiRouter {
                     endpoint,
                     socket_path_str.as_ref()
                 );
-                return Ok(Arc::new(adapter));
+                return Ok(Arc::new(AiProvider::Universal(adapter)));
             }
         }
 
@@ -827,7 +825,7 @@ impl AiRouter {
     pub async fn register_remote_provider(&self, config: super::adapters::RemoteProviderConfig) {
         let adapter = super::adapters::RemoteInferenceAdapter::new(config);
         let mut providers = self.providers.write().await;
-        providers.push(adapter);
+        providers.push(Arc::new(AiProvider::RemoteInference(adapter)));
         info!(
             "Registered remote inference provider (total: {})",
             providers.len()
@@ -850,7 +848,7 @@ impl Default for AiRouter {
 #[cfg(test)]
 impl AiRouter {
     /// Construct a router with explicit adapters (unit tests only).
-    pub(crate) fn from_adapters_for_test(providers: Vec<Arc<dyn AiProviderAdapter>>) -> Self {
+    pub(crate) fn from_adapters_for_test(providers: Vec<Arc<AiProvider>>) -> Self {
         Self {
             providers: Arc::new(RwLock::new(providers)),
             selector: Arc::new(ProviderSelector::new()),

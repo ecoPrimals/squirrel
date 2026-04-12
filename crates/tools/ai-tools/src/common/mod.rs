@@ -107,7 +107,10 @@ pub use usage::TokenCounter;
 /// # Errors
 ///
 /// Always returns an error directing callers to `capability_ai::AiClient` and capability transport.
-pub fn create_provider_client(_provider: &str, _api_key: &str) -> crate::Result<Box<dyn AIClient>> {
+pub fn create_provider_client(
+    _provider: &str,
+    _api_key: &str,
+) -> crate::Result<Box<crate::AiClientImpl>> {
     // Old HTTP-based providers removed - use capability_ai::AiClient instead
     Err(universal_error::tools::AIToolsError::Configuration(
         "Old HTTP-based providers removed. Use capability_ai::AiClient::from_env() instead."

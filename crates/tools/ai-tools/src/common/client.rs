@@ -6,14 +6,16 @@
 //! This module defines the core `AIClient` trait that provides a unified interface
 //! for interacting with various AI providers (cloud APIs, local servers, etc.).
 
-use async_trait::async_trait;
-
+use crate::AiClientImpl;
 use crate::common::capability::{AICapabilities, AITask, TaskType};
 use crate::common::types::{ChatRequest, ChatResponse, ChatResponseStream};
 use crate::float_helpers;
 
 /// AI client trait for unified interface across providers
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait AIClient: Send + Sync + std::fmt::Debug + 'static {
     /// Get the provider name
     fn provider_name(&self) -> &str;
@@ -113,7 +115,6 @@ pub trait AIClient: Send + Sync + std::fmt::Debug + 'static {
 
     /// Get health score for this client
     async fn health_score(&self) -> f64 {
-        // Simple health check - providers can override with more sophisticated logic
         if self.is_available().await { 1.0 } else { 0.0 }
     }
 
@@ -132,7 +133,7 @@ pub trait AIClient: Send + Sync + std::fmt::Debug + 'static {
 /// Helper trait for client factory
 pub trait AIClientFactory {
     /// Create a new client instance
-    fn create_client(&self) -> Box<dyn AIClient>;
+    fn create_client(&self) -> Box<AiClientImpl>;
 
     /// Get the provider name
     fn provider_name(&self) -> &str;

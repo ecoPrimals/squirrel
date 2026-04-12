@@ -140,17 +140,6 @@ impl From<serde_json::Error> for PluginError {
     }
 }
 
-/// WebSocket / MCP transport errors (native targets only; `tokio-tungstenite` is not used on WASM).
-#[cfg(not(target_arch = "wasm32"))]
-impl From<tokio_tungstenite::tungstenite::Error> for PluginError {
-    fn from(error: tokio_tungstenite::tungstenite::Error) -> Self {
-        PluginError::ConnectionError {
-            endpoint: "websocket".to_string(),
-            message: error.to_string(),
-        }
-    }
-}
-
 impl From<serde_wasm_bindgen::Error> for PluginError {
     fn from(error: serde_wasm_bindgen::Error) -> Self {
         PluginError::SerializationError {
@@ -293,16 +282,8 @@ impl From<std::sync::PoisonError<std::sync::RwLockWriteGuard<'_, ()>>> for Plugi
     }
 }
 
-impl From<Box<dyn std::error::Error + Send + Sync>> for PluginError {
-    fn from(error: Box<dyn std::error::Error + Send + Sync>) -> Self {
-        PluginError::InternalError {
-            message: error.to_string(),
-        }
-    }
-}
-
-impl From<Box<dyn std::error::Error>> for PluginError {
-    fn from(error: Box<dyn std::error::Error>) -> Self {
+impl From<anyhow::Error> for PluginError {
+    fn from(error: anyhow::Error) -> Self {
         PluginError::InternalError {
             message: error.to_string(),
         }
@@ -607,13 +588,13 @@ mod tests {
     }
 
     #[test]
-    fn test_from_boxed_error() {
-        let b: Box<dyn std::error::Error + Send + Sync> = Box::new(std::io::Error::other("e"));
-        let err: PluginError = b.into();
+    fn test_from_anyhow_error() {
+        let err: PluginError = anyhow::anyhow!("e").into();
         assert!(matches!(err, PluginError::InternalError { .. }));
 
-        let b2: Box<dyn std::error::Error> = Box::new(std::io::Error::other("e"));
-        let err2: PluginError = b2.into();
+        let io_err = std::io::Error::other("e");
+        let wrapped: anyhow::Error = io_err.into();
+        let err2: PluginError = wrapped.into();
         assert!(matches!(err2, PluginError::InternalError { .. }));
     }
 

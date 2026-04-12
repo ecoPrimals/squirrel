@@ -3,6 +3,9 @@
 
 //! Core primal and ecosystem integration traits.
 
+use std::future::Future;
+use std::pin::Pin;
+
 use crate::error::{EcosystemError, UniversalResult};
 use crate::types::{
     DynamicPortInfo, EcosystemRequest, EcosystemResponse, HealthStatus, PrimalCapability,
@@ -10,13 +13,11 @@ use crate::types::{
     PrimalType, ServiceCapabilities, ServiceMeshStatus,
 };
 
-use async_trait::async_trait;
 /// Universal primal provider trait - ALL PRIMALS MUST IMPLEMENT
 ///
 /// This trait defines the standard interface for all primals in the ecosystem.
 /// It provides the foundation for service discovery, health monitoring, and
 /// inter-primal communication.
-#[async_trait]
 pub trait UniversalPrimalProvider: Send + Sync {
     /// Unique primal identifier (e.g., "squirrel", "beardog", "nestgate")
     fn primal_id(&self) -> &str;
@@ -37,22 +38,25 @@ pub trait UniversalPrimalProvider: Send + Sync {
     fn dependencies(&self) -> Vec<PrimalDependency>;
 
     /// Health check for this primal
-    async fn health_check(&self) -> PrimalHealth;
+    fn health_check(&self) -> Pin<Box<dyn Future<Output = PrimalHealth> + Send + '_>>;
 
     /// Get primal API endpoints
     fn endpoints(&self) -> PrimalEndpoints;
 
     /// Handle inter-primal communication
-    async fn handle_primal_request(
+    fn handle_primal_request(
         &self,
         request: PrimalRequest,
-    ) -> UniversalResult<PrimalResponse>;
+    ) -> Pin<Box<dyn Future<Output = UniversalResult<PrimalResponse>> + Send + '_>>;
 
     /// Initialize the primal with configuration
-    async fn initialize(&mut self, config: serde_json::Value) -> UniversalResult<()>;
+    fn initialize(
+        &mut self,
+        config: serde_json::Value,
+    ) -> Pin<Box<dyn Future<Output = UniversalResult<()>> + Send + '_>>;
 
     /// Shutdown the primal gracefully
-    async fn shutdown(&mut self) -> UniversalResult<()>;
+    fn shutdown(&mut self) -> Pin<Box<dyn Future<Output = UniversalResult<()>> + Send + '_>>;
 
     /// Check if this primal can serve the given context
     fn can_serve_context(&self, context: &PrimalContext) -> bool;
@@ -61,29 +65,36 @@ pub trait UniversalPrimalProvider: Send + Sync {
     fn dynamic_port_info(&self) -> Option<DynamicPortInfo>;
 
     /// Register with service mesh
-    async fn register_with_service_mesh(
+    fn register_with_service_mesh(
         &mut self,
         service_mesh_endpoint: &str,
-    ) -> UniversalResult<String>;
+    ) -> Pin<Box<dyn Future<Output = UniversalResult<String>> + Send + '_>>;
 
     /// Deregister from service mesh
-    async fn deregister_from_service_mesh(&mut self) -> UniversalResult<()>;
+    fn deregister_from_service_mesh(
+        &mut self,
+    ) -> Pin<Box<dyn Future<Output = UniversalResult<()>> + Send + '_>>;
 
     /// Get service mesh status
     fn get_service_mesh_status(&self) -> ServiceMeshStatus;
 
     /// Handle ecosystem request (standardized format)
-    async fn handle_ecosystem_request(
+    fn handle_ecosystem_request(
         &self,
         request: EcosystemRequest,
-    ) -> UniversalResult<EcosystemResponse>;
+    ) -> Pin<Box<dyn Future<Output = UniversalResult<EcosystemResponse>> + Send + '_>>;
 
     /// Update capabilities dynamically
-    async fn update_capabilities(&self, capabilities: Vec<PrimalCapability>)
-    -> UniversalResult<()>;
+    fn update_capabilities(
+        &self,
+        capabilities: Vec<PrimalCapability>,
+    ) -> Pin<Box<dyn Future<Output = UniversalResult<()>> + Send + '_>>;
 
     /// Report health status
-    async fn report_health(&self, health: PrimalHealth) -> UniversalResult<()>;
+    fn report_health(
+        &self,
+        health: PrimalHealth,
+    ) -> Pin<Box<dyn Future<Output = UniversalResult<()>> + Send + '_>>;
 }
 /// Ecosystem integration trait - ALL PRIMALS MUST IMPLEMENT
 ///

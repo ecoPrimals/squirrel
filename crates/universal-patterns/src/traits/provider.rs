@@ -3,7 +3,8 @@
 
 //! Primal Provider trait for songbird compatibility.
 
-use async_trait::async_trait;
+use std::future::Future;
+use std::pin::Pin;
 
 use super::{
     DynamicPortInfo, PrimalCapability, PrimalContext, PrimalDependency, PrimalEndpoints,
@@ -12,7 +13,6 @@ use super::{
 
 /// Songbird-compatible Universal Primal Provider trait
 /// This trait enables full compatibility with songbird's orchestration system
-#[async_trait]
 pub trait PrimalProvider: Send + Sync {
     /// Unique primal identifier (e.g., "beardog", "nestgate", "toadstool", "squirrel")
     fn primal_id(&self) -> &str;
@@ -33,19 +33,25 @@ pub trait PrimalProvider: Send + Sync {
     fn dependencies(&self) -> Vec<PrimalDependency>;
 
     /// Health check for this primal
-    async fn health_check(&self) -> PrimalHealth;
+    fn health_check(&self) -> Pin<Box<dyn Future<Output = PrimalHealth> + Send + '_>>;
 
     /// Get primal API endpoints
     fn endpoints(&self) -> PrimalEndpoints;
 
     /// Handle inter-primal communication
-    async fn handle_primal_request(&self, request: PrimalRequest) -> PrimalResult<PrimalResponse>;
+    fn handle_primal_request(
+        &self,
+        request: PrimalRequest,
+    ) -> Pin<Box<dyn Future<Output = PrimalResult<PrimalResponse>> + Send + '_>>;
 
     /// Initialize the primal with configuration
-    async fn initialize(&mut self, config: serde_json::Value) -> PrimalResult<()>;
+    fn initialize(
+        &mut self,
+        config: serde_json::Value,
+    ) -> Pin<Box<dyn Future<Output = PrimalResult<()>> + Send + '_>>;
 
     /// Shutdown the primal gracefully
-    async fn shutdown(&mut self) -> PrimalResult<()>;
+    fn shutdown(&mut self) -> Pin<Box<dyn Future<Output = PrimalResult<()>> + Send + '_>>;
 
     /// Check if this primal can serve the given context
     fn can_serve_context(&self, context: &PrimalContext) -> bool;

@@ -186,10 +186,13 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
     pub fn dynamic_port_info(&self) -> Option<crate::universal::DynamicPortInfo> {
         let now = chrono::Utc::now();
         Some(crate::universal::DynamicPortInfo {
-            port: 8080,
-            assigned_port: 8080,
-            current_port: 8080,
-            port_range: Some((8080, 8090)),
+            port: universal_constants::network::DEFAULT_JSON_RPC_PORT,
+            assigned_port: universal_constants::network::DEFAULT_JSON_RPC_PORT,
+            current_port: universal_constants::network::DEFAULT_JSON_RPC_PORT,
+            port_range: Some((
+                universal_constants::network::DEFAULT_JSON_RPC_PORT,
+                universal_constants::network::DEFAULT_AGENT_DEPLOY_BASE_PORT_HIGH,
+            )),
             port_type: crate::universal::PortType::Http,
             status: crate::universal::PortStatus::Active,
             assigned_at: now,

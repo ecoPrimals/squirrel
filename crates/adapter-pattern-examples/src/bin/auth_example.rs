@@ -13,7 +13,6 @@
 use adapter_pattern_examples::{
     Auth, Command, CommandError, CommandResult, McpAdapter, TestCommand, UserRole,
 };
-use async_trait::async_trait;
 use std::fmt::Debug;
 use std::io::{self, Write};
 use std::sync::Arc;
@@ -34,7 +33,6 @@ impl AdminCommand {
     }
 }
 
-#[async_trait]
 impl Command for AdminCommand {
     fn name(&self) -> &str {
         &self.name
@@ -90,7 +88,6 @@ impl UserProfileCommand {
     }
 }
 
-#[async_trait]
 impl Command for UserProfileCommand {
     fn name(&self) -> &str {
         &self.name
@@ -144,7 +141,6 @@ impl PublicInfoCommand {
     }
 }
 
-#[async_trait]
 impl Command for PublicInfoCommand {
     fn name(&self) -> &str {
         &self.name

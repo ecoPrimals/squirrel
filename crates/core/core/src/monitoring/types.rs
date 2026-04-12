@@ -4,13 +4,15 @@
 //! Monitoring domain types, events, and the provider trait.
 
 use crate::{HealthStatus, Result};
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Universal monitoring interface that abstracts over different monitoring systems.
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait MonitoringProvider: Send + Sync {
     /// Returns the provider name.
     fn provider_name(&self) -> &'static str;

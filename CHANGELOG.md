@@ -9,6 +9,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.49] - 2026-04-12
+
+Deep debt resolution, overstep cleanup, and ecoBin compliance sprint. primalSpring audit
+items resolved: inference.register_provider wire test and stable ecoBin binary.
+
+### Added
+
+- `inference.register_provider` wire test (5 tests) — success, missing params, missing
+  provider_id, duplicate registration, end-to-end routing to registered provider socket
+- Filesystem socket for `readdir()` discovery alongside abstract socket (T10 compliance)
+- `resolve_socket_path_for_ipc()` — relative paths resolve under `$XDG_RUNTIME_DIR/biomeos`
+- `BTSP_CAPABILITY_SOCKET` env var for capability-first BTSP provider discovery
+- `--remap-path-prefix` in musl release builds — zero host paths in ecoBin binary
+
+### Changed
+
+- `Box<dyn Error>` → `anyhow::Error` in production code (SDK conversions, commands error,
+  capabilities, port resolver, MCP demo binary)
+- Context traits (`ContextTransformation`, `ContextPlugin`, `ContextAdapterPlugin`) upgraded
+  to `impl Future + Send + '_` with matching implementations (fixes `refining_impl_trait_internal`)
+- `AiClientImpl::IpcRouted` boxed to reduce enum size; test-only `RouterHarness` uses
+  `cfg_attr(test, expect(clippy::large_enum_variant))`
+- BTSP handshake discovery evolved from string-literal socket probing to capability-first
+  `BTSP_CAPABILITY_SOCKET` / `SECURITY_SOCKET` with legacy fallback
+- Ecosystem registry discovery uses `capability()` for URL paths instead of product names
+- `adapter-pattern-examples` modernized: `Command` trait uses `fn -> impl Future + Send + '_`
+  with `DynCommand` bridge pattern (no `#[async_trait]` on implementable traits)
+- `load_registry()` no longer embeds `CARGO_MANIFEST_DIR` absolute path — uses CWD lookup
+  plus compiled-in embedded fallback
+
+### Removed
+
+- `sqlx` optional dependency from `rule-system` (unused overstep — T6 compliance)
+- Commented-out `test_rule` helper from `evaluator_tests.rs`
+- Redundant `.clone()` calls in ai-tools test code
+- Unfulfilled `#[allow]` / `#[expect]` cycle in `swarm.rs`
+
+### Fixed
+
+- `refining_impl_trait_internal` clippy errors on context trait implementations
+- `large_enum_variant` on `AiClientImpl` (production variant boxed)
+- `redundant_clone` in router optimization tests
+- `uninlined_format_args` in doc comments for `adapter-pattern-examples`
+- Doc warning: unresolved `[AIClient]` link in ai-tools, private `[Self::socket_path]`
+- `unused_imports` in `btsp_handshake.rs` after primal-name routing cleanup
+
+### Metrics
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Tests | 6,881 | 6,903 |
+| ecoBin host paths | 100+ `/home/` strings | 0 |
+| ecoBin binary size | 4.6 MB | 3.5 MB |
+| `Box<dyn Error>` (production) | ~30 refs | 0 (migrated to anyhow) |
+| `sqlx` dependency | optional (unused) | removed |
+| Filesystem socket | absent | present |
+| `#[allow(` in code | 2 files | 1 file (documented) |
+
 ## [0.1.0-alpha.46] - 2026-04-09
 
 Deep debt cleanup and evolution: BTSP Phase 2 handshake-on-accept, production stub evolution,

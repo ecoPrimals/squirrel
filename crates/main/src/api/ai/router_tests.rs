@@ -42,7 +42,10 @@
     deprecated
 )]
 
-use crate::api::ai::adapters::{AiProviderAdapter, QualityTier};
+use crate::api::ai::adapters::test_mocks::{
+    MockFailingImageAdapter, MockFallbackImageAdapter, MockImageOnlyAdapter, MockTextAdapter,
+};
+use crate::api::ai::adapters::{AiProvider, AiProviderAdapter, QualityTier};
 use crate::api::ai::constraints::RoutingConstraint;
 use crate::api::ai::dignity::{DignityCheckRequest, DignityEvaluator};
 use crate::api::ai::router::AiRouter;
@@ -51,152 +54,26 @@ use crate::api::ai::types::{
     TextGenerationResponse,
 };
 use crate::error::PrimalError;
-use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 
-/// Minimal adapter: text generation only (for routing tests).
-struct MockTextAdapter {
-    id: &'static str,
-    name: &'static str,
-}
-
-#[async_trait]
-impl AiProviderAdapter for MockTextAdapter {
-    fn provider_id(&self) -> &str {
-        self.id
-    }
-
-    fn provider_name(&self) -> &str {
-        self.name
-    }
-
-    fn is_local(&self) -> bool {
-        true
-    }
-
-    fn cost_per_unit(&self) -> Option<f64> {
-        Some(0.0)
-    }
-
-    fn avg_latency_ms(&self) -> u64 {
-        10
-    }
-
-    fn quality_tier(&self) -> QualityTier {
-        QualityTier::Standard
-    }
-
-    fn supports_text_generation(&self) -> bool {
-        true
-    }
-
-    fn supports_image_generation(&self) -> bool {
-        false
-    }
-
-    async fn generate_text(
-        &self,
-        request: TextGenerationRequest,
-    ) -> Result<TextGenerationResponse, PrimalError> {
-        Ok(TextGenerationResponse {
-            text: format!("echo:{}", request.prompt),
-            provider_id: self.id.to_string(),
-            model: request.model.unwrap_or_else(|| "mock".to_string()),
-            usage: None,
-            cost_usd: None,
-            latency_ms: 1,
-        })
-    }
-
-    async fn generate_image(
-        &self,
-        _request: ImageGenerationRequest,
-    ) -> Result<ImageGenerationResponse, PrimalError> {
-        Err(PrimalError::OperationFailed("mock: no image".to_string()))
-    }
-}
-
-/// Image-only adapter (no text generation).
-struct MockImageOnlyAdapter {
-    id: &'static str,
-}
-
-#[async_trait]
-impl AiProviderAdapter for MockImageOnlyAdapter {
-    fn provider_id(&self) -> &str {
-        self.id
-    }
-
-    fn provider_name(&self) -> &'static str {
-        "ImageOnly"
-    }
-
-    fn is_local(&self) -> bool {
-        true
-    }
-
-    fn cost_per_unit(&self) -> Option<f64> {
-        Some(0.01)
-    }
-
-    fn avg_latency_ms(&self) -> u64 {
-        20
-    }
-
-    fn quality_tier(&self) -> QualityTier {
-        QualityTier::Standard
-    }
-
-    fn supports_text_generation(&self) -> bool {
-        false
-    }
-
-    fn supports_image_generation(&self) -> bool {
-        true
-    }
-
-    async fn generate_text(
-        &self,
-        _request: TextGenerationRequest,
-    ) -> Result<TextGenerationResponse, PrimalError> {
-        Err(PrimalError::OperationFailed("no text".to_string()))
-    }
-
-    async fn generate_image(
-        &self,
-        _request: ImageGenerationRequest,
-    ) -> Result<ImageGenerationResponse, PrimalError> {
-        Ok(ImageGenerationResponse {
-            images: vec![GeneratedImage {
-                url: None,
-                data: None,
-                mime_type: "image/png".to_string(),
-                width: 1,
-                height: 1,
-            }],
-            provider_id: self.id.to_string(),
-            cost_usd: None,
-            latency_ms: 1,
-        })
-    }
-}
-
 #[tokio::test]
 async fn provider_count_reflects_injected_adapters() {
-    let router = AiRouter::from_adapters_for_test(vec![Arc::new(MockTextAdapter {
-        id: "mock-text",
-        name: "Mock",
-    })]);
+    let router =
+        AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(MockTextAdapter {
+            id: "mock-text",
+            name: "Mock",
+        }))]);
     assert_eq!(router.provider_count().await, 1);
 }
 
 #[tokio::test]
 async fn generate_text_routes_to_mock_and_returns_echo() {
-    let router = AiRouter::from_adapters_for_test(vec![Arc::new(MockTextAdapter {
-        id: "mock-text",
-        name: "Mock",
-    })]);
+    let router =
+        AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(MockTextAdapter {
+            id: "mock-text",
+            name: "Mock",
+        }))]);
     let req = TextGenerationRequest {
         prompt: "hello".to_string(),
         system: None,
@@ -232,10 +109,11 @@ async fn generate_text_errors_when_no_providers() {
 
 #[tokio::test]
 async fn list_providers_merges_without_duplicates() {
-    let router = AiRouter::from_adapters_for_test(vec![Arc::new(MockTextAdapter {
-        id: "only",
-        name: "Only",
-    })]);
+    let router =
+        AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(MockTextAdapter {
+            id: "only",
+            name: "Only",
+        }))]);
     let listed = router.list_providers().await;
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].provider_id, "only");
@@ -276,8 +154,9 @@ fn image_generation_request_serde_round_trip() {
 
 #[tokio::test]
 async fn generate_text_errors_when_only_image_adapter_present() {
-    let router =
-        AiRouter::from_adapters_for_test(vec![Arc::new(MockImageOnlyAdapter { id: "img-only" })]);
+    let router = AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockImageOnly(
+        MockImageOnlyAdapter { id: "img-only" },
+    ))]);
     let req = TextGenerationRequest {
         prompt: "x".to_string(),
         system: None,
@@ -293,10 +172,11 @@ async fn generate_text_errors_when_only_image_adapter_present() {
 
 #[tokio::test]
 async fn generate_image_errors_when_no_image_providers() {
-    let router = AiRouter::from_adapters_for_test(vec![Arc::new(MockTextAdapter {
-        id: "text-only",
-        name: "Text",
-    })]);
+    let router =
+        AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(MockTextAdapter {
+            id: "text-only",
+            name: "Text",
+        }))]);
     let req = ImageGenerationRequest {
         prompt: "a cat".to_string(),
         negative_prompt: None,
@@ -312,10 +192,11 @@ async fn generate_image_errors_when_no_image_providers() {
 
 #[tokio::test]
 async fn generate_text_with_constraints_uses_constraint_router() {
-    let router = AiRouter::from_adapters_for_test(vec![Arc::new(MockTextAdapter {
-        id: "mock-text",
-        name: "Mock",
-    })]);
+    let router =
+        AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(MockTextAdapter {
+            id: "mock-text",
+            name: "Mock",
+        }))]);
     let req = TextGenerationRequest {
         prompt: "hello".to_string(),
         system: None,
@@ -335,8 +216,8 @@ async fn generate_text_with_constraints_uses_constraint_router() {
 #[tokio::test]
 async fn get_text_generation_providers_filters_non_text() {
     let router = AiRouter::from_adapters_for_test(vec![
-        Arc::new(MockTextAdapter { id: "t", name: "T" }) as Arc<dyn AiProviderAdapter>,
-        Arc::new(MockImageOnlyAdapter { id: "i" }) as Arc<dyn AiProviderAdapter>,
+        Arc::new(AiProvider::MockText(MockTextAdapter { id: "t", name: "T" })),
+        Arc::new(AiProvider::MockImageOnly(MockImageOnlyAdapter { id: "i" })),
     ]);
     let infos = router
         .get_text_generation_providers()
@@ -346,132 +227,15 @@ async fn get_text_generation_providers_filters_non_text() {
     assert_eq!(infos[0].provider_id, "t");
 }
 
-/// Cheaper (higher score) image provider that always fails generation — triggers fallback path.
-struct MockFailingImageAdapter {
-    id: &'static str,
-}
-
-#[async_trait]
-impl AiProviderAdapter for MockFailingImageAdapter {
-    fn provider_id(&self) -> &str {
-        self.id
-    }
-
-    fn provider_name(&self) -> &'static str {
-        "FailImg"
-    }
-
-    fn is_local(&self) -> bool {
-        true
-    }
-
-    fn cost_per_unit(&self) -> Option<f64> {
-        Some(0.0)
-    }
-
-    fn avg_latency_ms(&self) -> u64 {
-        5
-    }
-
-    fn quality_tier(&self) -> QualityTier {
-        QualityTier::Standard
-    }
-
-    fn supports_text_generation(&self) -> bool {
-        false
-    }
-
-    fn supports_image_generation(&self) -> bool {
-        true
-    }
-
-    async fn generate_text(
-        &self,
-        _request: TextGenerationRequest,
-    ) -> Result<TextGenerationResponse, PrimalError> {
-        Err(PrimalError::OperationFailed("no text".to_string()))
-    }
-
-    async fn generate_image(
-        &self,
-        _request: ImageGenerationRequest,
-    ) -> Result<ImageGenerationResponse, PrimalError> {
-        Err(PrimalError::OperationFailed(
-            "primary image provider failed".to_string(),
-        ))
-    }
-}
-
-/// Higher-cost fallback image provider that succeeds.
-struct MockFallbackImageAdapter {
-    id: &'static str,
-}
-
-#[async_trait]
-impl AiProviderAdapter for MockFallbackImageAdapter {
-    fn provider_id(&self) -> &str {
-        self.id
-    }
-
-    fn provider_name(&self) -> &'static str {
-        "OkImg"
-    }
-
-    fn is_local(&self) -> bool {
-        true
-    }
-
-    fn cost_per_unit(&self) -> Option<f64> {
-        Some(0.05)
-    }
-
-    fn avg_latency_ms(&self) -> u64 {
-        30
-    }
-
-    fn quality_tier(&self) -> QualityTier {
-        QualityTier::Standard
-    }
-
-    fn supports_text_generation(&self) -> bool {
-        false
-    }
-
-    fn supports_image_generation(&self) -> bool {
-        true
-    }
-
-    async fn generate_text(
-        &self,
-        _request: TextGenerationRequest,
-    ) -> Result<TextGenerationResponse, PrimalError> {
-        Err(PrimalError::OperationFailed("no text".to_string()))
-    }
-
-    async fn generate_image(
-        &self,
-        _request: ImageGenerationRequest,
-    ) -> Result<ImageGenerationResponse, PrimalError> {
-        Ok(ImageGenerationResponse {
-            images: vec![GeneratedImage {
-                url: None,
-                data: None,
-                mime_type: "image/png".to_string(),
-                width: 2,
-                height: 2,
-            }],
-            provider_id: self.id.to_string(),
-            cost_usd: None,
-            latency_ms: 2,
-        })
-    }
-}
-
 #[tokio::test]
 async fn generate_image_retries_with_fallback_provider() {
     let router = AiRouter::from_adapters_for_test(vec![
-        Arc::new(MockFailingImageAdapter { id: "img-fail" }) as Arc<dyn AiProviderAdapter>,
-        Arc::new(MockFallbackImageAdapter { id: "img-ok" }) as Arc<dyn AiProviderAdapter>,
+        Arc::new(AiProvider::MockFailingImage(MockFailingImageAdapter {
+            id: "img-fail",
+        })),
+        Arc::new(AiProvider::MockFallbackImage(MockFallbackImageAdapter {
+            id: "img-ok",
+        })),
     ]);
     let req = ImageGenerationRequest {
         prompt: "sunset".to_string(),
@@ -492,8 +256,9 @@ async fn generate_image_retries_with_fallback_provider() {
 
 #[tokio::test]
 async fn generate_image_success_without_retry() {
-    let router =
-        AiRouter::from_adapters_for_test(vec![Arc::new(MockImageOnlyAdapter { id: "img-one" })]);
+    let router = AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockImageOnly(
+        MockImageOnlyAdapter { id: "img-one" },
+    ))]);
     let req = ImageGenerationRequest {
         prompt: "x".to_string(),
         negative_prompt: None,
@@ -531,10 +296,11 @@ fn dignity_integration_matches_standalone_evaluator_for_text_prompt() {
 
 #[tokio::test]
 async fn generate_text_with_dignity_sensitive_prompt_still_routes_when_provider_ok() {
-    let router = AiRouter::from_adapters_for_test(vec![Arc::new(MockTextAdapter {
-        id: "mock-text",
-        name: "Mock",
-    })]);
+    let router =
+        AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(MockTextAdapter {
+            id: "mock-text",
+            name: "Mock",
+        }))]);
     let req = TextGenerationRequest {
         prompt: "Review this applicant for employment".to_string(),
         system: None,
@@ -554,8 +320,9 @@ async fn generate_text_with_dignity_sensitive_prompt_still_routes_when_provider_
 
 #[tokio::test]
 async fn generate_image_dignity_prompt_still_succeeds_with_image_provider() {
-    let router =
-        AiRouter::from_adapters_for_test(vec![Arc::new(MockImageOnlyAdapter { id: "img-one" })]);
+    let router = AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockImageOnly(
+        MockImageOnlyAdapter { id: "img-one" },
+    ))]);
     let req = ImageGenerationRequest {
         prompt: "Evaluate housing eligibility for this tenant".to_string(),
         negative_prompt: None,
@@ -574,10 +341,11 @@ async fn generate_image_dignity_prompt_still_succeeds_with_image_provider() {
 
 #[tokio::test]
 async fn generate_text_constraint_require_provider_still_routes_after_fallback() {
-    let router = AiRouter::from_adapters_for_test(vec![Arc::new(MockTextAdapter {
-        id: "mock-text",
-        name: "Mock",
-    })]);
+    let router =
+        AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(MockTextAdapter {
+            id: "mock-text",
+            name: "Mock",
+        }))]);
     let req = TextGenerationRequest {
         prompt: "hi".to_string(),
         system: None,

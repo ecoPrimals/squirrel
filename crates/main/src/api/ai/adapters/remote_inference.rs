@@ -12,9 +12,7 @@ use crate::api::ai::types::{
     ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest, TextGenerationResponse,
 };
 use crate::error::PrimalError;
-use async_trait::async_trait;
 use serde_json::json;
-use std::sync::Arc;
 use tracing::{debug, warn};
 
 /// Metadata supplied by a remote spring during `inference.register_provider`.
@@ -33,12 +31,12 @@ pub struct RemoteInferenceAdapter {
 }
 
 impl RemoteInferenceAdapter {
-    pub fn new(config: RemoteProviderConfig) -> Arc<Self> {
-        Arc::new(Self { config })
+    #[must_use]
+    pub const fn new(config: RemoteProviderConfig) -> Self {
+        Self { config }
     }
 }
 
-#[async_trait]
 impl AiProviderAdapter for RemoteInferenceAdapter {
     fn provider_id(&self) -> &str {
         &self.config.provider_id

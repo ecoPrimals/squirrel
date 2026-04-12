@@ -50,7 +50,6 @@ deny = [
     { name = "vcpkg", reason = "ecoBin: C/C++ package manager integration.", use-instead = "Pure Rust crates" },
     { name = "lz4-sys", reason = "ecoBin: C compression FFI. Use lz4_flex (pure Rust).", use-instead = "lz4_flex" },
     { name = "reqwest", reason = "Tower Atomic: HTTP must route through Songbird service mesh via IPC, not direct from primals.", use-instead = "capability.call via Unix socket (Tower Atomic pattern)" },
-    { name = "tokio-tungstenite", wrappers = ["squirrel-sdk"], reason = "Tower Atomic: WebSocket provided by Songbird service mesh, not embedded in primals.", use-instead = "UDS to Songbird (Tower Atomic pattern)" },
 ]
 # cc (build-time only) enters via wasmtime → ittapi-sys.
 # Behind optional features; default build is pure Rust.

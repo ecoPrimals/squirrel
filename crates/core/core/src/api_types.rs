@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+// ORC-Notice: API type mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
-
-#![allow(missing_docs)]
 
 use axum::{
     http::StatusCode,
@@ -46,6 +45,7 @@ impl IntoResponse for ApiError {
 
 // Response types
 
+/// Health check response from the HTTP API.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HealthResponse {
     pub(crate) status: String,
@@ -54,6 +54,7 @@ pub struct HealthResponse {
     pub(crate) version: String,
 }
 
+/// Current operational status of the primal.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StatusResponse {
     pub(crate) status: String,
@@ -62,6 +63,7 @@ pub struct StatusResponse {
     pub(crate) version: String,
 }
 
+/// Descriptive metadata about the running primal instance.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InfoResponse {
     pub(crate) node_id: String,
@@ -71,6 +73,7 @@ pub struct InfoResponse {
     pub(crate) federation_status: String,
 }
 
+/// Summary of agent pool activity.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AgentsResponse {
     pub(crate) total_agents: u32,
@@ -80,6 +83,7 @@ pub struct AgentsResponse {
     pub(crate) average_response_time: f64,
 }
 
+/// Descriptor for a single registered agent.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AgentInfo {
     pub(crate) id: String,
@@ -88,6 +92,7 @@ pub struct AgentInfo {
     pub(crate) status: String,
 }
 
+/// Acknowledgement after registering an agent.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RegisterResponse {
     pub(crate) success: bool,
@@ -95,6 +100,7 @@ pub struct RegisterResponse {
     pub(crate) agent_count: u32,
 }
 
+/// Result of a federation join or status query.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FederationResponse {
     pub(crate) success: bool,
@@ -103,12 +109,14 @@ pub struct FederationResponse {
     pub(crate) status: String,
 }
 
+/// Collection of federation nodes.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NodesResponse {
     pub(crate) node_count: u32,
     pub(crate) nodes: Vec<NodeInfo>,
 }
 
+/// Descriptor for a single federation node.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NodeInfo {
     pub(crate) id: String,
@@ -118,6 +126,7 @@ pub struct NodeInfo {
     pub(crate) status: String,
 }
 
+/// Outcome of an auto-scaling decision.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScaleResponse {
     pub(crate) scaling_triggered: bool,
@@ -126,18 +135,21 @@ pub struct ScaleResponse {
     pub(crate) status: String,
 }
 
+/// Primals discovered at runtime via capability probing.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiscoveryResponse {
     pub(crate) discovered_count: u32,
     pub(crate) primals: Vec<crate::PrimalEndpoint>,
 }
 
+/// Full set of known primals in the ecosystem.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PrimalsResponse {
     pub(crate) total_primals: u32,
     pub(crate) primals: Vec<crate::PrimalEndpoint>,
 }
 
+/// Acknowledgement after submitting an asynchronous task.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TaskSubmissionResponse {
     pub(crate) task_id: String,
@@ -145,6 +157,7 @@ pub struct TaskSubmissionResponse {
     pub(crate) message: String,
 }
 
+/// Polling response for a previously submitted task.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TaskStatusResponse {
     pub(crate) task_id: String,
@@ -153,6 +166,7 @@ pub struct TaskStatusResponse {
     pub(crate) error: Option<String>,
 }
 
+/// Confirmation that the primal is shutting down.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ShutdownResponse {
     pub(crate) message: String,
@@ -161,6 +175,7 @@ pub struct ShutdownResponse {
 
 // Request types
 
+/// Inbound MCP task request from a coordinating agent.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct McpTaskRequest {
     pub(crate) task_id: Option<String>,
@@ -172,6 +187,7 @@ pub struct McpTaskRequest {
     pub(crate) mcp_request: Option<serde_json::Value>,
 }
 
+/// Request to submit a prioritized task for execution.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TaskSubmissionRequest {
     pub(crate) task_id: Option<String>,
@@ -182,6 +198,7 @@ pub struct TaskSubmissionRequest {
     pub(crate) deadline: Option<chrono::DateTime<chrono::Utc>>,
 }
 
+/// Request to join an existing federation mesh.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JoinFederationRequest {
     pub(crate) federation_id: Option<String>,

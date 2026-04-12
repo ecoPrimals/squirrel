@@ -30,7 +30,6 @@ use crate::api::ai::types::{
 };
 use crate::capabilities::discover_capability;
 use crate::error::PrimalError;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -308,7 +307,6 @@ impl OpenAiAdapter {
     }
 }
 
-#[async_trait]
 impl AiProviderAdapter for OpenAiAdapter {
     fn provider_id(&self) -> &'static str {
         "openai"

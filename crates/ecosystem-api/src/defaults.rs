@@ -7,6 +7,7 @@
 
 use std::env;
 
+use universal_constants::builders::localhost_http;
 use universal_constants::network::{DEFAULT_SECURITY_PORT, get_service_port, get_socket_path};
 
 /// Default ecosystem service endpoints with environment override support.
@@ -57,7 +58,7 @@ impl DefaultEndpoints {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("discovery"));
-                format!("http://localhost:{port}")
+                localhost_http(port)
             })
     }
 
@@ -85,7 +86,7 @@ impl DefaultEndpoints {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("http"));
-                format!("http://localhost:{port}")
+                localhost_http(port)
             })
     }
 
@@ -113,7 +114,7 @@ impl DefaultEndpoints {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("admin"));
-                format!("http://localhost:{port}")
+                localhost_http(port)
             })
     }
 
@@ -134,7 +135,7 @@ impl DefaultEndpoints {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or(DEFAULT_SECURITY_PORT);
-                format!("http://localhost:{port}")
+                localhost_http(port)
             })
     }
 

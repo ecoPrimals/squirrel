@@ -3,6 +3,7 @@
 
 //! Numeric scoring engine for provider fitness evaluation.
 
+use crate::AiClientImpl;
 use crate::common::AIClient;
 use crate::float_helpers;
 use crate::router::types::RequestContext;
@@ -20,7 +21,7 @@ impl ProviderScorer {
     }
 
     /// Score a provider based on how well it matches the task
-    pub fn score_provider(&self, provider: &Arc<dyn AIClient>, context: &RequestContext) -> u32 {
+    pub fn score_provider(&self, provider: &Arc<AiClientImpl>, context: &RequestContext) -> u32 {
         let mut score = 0;
         let capabilities = provider.capabilities();
         let preferences = provider.routing_preferences();
@@ -93,9 +94,10 @@ impl ProviderScorer {
     }
 
     /// Calculate compatibility score between task and provider capabilities
+    #[must_use]
     pub fn calculate_compatibility_score(
         &self,
-        provider: &Arc<dyn AIClient>,
+        provider: &Arc<AiClientImpl>,
         context: &RequestContext,
     ) -> f64 {
         let capabilities = provider.capabilities();
@@ -162,7 +164,8 @@ impl ProviderScorer {
     }
 
     /// Calculate performance score based on provider metrics
-    pub fn calculate_performance_score(&self, provider: &Arc<dyn AIClient>) -> f64 {
+    #[must_use]
+    pub fn calculate_performance_score(&self, provider: &Arc<AiClientImpl>) -> f64 {
         let capabilities = provider.capabilities();
         let mut performance_score = 0.0;
 

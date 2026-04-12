@@ -7,7 +7,6 @@
 //! interface. It stores services in a `HashMap` and handles expiration based on
 //! heartbeat timeouts.
 
-use async_trait::async_trait;
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -196,7 +195,6 @@ impl Default for InMemoryServiceDiscovery {
     }
 }
 
-#[async_trait]
 impl ServiceDiscovery for InMemoryServiceDiscovery {
     async fn register_service(&self, service: ServiceDefinition) -> CoreResult<()> {
         // Validate service definition
@@ -218,10 +216,11 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
     }
 
     async fn deregister_service(&self, service_id: &str) -> CoreResult<()> {
+        let service_id = service_id.to_string();
         {
             let mut services = self.services.write().await;
 
-            if services.remove(service_id).is_some() {
+            if services.remove(service_id.as_str()).is_some() {
                 info!("Deregistered service: {}", service_id);
             } else {
                 warn!(
@@ -274,9 +273,10 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
     }
 
     async fn get_service(&self, service_id: &str) -> CoreResult<Option<ServiceDefinition>> {
+        let service_id = service_id.to_string();
         let service = {
             let services = self.services.read().await;
-            services.get(service_id).cloned()
+            services.get(service_id.as_str()).cloned()
         };
 
         if let Some(ref service) = service
@@ -294,10 +294,11 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
         service_id: &str,
         health: ServiceHealthStatus,
     ) -> CoreResult<()> {
+        let service_id = service_id.to_string();
         {
             let mut services = self.services.write().await;
 
-            if let Some(service) = services.get_mut(service_id) {
+            if let Some(service) = services.get_mut(service_id.as_str()) {
                 let old_status = service.health_status.clone();
                 service.health_status = health.clone();
                 service.last_heartbeat = Utc::now();
@@ -309,7 +310,7 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
                     );
                 }
             } else {
-                return Err(CoreError::ServiceNotFound(service_id.to_string()));
+                return Err(CoreError::ServiceNotFound(service_id));
             }
         }
 
@@ -317,14 +318,15 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
     }
 
     async fn heartbeat(&self, service_id: &str) -> CoreResult<()> {
+        let service_id = service_id.to_string();
         {
             let mut services = self.services.write().await;
 
-            if let Some(service) = services.get_mut(service_id) {
+            if let Some(service) = services.get_mut(service_id.as_str()) {
                 service.last_heartbeat = Utc::now();
                 debug!("Updated heartbeat for service: {}", service_id);
             } else {
-                return Err(CoreError::ServiceNotFound(service_id.to_string()));
+                return Err(CoreError::ServiceNotFound(service_id));
             }
         }
 

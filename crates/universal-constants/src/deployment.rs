@@ -95,7 +95,7 @@ pub mod ports {
     /// **Usage**: Public-facing API gateway
     #[must_use]
     pub fn api_gateway() -> u16 {
-        config_helpers::get_port("API_GATEWAY_PORT", 8080)
+        config_helpers::get_port("API_GATEWAY_PORT", crate::network::DEFAULT_JSON_RPC_PORT)
     }
 
     /// WebSocket server port
@@ -115,7 +115,7 @@ pub mod ports {
     /// **Usage**: Prometheus metrics endpoint
     #[must_use]
     pub fn metrics() -> u16 {
-        config_helpers::get_port("METRICS_PORT", 9090)
+        config_helpers::get_port("METRICS_PORT", crate::network::DEFAULT_METRICS_LISTEN_PORT)
     }
 
     /// Health check port
@@ -179,7 +179,7 @@ pub mod ports {
     /// **Usage**: Local Ollama AI inference endpoint
     #[must_use]
     pub fn ollama() -> u16 {
-        config_helpers::get_port("OLLAMA_PORT", 11434)
+        config_helpers::get_port("OLLAMA_PORT", crate::network::DEFAULT_OLLAMA_PORT)
     }
 }
 
@@ -257,7 +257,7 @@ pub mod hosts {
     /// **Usage**: Explicit localhost IP for development
     #[must_use]
     pub fn localhost() -> String {
-        "127.0.0.1".to_string()
+        crate::network::LOCALHOST_IPV4.to_string()
     }
 
     /// All interfaces address (0.0.0.0)
@@ -265,7 +265,7 @@ pub mod hosts {
     /// **Usage**: Bind to all network interfaces (production)
     #[must_use]
     pub fn all_interfaces() -> String {
-        "0.0.0.0".to_string()
+        crate::network::BIND_ALL_INTERFACES.to_string()
     }
 
     /// MCP server host

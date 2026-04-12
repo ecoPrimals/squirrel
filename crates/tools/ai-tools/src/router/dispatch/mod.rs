@@ -11,6 +11,7 @@ use super::types::{
     CapabilityRegistry, MCPInterface, NoMcpInterface, RemoteAIRequest, RequestContext,
     RouterConfig, RouterStats, TryFlattenStreamExt,
 };
+use crate::AiClientImpl;
 use crate::Result;
 use crate::common::capability::{AITask, SecurityRequirements, TaskType};
 use crate::common::{AIClient, ChatRequest, ChatResponse, ChatResponseStream};
@@ -78,7 +79,7 @@ impl<M: MCPInterface> AIRouter<M> {
     pub fn register_provider(
         &self,
         provider_id: impl Into<String>,
-        client: Arc<dyn AIClient>,
+        client: Arc<AiClientImpl>,
     ) -> Result<()> {
         let id = provider_id.into();
         debug!("Registering AI provider: {}", id);
@@ -215,9 +216,9 @@ impl<M: MCPInterface> AIRouter<M> {
 
     /// Apply routing hint to filter providers
     fn apply_routing_hint(
-        providers: Vec<(String, Arc<dyn AIClient>)>,
+        providers: Vec<(String, Arc<AiClientImpl>)>,
         context: &RequestContext,
-    ) -> Result<Vec<(String, Arc<dyn AIClient>)>> {
+    ) -> Result<Vec<(String, Arc<AiClientImpl>)>> {
         let filtered_providers = if let Some(hint) = &context.routing_hint {
             if let Some(preferred_provider) = &hint.preferred_provider {
                 providers
@@ -363,9 +364,9 @@ impl<M: MCPInterface> AIRouter<M> {
     /// Propagates [`Error::Configuration`] from [`ProviderSelector::select_provider`] when selection fails.
     pub fn select_provider_for_task(
         &self,
-        providers: Vec<(String, Arc<dyn AIClient>)>,
+        providers: Vec<(String, Arc<AiClientImpl>)>,
         context: &RequestContext,
-    ) -> Result<(String, Arc<dyn AIClient>)> {
+    ) -> Result<(String, Arc<AiClientImpl>)> {
         self.selector
             .select_provider(providers, context, self.config.routing_strategy)
     }

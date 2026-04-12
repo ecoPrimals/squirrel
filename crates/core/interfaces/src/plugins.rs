@@ -5,6 +5,9 @@
 //!
 //! This module defines the shared interfaces for the plugin system.
 //! These interfaces are used by multiple components in the Squirrel ecosystem.
+//!
+//! [`Plugin`] uses `impl Future<Output = _> + Send` for async methods so futures are
+//! `Send` and can be forwarded from object-safe [`DynPlugin`].
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -99,19 +102,18 @@ pub struct PluginExecutionContext {
 }
 
 /// Base trait for all plugins
-#[async_trait]
 pub trait Plugin: Send + Sync + Debug {
     /// Get plugin metadata
     fn metadata(&self) -> &PluginMetadata;
 
     /// Initialize the plugin
-    async fn initialize(&self) -> Result<()> {
-        Ok(())
+    fn initialize(&self) -> impl std::future::Future<Output = Result<()>> + Send {
+        async { Ok(()) }
     }
 
     /// Shutdown the plugin
-    async fn shutdown(&self) -> Result<()> {
-        Ok(())
+    fn shutdown(&self) -> impl std::future::Future<Output = Result<()>> + Send {
+        async { Ok(()) }
     }
 
     /// Check if plugin has a capability
@@ -122,11 +124,35 @@ pub trait Plugin: Send + Sync + Debug {
     }
 }
 
+/// Object-safe projection of [`Plugin`] for heterogeneous registries.
+#[async_trait]
+pub trait DynPlugin: Send + Sync + Debug {
+    /// Get plugin metadata
+    fn metadata(&self) -> &PluginMetadata;
+
+    /// Initialize the plugin
+    async fn initialize(&self) -> Result<()>;
+
+    /// Shutdown the plugin
+    async fn shutdown(&self) -> Result<()>;
+}
+
+#[async_trait]
+impl<T: Plugin + Send + Sync> DynPlugin for T {
+    fn metadata(&self) -> &PluginMetadata {
+        Plugin::metadata(self)
+    }
+
+    async fn initialize(&self) -> Result<()> {
+        Plugin::initialize(self).await
+    }
+
+    async fn shutdown(&self) -> Result<()> {
+        Plugin::shutdown(self).await
+    }
+}
+
 /// Commands plugin interface
-#[expect(
-    async_fn_in_trait,
-    reason = "extends async_trait Plugin; factory uses concrete adapter type, not dyn CommandsPlugin"
-)]
 pub trait CommandsPlugin: Plugin {
     /// Get available commands
     fn get_available_commands(&self) -> Vec<CommandMetadata>;
@@ -135,7 +161,11 @@ pub trait CommandsPlugin: Plugin {
     fn get_command_metadata(&self, command_id: &str) -> Option<CommandMetadata>;
 
     /// Execute a command
-    async fn execute_command(&self, command_id: &str, input: Value) -> Result<Value>;
+    fn execute_command(
+        &self,
+        command_id: &str,
+        input: Value,
+    ) -> impl std::future::Future<Output = Result<Value>> + Send;
 
     /// Get help text for a command
     fn get_command_help(&self, command_id: &str) -> Option<String>;
@@ -143,44 +173,48 @@ pub trait CommandsPlugin: Plugin {
 
 /// Plugin registry interface
 ///
-/// This trait defines the core interface for a plugin registry,
-/// allowing plugins to be registered and retrieved without creating
-/// circular dependencies between crates.
-#[expect(
-    async_fn_in_trait,
-    reason = "internal trait — all impls are Send + Sync"
-)]
+/// The associated type [`PluginRegistry::PluginHandle`] is defined by each
+/// implementation (for example an enum in `squirrel-plugins`).
 pub trait PluginRegistry: Send + Sync {
+    /// Concrete handle type used by this registry (often an enum for dispatch).
+    type PluginHandle: Clone + Send + Sync + Debug;
+
     /// Register a plugin with the registry
-    async fn register_plugin<P: Plugin + 'static>(&self, plugin: Arc<P>) -> Result<String>;
+    fn register_plugin<P: Plugin + 'static>(
+        &self,
+        plugin: Arc<P>,
+    ) -> impl std::future::Future<Output = Result<String>> + Send;
 
     /// Get a plugin by ID
-    async fn get_plugin(&self, id: &str) -> Option<Arc<dyn Plugin>>;
+    fn get_plugin(
+        &self,
+        id: &str,
+    ) -> impl std::future::Future<Output = Option<Self::PluginHandle>> + Send;
 
     /// Get a plugin by capability
-    async fn get_plugin_by_capability(&self, capability: &str) -> Option<Arc<dyn Plugin>>;
-
-    /// Get a plugin by type and capability
-    async fn get_plugin_by_type_and_capability<T: Plugin + ?Sized + 'static>(
+    fn get_plugin_by_capability(
         &self,
         capability: &str,
-    ) -> Option<Arc<T>>;
+    ) -> impl std::future::Future<Output = Option<Self::PluginHandle>> + Send;
 
     /// List all plugins
-    async fn list_plugins(&self) -> Vec<Arc<dyn Plugin>>;
+    fn list_plugins(&self) -> impl std::future::Future<Output = Vec<Self::PluginHandle>> + Send;
 }
 
 /// Plugin factory interface
 ///
 /// This trait defines a factory for creating plugins
 pub trait PluginFactory: Send + Sync {
+    /// Concrete plugin type produced by this factory
+    type Output: Plugin + 'static;
+
     /// Create a plugin
     ///
     /// # Errors
     ///
     /// Returns an error if plugin creation fails due to initialization issues,
     /// missing dependencies, or invalid configuration.
-    fn create_plugin(&self) -> Result<Arc<dyn Plugin>>;
+    fn create_plugin(&self) -> Result<Arc<Self::Output>>;
 
     /// Get the ID of the plugin that this factory creates
     fn plugin_id(&self) -> &str;

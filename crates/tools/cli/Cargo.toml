@@ -32,6 +32,8 @@ prettytable = "0.10"
 serde_yaml_ng = "0.10"
 directories = "5.0"
 
+universal-constants = { path = "../../universal-constants", version = "0.1.0" }
+
 # Workspace dependencies
 # HTTP client (OPTIONAL - for HTTP CLI commands)
 # Production uses Unix sockets!

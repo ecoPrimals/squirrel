@@ -16,7 +16,6 @@ workspace = true
 [dependencies]
 # Core async and serialization
 tokio.workspace = true
-async-trait.workspace = true
 
 # Internal dependencies
 universal-constants = { path = "../universal-constants", version = "0.1.0" }

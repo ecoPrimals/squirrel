@@ -15,7 +15,6 @@
 //! This provider uses the Universal Adapter V2 (infant primal pattern) to discover
 //! services dynamically at runtime. NO hardcoded primal names, endpoints, or protocols.
 
-use async_trait::async_trait;
 use chrono::Utc;
 use ecosystem_api::{
     // Removed: client::SongbirdClient (deprecated - use UniversalAdapterV2 instead)
@@ -31,6 +30,8 @@ use ecosystem_api::{
 };
 use serde_json::json;
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
@@ -357,7 +358,6 @@ impl UniversalSquirrelProvider {
     }
 }
 
-#[async_trait]
 impl UniversalPrimalProvider for UniversalSquirrelProvider {
     fn primal_id(&self) -> &'static str {
         crate::niche::PRIMAL_ID
@@ -446,20 +446,22 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
         ]
     }
 
-    async fn health_check(&self) -> PrimalHealth {
-        PrimalHealth {
-            status: HealthStatus::Healthy,
-            version: env!("CARGO_PKG_VERSION").to_string(),
-            uptime_seconds: 0,
-            resource_usage: ResourceUsage {
-                cpu_percent: 0.0,
-                memory_bytes: 0,
-                disk_bytes: 0,
-                network_bytes_per_sec: 0,
-            },
-            capabilities_online: vec!["ai_inference".to_string(), "mcp_protocol".to_string()],
-            last_check: Utc::now(),
-        }
+    fn health_check(&self) -> Pin<Box<dyn Future<Output = PrimalHealth> + Send + '_>> {
+        Box::pin(async {
+            PrimalHealth {
+                status: HealthStatus::Healthy,
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                uptime_seconds: 0,
+                resource_usage: ResourceUsage {
+                    cpu_percent: 0.0,
+                    memory_bytes: 0,
+                    disk_bytes: 0,
+                    network_bytes_per_sec: 0,
+                },
+                capabilities_online: vec!["ai_inference".to_string(), "mcp_protocol".to_string()],
+                last_check: Utc::now(),
+            }
+        })
     }
 
     fn endpoints(&self) -> PrimalEndpoints {
@@ -480,62 +482,72 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
         }
     }
 
-    async fn handle_primal_request(
+    fn handle_primal_request(
         &self,
         request: PrimalRequest,
-    ) -> UniversalResult<PrimalResponse> {
-        let result = match request.operation.as_ref() {
-            "ai_inference" => {
-                let response = self.handle_ai_inference_internal(request.payload).await?;
-                PrimalResponse {
+    ) -> Pin<Box<dyn Future<Output = UniversalResult<PrimalResponse>> + Send + '_>> {
+        Box::pin(async move {
+            let result = match request.operation.as_ref() {
+                "ai_inference" => {
+                    let response = self.handle_ai_inference_internal(request.payload).await?;
+                    PrimalResponse {
+                        request_id: request.id,
+                        status: ResponseStatus::Success,
+                        payload: response,
+                        metadata: HashMap::new(),
+                        timestamp: Utc::now(),
+                    }
+                }
+                "health_check" => {
+                    let health = self.health_check().await;
+                    PrimalResponse {
+                        request_id: request.id,
+                        status: ResponseStatus::Success,
+                        payload: serde_json::to_value(health).unwrap_or_else(|e| {
+                            error!("Failed to serialize health check response: {}", e);
+                            serde_json::json!({"status": "error", "message": "serialization failed"})
+                        }),
+                        metadata: HashMap::new(),
+                        timestamp: Utc::now(),
+                    }
+                }
+                _ => PrimalResponse {
                     request_id: request.id,
-                    status: ResponseStatus::Success,
-                    payload: response,
+                    status: ResponseStatus::Error {
+                        code: Arc::from("400"),
+                        message: format!("Unknown operation: {}", request.operation),
+                    },
+                    payload: json!({"error": "Unknown operation"}),
                     metadata: HashMap::new(),
                     timestamp: Utc::now(),
-                }
-            }
-            "health_check" => {
-                let health = self.health_check().await;
-                PrimalResponse {
-                    request_id: request.id,
-                    status: ResponseStatus::Success,
-                    payload: serde_json::to_value(health).unwrap_or_else(|e| {
-                        error!("Failed to serialize health check response: {}", e);
-                        serde_json::json!({"status": "error", "message": "serialization failed"})
-                    }),
-                    metadata: HashMap::new(),
-                    timestamp: Utc::now(),
-                }
-            }
-            _ => PrimalResponse {
-                request_id: request.id,
-                status: ResponseStatus::Error {
-                    code: Arc::from("400"),
-                    message: format!("Unknown operation: {}", request.operation),
                 },
-                payload: json!({"error": "Unknown operation"}),
-                metadata: HashMap::new(),
-                timestamp: Utc::now(),
-            },
-        };
+            };
 
-        Ok(result)
+            Ok(result)
+        })
     }
 
-    async fn initialize(&mut self, _config: serde_json::Value) -> UniversalResult<()> {
-        if self.session_manager.is_none() {
-            let session_manager = SessionManagerImpl::new(crate::session::SessionConfig::default());
-            self.session_manager = Some(Arc::new(RwLock::new(session_manager)));
-        }
+    fn initialize(
+        &mut self,
+        _config: serde_json::Value,
+    ) -> Pin<Box<dyn Future<Output = UniversalResult<()>> + Send + '_>> {
+        Box::pin(async move {
+            if self.session_manager.is_none() {
+                let session_manager =
+                    SessionManagerImpl::new(crate::session::SessionConfig::default());
+                self.session_manager = Some(Arc::new(RwLock::new(session_manager)));
+            }
 
-        self.initialized = true;
-        Ok(())
+            self.initialized = true;
+            Ok(())
+        })
     }
 
-    async fn shutdown(&mut self) -> UniversalResult<()> {
-        self.shutdown = true;
-        Ok(())
+    fn shutdown(&mut self) -> Pin<Box<dyn Future<Output = UniversalResult<()>> + Send + '_>> {
+        Box::pin(async move {
+            self.shutdown = true;
+            Ok(())
+        })
     }
 
     fn can_serve_context(&self, _context: &PrimalContext) -> bool {
@@ -544,7 +556,7 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
 
     fn dynamic_port_info(&self) -> Option<DynamicPortInfo> {
         Some(DynamicPortInfo {
-            port: 8080,
+            port: universal_constants::network::DEFAULT_JSON_RPC_PORT,
             protocol: "http".to_string(),
             assigned_by: "system".to_string(),
             assigned_at: Utc::now(),
@@ -552,22 +564,26 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
         })
     }
 
-    async fn register_with_service_mesh(
+    fn register_with_service_mesh(
         &mut self,
         service_mesh_endpoint: &str,
-    ) -> UniversalResult<String> {
-        let service_id = format!("{}-{}", self.primal_id(), self.instance_id());
-        info!(
-            "Registering with service mesh at: {}",
-            service_mesh_endpoint
-        );
-        Ok(service_id)
+    ) -> Pin<Box<dyn Future<Output = UniversalResult<String>> + Send + '_>> {
+        let endpoint = service_mesh_endpoint.to_owned();
+        Box::pin(async move {
+            let service_id = format!("{}-{}", self.primal_id(), self.instance_id());
+            info!("Registering with service mesh at: {}", endpoint);
+            Ok(service_id)
+        })
     }
 
-    async fn deregister_from_service_mesh(&mut self) -> UniversalResult<()> {
-        let service_id = format!("{}-{}", self.primal_id(), self.instance_id());
-        info!("Deregistering from service mesh: {}", service_id);
-        Ok(())
+    fn deregister_from_service_mesh(
+        &mut self,
+    ) -> Pin<Box<dyn Future<Output = UniversalResult<()>> + Send + '_>> {
+        Box::pin(async move {
+            let service_id = format!("{}-{}", self.primal_id(), self.instance_id());
+            info!("Deregistering from service mesh: {}", service_id);
+            Ok(())
+        })
     }
 
     fn get_service_mesh_status(&self) -> ServiceMeshStatus {
@@ -588,70 +604,79 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
         }
     }
 
-    async fn handle_ecosystem_request(
+    fn handle_ecosystem_request(
         &self,
         request: EcosystemRequest,
-    ) -> UniversalResult<EcosystemResponse> {
-        match request.operation.as_ref() {
-            "ai_inference" => {
-                let response = self.handle_ai_inference_internal(request.payload).await?;
-                Ok(EcosystemResponse {
-                    request_id: request.request_id,
-                    status: ResponseStatus::Success,
-                    payload: response,
-                    metadata: std::collections::HashMap::new(),
-                    timestamp: chrono::Utc::now(),
-                })
-            }
-            "health_check" => {
-                let health = self.health_check().await;
-                match serde_json::to_value(health) {
-                    Ok(payload) => Ok(EcosystemResponse {
+    ) -> Pin<Box<dyn Future<Output = UniversalResult<EcosystemResponse>> + Send + '_>> {
+        Box::pin(async move {
+            match request.operation.as_ref() {
+                "ai_inference" => {
+                    let response = self.handle_ai_inference_internal(request.payload).await?;
+                    Ok(EcosystemResponse {
                         request_id: request.request_id,
                         status: ResponseStatus::Success,
-                        payload,
+                        payload: response,
                         metadata: std::collections::HashMap::new(),
                         timestamp: chrono::Utc::now(),
-                    }),
-                    Err(e) => {
-                        error!("Failed to serialize health check response: {}", e);
-                        Ok(EcosystemResponse {
+                    })
+                }
+                "health_check" => {
+                    let health = self.health_check().await;
+                    match serde_json::to_value(health) {
+                        Ok(payload) => Ok(EcosystemResponse {
                             request_id: request.request_id,
-                            status: ResponseStatus::Error {
-                                code: Arc::from("SERIALIZATION_ERROR"),
-                                message: format!("Failed to serialize health check: {e}"),
-                            },
-                            payload: serde_json::Value::Null,
+                            status: ResponseStatus::Success,
+                            payload,
                             metadata: std::collections::HashMap::new(),
                             timestamp: chrono::Utc::now(),
-                        })
+                        }),
+                        Err(e) => {
+                            error!("Failed to serialize health check response: {}", e);
+                            Ok(EcosystemResponse {
+                                request_id: request.request_id,
+                                status: ResponseStatus::Error {
+                                    code: Arc::from("SERIALIZATION_ERROR"),
+                                    message: format!("Failed to serialize health check: {e}"),
+                                },
+                                payload: serde_json::Value::Null,
+                                metadata: std::collections::HashMap::new(),
+                                timestamp: chrono::Utc::now(),
+                            })
+                        }
                     }
                 }
+                _ => Ok(EcosystemResponse {
+                    request_id: request.request_id,
+                    status: ResponseStatus::Error {
+                        code: Arc::from("UNSUPPORTED_OPERATION"),
+                        message: format!("Unsupported operation: {}", request.operation),
+                    },
+                    payload: serde_json::Value::Null,
+                    metadata: std::collections::HashMap::new(),
+                    timestamp: chrono::Utc::now(),
+                }),
             }
-            _ => Ok(EcosystemResponse {
-                request_id: request.request_id,
-                status: ResponseStatus::Error {
-                    code: Arc::from("UNSUPPORTED_OPERATION"),
-                    message: format!("Unsupported operation: {}", request.operation),
-                },
-                payload: serde_json::Value::Null,
-                metadata: std::collections::HashMap::new(),
-                timestamp: chrono::Utc::now(),
-            }),
-        }
+        })
     }
 
-    async fn update_capabilities(
+    fn update_capabilities(
         &self,
         capabilities: Vec<PrimalCapability>,
-    ) -> UniversalResult<()> {
-        info!("Updating capabilities: {:?}", capabilities);
-        Ok(())
+    ) -> Pin<Box<dyn Future<Output = UniversalResult<()>> + Send + '_>> {
+        Box::pin(async move {
+            info!("Updating capabilities: {:?}", capabilities);
+            Ok(())
+        })
     }
 
-    async fn report_health(&self, health: PrimalHealth) -> UniversalResult<()> {
-        info!("Reporting health: {:?}", health.status);
-        Ok(())
+    fn report_health(
+        &self,
+        health: PrimalHealth,
+    ) -> Pin<Box<dyn Future<Output = UniversalResult<()>> + Send + '_>> {
+        Box::pin(async move {
+            info!("Reporting health: {:?}", health.status);
+            Ok(())
+        })
     }
 }
 

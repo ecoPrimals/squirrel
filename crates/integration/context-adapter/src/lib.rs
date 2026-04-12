@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// ORC-Notice: AI coordination mechanics licensed under ORC
+// ORC-Notice: Integration mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![expect(
@@ -67,6 +67,7 @@ pub use adapter::*;
 /// Re-export common interfaces
 pub use squirrel_interfaces::context::{
     AdapterMetadata, ContextAdapterPlugin, ContextPlugin, ContextTransformation,
+    DynContextAdapterPlugin, DynContextPlugin, DynContextTransformation,
 };
 
 /// Tests for the context adapter

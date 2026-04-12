@@ -12,6 +12,7 @@
 )]
 //! Squirrel MCP demo binary — configuration-based routing and primal coordination showcase.
 
+use anyhow::Result;
 use serde_json::json;
 use std::collections::HashMap;
 use tokio::time::{Duration, sleep};
@@ -19,7 +20,7 @@ use tokio::time::{Duration, sleep};
 /// Enhanced Squirrel MCP Demo with Manual Selection and Primal Routing
 /// This demonstrates the new configuration-based routing capabilities
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
@@ -125,7 +126,7 @@ impl EnhancedDemoRouter {
         }
     }
 
-    async fn setup_agent_groups(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    async fn setup_agent_groups(&mut self) -> Result<()> {
         // AI Processing Group
         self.agent_groups.insert(
             "ai-processing".to_string(),
@@ -166,7 +167,7 @@ impl EnhancedDemoRouter {
         Ok(())
     }
 
-    async fn setup_manual_routing_rules(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    async fn setup_manual_routing_rules(&mut self) -> Result<()> {
         // Bioinformatics tasks -> High-performance group
         self.manual_rules.push(ManualRoutingRule {
             rule_id: "bio-to-high-perf".to_string(),
@@ -210,7 +211,7 @@ impl EnhancedDemoRouter {
         Ok(())
     }
 
-    async fn register_ai_agents(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    async fn register_ai_agents(&mut self) -> Result<()> {
         // OpenAI GPT-4 - High capability
         self.agents.insert(
             "openai-gpt4".to_string(),
@@ -264,7 +265,7 @@ impl EnhancedDemoRouter {
         Ok(())
     }
 
-    async fn setup_primal_endpoints(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    async fn setup_primal_endpoints(&mut self) -> Result<()> {
         // DEMO: Placeholder discovery pattern. In production, endpoints are discovered
         // at runtime via capability-based discovery (Songbird/socket-registry).
         // These capability keys demonstrate the PATTERN - actual URLs come from discovery.
@@ -288,10 +289,7 @@ impl EnhancedDemoRouter {
         Ok(())
     }
 
-    async fn route_task(
-        &mut self,
-        task: &DemoTask,
-    ) -> Result<TaskResponse, Box<dyn std::error::Error>> {
+    async fn route_task(&mut self, task: &DemoTask) -> Result<TaskResponse> {
         // Enhanced routing with manual selection support
         let selected_destination = self.select_destination(task).await?;
 
@@ -312,10 +310,7 @@ impl EnhancedDemoRouter {
         })
     }
 
-    async fn select_destination(
-        &self,
-        task: &DemoTask,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    async fn select_destination(&self, task: &DemoTask) -> Result<String> {
         // 1. Check for manual override in task metadata
         if let Some(preferred_agent) = task.metadata.get("preferred_agent")
             && self.agents.contains_key(preferred_agent)
@@ -386,7 +381,7 @@ impl EnhancedDemoRouter {
 
         best_agent
             .map(|agent| format!("agent:{agent}"))
-            .ok_or_else(|| "No suitable destination found".into())
+            .ok_or_else(|| anyhow::anyhow!("No suitable destination found"))
     }
 
     fn matches_rule_condition(&self, condition: &str, task: &DemoTask) -> bool {
@@ -445,7 +440,7 @@ impl EnhancedDemoRouter {
         &self,
         destination: &str,
         task: &DemoTask,
-    ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    ) -> Result<serde_json::Value> {
         // Simulate different routing latencies
         let latency = if destination.starts_with("primal:") {
             Duration::from_millis(300) // Cross-primal latency
@@ -533,9 +528,7 @@ struct TaskResponse {
     routing_method: String,
 }
 
-async fn demo_manual_selection(
-    router: &mut EnhancedDemoRouter,
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_manual_selection(router: &mut EnhancedDemoRouter) -> Result<()> {
     println!("Testing manual agent selection and overrides...");
 
     let mut task = DemoTask {
@@ -578,9 +571,7 @@ async fn demo_manual_selection(
     Ok(())
 }
 
-async fn demo_agent_groups(
-    router: &mut EnhancedDemoRouter,
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_agent_groups(router: &mut EnhancedDemoRouter) -> Result<()> {
     println!("Testing agent groups and priority routing...");
 
     let tasks = vec![
@@ -615,9 +606,7 @@ async fn demo_agent_groups(
     Ok(())
 }
 
-async fn demo_primal_routing(
-    router: &mut EnhancedDemoRouter,
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_primal_routing(router: &mut EnhancedDemoRouter) -> Result<()> {
     println!("Testing capability-based routing (discovery pattern)...");
 
     let tasks = vec![
@@ -655,9 +644,7 @@ async fn demo_primal_routing(
     Ok(())
 }
 
-async fn demo_config_rules(
-    router: &mut EnhancedDemoRouter,
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_config_rules(router: &mut EnhancedDemoRouter) -> Result<()> {
     println!("Testing configuration-based routing rules...");
 
     // Display configured rules
@@ -691,9 +678,7 @@ async fn demo_config_rules(
     Ok(())
 }
 
-async fn demo_selection_modes(
-    router: &mut EnhancedDemoRouter,
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_selection_modes(router: &mut EnhancedDemoRouter) -> Result<()> {
     println!("Testing different selection modes...");
 
     let task = DemoTask {

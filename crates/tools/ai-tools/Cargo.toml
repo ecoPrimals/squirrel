@@ -17,7 +17,6 @@ workspace = true
 # Core async runtime
 tokio.workspace = true
 tokio-stream.workspace = true
-async-trait.workspace = true
 futures.workspace = true
 
 # Serialization

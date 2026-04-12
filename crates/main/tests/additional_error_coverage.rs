@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
+// `expect` is not used for the list below: most of these lints never fire in this file, which
+// would make crate-level `expect` unfulfilled under `-D warnings`. Broad `allow` keeps this
+// integration test focused on error-path coverage without style/doc churn.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -50,7 +53,6 @@
 mod additional_error_coverage {
     use squirrel::error::PrimalError;
     /// Local test aliases for error recovery patterns
-    #[allow(dead_code)]
     mod safe_operations {
         use super::PrimalError;
         pub type SafeResult<T> = Result<T, PrimalError>;

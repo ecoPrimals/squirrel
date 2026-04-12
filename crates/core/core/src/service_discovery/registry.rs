@@ -42,18 +42,18 @@ use crate::error::CoreResult;
 /// );
 /// registry.register_local_service(service).await?;
 ///
-/// // Start heartbeat loop (spawns a background task)
+/// // Start heartbeat loop (background thread driving the async heartbeat work)
 /// registry.start_heartbeat_loop()?;
 /// # Ok(())
 /// # }
 /// ```
-pub struct ServiceRegistry {
-    discovery: Arc<dyn ServiceDiscovery>,
+pub struct ServiceRegistry<D: ServiceDiscovery + 'static> {
+    discovery: Arc<D>,
     local_services: Arc<RwLock<HashMap<String, ServiceDefinition>>>,
     heartbeat_interval: Duration,
 }
 
-impl ServiceRegistry {
+impl<D: ServiceDiscovery + 'static> ServiceRegistry<D> {
     /// Create new service registry
     ///
     /// Uses a default heartbeat interval of 10 seconds.
@@ -71,7 +71,7 @@ impl ServiceRegistry {
     /// let discovery = Arc::new(InMemoryServiceDiscovery::new());
     /// let registry = ServiceRegistry::new(discovery);
     /// ```
-    pub fn new(discovery: Arc<dyn ServiceDiscovery>) -> Self {
+    pub fn new(discovery: Arc<D>) -> Self {
         Self {
             discovery,
             local_services: Arc::new(RwLock::new(HashMap::new())),
@@ -96,10 +96,7 @@ impl ServiceRegistry {
     /// let discovery = Arc::new(InMemoryServiceDiscovery::new());
     /// let registry = ServiceRegistry::with_heartbeat_interval(discovery, Duration::from_secs(5));
     /// ```
-    pub fn with_heartbeat_interval(
-        discovery: Arc<dyn ServiceDiscovery>,
-        interval: Duration,
-    ) -> Self {
+    pub fn with_heartbeat_interval(discovery: Arc<D>, interval: Duration) -> Self {
         Self {
             discovery,
             local_services: Arc::new(RwLock::new(HashMap::new())),
@@ -122,8 +119,8 @@ impl ServiceRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::{CoreResult, ServiceDefinition, ServiceRegistry, ServiceType};
-    /// # async fn example(registry: &ServiceRegistry) -> CoreResult<()> {
+    /// # use squirrel_core::{CoreResult, InMemoryServiceDiscovery, ServiceDefinition, ServiceRegistry, ServiceType};
+    /// # async fn example(registry: &ServiceRegistry<InMemoryServiceDiscovery>) -> CoreResult<()> {
     /// let service = ServiceDefinition::new(
     ///     "my-service".to_string(),
     ///     "My Service".to_string(),
@@ -169,8 +166,8 @@ impl ServiceRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::{CoreResult, ServiceRegistry};
-    /// # async fn example(registry: &ServiceRegistry) -> CoreResult<()> {
+    /// # use squirrel_core::{CoreResult, InMemoryServiceDiscovery, ServiceRegistry};
+    /// # async fn example(registry: &ServiceRegistry<InMemoryServiceDiscovery>) -> CoreResult<()> {
     /// registry.deregister_local_service("my-service").await?;
     /// # Ok(())
     /// # }
@@ -210,8 +207,8 @@ impl ServiceRegistry {
     ///
     /// ```rust
     /// # use squirrel_core::service_discovery::ServiceHealthStatus;
-    /// # use squirrel_core::{CoreResult, ServiceRegistry};
-    /// # async fn example(registry: &ServiceRegistry) -> CoreResult<()> {
+    /// # use squirrel_core::{CoreResult, InMemoryServiceDiscovery, ServiceRegistry};
+    /// # async fn example(registry: &ServiceRegistry<InMemoryServiceDiscovery>) -> CoreResult<()> {
     /// registry.update_local_service_health("my-service", ServiceHealthStatus::Unhealthy).await?;
     /// # Ok(())
     /// # }
@@ -253,8 +250,8 @@ impl ServiceRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::ServiceRegistry;
-    /// # async fn example(registry: &ServiceRegistry) {
+    /// # use squirrel_core::{InMemoryServiceDiscovery, ServiceRegistry};
+    /// # async fn example(registry: &ServiceRegistry<InMemoryServiceDiscovery>) {
     /// let services = registry.get_local_services().await;
     /// println!("Found {} local services", services.len());
     /// # }
@@ -266,8 +263,9 @@ impl ServiceRegistry {
 
     /// Start heartbeat for all local services
     ///
-    /// Starts a background task that sends periodic heartbeats for all locally
-    /// registered services to keep them active in the discovery system.
+    /// Starts a background thread (running on the Tokio runtime handle) that sends
+    /// periodic heartbeats for all locally registered services to keep them active
+    /// in the discovery system.
     ///
     /// # Returns
     ///
@@ -276,8 +274,8 @@ impl ServiceRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::{CoreResult, ServiceRegistry};
-    /// # fn example(registry: &ServiceRegistry) -> CoreResult<()> {
+    /// # use squirrel_core::{CoreResult, InMemoryServiceDiscovery, ServiceRegistry};
+    /// # fn example(registry: &ServiceRegistry<InMemoryServiceDiscovery>) -> CoreResult<()> {
     /// registry.start_heartbeat_loop()?;
     /// # Ok(())
     /// # }
@@ -293,26 +291,37 @@ impl ServiceRegistry {
 
         info!("Starting heartbeat loop with interval: {:?}", interval);
 
-        tokio::spawn(async move {
-            let mut interval_timer = tokio::time::interval(interval);
-            interval_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let handle = tokio::runtime::Handle::current();
+        std::thread::Builder::new()
+            .name("service-registry-heartbeat".to_string())
+            .spawn(move || {
+                handle.block_on(async move {
+                    let mut interval_timer = tokio::time::interval(interval);
+                    interval_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-            loop {
-                interval_timer.tick().await;
+                    loop {
+                        interval_timer.tick().await;
 
-                let services = local_services.read().await;
-                let service_ids: Vec<String> = services.keys().cloned().collect();
-                drop(services);
+                        let services = local_services.read().await;
+                        let service_ids: Vec<String> = services.keys().cloned().collect();
+                        drop(services);
 
-                for service_id in service_ids {
-                    if let Err(e) = discovery.heartbeat(&service_id).await {
-                        error!("Failed to send heartbeat for service {}: {}", service_id, e);
-                    } else {
-                        debug!("Sent heartbeat for service: {}", service_id);
+                        for service_id in service_ids {
+                            if let Err(e) = discovery.heartbeat(&service_id).await {
+                                error!(
+                                    "Failed to send heartbeat for service {}: {}",
+                                    service_id, e
+                                );
+                            } else {
+                                debug!("Sent heartbeat for service: {}", service_id);
+                            }
+                        }
                     }
-                }
-            }
-        });
+                });
+            })
+            .map_err(|e| {
+                crate::error::CoreError::General(format!("service registry heartbeat thread: {e}"))
+            })?;
 
         Ok(())
     }
@@ -329,8 +338,8 @@ impl ServiceRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::{CoreResult, ServiceRegistry};
-    /// # async fn example(registry: &ServiceRegistry) -> CoreResult<()> {
+    /// # use squirrel_core::{CoreResult, InMemoryServiceDiscovery, ServiceRegistry};
+    /// # async fn example(registry: &ServiceRegistry<InMemoryServiceDiscovery>) -> CoreResult<()> {
     /// registry.shutdown().await?;
     /// # Ok(())
     /// # }
@@ -370,8 +379,8 @@ impl ServiceRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::ServiceRegistry;
-    /// # async fn example(registry: &ServiceRegistry) {
+    /// # use squirrel_core::{InMemoryServiceDiscovery, ServiceRegistry};
+    /// # async fn example(registry: &ServiceRegistry<InMemoryServiceDiscovery>) {
     /// let stats = registry.get_registry_stats().await;
     /// println!("Local services: {}", stats.total_services);
     /// println!("Healthy services: {}", stats.healthy_services);

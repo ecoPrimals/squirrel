@@ -11,18 +11,18 @@ use tracing::debug;
 
 use crate::ContextError;
 use squirrel_interfaces::context::{
-    AdapterMetadata, ContextAdapterPlugin, ContextPlugin, ContextTransformation,
+    AdapterMetadata, DynContextAdapterPlugin, DynContextPlugin, DynContextTransformation,
 };
 
 /// Plugin manager for managing context plugins and transformations
 #[derive(Debug)]
 pub struct ContextPluginManager {
     /// Collection of registered context plugins
-    plugins: RwLock<Vec<Box<dyn ContextPlugin>>>,
+    plugins: RwLock<Vec<Box<dyn DynContextPlugin>>>,
     /// Collection of available context transformations from plugins
-    transformations: RwLock<Vec<Arc<dyn ContextTransformation>>>,
+    transformations: RwLock<Vec<Arc<dyn DynContextTransformation>>>,
     /// Map of adapter IDs to context adapter plugins
-    adapters: RwLock<HashMap<String, Arc<dyn ContextAdapterPlugin>>>,
+    adapters: RwLock<HashMap<String, Arc<dyn DynContextAdapterPlugin>>>,
 }
 
 impl ContextPluginManager {
@@ -38,7 +38,7 @@ impl ContextPluginManager {
     /// Register a plugin
     pub async fn register_plugin(
         &self,
-        plugin: Box<dyn ContextPlugin>,
+        plugin: Box<dyn DynContextPlugin>,
     ) -> Result<(), ContextError> {
         // Get the plugin's transformations
         let transformations = plugin.get_transformations().await;
@@ -76,12 +76,12 @@ impl ContextPluginManager {
     }
 
     /// Get all registered transformations
-    pub async fn get_transformations(&self) -> Vec<Arc<dyn ContextTransformation>> {
+    pub async fn get_transformations(&self) -> Vec<Arc<dyn DynContextTransformation>> {
         self.transformations.read().await.clone()
     }
 
     /// Get all registered adapters
-    pub async fn get_adapters(&self) -> HashMap<String, Arc<dyn ContextAdapterPlugin>> {
+    pub async fn get_adapters(&self) -> HashMap<String, Arc<dyn DynContextAdapterPlugin>> {
         self.adapters.read().await.clone()
     }
 
@@ -107,7 +107,7 @@ impl ContextPluginManager {
     }
 
     /// Get adapter by ID
-    pub async fn get_adapter(&self, adapter_id: &str) -> Option<Arc<dyn ContextAdapterPlugin>> {
+    pub async fn get_adapter(&self, adapter_id: &str) -> Option<Arc<dyn DynContextAdapterPlugin>> {
         self.adapters.read().await.get(adapter_id).cloned()
     }
 
@@ -143,10 +143,10 @@ pub async fn create_default_plugin_manager() -> Result<Arc<ContextPluginManager>
 mod tests {
     use super::ContextPluginManager;
     use crate::ContextError;
-    use async_trait::async_trait;
     use serde_json::{Value, json};
     use squirrel_interfaces::context::{
         AdapterMetadata, ContextAdapterPlugin, ContextPlugin, ContextTransformation,
+        DynContextAdapterPlugin, DynContextPlugin, DynContextTransformation,
     };
     use squirrel_interfaces::plugins::{Plugin, PluginMetadata};
     use std::sync::Arc;
@@ -154,8 +154,8 @@ mod tests {
     #[derive(Debug)]
     struct MetaPlugin {
         meta: PluginMetadata,
-        transforms: Vec<Arc<dyn ContextTransformation>>,
-        adapters: Vec<Arc<dyn ContextAdapterPlugin>>,
+        transforms: Vec<Arc<dyn DynContextTransformation>>,
+        adapters: Vec<Arc<dyn DynContextAdapterPlugin>>,
     }
 
     #[derive(Debug)]
@@ -163,7 +163,6 @@ mod tests {
         id: &'static str,
     }
 
-    #[async_trait]
     impl ContextTransformation for IdTransform {
         fn get_id(&self) -> &str {
             self.id
@@ -177,10 +176,7 @@ mod tests {
             "d"
         }
 
-        async fn transform(
-            &self,
-            data: Value,
-        ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+        async fn transform(&self, data: Value) -> anyhow::Result<Value> {
             Ok(json!({ "wrapped": data }))
         }
     }
@@ -191,55 +187,49 @@ mod tests {
         adapter_meta: AdapterMetadata,
     }
 
-    #[async_trait]
     impl Plugin for StaticAdapter {
         fn metadata(&self) -> &PluginMetadata {
             &self.plugin_meta
         }
     }
 
-    #[async_trait]
     impl ContextAdapterPlugin for StaticAdapter {
         async fn get_metadata(&self) -> AdapterMetadata {
             self.adapter_meta.clone()
         }
 
-        async fn convert(
-            &self,
-            data: Value,
-        ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+        async fn convert(&self, data: Value) -> anyhow::Result<Value> {
             Ok(data)
         }
     }
 
-    #[async_trait]
     impl Plugin for MetaPlugin {
         fn metadata(&self) -> &PluginMetadata {
             &self.meta
         }
     }
 
-    #[async_trait]
     impl ContextPlugin for MetaPlugin {
-        async fn get_transformations(&self) -> Vec<Arc<dyn ContextTransformation>> {
+        async fn get_transformations(&self) -> Vec<Arc<dyn DynContextTransformation>> {
             self.transforms.clone()
         }
 
-        async fn get_adapters(&self) -> Vec<Arc<dyn ContextAdapterPlugin>> {
+        async fn get_adapters(&self) -> Vec<Arc<dyn DynContextAdapterPlugin>> {
             self.adapters.clone()
         }
     }
 
-    fn sample_plugin_with_transform() -> Box<dyn ContextPlugin> {
+    fn sample_plugin_with_transform() -> Box<dyn DynContextPlugin> {
         let meta = PluginMetadata::new("p.test", "1.0.0", "d", "a");
+        let tid: Arc<dyn DynContextTransformation> = Arc::new(IdTransform { id: "tid" });
         Box::new(MetaPlugin {
             meta,
-            transforms: vec![Arc::new(IdTransform { id: "tid" })],
+            transforms: vec![tid],
             adapters: vec![],
         })
     }
 
-    fn sample_plugin_with_adapter() -> Box<dyn ContextPlugin> {
+    fn sample_plugin_with_adapter() -> Box<dyn DynContextPlugin> {
         let plugin_meta = PluginMetadata::new("p.adapt", "1.0.0", "d", "a");
         let adapter_meta = AdapterMetadata {
             id: "aid".to_string(),
@@ -248,7 +238,7 @@ mod tests {
             source_format: "a".to_string(),
             target_format: "b".to_string(),
         };
-        let adapter = Arc::new(StaticAdapter {
+        let adapter: Arc<dyn DynContextAdapterPlugin> = Arc::new(StaticAdapter {
             plugin_meta: plugin_meta.clone(),
             adapter_meta: adapter_meta.clone(),
         });

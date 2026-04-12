@@ -28,7 +28,6 @@ universal-constants = { path = "../../universal-constants", version = "0.1.0" }
 squirrel-context.workspace = true
 
 [dev-dependencies]
-async-trait.workspace = true
 tokio-test.workspace = true
 tempfile.workspace = true
 mockall.workspace = true

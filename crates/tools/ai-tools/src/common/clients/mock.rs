@@ -6,7 +6,6 @@
 //! This module provides a mock AI client that can be used for testing
 //! without making actual API calls to external services.
 
-use async_trait::async_trait;
 use futures::stream;
 use std::collections::HashMap;
 
@@ -124,7 +123,6 @@ impl Default for MockAIClient {
     }
 }
 
-#[async_trait]
 impl AIClient for MockAIClient {
     async fn chat(&self, request: ChatRequest) -> crate::Result<ChatResponse> {
         self.simulate_latency().await;
@@ -203,6 +201,7 @@ impl AIClient for MockAIClient {
     }
 
     async fn get_capabilities(&self, model: &str) -> crate::Result<AICapabilities> {
+        let model = model.to_string();
         self.simulate_latency().await;
 
         if !self.available {
@@ -222,7 +221,7 @@ impl AIClient for MockAIClient {
         capabilities.add_task_type(TaskType::QuestionAnswering);
 
         // Model-specific capabilities
-        match model {
+        match model.as_str() {
             "mock-gpt-4" => {
                 capabilities.max_context_size = 128_000;
                 capabilities.supports_function_calling = true;
@@ -284,8 +283,10 @@ impl AIClient for MockAIClient {
                 .collect(),
         };
 
-        let stream = stream::once(async move { Ok(chunk) });
-        Ok(Box::pin(stream))
+        let stream =
+            stream::once(async move { Ok::<ChatResponseChunk, crate::error::AIError>(chunk) });
+        let out: ChatResponseStream = Box::pin(stream);
+        Ok(out)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

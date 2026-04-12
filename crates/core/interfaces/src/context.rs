@@ -3,8 +3,9 @@
 
 //! Context interfaces for plugin system integration
 //!
-//! This module defines shared interfaces for the context system to avoid
-//! circular dependencies between the context and plugins crates.
+//! Core traits use `impl Future<Output = _> + Send` so implementations are `Send`.
+//! Object-safe [`DynContextTransformation`], [`DynContextPlugin`], and
+//! [`DynContextAdapterPlugin`] support heterogeneous collections.
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -12,12 +13,9 @@ use serde_json::Value;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use crate::plugins::Plugin;
+use crate::plugins::{DynPlugin, Plugin};
 
 /// Context transformation trait
-///
-/// This trait defines the interface for context transformations.
-#[async_trait]
 pub trait ContextTransformation: Send + Sync + Debug {
     /// Get the transformation ID
     fn get_id(&self) -> &str;
@@ -29,10 +27,45 @@ pub trait ContextTransformation: Send + Sync + Debug {
     fn get_description(&self) -> &str;
 
     /// Transform context data
-    async fn transform(
+    fn transform(
         &self,
         data: Value,
-    ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>>;
+    ) -> impl std::future::Future<Output = Result<Value>> + Send + '_;
+}
+
+/// Object-safe projection of [`ContextTransformation`] for heterogeneous collections.
+#[async_trait]
+pub trait DynContextTransformation: Send + Sync + Debug {
+    /// Get the transformation ID
+    fn get_id(&self) -> &str;
+
+    /// Get the transformation name
+    fn get_name(&self) -> &str;
+
+    /// Get the transformation description
+    fn get_description(&self) -> &str;
+
+    /// Transform context data
+    async fn transform(&self, data: Value) -> Result<Value>;
+}
+
+#[async_trait]
+impl<T: ContextTransformation + Send + Sync> DynContextTransformation for T {
+    fn get_id(&self) -> &str {
+        ContextTransformation::get_id(self)
+    }
+
+    fn get_name(&self) -> &str {
+        ContextTransformation::get_name(self)
+    }
+
+    fn get_description(&self) -> &str {
+        ContextTransformation::get_description(self)
+    }
+
+    async fn transform(&self, data: Value) -> Result<Value> {
+        ContextTransformation::transform(self, data).await
+    }
 }
 
 /// Context transformation metadata
@@ -55,15 +88,37 @@ pub struct TransformationMetadata {
 }
 
 /// Context plugin trait
-///
-/// This trait defines the interface for plugins that provide context transformations.
-#[async_trait]
 pub trait ContextPlugin: Plugin + Send + Sync {
     /// Get available context transformations
-    async fn get_transformations(&self) -> Vec<Arc<dyn ContextTransformation>>;
+    fn get_transformations(
+        &self,
+    ) -> impl std::future::Future<Output = Vec<Arc<dyn DynContextTransformation>>> + Send + '_;
 
     /// Get available adapters
-    async fn get_adapters(&self) -> Vec<Arc<dyn ContextAdapterPlugin>>;
+    fn get_adapters(
+        &self,
+    ) -> impl std::future::Future<Output = Vec<Arc<dyn DynContextAdapterPlugin>>> + Send + '_;
+}
+
+/// Object-safe projection of [`ContextPlugin`] for registries.
+#[async_trait]
+pub trait DynContextPlugin: DynPlugin {
+    /// Get available context transformations
+    async fn get_transformations(&self) -> Vec<Arc<dyn DynContextTransformation>>;
+
+    /// Get available adapters
+    async fn get_adapters(&self) -> Vec<Arc<dyn DynContextAdapterPlugin>>;
+}
+
+#[async_trait]
+impl<T: ContextPlugin + Send + Sync> DynContextPlugin for T {
+    async fn get_transformations(&self) -> Vec<Arc<dyn DynContextTransformation>> {
+        ContextPlugin::get_transformations(self).await
+    }
+
+    async fn get_adapters(&self) -> Vec<Arc<dyn DynContextAdapterPlugin>> {
+        ContextPlugin::get_adapters(self).await
+    }
 }
 
 /// Adapter metadata
@@ -86,46 +141,52 @@ pub struct AdapterMetadata {
 }
 
 /// Context adapter plugin trait
-///
-/// This trait defines the interface for plugins that provide format conversion.
-#[async_trait]
 pub trait ContextAdapterPlugin: Plugin + Send + Sync + Debug {
+    /// Get the adapter metadata
+    fn get_metadata(&self) -> impl std::future::Future<Output = AdapterMetadata> + Send + '_;
+
+    /// Convert data from source format to target format
+    fn convert(&self, data: Value) -> impl std::future::Future<Output = Result<Value>> + Send + '_;
+}
+
+/// Object-safe projection of [`ContextAdapterPlugin`].
+#[async_trait]
+pub trait DynContextAdapterPlugin: DynPlugin {
     /// Get the adapter metadata
     async fn get_metadata(&self) -> AdapterMetadata;
 
     /// Convert data from source format to target format
-    async fn convert(&self, data: Value)
-    -> Result<Value, Box<dyn std::error::Error + Send + Sync>>;
+    async fn convert(&self, data: Value) -> Result<Value>;
+}
+
+#[async_trait]
+impl<T: ContextAdapterPlugin + Send + Sync> DynContextAdapterPlugin for T {
+    async fn get_metadata(&self) -> AdapterMetadata {
+        ContextAdapterPlugin::get_metadata(self).await
+    }
+
+    async fn convert(&self, data: Value) -> Result<Value> {
+        ContextAdapterPlugin::convert(self, data).await
+    }
 }
 
 /// Context manager trait
-///
-/// This trait defines the interface for context management.
 #[expect(
     async_fn_in_trait,
     reason = "internal trait — all impls are Send + Sync"
 )]
 pub trait ContextManager: Send + Sync {
     /// Initialize the context manager
-    async fn initialize(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    async fn initialize(&self) -> Result<()>;
 
     /// Transform data using the specified transformation ID
-    async fn transform_data(
-        &self,
-        transformation_id: &str,
-        data: Value,
-    ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>>;
+    async fn transform_data(&self, transformation_id: &str, data: Value) -> Result<Value>;
 
     /// Get all available transformations
-    async fn get_transformations(
-        &self,
-    ) -> Result<Vec<Box<dyn ContextTransformation>>, Box<dyn std::error::Error + Send + Sync>>;
+    async fn get_transformations(&self) -> Result<Vec<Box<dyn DynContextTransformation>>>;
 
     /// Register a plugin
-    async fn register_plugin(
-        &self,
-        plugin: Box<dyn ContextPlugin>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    async fn register_plugin(&self, plugin: Box<dyn DynContextPlugin>) -> Result<()>;
 }
 
 #[cfg(test)]

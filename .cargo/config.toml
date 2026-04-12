@@ -27,7 +27,10 @@ rustflags = [
 [target.x86_64-unknown-linux-musl]
 rustflags = [
     "-C", "target-feature=+crt-static",
-    "-C", "link-arg=-static"
+    "-C", "link-arg=-static",
+    "--remap-path-prefix", "/home/=",
+    "--remap-path-prefix", "/root/=",
+    "--remap-path-prefix", "/Users/=",
 ]
 
 # ARM64 macOS (Apple Silicon)

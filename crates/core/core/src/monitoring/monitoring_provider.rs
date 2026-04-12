@@ -10,7 +10,6 @@
 
 use crate::{HealthStatus, Result};
 
-use async_trait::async_trait;
 use serde_json::json;
 use std::sync::atomic::{AtomicBool, Ordering};
 use universal_patterns::ipc_client::IpcClient;
@@ -18,6 +17,7 @@ use universal_patterns::ipc_client::IpcClient;
 use super::config::MonitoringServiceConfig;
 use super::types::{
     Metric, MonitoringCapability, MonitoringEvent, MonitoringProvider, PerformanceMetrics,
+    TimeFrame,
 };
 use universal_constants::primal_names;
 
@@ -87,7 +87,6 @@ impl MonitoringServiceProvider {
     }
 }
 
-#[async_trait]
 impl MonitoringProvider for MonitoringServiceProvider {
     fn provider_name(&self) -> &'static str {
         // Returns the name of the backing provider for logging; this is NOT used for dispatch
@@ -117,7 +116,8 @@ impl MonitoringProvider for MonitoringServiceProvider {
     }
 
     async fn record_health(&self, component: &str, health: HealthStatus) -> Result<()> {
-        tracing::debug!(component, ?health, "monitoring.record_health");
+        let component = component.to_string();
+        tracing::debug!(component = %component, ?health, "monitoring.record_health");
         self.try_rpc(
             "monitoring.record_health",
             json!({ "component": component, "status": format!("{health:?}") }),
@@ -130,7 +130,8 @@ impl MonitoringProvider for MonitoringServiceProvider {
         component: &str,
         _metrics: PerformanceMetrics,
     ) -> Result<()> {
-        tracing::debug!(component, "monitoring.record_performance");
+        let component = component.to_string();
+        tracing::debug!(component = %component, "monitoring.record_performance");
         self.try_rpc(
             "monitoring.record_performance",
             json!({ "component": component }),
@@ -160,5 +161,195 @@ impl MonitoringProvider for MonitoringServiceProvider {
             MonitoringCapability::Tracing,
             MonitoringCapability::Logging,
         ])
+    }
+}
+
+/// Concrete monitoring backends registered with [`super::MonitoringService`].
+pub enum MonitoringProviderImpl {
+    /// IPC / capability-discovered monitoring service (e.g. Songbird).
+    MonitoringService(MonitoringServiceProvider),
+    /// Test double: always succeeds.
+    #[cfg(test)]
+    TestOk(TestOkProvider),
+    /// Test double: fails on every call.
+    #[cfg(test)]
+    TestFailing(TestFailingProvider),
+}
+
+impl MonitoringProvider for MonitoringProviderImpl {
+    fn provider_name(&self) -> &'static str {
+        match self {
+            Self::MonitoringService(p) => p.provider_name(),
+            #[cfg(test)]
+            Self::TestOk(p) => p.provider_name(),
+            #[cfg(test)]
+            Self::TestFailing(p) => p.provider_name(),
+        }
+    }
+
+    fn provider_version(&self) -> &'static str {
+        match self {
+            Self::MonitoringService(p) => p.provider_version(),
+            #[cfg(test)]
+            Self::TestOk(p) => p.provider_version(),
+            #[cfg(test)]
+            Self::TestFailing(p) => p.provider_version(),
+        }
+    }
+
+    async fn record_event(&self, event: MonitoringEvent) -> Result<()> {
+        match self {
+            Self::MonitoringService(p) => p.record_event(event).await,
+            #[cfg(test)]
+            Self::TestOk(p) => p.record_event(event).await,
+            #[cfg(test)]
+            Self::TestFailing(p) => p.record_event(event).await,
+        }
+    }
+
+    async fn record_metric(&self, metric: Metric) -> Result<()> {
+        match self {
+            Self::MonitoringService(p) => p.record_metric(metric).await,
+            #[cfg(test)]
+            Self::TestOk(p) => p.record_metric(metric).await,
+            #[cfg(test)]
+            Self::TestFailing(p) => p.record_metric(metric).await,
+        }
+    }
+
+    async fn record_health(&self, component: &str, health: HealthStatus) -> Result<()> {
+        match self {
+            Self::MonitoringService(p) => p.record_health(component, health).await,
+            #[cfg(test)]
+            Self::TestOk(p) => p.record_health(component, health).await,
+            #[cfg(test)]
+            Self::TestFailing(p) => p.record_health(component, health).await,
+        }
+    }
+
+    async fn record_performance(&self, component: &str, metrics: PerformanceMetrics) -> Result<()> {
+        match self {
+            Self::MonitoringService(p) => p.record_performance(component, metrics).await,
+            #[cfg(test)]
+            Self::TestOk(p) => p.record_performance(component, metrics).await,
+            #[cfg(test)]
+            Self::TestFailing(p) => p.record_performance(component, metrics).await,
+        }
+    }
+
+    async fn query_health(&self, component: &str) -> Result<Option<HealthStatus>> {
+        match self {
+            Self::MonitoringService(p) => p.query_health(component).await,
+            #[cfg(test)]
+            Self::TestOk(p) => p.query_health(component).await,
+            #[cfg(test)]
+            Self::TestFailing(p) => p.query_health(component).await,
+        }
+    }
+
+    async fn query_metrics(&self, component: &str, timeframe: TimeFrame) -> Result<Vec<Metric>> {
+        match self {
+            Self::MonitoringService(p) => p.query_metrics(component, timeframe).await,
+            #[cfg(test)]
+            Self::TestOk(p) => p.query_metrics(component, timeframe).await,
+            #[cfg(test)]
+            Self::TestFailing(p) => p.query_metrics(component, timeframe).await,
+        }
+    }
+
+    async fn provider_health(&self) -> Result<HealthStatus> {
+        match self {
+            Self::MonitoringService(p) => p.provider_health().await,
+            #[cfg(test)]
+            Self::TestOk(p) => p.provider_health().await,
+            #[cfg(test)]
+            Self::TestFailing(p) => p.provider_health().await,
+        }
+    }
+
+    async fn provider_capabilities(&self) -> Result<Vec<MonitoringCapability>> {
+        match self {
+            Self::MonitoringService(p) => p.provider_capabilities().await,
+            #[cfg(test)]
+            Self::TestOk(p) => p.provider_capabilities().await,
+            #[cfg(test)]
+            Self::TestFailing(p) => p.provider_capabilities().await,
+        }
+    }
+}
+
+#[cfg(test)]
+pub struct TestOkProvider(pub &'static str);
+
+#[cfg(test)]
+pub struct TestFailingProvider;
+
+#[cfg(test)]
+impl MonitoringProvider for TestOkProvider {
+    fn provider_name(&self) -> &'static str {
+        self.0
+    }
+
+    fn provider_version(&self) -> &'static str {
+        "test"
+    }
+
+    async fn record_event(&self, _: MonitoringEvent) -> Result<()> {
+        Ok(())
+    }
+
+    async fn record_metric(&self, _: Metric) -> Result<()> {
+        Ok(())
+    }
+
+    async fn record_health(&self, _: &str, _: HealthStatus) -> Result<()> {
+        Ok(())
+    }
+
+    async fn record_performance(&self, _: &str, _: PerformanceMetrics) -> Result<()> {
+        Ok(())
+    }
+
+    async fn provider_health(&self) -> Result<HealthStatus> {
+        Ok(HealthStatus::Healthy)
+    }
+
+    async fn provider_capabilities(&self) -> Result<Vec<MonitoringCapability>> {
+        Ok(vec![MonitoringCapability::Metrics])
+    }
+}
+
+#[cfg(test)]
+impl MonitoringProvider for TestFailingProvider {
+    fn provider_name(&self) -> &'static str {
+        "failing"
+    }
+
+    fn provider_version(&self) -> &'static str {
+        "0"
+    }
+
+    async fn record_event(&self, _: MonitoringEvent) -> Result<()> {
+        Err(crate::Error::Monitoring("e".into()))
+    }
+
+    async fn record_metric(&self, _: Metric) -> Result<()> {
+        Err(crate::Error::Monitoring("e".into()))
+    }
+
+    async fn record_health(&self, _: &str, _: HealthStatus) -> Result<()> {
+        Err(crate::Error::Monitoring("e".into()))
+    }
+
+    async fn record_performance(&self, _: &str, _: PerformanceMetrics) -> Result<()> {
+        Err(crate::Error::Monitoring("e".into()))
+    }
+
+    async fn provider_health(&self) -> Result<HealthStatus> {
+        Err(crate::Error::Monitoring("e".into()))
+    }
+
+    async fn provider_capabilities(&self) -> Result<Vec<MonitoringCapability>> {
+        Err(crate::Error::Monitoring("e".into()))
     }
 }

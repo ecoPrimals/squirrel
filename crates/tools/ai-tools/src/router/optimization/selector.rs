@@ -4,6 +4,7 @@
 //! Strategy-based provider selection engine.
 
 use super::scorer::ProviderScorer;
+use crate::AiClientImpl;
 use crate::Result;
 use crate::common::AIClient;
 use crate::error::Error;
@@ -33,10 +34,10 @@ impl ProviderSelector {
     /// Returns [`Error::Configuration`] when `providers` is empty.
     pub fn select_provider(
         &self,
-        providers: Vec<(String, Arc<dyn AIClient>)>,
+        providers: Vec<(String, Arc<AiClientImpl>)>,
         context: &RequestContext,
         strategy: RoutingStrategy,
-    ) -> Result<(String, Arc<dyn AIClient>)> {
+    ) -> Result<(String, Arc<AiClientImpl>)> {
         if providers.is_empty() {
             return Err(Error::Configuration(
                 "No suitable providers available".to_string(),
@@ -60,16 +61,16 @@ impl ProviderSelector {
     }
 
     fn select_first_match(
-        providers: &[(String, Arc<dyn AIClient>)],
-    ) -> (String, Arc<dyn AIClient>) {
+        providers: &[(String, Arc<AiClientImpl>)],
+    ) -> (String, Arc<AiClientImpl>) {
         debug!("Using FirstMatch strategy");
         let (id, client) = &providers[0];
         (id.clone(), Arc::clone(client))
     }
 
     fn select_highest_priority(
-        providers: &[(String, Arc<dyn AIClient>)],
-    ) -> (String, Arc<dyn AIClient>) {
+        providers: &[(String, Arc<AiClientImpl>)],
+    ) -> (String, Arc<AiClientImpl>) {
         debug!("Using HighestPriority strategy");
         let mut best_idx = 0;
         let mut best_priority = providers[0].1.routing_preferences().priority;
@@ -87,8 +88,8 @@ impl ProviderSelector {
     }
 
     fn select_lowest_latency(
-        providers: &[(String, Arc<dyn AIClient>)],
-    ) -> (String, Arc<dyn AIClient>) {
+        providers: &[(String, Arc<AiClientImpl>)],
+    ) -> (String, Arc<AiClientImpl>) {
         debug!("Using LowestLatency strategy");
         let mut best_idx = 0;
         let mut best_latency = providers[0]
@@ -112,8 +113,8 @@ impl ProviderSelector {
     }
 
     fn select_lowest_cost(
-        providers: &[(String, Arc<dyn AIClient>)],
-    ) -> (String, Arc<dyn AIClient>) {
+        providers: &[(String, Arc<AiClientImpl>)],
+    ) -> (String, Arc<AiClientImpl>) {
         debug!("Using LowestCost strategy");
         let mut best_idx = 0;
         let mut best_cost = providers[0].1.routing_preferences().cost_tier;
@@ -131,13 +132,13 @@ impl ProviderSelector {
     }
 
     fn select_best_fit(
-        providers: Vec<(String, Arc<dyn AIClient>)>,
+        providers: Vec<(String, Arc<AiClientImpl>)>,
         context: &RequestContext,
-    ) -> (String, Arc<dyn AIClient>) {
+    ) -> (String, Arc<AiClientImpl>) {
         debug!("Using BestFit strategy");
         let scorer = ProviderScorer::new();
 
-        let mut scored_providers: Vec<(String, Arc<dyn AIClient>, u32)> = providers
+        let mut scored_providers: Vec<(String, Arc<AiClientImpl>, u32)> = providers
             .into_iter()
             .map(|(id, provider)| {
                 let score = scorer.score_provider(&provider, context);
@@ -155,15 +156,15 @@ impl ProviderSelector {
 
     fn select_round_robin(
         &self,
-        providers: &[(String, Arc<dyn AIClient>)],
-    ) -> (String, Arc<dyn AIClient>) {
+        providers: &[(String, Arc<AiClientImpl>)],
+    ) -> (String, Arc<AiClientImpl>) {
         debug!("Using RoundRobin strategy");
         let index = self.round_robin_index.fetch_add(1, Ordering::SeqCst) % providers.len();
         let (id, client) = &providers[index];
         (id.clone(), Arc::clone(client))
     }
 
-    fn select_random(providers: &[(String, Arc<dyn AIClient>)]) -> (String, Arc<dyn AIClient>) {
+    fn select_random(providers: &[(String, Arc<AiClientImpl>)]) -> (String, Arc<AiClientImpl>) {
         debug!("Using Random strategy");
         let index = rand::random::<usize>() % providers.len();
         let (id, client) = &providers[index];

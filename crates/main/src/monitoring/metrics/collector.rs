@@ -6,8 +6,8 @@
 //! Core metrics collection engine with system monitoring.
 //!
 //! The public API (`MetricsCollector`, `MetricsSummary`, `HttpMetrics`) is live.
-//! Stubbed system metric helpers (`get_disk_usage`, etc.) carry per-method
-//! `#[expect(dead_code)]` until wired to real `/proc`-based collection.
+//! Uptime uses [`universal_constants::sys_info::uptime_seconds`]. Other system helpers still use
+//! placeholders where noted, with per-method `#[expect(dead_code)]` until wired to `/proc` or HTTP stats.
 
 use chrono::Utc;
 use dashmap::DashMap;
@@ -272,7 +272,7 @@ impl MetricsCollector {
         system_metrics.request_rate = self.get_request_rate().await?;
         system_metrics.error_rate = self.get_error_rate().await?;
         system_metrics.avg_response_time = self.get_avg_response_time().await?;
-        system_metrics.uptime = universal_constants::sys_info::uptime_seconds().unwrap_or(0);
+        system_metrics.uptime = self.get_uptime().await?;
 
         Ok(())
     }
@@ -519,12 +519,9 @@ impl MetricsCollector {
         Ok(125.3)
     }
 
-    #[expect(
-        dead_code,
-        reason = "stub until wired to /proc uptime or session tracker"
-    )]
+    /// Host uptime in seconds from [`universal_constants::sys_info::uptime_seconds`] (`/proc/uptime` on Linux).
     async fn get_uptime(&self) -> Result<u64, PrimalError> {
-        Ok(universal_constants::sys_info::uptime_seconds().unwrap_or(3600 * 24 * 5))
+        Ok(universal_constants::sys_info::uptime_seconds().unwrap_or(0))
     }
 }
 

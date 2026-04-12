@@ -3,13 +3,9 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use super::*;
-use crate::api::ai::adapters::{AiProviderAdapter, QualityTier};
+use crate::api::ai::adapters::AiProvider;
+use crate::api::ai::adapters::test_mocks::JsonRpcMockTextAdapter;
 use crate::api::ai::router::AiRouter;
-use crate::api::ai::types::{
-    ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest, TextGenerationResponse,
-};
-use crate::error::PrimalError;
-use async_trait::async_trait;
 use serde_json::{Value, json};
 use std::sync::Arc;
 
@@ -605,69 +601,10 @@ async fn system_health_tier_becomes_healthy_after_prior_rpc() {
     );
 }
 
-/// Minimal text adapter for JSON-RPC + router integration tests.
-struct JsonRpcMockTextAdapter;
-
-#[async_trait]
-impl AiProviderAdapter for JsonRpcMockTextAdapter {
-    fn provider_id(&self) -> &'static str {
-        "jsonrpc-mock-text"
-    }
-
-    fn provider_name(&self) -> &'static str {
-        "JsonRpcMock"
-    }
-
-    fn is_local(&self) -> bool {
-        true
-    }
-
-    fn cost_per_unit(&self) -> Option<f64> {
-        Some(0.0)
-    }
-
-    fn avg_latency_ms(&self) -> u64 {
-        5
-    }
-
-    fn quality_tier(&self) -> QualityTier {
-        QualityTier::Standard
-    }
-
-    fn supports_text_generation(&self) -> bool {
-        true
-    }
-
-    fn supports_image_generation(&self) -> bool {
-        false
-    }
-
-    async fn generate_text(
-        &self,
-        request: TextGenerationRequest,
-    ) -> Result<TextGenerationResponse, PrimalError> {
-        Ok(TextGenerationResponse {
-            text: format!("echo:{}", request.prompt),
-            provider_id: self.provider_id().to_string(),
-            model: request.model.unwrap_or_else(|| "mock".to_string()),
-            usage: None,
-            cost_usd: None,
-            latency_ms: 1,
-        })
-    }
-
-    async fn generate_image(
-        &self,
-        _request: ImageGenerationRequest,
-    ) -> Result<ImageGenerationResponse, PrimalError> {
-        Err(PrimalError::OperationFailed("no image".to_string()))
-    }
-}
-
 #[tokio::test]
 async fn ai_query_dispatches_to_router_and_returns_echo() {
     let router = Arc::new(AiRouter::from_adapters_for_test(vec![Arc::new(
-        JsonRpcMockTextAdapter,
+        AiProvider::JsonRpcMockText(JsonRpcMockTextAdapter),
     )]));
     let server = JsonRpcServer::with_ai_router("/tmp/jsonrpc-ai-ok.sock".to_string(), router);
     let req = r#"{"jsonrpc":"2.0","method":"ai.query","params":{"prompt":"ping"},"id":1}"#;

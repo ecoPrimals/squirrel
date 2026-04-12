@@ -45,11 +45,23 @@ impl UniversalPrimalEcosystem {
             // Default fallback: Common service ports discovered at runtime
             vec![
                 network::get_service_port("http"), // Standard HTTP
-                network::get_port_from_env("SERVICE_MESH_PORT", 8080), // Service mesh
-                network::get_port_from_env("COMPUTE_SERVICE_PORT", 8081), // Compute
-                network::get_port_from_env("SECURITY_SERVICE_PORT", 8082), // Security
-                network::get_port_from_env("STORAGE_SERVICE_PORT", 8083), // Storage
-                8500,                              // Consul/service mesh default
+                universal_constants::config_helpers::get_port(
+                    "SERVICE_MESH_PORT",
+                    network::DEFAULT_JSON_RPC_PORT,
+                ), // Service mesh scan fallback
+                universal_constants::config_helpers::get_port(
+                    "COMPUTE_SERVICE_PORT",
+                    network::get_service_port("http"),
+                ), // Compute
+                universal_constants::config_helpers::get_port(
+                    "SECURITY_SERVICE_PORT",
+                    network::get_service_port("admin"),
+                ), // Security
+                universal_constants::config_helpers::get_port(
+                    "STORAGE_SERVICE_PORT",
+                    network::get_service_port("security"),
+                ), // Storage
+                network::DEFAULT_DISCOVERY_LISTEN_PORT, // Consul / discovery default
             ]
         };
 

@@ -54,6 +54,7 @@ use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
+use universal_constants::network::LOCALHOST_IPV4;
 use universal_patterns::transport::{UniversalListener, UniversalTransport};
 
 pub(crate) use super::jsonrpc_types::normalize_method;
@@ -66,11 +67,7 @@ pub struct JsonRpcServer {
     /// Service name for Universal Transport discovery
     pub(crate) service_name: String,
 
-    /// Legacy socket path (kept for backward compatibility, used as fallback)
-    #[expect(
-        dead_code,
-        reason = "written during construction; reserved for fallback path"
-    )]
+    /// Resolved filesystem socket path (manifest, lifecycle cleanup, SQ-01 dual bind on Linux).
     pub(crate) socket_path: String,
 
     /// Server metrics
@@ -93,24 +90,17 @@ pub struct JsonRpcServer {
 }
 
 impl JsonRpcServer {
-    /// Load the capability registry from the workspace root or use compiled defaults
+    /// Load the capability registry from CWD or fall back to the compiled-in
+    /// embedded copy (no absolute host paths baked into the binary).
     fn load_registry() -> Arc<crate::capabilities::registry::CapabilityRegistry> {
-        let candidates = [
-            std::path::PathBuf::from("capability_registry.toml"),
-            std::path::PathBuf::from(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../capability_registry.toml"
-            )),
-        ];
-        for path in &candidates {
-            if path.exists() {
-                return Arc::new(crate::capabilities::registry::CapabilityRegistry::load(
-                    path,
-                ));
-            }
+        let cwd_candidate = std::path::PathBuf::from("capability_registry.toml");
+        if cwd_candidate.exists() {
+            return Arc::new(crate::capabilities::registry::CapabilityRegistry::load(
+                &cwd_candidate,
+            ));
         }
         Arc::new(crate::capabilities::registry::CapabilityRegistry::load(
-            &candidates[0],
+            &cwd_candidate,
         ))
     }
 
@@ -162,7 +152,8 @@ impl JsonRpcServer {
     /// which is invisible to `readdir()`. biomeOS filesystem socket scanning therefore
     /// cannot discover abstract-only primals. To comply with IPC_COMPLIANCE_MATRIX
     /// and PRIMAL_IPC_PROTOCOL, we **also** bind a filesystem socket at
-    /// `$XDG_RUNTIME_DIR/biomeos/squirrel.sock` so biomeOS can find us.
+    /// the same path as `socket_path` (CLI / config / auto-detection, after
+    /// [`super::unix_socket::resolve_socket_path_for_ipc`]) so biomeOS can find us.
     pub async fn start(self: Arc<Self>) -> Result<()> {
         info!("🔌 Starting JSON-RPC server with Universal Transport...");
 
@@ -176,7 +167,7 @@ impl JsonRpcServer {
         // discovery used by biomeOS socket scanning.
         #[cfg(target_os = "linux")]
         {
-            let fs_path = super::unix_socket::get_socket_path(&super::unix_socket::get_node_id());
+            let fs_path = self.socket_path.clone();
             if let Err(e) = super::unix_socket::prepare_socket_path(&fs_path) {
                 warn!(
                     "Failed to prepare filesystem socket {}: {} (abstract-only mode)",
@@ -220,10 +211,10 @@ impl JsonRpcServer {
         }
 
         if let Some(port) = self.tcp_port {
-            let addr = format!("127.0.0.1:{port}");
+            let addr = format!("{LOCALHOST_IPV4}:{port}");
             match tokio::net::TcpListener::bind(&addr).await {
                 Ok(tcp_listener) => {
-                    info!("TCP JSON-RPC listener on 127.0.0.1:{port}");
+                    info!("TCP JSON-RPC listener on {}:{port}", LOCALHOST_IPV4);
                     let server = Arc::clone(&self);
                     tokio::spawn(async move {
                         Self::accept_tcp_jsonrpc(server, tcp_listener).await;
@@ -857,6 +848,12 @@ impl JsonRpcServer {
     }
 
     // Handler methods are in jsonrpc_handlers.rs (organized by domain)
+
+    /// Hidden API for `crates/main/tests/*` JSON-RPC wire tests (library is built without `cfg(test)` for integration tests).
+    #[doc(hidden)]
+    pub async fn test_handle_jsonrpc_line(&self, line: &str) -> Option<String> {
+        self.handle_request_or_batch(line).await
+    }
 }
 
 #[cfg(test)]

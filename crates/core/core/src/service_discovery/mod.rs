@@ -147,5 +147,4 @@ pub use trait_::*;
 pub use types::*;
 
 // Re-export commonly used external types
-pub use async_trait::async_trait;
 pub use std::sync::Arc;

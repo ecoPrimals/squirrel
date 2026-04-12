@@ -5,8 +5,6 @@
 //!
 //! This module defines the errors that can occur in the commands crate.
 
-use std::error::Error;
-
 /// Result type for command operations
 pub type Result<T> = std::result::Result<T, CommandError>;
 
@@ -110,11 +108,11 @@ impl From<&str> for CommandError {
     }
 }
 
-/// Blanket conversion for call sites that surface `Box<dyn Error + Send + Sync>` (e.g. generic
-/// helpers or `?` from boxed sources). The original error is preserved only as its display string
-/// via [`CommandError::Other`]; use typed [`From`] impls above when the concrete type is known.
-impl From<Box<dyn Error + Send + Sync>> for CommandError {
-    fn from(err: Box<dyn Error + Send + Sync>) -> Self {
+/// Conversion for [`anyhow::Error`] and other contexts that surface opaque errors. The original
+/// error is preserved only as its display string via [`CommandError::Other`]; use typed [`From`]
+/// impls above when the concrete type is known.
+impl From<anyhow::Error> for CommandError {
+    fn from(err: anyhow::Error) -> Self {
         CommandError::Other(err.to_string())
     }
 }
@@ -122,7 +120,6 @@ impl From<Box<dyn Error + Send + Sync>> for CommandError {
 #[cfg(test)]
 mod tests {
     use super::CommandError;
-    use std::error::Error;
     use std::io;
 
     #[test]
@@ -174,9 +171,8 @@ mod tests {
     }
 
     #[test]
-    fn from_box_error() {
-        let boxed: Box<dyn Error + Send + Sync> = Box::new(io::Error::other("boxed"));
-        let c: CommandError = boxed.into();
+    fn from_anyhow_error() {
+        let c: CommandError = anyhow::anyhow!("boxed").into();
         assert!(matches!(c, CommandError::Other(_)));
     }
 }

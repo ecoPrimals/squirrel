@@ -9,7 +9,6 @@
 use adapter_pattern_examples::{
     Command, CommandAdapter, CommandError, CommandResult, RegistryAdapter,
 };
-use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -49,7 +48,6 @@ impl CalculatorCommand {
     }
 }
 
-#[async_trait]
 impl Command for CalculatorCommand {
     fn name(&self) -> &str {
         &self.name
@@ -114,7 +112,6 @@ impl WeatherCommand {
     }
 }
 
-#[async_trait]
 impl Command for WeatherCommand {
     fn name(&self) -> &str {
         &self.name

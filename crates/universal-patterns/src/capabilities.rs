@@ -31,7 +31,7 @@
 //! use universal_patterns::capabilities::AuthenticationCapability;
 //! use squirrel::ecosystem::EcosystemManager;
 //!
-//! # async fn example(ecosystem: &EcosystemManager) -> Result<(), Box<dyn std::error::Error>> {
+//! # async fn example(ecosystem: &EcosystemManager) -> anyhow::Result<()> {
 //! // ❌ BAD: Direct dependency (compile-time coupling)
 //! // use beardog::AuthenticationService;
 //! // let result = beardog.authenticate(credentials)?;
@@ -67,7 +67,7 @@
 //! use universal_patterns::capabilities::ComputeCapability;
 //! use squirrel::ecosystem::EcosystemManager;
 //!
-//! # async fn example(ecosystem: &EcosystemManager) -> Result<(), Box<dyn std::error::Error>> {
+//! # async fn example(ecosystem: &EcosystemManager) -> anyhow::Result<()> {
 //! // Discover GPU compute providers
 //! let gpu_providers = ecosystem
 //!     .discover_capability_with_requirements("compute.gpu", |provider| {
@@ -104,7 +104,7 @@
 //! use universal_patterns::capabilities::{StorageCapability, CacheCapability};
 //! use squirrel::ecosystem::EcosystemManager;
 //!
-//! # async fn example(ecosystem: &EcosystemManager, key: &str) -> Result<String, Box<dyn std::error::Error>> {
+//! # async fn example(ecosystem: &EcosystemManager, key: &str) -> anyhow::Result<String> {
 //! // Try cache first (fast)
 //! if let Ok(cache_providers) = ecosystem.discover_capability("cache").await {
 //!     if let Some(cache) = cache_providers.first() {
@@ -199,7 +199,7 @@ pub type CapabilityError = anyhow::Error;
 /// ```ignore,no_run
 /// use squirrel::capabilities::AuthenticationCapability;
 ///
-/// # async fn example(auth: &impl AuthenticationCapability) -> Result<(), Box<dyn std::error::Error>> {
+/// # async fn example(auth: &impl AuthenticationCapability) -> anyhow::Result<()> {
 /// // Authenticate user
 /// let token = auth.authenticate("user@example.com", "password").await?;
 ///
@@ -300,7 +300,7 @@ pub struct TokenClaims {
 /// ```ignore,no_run
 /// use squirrel::capabilities::GpuInferenceCapability;
 ///
-/// # async fn example(gpu: &dyn GpuInferenceCapability) -> Result<(), Box<dyn std::error::Error>> {
+/// # async fn example(gpu: &dyn GpuInferenceCapability) -> anyhow::Result<()> {
 /// // Load model
 /// let model_handle = gpu.load_model("llama2:7b").await?;
 ///

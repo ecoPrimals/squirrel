@@ -84,6 +84,9 @@ pub mod dispatch;
 pub mod optimization;
 pub mod types;
 
+#[cfg(test)]
+pub(crate) mod harness;
+
 // Re-export key types and traits from types module
 pub use types::{
     CapabilityRegistry, MCPInterface, NoMcpInterface, NodeId, RemoteAIRequest, RemoteAIResponse,

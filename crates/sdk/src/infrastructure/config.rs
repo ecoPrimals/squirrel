@@ -8,7 +8,9 @@
 
 use crate::error::{PluginError, PluginResult};
 use serde::{Deserialize, Serialize};
-use universal_constants::network::{get_bind_address, get_service_port};
+#[cfg(target_arch = "wasm32")]
+use universal_constants::network::get_bind_address;
+use universal_constants::network::get_service_port;
 // Sandbox security handled by BearDog framework
 
 /// Comprehensive SDK configuration structure
@@ -83,18 +85,30 @@ impl Default for McpClientConfig {
 impl McpClientConfig {
     /// Load MCP configuration from environment variables
     ///
-    /// Multi-tier server URL resolution:
-    /// 1. MCP_SERVER_URL (full WebSocket URL)
-    /// 2. MCP_SERVER_PORT (port override)
-    /// 3. Default: ws://{bind_address}:{get_service_port("websocket")}
+    /// Server URL resolution:
+    /// 1. `MCP_SERVER_URL` if set
+    /// 2. Otherwise: native targets default to `unix://` + Songbird-style socket path
+    ///    ([`universal_constants::network::resolve_capability_unix_socket`]); WASM defaults to
+    ///    `ws://{bind_address}:{get_service_port("websocket")}` for browser `WebSocket`.
     pub fn from_env() -> Self {
         let server_url = std::env::var("MCP_SERVER_URL").unwrap_or_else(|_| {
-            let port = std::env::var("MCP_SERVER_PORT")
-                .ok()
-                .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or_else(|| get_service_port("websocket"));
-            let host = get_bind_address();
-            format!("ws://{host}:{port}")
+            #[cfg(target_arch = "wasm32")]
+            {
+                let port = std::env::var("MCP_SERVER_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or_else(|| get_service_port("websocket"));
+                let host = get_bind_address();
+                format!("ws://{host}:{port}")
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let path = universal_constants::network::resolve_capability_unix_socket(
+                    "MCP_SERVER_SOCKET",
+                    "squirrel-mcp",
+                );
+                format!("unix://{}", path.display())
+            }
         });
 
         Self {
@@ -126,6 +140,16 @@ impl McpClientConfig {
             return Err(PluginError::InvalidConfiguration {
                 message: "MCP server URL cannot be empty".to_string(),
             });
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let u = self.server_url.trim();
+            if u.starts_with("ws://") || u.starts_with("wss://") {
+                return Err(PluginError::InvalidConfiguration {
+                    message: "MCP_SERVER_URL cannot use ws:// or wss:// on native targets; use unix://… IPC (Tower Atomic / Songbird).".to_string(),
+                });
+            }
         }
 
         if self.timeout_ms == 0 {
@@ -543,6 +567,14 @@ mod tests {
     fn test_mcp_client_config_validation_empty_url() {
         let mut config = McpClientConfig::from_env();
         config.server_url = String::new();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn test_mcp_client_config_validation_rejects_ws_url() {
+        let mut config = McpClientConfig::from_env();
+        config.server_url = "ws://127.0.0.1:8080".to_string();
         assert!(config.validate().is_err());
     }
 

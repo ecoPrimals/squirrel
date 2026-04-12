@@ -73,7 +73,7 @@ impl SecurityCoordinator {
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
             .unwrap_or(universal_constants::network::DEFAULT_SECURITY_PORT);
-        Ok(format!("http://localhost:{port}"))
+        Ok(universal_constants::builders::localhost_http(port))
     }
 
     /// Create new coordinator with capability-based discovery
@@ -127,7 +127,7 @@ impl SecurityCoordinator {
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("security"));
 
-                let fallback = format!("http://localhost:{port}");
+                let fallback = universal_constants::builders::localhost_http(port);
                 warn!(
                     "Using fallback security endpoint: {} (set SECURITY_SOCKET or SECURITY_SERVICE_ENDPOINT for production)",
                     fallback

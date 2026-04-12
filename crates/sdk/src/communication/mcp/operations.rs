@@ -74,7 +74,7 @@ impl OperationHandler {
     /// ```
     /// use squirrel_sdk::communication::mcp::operations::OperationHandler;
     ///
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # async fn example() -> anyhow::Result<()> {
     /// let mut handler = OperationHandler::new();
     /// // let tools = handler.list_tools().await?;
     /// # Ok(())
@@ -112,7 +112,7 @@ impl OperationHandler {
     /// use squirrel_sdk::communication::mcp::operations::OperationHandler;
     /// use serde_json::json;
     ///
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # async fn example() -> anyhow::Result<()> {
     /// let mut handler = OperationHandler::new();
     /// let input = json!({"operation": "add", "operands": [1, 2]});
     /// // let result = handler.execute_tool("calculator", input).await?;
@@ -155,7 +155,7 @@ impl OperationHandler {
     /// ```
     /// use squirrel_sdk::communication::mcp::operations::OperationHandler;
     ///
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # async fn example() -> anyhow::Result<()> {
     /// let mut handler = OperationHandler::new();
     /// // let resources = handler.list_resources().await?;
     /// # Ok(())
@@ -191,7 +191,7 @@ impl OperationHandler {
     /// ```
     /// use squirrel_sdk::communication::mcp::operations::OperationHandler;
     ///
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # async fn example() -> anyhow::Result<()> {
     /// let mut handler = OperationHandler::new();
     /// // let content = handler.get_resource("file:///config/app.json").await?;
     /// # Ok(())
@@ -228,7 +228,7 @@ impl OperationHandler {
     /// ```
     /// use squirrel_sdk::communication::mcp::operations::OperationHandler;
     ///
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # async fn example() -> anyhow::Result<()> {
     /// let mut handler = OperationHandler::new();
     /// // let prompts = handler.list_prompts().await?;
     /// # Ok(())
@@ -266,7 +266,7 @@ impl OperationHandler {
     /// use squirrel_sdk::communication::mcp::operations::OperationHandler;
     /// use serde_json::json;
     ///
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # async fn example() -> anyhow::Result<()> {
     /// let mut handler = OperationHandler::new();
     /// let params = json!({"text": "This is a long piece of text to summarize..."});
     /// // let prompt = handler.get_prompt("summarize", params).await?;

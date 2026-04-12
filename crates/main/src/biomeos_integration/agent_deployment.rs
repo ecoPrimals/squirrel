@@ -18,6 +18,11 @@ use super::ai_intelligence::AiIntelligence;
 use super::manifest::{AgentResourceLimits, AgentSpec, BiomeManifest, ExecutionEnvironment};
 use super::mcp_integration::McpIntegration;
 use crate::error::PrimalError;
+use universal_constants::builders::localhost_http;
+use universal_constants::network::{
+    DEFAULT_AGENT_DEPLOY_BASE_PORT_HIGH, DEFAULT_AGENT_DEPLOY_BASE_PORT_MEDIUM,
+    DEFAULT_JSON_RPC_PORT,
+};
 
 /// Agent deployment manager for biomeOS integration
 #[derive(Debug)]
@@ -483,12 +488,12 @@ impl AgentDeploymentManager {
     ) -> Result<AgentEndpoints, PrimalError> {
         // Use spec to determine base port based on agent requirements
         let base_port = match spec.resources.memory_limit_mb {
-            Some(mem) if mem > 2048 => 8090, // High-memory agents get dedicated port range
-            Some(mem) if mem > 1024 => 8085, // Medium-memory agents
-            _ => 8080,                       // Default for lightweight agents
+            Some(mem) if mem > 2048 => DEFAULT_AGENT_DEPLOY_BASE_PORT_HIGH, // High-memory agents get dedicated port range
+            Some(mem) if mem > 1024 => DEFAULT_AGENT_DEPLOY_BASE_PORT_MEDIUM, // Medium-memory agents
+            _ => DEFAULT_JSON_RPC_PORT, // Default for lightweight agents
         };
 
-        let base_url = format!("http://localhost:{base_port}");
+        let base_url = localhost_http(base_port);
 
         // Generate service-specific endpoints based on agent spec
         let mut health_endpoint = format!("{base_url}/health");

@@ -4,7 +4,7 @@
 //! AI client implementations.
 //!
 //! Concrete implementations of AI clients for various providers.
-//! Each client implements the [`AIClient`] trait for seamless integration.
+//! Each client implements the `AIClient` trait for seamless integration.
 //! Production clients use capability-based routing via `capability_ai::AiClient`.
 
 #[cfg(any(test, feature = "testing"))]
@@ -13,7 +13,7 @@ pub mod mock;
 #[cfg(any(test, feature = "testing"))]
 pub use mock::MockAIClient;
 
-use crate::common::client::AIClient;
+use crate::AiClientImpl;
 use std::sync::Arc;
 
 /// Client factory for creating AI clients via capability-based routing.
@@ -23,8 +23,8 @@ impl ClientFactory {
     /// Create a mock client for testing
     #[cfg(test)]
     #[must_use]
-    pub fn create_mock_client() -> Arc<dyn AIClient> {
-        Arc::new(MockAIClient::new())
+    pub fn create_mock_client() -> Arc<AiClientImpl> {
+        Arc::new(AiClientImpl::Mock(MockAIClient::new()))
     }
 }
 
@@ -118,7 +118,7 @@ impl Default for ClientConfig {
 
 /// Client registry for managing multiple clients
 pub struct ClientRegistry {
-    clients: std::collections::HashMap<String, Arc<dyn AIClient>>,
+    clients: std::collections::HashMap<String, Arc<AiClientImpl>>,
 }
 
 impl ClientRegistry {
@@ -131,18 +131,18 @@ impl ClientRegistry {
     }
 
     /// Add a client to the registry
-    pub fn add_client(&mut self, name: String, client: Arc<dyn AIClient>) {
+    pub fn add_client(&mut self, name: String, client: Arc<AiClientImpl>) {
         self.clients.insert(name, client);
     }
 
     /// Get a client by name
     #[must_use]
-    pub fn get_client(&self, name: &str) -> Option<&Arc<dyn AIClient>> {
+    pub fn get_client(&self, name: &str) -> Option<&Arc<AiClientImpl>> {
         self.clients.get(name)
     }
 
     /// Remove a client from the registry
-    pub fn remove_client(&mut self, name: &str) -> Option<Arc<dyn AIClient>> {
+    pub fn remove_client(&mut self, name: &str) -> Option<Arc<AiClientImpl>> {
         self.clients.remove(name)
     }
 
@@ -154,7 +154,7 @@ impl ClientRegistry {
 
     /// Get all clients
     #[must_use]
-    pub fn get_all_clients(&self) -> Vec<(String, Arc<dyn AIClient>)> {
+    pub fn get_all_clients(&self) -> Vec<(String, Arc<AiClientImpl>)> {
         self.clients
             .iter()
             .map(|(name, client)| (name.clone(), client.clone()))
@@ -227,7 +227,7 @@ mod tests {
         let mut registry = ClientRegistry::new();
         let client = ClientFactory::create_mock_client();
 
-        registry.add_client("test-client".to_string(), client.clone());
+        registry.add_client("test-client".to_string(), client);
 
         assert!(registry.has_client("test-client"));
         assert_eq!(registry.client_count(), 1);

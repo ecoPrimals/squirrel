@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use super::config::{MonitoringConfig, MonitoringServiceConfig};
 use super::fallback::FallbackLogger;
-use super::monitoring_provider::MonitoringServiceProvider;
+use super::monitoring_provider::{MonitoringProviderImpl, MonitoringServiceProvider};
 use super::types::{
     Metric, MetricValue, MonitoringEvent, MonitoringProvider, MonitoringStatus, PerformanceMetrics,
     ProviderStatus,
@@ -19,7 +19,7 @@ use super::types::{
 /// Main monitoring service that delegates to available providers
 #[derive(Clone)]
 pub struct MonitoringService {
-    providers: Arc<parking_lot::RwLock<Vec<Arc<dyn MonitoringProvider>>>>,
+    providers: Arc<parking_lot::RwLock<Vec<Arc<MonitoringProviderImpl>>>>,
     fallback_logger: Arc<FallbackLogger>,
     config: MonitoringConfig,
 }
@@ -100,7 +100,7 @@ impl MonitoringService {
     }
 
     /// Add a monitoring provider
-    pub fn add_provider(&self, provider: Arc<dyn MonitoringProvider>) {
+    pub fn add_provider(&self, provider: Arc<MonitoringProviderImpl>) {
         self.providers.write().push(provider);
     }
 
@@ -267,16 +267,18 @@ impl MonitoringService {
     /// Try to initialize the monitoring service provider
     fn try_initialize_monitoring_provider(
         config: &MonitoringServiceConfig,
-    ) -> Result<Arc<dyn MonitoringProvider>> {
-        let provider = Arc::new(MonitoringServiceProvider::new(config.clone())?);
-        Ok(provider)
+    ) -> Result<Arc<MonitoringProviderImpl>> {
+        let provider = MonitoringServiceProvider::new(config.clone())?;
+        Ok(Arc::new(MonitoringProviderImpl::MonitoringService(
+            provider,
+        )))
     }
 
     /// Try to initialize a generic provider
     fn try_initialize_provider(
         name: &str,
         config: &serde_json::Value,
-    ) -> Result<Arc<dyn MonitoringProvider>> {
+    ) -> Result<Arc<MonitoringProviderImpl>> {
         match name {
             "monitoring" => {
                 let monitoring_service_config: MonitoringServiceConfig =

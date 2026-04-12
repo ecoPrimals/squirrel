@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// ORC-Notice: AI coordination mechanics licensed under ORC
+// ORC-Notice: Universal pattern mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![warn(missing_docs)]
@@ -14,6 +14,10 @@
 //! 3. Plugin Adapter - Adapter for plugin system integration
 //!
 //! Each adapter uses composition to transform one interface into another.
+//!
+//! Implement [`Command`] and [`CommandAdapter`] with `impl Future<Output = _> + Send` (no `async_trait`
+//! on these traits). For heterogeneous command storage, use the object-safe [`DynCommand`] bridge
+//! (`async_trait`, same idea as `DynPlugin` in the interfaces crate).
 
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -54,7 +58,9 @@ pub enum CommandError {
 // Command interface
 
 /// Command trait representing a command interface
-#[async_trait]
+///
+/// Async work is expressed as `impl Future<Output = _> + Send` (not `async_trait`) so the
+/// [`DynCommand`] blanket impl is `Send` and registries can store `Arc<dyn DynCommand>`.
 pub trait Command: Send + Sync + Debug {
     /// Get the command name
     fn name(&self) -> &str;
@@ -63,7 +69,38 @@ pub trait Command: Send + Sync + Debug {
     fn description(&self) -> &str;
 
     /// Execute the command with the given arguments
+    fn execute(
+        &self,
+        args: Vec<String>,
+    ) -> impl std::future::Future<Output = CommandResult<String>> + Send + '_;
+}
+
+/// Object-safe command trait for registries (`Arc<dyn DynCommand>`).
+#[async_trait]
+pub trait DynCommand: Send + Sync + Debug {
+    /// Get the command name
+    fn name(&self) -> &str;
+
+    /// Get the command description
+    fn description(&self) -> &str;
+
+    /// Execute the command with the given arguments
     async fn execute(&self, args: Vec<String>) -> CommandResult<String>;
+}
+
+#[async_trait]
+impl<T: Command + Send + Sync> DynCommand for T {
+    fn name(&self) -> &str {
+        Command::name(self)
+    }
+
+    fn description(&self) -> &str {
+        Command::description(self)
+    }
+
+    async fn execute(&self, args: Vec<String>) -> CommandResult<String> {
+        Command::execute(self, args).await
+    }
 }
 
 /// Test command for examples and testing
@@ -86,7 +123,6 @@ impl TestCommand {
     }
 }
 
-#[async_trait]
 impl Command for TestCommand {
     fn name(&self) -> &str {
         &self.name
@@ -96,11 +132,17 @@ impl Command for TestCommand {
         &self.description
     }
 
-    async fn execute(&self, args: Vec<String>) -> CommandResult<String> {
-        if args.is_empty() {
-            Ok(self.result.clone())
-        } else {
-            Ok(format!("{} with args: {args:?}", self.result))
+    fn execute(
+        &self,
+        args: Vec<String>,
+    ) -> impl std::future::Future<Output = CommandResult<String>> + Send + '_ {
+        let result = self.result.clone();
+        async move {
+            if args.is_empty() {
+                Ok(result)
+            } else {
+                Ok(format!("{result} with args: {args:?}"))
+            }
         }
     }
 }
@@ -110,7 +152,7 @@ impl Command for TestCommand {
 /// Command registry to store and execute commands
 #[derive(Debug)]
 pub struct CommandRegistry {
-    commands: HashMap<String, Arc<dyn Command>>,
+    commands: HashMap<String, Arc<dyn DynCommand>>,
 }
 
 impl Default for CommandRegistry {
@@ -133,7 +175,7 @@ impl CommandRegistry {
     /// # Errors
     ///
     /// Never returns an error; kept for API consistency.
-    pub fn register(&mut self, command: Arc<dyn Command>) -> CommandResult<()> {
+    pub fn register(&mut self, command: Arc<dyn DynCommand>) -> CommandResult<()> {
         let name = command.name().to_string();
         self.commands.insert(name, command);
         Ok(())
@@ -173,16 +215,26 @@ impl CommandRegistry {
 // Adapter interface
 
 /// Adapter interface for command operations
-#[async_trait]
+///
+/// Uses `impl Future + Send` for the same reasons as [`Command`].
 pub trait CommandAdapter: Send + Sync {
     /// Execute a command with the given arguments
-    async fn execute_command(&self, command: &str, args: Vec<String>) -> CommandResult<String>;
+    fn execute_command(
+        &self,
+        command: &str,
+        args: Vec<String>,
+    ) -> impl std::future::Future<Output = CommandResult<String>> + Send + '_;
 
     /// Get help text for a command
-    async fn get_help(&self, command: &str) -> CommandResult<String>;
+    fn get_help(
+        &self,
+        command: &str,
+    ) -> impl std::future::Future<Output = CommandResult<String>> + Send + '_;
 
     /// List all available commands
-    async fn list_commands(&self) -> CommandResult<Vec<String>>;
+    fn list_commands(
+        &self,
+    ) -> impl std::future::Future<Output = CommandResult<Vec<String>>> + Send + '_;
 }
 
 // Registry Adapter
@@ -213,7 +265,7 @@ impl RegistryAdapter {
     /// # Errors
     ///
     /// Returns `CommandError::Internal` if the mutex is poisoned.
-    pub fn register_command(&self, command: Arc<dyn Command>) -> CommandResult<()> {
+    pub fn register_command(&self, command: Arc<dyn DynCommand>) -> CommandResult<()> {
         let mut registry = self
             .registry
             .lock()
@@ -222,42 +274,56 @@ impl RegistryAdapter {
     }
 }
 
-#[async_trait]
 impl CommandAdapter for RegistryAdapter {
-    async fn execute_command(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
-        // Get a clone of the registry to avoid Send issues with MutexGuard across await points
-        let registry_clone = {
-            let registry = self
-                .registry
-                .lock()
-                .map_err(|e| CommandError::Internal(format!("Lock error: {e}")))?;
-            registry
-                .list_commands()
-                .into_iter()
-                .filter_map(|name| registry.commands.get(&name).map(|cmd| (name, cmd.clone())))
-                .collect::<HashMap<String, Arc<dyn Command>>>()
-        };
+    fn execute_command(
+        &self,
+        command: &str,
+        args: Vec<String>,
+    ) -> impl std::future::Future<Output = CommandResult<String>> + Send + '_ {
+        let registry = self.registry.clone();
+        let command = command.to_string();
+        async move {
+            let registry_clone = {
+                let reg = registry
+                    .lock()
+                    .map_err(|e| CommandError::Internal(format!("Lock error: {e}")))?;
+                reg.list_commands()
+                    .into_iter()
+                    .filter_map(|name| reg.commands.get(&name).map(|cmd| (name, cmd.clone())))
+                    .collect::<HashMap<String, Arc<dyn DynCommand>>>()
+            };
 
-        match registry_clone.get(command) {
-            Some(cmd) => cmd.execute(args).await,
-            None => Err(CommandError::NotFound(command.to_string())),
+            match registry_clone.get(&command) {
+                Some(cmd) => cmd.execute(args).await,
+                None => Err(CommandError::NotFound(command)),
+            }
         }
     }
 
-    async fn get_help(&self, command: &str) -> CommandResult<String> {
-        let registry = self
-            .registry
-            .lock()
-            .map_err(|e| CommandError::Internal(format!("Lock error: {e}")))?;
-        registry.get_help(command)
+    fn get_help(
+        &self,
+        command: &str,
+    ) -> impl std::future::Future<Output = CommandResult<String>> + Send + '_ {
+        let registry = self.registry.clone();
+        let command = command.to_string();
+        async move {
+            let reg = registry
+                .lock()
+                .map_err(|e| CommandError::Internal(format!("Lock error: {e}")))?;
+            reg.get_help(&command)
+        }
     }
 
-    async fn list_commands(&self) -> CommandResult<Vec<String>> {
-        let registry = self
-            .registry
-            .lock()
-            .map_err(|e| CommandError::Internal(format!("Lock error: {e}")))?;
-        Ok(registry.list_commands())
+    fn list_commands(
+        &self,
+    ) -> impl std::future::Future<Output = CommandResult<Vec<String>>> + Send + '_ {
+        let registry = self.registry.clone();
+        async move {
+            let reg = registry
+                .lock()
+                .map_err(|e| CommandError::Internal(format!("Lock error: {e}")))?;
+            Ok(reg.list_commands())
+        }
     }
 }
 
@@ -356,7 +422,7 @@ impl McpAdapter {
     /// # Errors
     ///
     /// Returns `CommandError::Internal` if the mutex is poisoned.
-    pub fn register_command(&mut self, command: Arc<dyn Command>) -> CommandResult<()> {
+    pub fn register_command(&mut self, command: Arc<dyn DynCommand>) -> CommandResult<()> {
         // For admin commands, automatically restrict to admin role
         let name = command.name();
         if name.starts_with("admin") && !self.command_permissions.contains_key(name) {
@@ -627,32 +693,47 @@ impl Clone for McpAdapter {
     }
 }
 
-#[async_trait]
 impl CommandAdapter for McpAdapter {
-    async fn execute_command(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
-        // Clone self to avoid borrow checker issues with async fn & mut self
+    fn execute_command(
+        &self,
+        command: &str,
+        args: Vec<String>,
+    ) -> impl std::future::Future<Output = CommandResult<String>> + Send + '_ {
         let mut cloned = self.clone();
-        println!("McpAdapter::execute_command called for {command}");
-        cloned.execute_with_auth(command, args, Auth::None).await
+        let command = command.to_string();
+        async move {
+            println!("McpAdapter::execute_command called for {command}");
+            cloned.execute_with_auth(&command, args, Auth::None).await
+        }
     }
 
-    async fn get_help(&self, command: &str) -> CommandResult<String> {
-        println!("McpAdapter::get_help called for {command}");
-        self.adapter.get_help(command).await
+    fn get_help(
+        &self,
+        command: &str,
+    ) -> impl std::future::Future<Output = CommandResult<String>> + Send + '_ {
+        let adapter = self.adapter.clone();
+        let command = command.to_string();
+        async move {
+            println!("McpAdapter::get_help called for {command}");
+            adapter.get_help(&command).await
+        }
     }
 
-    async fn list_commands(&self) -> CommandResult<Vec<String>> {
-        // Get all commands
-        println!("McpAdapter::list_commands called");
-        let all_commands = self.adapter.list_commands().await?;
+    fn list_commands(
+        &self,
+    ) -> impl std::future::Future<Output = CommandResult<Vec<String>>> + Send + '_ {
+        let this = self.clone();
+        async move {
+            println!("McpAdapter::list_commands called");
+            let all_commands = this.adapter.list_commands().await?;
 
-        // Filter out commands that require authentication
-        let filtered = all_commands
-            .into_iter()
-            .filter(|cmd| !self.command_permissions.contains_key(cmd))
-            .collect();
+            let filtered = all_commands
+                .into_iter()
+                .filter(|cmd| !this.command_permissions.contains_key(cmd))
+                .collect();
 
-        Ok(filtered)
+            Ok(filtered)
+        }
     }
 }
 
@@ -721,7 +802,7 @@ impl PluginAdapter {
     /// # Errors
     ///
     /// Returns `CommandError::Internal` if the mutex is poisoned.
-    pub fn register_command(&self, command: Arc<dyn Command>) -> CommandResult<()> {
+    pub fn register_command(&self, command: Arc<dyn DynCommand>) -> CommandResult<()> {
         self.adapter.register_command(command)
     }
 
@@ -735,18 +816,31 @@ impl PluginAdapter {
     }
 }
 
-#[async_trait]
 impl CommandAdapter for PluginAdapter {
-    async fn execute_command(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
-        self.adapter.execute_command(command, args).await
+    fn execute_command(
+        &self,
+        command: &str,
+        args: Vec<String>,
+    ) -> impl std::future::Future<Output = CommandResult<String>> + Send + '_ {
+        let adapter = self.adapter.clone();
+        let command = command.to_string();
+        async move { adapter.execute_command(&command, args).await }
     }
 
-    async fn get_help(&self, command: &str) -> CommandResult<String> {
-        self.adapter.get_help(command).await
+    fn get_help(
+        &self,
+        command: &str,
+    ) -> impl std::future::Future<Output = CommandResult<String>> + Send + '_ {
+        let adapter = self.adapter.clone();
+        let command = command.to_string();
+        async move { adapter.get_help(&command).await }
     }
 
-    async fn list_commands(&self) -> CommandResult<Vec<String>> {
-        self.adapter.list_commands().await
+    fn list_commands(
+        &self,
+    ) -> impl std::future::Future<Output = CommandResult<Vec<String>>> + Send + '_ {
+        let adapter = self.adapter.clone();
+        async move { adapter.list_commands().await }
     }
 }
 
@@ -870,8 +964,8 @@ mod tests {
     #[tokio::test]
     async fn test_polymorphic_adapter_usage() -> CommandResult<()> {
         // Function that works with any CommandAdapter implementation
-        async fn execute_with_adapter(
-            adapter: &dyn CommandAdapter,
+        async fn execute_with_adapter<A: CommandAdapter>(
+            adapter: &A,
             command: &str,
         ) -> CommandResult<String> {
             adapter.execute_command(command, vec![]).await

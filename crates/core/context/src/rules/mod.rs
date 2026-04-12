@@ -37,7 +37,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use anyhow::Result as AnyhowResult;
-use squirrel_interfaces::context::ContextTransformation;
+use squirrel_interfaces::context::DynContextTransformation;
 
 // Re-export public items
 pub use self::actions::ActionExecutor;
@@ -130,7 +130,8 @@ pub trait ContextPlugin: Send + Sync + std::fmt::Debug {
     ///
     /// # Returns
     /// An Arc-wrapped ContextTransformation if found, or an error if not found
-    async fn get_transformation(&self, id: &str) -> AnyhowResult<Arc<dyn ContextTransformation>>;
+    async fn get_transformation(&self, id: &str)
+    -> AnyhowResult<Arc<dyn DynContextTransformation>>;
 
     /// Retrieve a specific context adapter by ID
     ///
@@ -145,7 +146,7 @@ pub trait ContextPlugin: Send + Sync + std::fmt::Debug {
     ///
     /// # Returns
     /// A vector of Arc-wrapped ContextTransformation instances
-    async fn get_transformations(&self) -> AnyhowResult<Vec<Arc<dyn ContextTransformation>>>;
+    async fn get_transformations(&self) -> AnyhowResult<Vec<Arc<dyn DynContextTransformation>>>;
 
     /// Retrieve all available context adapters
     ///
@@ -165,7 +166,10 @@ pub struct NoOpPluginManager;
 
 #[async_trait]
 impl ContextPlugin for NoOpPluginManager {
-    async fn get_transformation(&self, id: &str) -> AnyhowResult<Arc<dyn ContextTransformation>> {
+    async fn get_transformation(
+        &self,
+        id: &str,
+    ) -> AnyhowResult<Arc<dyn DynContextTransformation>> {
         Err(anyhow::anyhow!("Transformation not found: {}", id))
     }
 
@@ -173,7 +177,7 @@ impl ContextPlugin for NoOpPluginManager {
         Err(anyhow::anyhow!("Adapter not found: {}", id))
     }
 
-    async fn get_transformations(&self) -> AnyhowResult<Vec<Arc<dyn ContextTransformation>>> {
+    async fn get_transformations(&self) -> AnyhowResult<Vec<Arc<dyn DynContextTransformation>>> {
         Ok(Vec::new())
     }
 

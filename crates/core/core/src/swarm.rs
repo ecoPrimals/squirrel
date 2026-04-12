@@ -4,11 +4,6 @@
 //! Swarm coordination API reserved for multi-instance orchestration.
 
 /// Reserved for multi-instance coordination. Wiring depends on `capability.call` discovery for peer detection.
-#[allow(unfulfilled_lint_expectations)] // `dead_code` does not apply to this public mesh API type
-#[expect(
-    dead_code,
-    reason = "Phase 2: multi-instance coordination via capability.call discovery"
-)]
 pub struct SwarmService;
 
 impl Default for SwarmService {

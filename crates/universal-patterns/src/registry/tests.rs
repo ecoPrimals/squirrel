@@ -5,9 +5,10 @@
 //! Registry unit tests
 
 use super::*;
-use async_trait::async_trait;
 use chrono::{Duration, Utc};
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -66,7 +67,6 @@ impl MockPrimalProvider {
     }
 }
 
-#[async_trait]
 impl PrimalProvider for MockPrimalProvider {
     fn primal_id(&self) -> &str {
         &self.primal_id
@@ -92,32 +92,41 @@ impl PrimalProvider for MockPrimalProvider {
         vec![]
     }
 
-    async fn health_check(&self) -> PrimalHealth {
-        self.health.clone()
+    fn health_check(&self) -> Pin<Box<dyn Future<Output = PrimalHealth> + Send + '_>> {
+        let health = self.health.clone();
+        Box::pin(async move { health })
     }
 
     fn endpoints(&self) -> PrimalEndpoints {
         PrimalEndpoints::default()
     }
 
-    async fn handle_primal_request(&self, request: PrimalRequest) -> PrimalResult<PrimalResponse> {
-        Ok(PrimalResponse {
-            request_id: request.id,
-            response_type: PrimalResponseType::HealthCheck,
-            payload: HashMap::new(),
-            timestamp: Utc::now(),
-            success: true,
-            error_message: None,
-            metadata: None,
+    fn handle_primal_request(
+        &self,
+        request: PrimalRequest,
+    ) -> Pin<Box<dyn Future<Output = PrimalResult<PrimalResponse>> + Send + '_>> {
+        Box::pin(async move {
+            Ok(PrimalResponse {
+                request_id: request.id,
+                response_type: PrimalResponseType::HealthCheck,
+                payload: HashMap::new(),
+                timestamp: Utc::now(),
+                success: true,
+                error_message: None,
+                metadata: None,
+            })
         })
     }
 
-    async fn initialize(&mut self, _config: serde_json::Value) -> PrimalResult<()> {
-        Ok(())
+    fn initialize(
+        &mut self,
+        _config: serde_json::Value,
+    ) -> Pin<Box<dyn Future<Output = PrimalResult<()>> + Send + '_>> {
+        Box::pin(async { Ok(()) })
     }
 
-    async fn shutdown(&mut self) -> PrimalResult<()> {
-        Ok(())
+    fn shutdown(&mut self) -> Pin<Box<dyn Future<Output = PrimalResult<()>> + Send + '_>> {
+        Box::pin(async { Ok(()) })
     }
 
     fn can_serve_context(&self, context: &PrimalContext) -> bool {

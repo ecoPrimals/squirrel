@@ -8,7 +8,6 @@
 //!
 //! This allows gradual migration without breaking existing code.
 
-use async_trait::async_trait;
 use std::sync::Arc;
 
 use super::adapters::{AiProviderAdapter, QualityTier};
@@ -84,8 +83,7 @@ impl<C: AiCapability> BridgeAdapter<C> {
     }
 }
 
-#[async_trait]
-impl<C: AiCapability> AiProviderAdapter for BridgeAdapter<C> {
+impl<C: AiCapability + Send + Sync> AiProviderAdapter for BridgeAdapter<C> {
     fn provider_id(&self) -> &str {
         self.capability.provider_id()
     }

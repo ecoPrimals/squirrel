@@ -6,6 +6,7 @@
 //! This module defines all the fundamental types used throughout the router
 //! infrastructure, including configurations, routing strategies, and request contexts.
 
+use crate::AiClientImpl;
 use crate::Result;
 use crate::common::capability::{AICapabilities, AITask};
 use crate::common::{AIClient, ChatRequest, ChatResponse, ChatResponseStream};
@@ -160,7 +161,7 @@ impl RequestContext {
 #[derive(Debug)]
 pub struct CapabilityRegistry {
     /// Local providers and their capabilities
-    pub(crate) local_providers: RwLock<HashMap<String, Arc<dyn AIClient>>>,
+    pub(crate) local_providers: RwLock<HashMap<String, Arc<AiClientImpl>>>,
 
     /// Remote node capabilities
     pub(crate) remote_capabilities: RwLock<HashMap<NodeId, HashMap<String, AICapabilities>>>,
@@ -194,7 +195,7 @@ impl CapabilityRegistry {
     pub fn register_provider(
         &self,
         provider_id: impl Into<String>,
-        client: Arc<dyn AIClient>,
+        client: Arc<AiClientImpl>,
     ) -> Result<()> {
         let mut providers = match self.local_providers.write() {
             Ok(guard) => guard,
@@ -255,7 +256,7 @@ impl CapabilityRegistry {
     }
 
     /// Get a local provider by ID
-    pub fn get_provider(&self, provider_id: &str) -> Option<Arc<dyn AIClient>> {
+    pub fn get_provider(&self, provider_id: &str) -> Option<Arc<AiClientImpl>> {
         let providers = match self.local_providers.read() {
             Ok(guard) => guard,
             Err(e) => {
@@ -267,7 +268,7 @@ impl CapabilityRegistry {
     }
 
     /// Find providers that can handle a specific task
-    pub fn find_providers_for_task(&self, task: &AITask) -> Vec<(String, Arc<dyn AIClient>)> {
+    pub fn find_providers_for_task(&self, task: &AITask) -> Vec<(String, Arc<AiClientImpl>)> {
         let providers = match self.local_providers.read() {
             Ok(guard) => guard,
             Err(e) => {

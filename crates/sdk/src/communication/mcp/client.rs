@@ -186,11 +186,15 @@ use squirrel_mcp_config::unified::SquirrelUnifiedConfig; // Migrated from deprec
 
 #[cfg(feature = "config")]
 impl From<&SquirrelUnifiedConfig> for McpClientConfig {
-    fn from(config: &SquirrelUnifiedConfig) -> Self {
+    fn from(_config: &SquirrelUnifiedConfig) -> Self {
         let mut mcp_config = McpClientConfig::from_env();
         mcp_config.server_url = format!(
-            "ws://{}:{}",
-            config.network.bind_address, config.network.websocket_port
+            "unix://{}",
+            universal_constants::network::resolve_capability_unix_socket(
+                "MCP_SERVER_SOCKET",
+                "squirrel-mcp",
+            )
+            .display()
         );
         mcp_config
     }
@@ -255,7 +259,7 @@ impl McpClient {
     ///
     /// # Environment Variables
     ///
-    /// - `MCP_SERVER_URL`: WebSocket server URL (default: "ws://127.0.0.1:8080")
+    /// - `MCP_SERVER_URL`: MCP endpoint (native default: `unix://…` IPC; WASM default: `ws://…`)
     /// - `MCP_TIMEOUT_MS`: Request timeout in milliseconds (default: 30000)
     /// - `MCP_MAX_MESSAGE_SIZE`: Maximum message size in bytes (default: 1048576)
     /// - `MCP_PROTOCOL_VERSION`: Protocol version (default: "1.0")
@@ -286,15 +290,14 @@ impl McpClient {
     ///
     /// # Arguments
     ///
-    /// * `server_url` - The WebSocket server URL to connect to. Must be a valid
-    ///                  WebSocket URL (e.g., "ws://localhost:8080" or "wss://example.com")
+    /// * `server_url` - Native: `unix:///path/to.sock` (or absolute path). WASM: `ws://` / `wss://`.
     ///
     /// # Examples
     ///
     /// ```
     /// use squirrel_sdk::communication::mcp::McpClient;
     ///
-    /// let client = McpClient::with_server_url("ws://localhost:9000");
+    /// let client = McpClient::with_server_url("unix:///tmp/squirrel-mcp.sock");
     /// // Client is configured to connect to localhost:9000
     /// ```
     ///
@@ -409,9 +412,7 @@ impl McpClient {
 
     /// Connect to the MCP server
     ///
-    /// Establishes a WebSocket connection to the MCP server specified in the
-    /// client configuration. This method handles the initial connection setup,
-    /// protocol handshake, and initialization message exchange.
+    /// Establishes a transport to the MCP server (Unix IPC on native, browser WebSocket on WASM).
     ///
     /// # Returns
     ///
@@ -422,7 +423,7 @@ impl McpClient {
     ///
     /// This method may fail if:
     /// - The server URL is invalid or unreachable
-    /// - The WebSocket handshake fails
+    /// - The transport fails to connect (Unix socket or WASM WebSocket)
     /// - The protocol initialization fails
     /// - Network connectivity issues occur
     ///
@@ -471,7 +472,7 @@ impl McpClient {
 
     /// Disconnect from the MCP server
     ///
-    /// Gracefully closes the WebSocket connection to the MCP server and cleans up
+    /// Gracefully closes the MCP transport and cleans up
     /// any pending requests. This method ensures all resources are properly released.
     ///
     /// # Returns
@@ -482,7 +483,7 @@ impl McpClient {
     /// # Errors
     ///
     /// This method may fail if:
-    /// - The WebSocket close operation fails
+    /// - Closing the transport fails
     /// - Resource cleanup encounters issues
     ///
     /// # Examples
@@ -503,7 +504,7 @@ impl McpClient {
     /// # Behavior
     ///
     /// - If already disconnected, this method returns immediately without error
-    /// - Closes the WebSocket connection gracefully
+    /// - Closes the transport gracefully
     /// - Clears all pending requests
     /// - Updates the client state to `Disconnected`
     /// - Logs disconnection for debugging
@@ -537,7 +538,7 @@ impl McpClient {
     ///
     /// # Example
     /// ```ignore
-    /// let client = McpClient::new("ws://localhost:8080");
+    /// let client = McpClient::with_server_url("unix:///tmp/squirrel-mcp.sock");
     /// let response = client.send_message("tool_call", payload).await?;
     /// ```
     pub async fn send_message(
@@ -821,7 +822,7 @@ impl McpClient {
 
 #[cfg(test)]
 impl McpClient {
-    /// Exercise routing helpers without a WebSocket (unit tests).
+    /// Exercise routing helpers without a live MCP transport (unit tests).
     pub(crate) fn test_classify_message_type(
         &self,
         message_type: &str,

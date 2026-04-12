@@ -6,7 +6,7 @@
 //!
 //! Applies routing constraints to filter and score providers.
 
-use super::adapters::{AiProviderAdapter, QualityTier};
+use super::adapters::{AiProvider, AiProviderAdapter, QualityTier};
 use super::constraints::RoutingConstraint;
 use std::sync::Arc;
 use tracing::debug;
@@ -14,17 +14,17 @@ use tracing::debug;
 /// Score for a provider given constraints
 #[derive(Clone)]
 pub struct ProviderScore {
-    pub provider: Arc<dyn AiProviderAdapter>,
+    pub provider: Arc<AiProvider>,
     pub score: f64,
     pub meets_requirements: bool,
 }
 
 /// Filter and score providers based on constraints
 pub fn select_provider_with_constraints(
-    providers: &[Arc<dyn AiProviderAdapter>],
+    providers: &[Arc<AiProvider>],
     constraints: &[RoutingConstraint],
     task_type: &str,
-) -> Option<Arc<dyn AiProviderAdapter>> {
+) -> Option<Arc<AiProvider>> {
     if providers.is_empty() {
         return None;
     }
@@ -79,7 +79,7 @@ pub fn select_provider_with_constraints(
 
 /// Check if provider meets all required constraints
 fn meets_required_constraints(
-    provider: &Arc<dyn AiProviderAdapter>,
+    provider: &Arc<AiProvider>,
     constraints: &[RoutingConstraint],
 ) -> bool {
     for constraint in constraints {
@@ -137,10 +137,7 @@ fn meets_required_constraints(
 }
 
 /// Calculate score for provider based on preference constraints
-fn calculate_provider_score(
-    provider: &Arc<dyn AiProviderAdapter>,
-    constraints: &[RoutingConstraint],
-) -> f64 {
+fn calculate_provider_score(provider: &Arc<AiProvider>, constraints: &[RoutingConstraint]) -> f64 {
     let mut score = 50.0; // Base score
 
     for constraint in constraints {
@@ -207,9 +204,9 @@ fn calculate_provider_score(
 
 /// Select provider without constraints (default behavior)
 fn select_default_provider(
-    providers: &[Arc<dyn AiProviderAdapter>],
+    providers: &[Arc<AiProvider>],
     task_type: &str,
-) -> Option<Arc<dyn AiProviderAdapter>> {
+) -> Option<Arc<AiProvider>> {
     // Simple heuristic: prefer capable providers
     for provider in providers {
         match task_type {
@@ -230,89 +227,24 @@ fn select_default_provider(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::ai::adapters::{AiProviderAdapter, QualityTier};
+    use crate::api::ai::adapters::test_mocks::ConstraintRouterMockAdapter;
+    use crate::api::ai::adapters::{AiProvider, AiProviderAdapter, QualityTier};
     use crate::api::ai::constraints::RoutingConstraint;
-    use crate::api::ai::types::{
-        ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest,
-        TextGenerationResponse,
-    };
-    use crate::error::PrimalError;
-    use async_trait::async_trait;
     use std::sync::Arc;
 
-    #[derive(Clone)]
-    struct MockAdapter {
-        id: &'static str,
-        is_local: bool,
-        cost: Option<f64>,
-        latency: u64,
-        quality: QualityTier,
-        text: bool,
-        image: bool,
-    }
-
-    #[async_trait]
-    impl AiProviderAdapter for MockAdapter {
-        fn provider_id(&self) -> &str {
-            self.id
-        }
-
-        fn provider_name(&self) -> &str {
-            self.id
-        }
-
-        fn is_local(&self) -> bool {
-            self.is_local
-        }
-
-        fn cost_per_unit(&self) -> Option<f64> {
-            self.cost
-        }
-
-        fn avg_latency_ms(&self) -> u64 {
-            self.latency
-        }
-
-        fn quality_tier(&self) -> QualityTier {
-            self.quality
-        }
-
-        fn supports_text_generation(&self) -> bool {
-            self.text
-        }
-
-        fn supports_image_generation(&self) -> bool {
-            self.image
-        }
-
-        async fn generate_text(
-            &self,
-            _request: TextGenerationRequest,
-        ) -> Result<TextGenerationResponse, PrimalError> {
-            unreachable!("tests do not call generate")
-        }
-
-        async fn generate_image(
-            &self,
-            _request: ImageGenerationRequest,
-        ) -> Result<ImageGenerationResponse, PrimalError> {
-            unreachable!("tests do not call generate")
-        }
-    }
-
-    fn arc(m: MockAdapter) -> Arc<dyn AiProviderAdapter> {
-        Arc::new(m)
+    fn arc(m: ConstraintRouterMockAdapter) -> Arc<AiProvider> {
+        Arc::new(AiProvider::ConstraintRouter(m))
     }
 
     #[test]
     fn empty_providers_returns_none() {
-        let providers: Vec<Arc<dyn AiProviderAdapter>> = vec![];
+        let providers: Vec<Arc<AiProvider>> = vec![];
         assert!(select_provider_with_constraints(&providers, &[], "text").is_none());
     }
 
     #[test]
     fn no_constraints_prefers_text_capable_then_fallback_first() {
-        let a = arc(MockAdapter {
+        let a = arc(ConstraintRouterMockAdapter {
             id: "a",
             is_local: false,
             cost: None,
@@ -321,7 +253,7 @@ mod tests {
             text: false,
             image: false,
         });
-        let b = arc(MockAdapter {
+        let b = arc(ConstraintRouterMockAdapter {
             id: "b",
             is_local: false,
             cost: None,
@@ -330,11 +262,11 @@ mod tests {
             text: true,
             image: false,
         });
-        let chosen = select_provider_with_constraints(&[a.clone(), b.clone()], &[], "text")
+        let chosen = select_provider_with_constraints(&[a.clone(), b], &[], "text")
             .map(|p| p.provider_id().to_string());
         assert_eq!(chosen.as_deref(), Some("b"));
 
-        let img = arc(MockAdapter {
+        let img = arc(ConstraintRouterMockAdapter {
             id: "img",
             is_local: false,
             cost: None,
@@ -343,7 +275,7 @@ mod tests {
             text: false,
             image: true,
         });
-        let chosen_img = select_provider_with_constraints(&[a.clone(), img.clone()], &[], "image")
+        let chosen_img = select_provider_with_constraints(&[a.clone(), img], &[], "image")
             .map(|p| p.provider_id().to_string());
         assert_eq!(chosen_img.as_deref(), Some("img"));
 
@@ -354,7 +286,7 @@ mod tests {
 
     #[test]
     fn require_local_filters_and_fallback_when_none_match() {
-        let remote = arc(MockAdapter {
+        let remote = arc(ConstraintRouterMockAdapter {
             id: "r",
             is_local: false,
             cost: Some(0.01),
@@ -363,7 +295,7 @@ mod tests {
             text: true,
             image: false,
         });
-        let local = arc(MockAdapter {
+        let local = arc(ConstraintRouterMockAdapter {
             id: "l",
             is_local: true,
             cost: None,
@@ -373,7 +305,7 @@ mod tests {
             image: false,
         });
         let c = [RoutingConstraint::RequireLocal];
-        let picked = select_provider_with_constraints(&[remote.clone(), local.clone()], &c, "text")
+        let picked = select_provider_with_constraints(&[remote.clone(), local], &c, "text")
             .map(|p| p.provider_id().to_string());
         assert_eq!(picked.as_deref(), Some("l"));
 
@@ -384,7 +316,7 @@ mod tests {
 
     #[test]
     fn hard_limits_max_cost_latency_min_quality() {
-        let cheap = arc(MockAdapter {
+        let cheap = arc(ConstraintRouterMockAdapter {
             id: "cheap",
             is_local: false,
             cost: Some(0.001),
@@ -393,7 +325,7 @@ mod tests {
             text: true,
             image: false,
         });
-        let pricey = arc(MockAdapter {
+        let pricey = arc(ConstraintRouterMockAdapter {
             id: "pricey",
             is_local: false,
             cost: Some(1.0),
@@ -403,14 +335,14 @@ mod tests {
             image: false,
         });
         let cost_ok = select_provider_with_constraints(
-            &[cheap.clone(), pricey.clone()],
+            &[cheap, pricey],
             &[RoutingConstraint::MaxCost(0.01)],
             "text",
         )
         .map(|p| p.provider_id().to_string());
         assert_eq!(cost_ok.as_deref(), Some("cheap"));
 
-        let fast = arc(MockAdapter {
+        let fast = arc(ConstraintRouterMockAdapter {
             id: "fast",
             is_local: false,
             cost: None,
@@ -419,7 +351,7 @@ mod tests {
             text: true,
             image: false,
         });
-        let slow = arc(MockAdapter {
+        let slow = arc(ConstraintRouterMockAdapter {
             id: "slow",
             is_local: false,
             cost: None,
@@ -429,14 +361,14 @@ mod tests {
             image: false,
         });
         let lat = select_provider_with_constraints(
-            &[slow.clone(), fast.clone()],
+            &[slow, fast],
             &[RoutingConstraint::MaxLatency(100)],
             "text",
         )
         .map(|p| p.provider_id().to_string());
         assert_eq!(lat.as_deref(), Some("fast"));
 
-        let low_q = arc(MockAdapter {
+        let low_q = arc(ConstraintRouterMockAdapter {
             id: "low",
             is_local: false,
             cost: None,
@@ -445,7 +377,7 @@ mod tests {
             text: true,
             image: false,
         });
-        let high_q = arc(MockAdapter {
+        let high_q = arc(ConstraintRouterMockAdapter {
             id: "high",
             is_local: false,
             cost: None,
@@ -455,7 +387,7 @@ mod tests {
             image: false,
         });
         let q = select_provider_with_constraints(
-            &[low_q, high_q.clone()],
+            &[low_q, high_q],
             &[RoutingConstraint::MinQuality(QualityTier::Standard)],
             "text",
         )
@@ -465,7 +397,7 @@ mod tests {
 
     #[test]
     fn require_provider_name() {
-        let a = arc(MockAdapter {
+        let a = arc(ConstraintRouterMockAdapter {
             id: "a",
             is_local: true,
             cost: None,
@@ -474,7 +406,7 @@ mod tests {
             text: true,
             image: false,
         });
-        let b = arc(MockAdapter {
+        let b = arc(ConstraintRouterMockAdapter {
             id: "b",
             is_local: true,
             cost: None,
@@ -484,7 +416,7 @@ mod tests {
             image: false,
         });
         let p = select_provider_with_constraints(
-            &[a, b.clone()],
+            &[a, b],
             &[RoutingConstraint::RequireProvider("b".to_string())],
             "text",
         )
@@ -494,7 +426,7 @@ mod tests {
 
     #[test]
     fn preference_constraints_change_ordering() {
-        let local = arc(MockAdapter {
+        let local = arc(ConstraintRouterMockAdapter {
             id: "loc",
             is_local: true,
             cost: None,
@@ -503,7 +435,7 @@ mod tests {
             text: true,
             image: false,
         });
-        let remote = arc(MockAdapter {
+        let remote = arc(ConstraintRouterMockAdapter {
             id: "rem",
             is_local: false,
             cost: Some(0.5),
@@ -529,7 +461,7 @@ mod tests {
         assert_eq!(opt_cost.as_deref(), Some("loc"));
 
         let opt_speed = select_provider_with_constraints(
-            &[local.clone(), remote.clone()],
+            &[local, remote],
             &[RoutingConstraint::OptimizeSpeed],
             "text",
         )

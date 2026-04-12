@@ -623,9 +623,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_socket_directories() {
-        let dirs = get_socket_directories();
-        assert!(!dirs.is_empty());
-        assert!(dirs.contains(&PathBuf::from("/tmp")));
+        // Isolate from concurrent tests that may set SOCKET_SCAN_DIR
+        temp_env::with_var("SOCKET_SCAN_DIR", None::<&str>, || {
+            let dirs = get_socket_directories();
+            assert!(!dirs.is_empty(), "fallback directories must always exist");
+            assert!(
+                dirs.contains(&PathBuf::from("/tmp")),
+                "fallback list must include /tmp; got {dirs:?}"
+            );
+        });
     }
 
     #[test]

@@ -19,7 +19,7 @@
 //! use universal_patterns::config::PortResolver;
 //!
 //! #[tokio::main]
-//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! async fn main() -> anyhow::Result<()> {
 //!     let resolver = PortResolver::new();
 //!     let _http_port = resolver.resolve_port("http").await?;
 //!     let _metrics_endpoint = resolver.resolve_endpoint("metrics").await?;
@@ -49,24 +49,10 @@ pub enum PortResolutionError {
 /// Result type for port resolution operations
 pub type Result<T> = std::result::Result<T, PortResolutionError>;
 
-/// Port resolver with proper fallback chain
-///
-/// Resolves ports and endpoints following the priority:
-/// 1. Environment variables (highest priority)
-/// 2. Service discovery (if ecosystem manager available)
-/// 3. Universal constants (last resort)
-pub struct PortResolver {
-    /// Optional ecosystem manager for service discovery
-    /// If None, skip discovery step
-    ecosystem: Option<Arc<dyn ServiceDiscovery>>,
-}
-
-/// Trait for service discovery (allows mocking in tests)
-#[async_trait::async_trait]
-pub trait ServiceDiscovery: Send + Sync {
-    /// Discover service by name
-    async fn discover_service(&self, name: &str) -> Option<DiscoveredService>;
-}
+/// Default [`ServiceDiscovery`] implementation used by [`PortResolver`] when no external
+/// discovery backend is configured.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct NoServiceDiscovery;
 
 /// Discovered service information
 #[derive(Debug, Clone)]
@@ -79,18 +65,48 @@ pub struct DiscoveredService {
     pub scheme: String,
 }
 
-impl PortResolver {
+/// Trait for service discovery (allows mocking in tests)
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
+pub trait ServiceDiscovery: Send + Sync {
+    /// Discover service by name
+    async fn discover_service(&self, name: &str) -> Option<DiscoveredService>;
+}
+
+/// Port resolver with proper fallback chain
+///
+/// Resolves ports and endpoints following the priority:
+/// 1. Environment variables (highest priority)
+/// 2. Service discovery (if ecosystem manager available)
+/// 3. Universal constants (last resort)
+pub struct PortResolver<D: ServiceDiscovery = NoServiceDiscovery> {
+    /// Optional ecosystem manager for service discovery
+    /// If None, skip discovery step
+    ecosystem: Option<Arc<D>>,
+}
+
+impl ServiceDiscovery for NoServiceDiscovery {
+    async fn discover_service(&self, _name: &str) -> Option<DiscoveredService> {
+        None
+    }
+}
+
+impl PortResolver<NoServiceDiscovery> {
     /// Create a new port resolver without service discovery
     ///
     /// This resolver will use environment variables and constants only.
     pub fn new() -> Self {
         Self { ecosystem: None }
     }
+}
 
+impl<D: ServiceDiscovery> PortResolver<D> {
     /// Create a port resolver with service discovery
     ///
     /// This resolver will try service discovery before falling back to constants.
-    pub fn with_discovery(discovery: Arc<dyn ServiceDiscovery>) -> Self {
+    pub fn with_discovery(discovery: Arc<D>) -> Self {
         Self {
             ecosystem: Some(discovery),
         }
@@ -109,7 +125,7 @@ impl PortResolver {
     /// ```rust,no_run
     /// # use universal_patterns::config::PortResolver;
     /// #[tokio::main]
-    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// async fn main() -> anyhow::Result<()> {
     ///     let resolver = PortResolver::new();
     ///     let _http_port = resolver.resolve_port("http").await?;
     ///     Ok(())
@@ -149,7 +165,7 @@ impl PortResolver {
     /// ```rust,no_run
     /// # use universal_patterns::config::PortResolver;
     /// #[tokio::main]
-    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// async fn main() -> anyhow::Result<()> {
     ///     let resolver = PortResolver::new();
     ///     let _endpoint = resolver.resolve_endpoint("http").await?;
     ///     Ok(())
@@ -166,7 +182,7 @@ impl PortResolver {
     /// ```rust,no_run
     /// # use universal_patterns::config::PortResolver;
     /// #[tokio::main]
-    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// async fn main() -> anyhow::Result<()> {
     ///     let resolver = PortResolver::new();
     ///     let _endpoint = resolver.resolve_endpoint_with_scheme("security", "https").await?;
     ///     Ok(())
@@ -197,14 +213,14 @@ impl PortResolver {
             "websocket" | "ws" => network::get_service_port("websocket"),
             "metrics" => network::get_service_port("metrics"),
             "admin" => network::get_service_port("admin"),
-            "tarpc" => 9090, // tarpc binary protocol (same port as former grpc)
+            "tarpc" => network::DEFAULT_METRICS_LISTEN_PORT, // tarpc binary protocol (same port as former grpc)
             _ => return Err(PortResolutionError::UnknownService(service.to_string())),
         };
         Ok(port)
     }
 }
 
-impl Default for PortResolver {
+impl Default for PortResolver<NoServiceDiscovery> {
     fn default() -> Self {
         Self::new()
     }
@@ -336,7 +352,6 @@ mod tests {
         services: std::collections::HashMap<String, DiscoveredService>,
     }
 
-    #[async_trait::async_trait]
     impl ServiceDiscovery for MockDiscovery {
         async fn discover_service(&self, name: &str) -> Option<DiscoveredService> {
             self.services.get(name).cloned()

@@ -3,7 +3,10 @@
 
 //! Web Visualization Server
 //!
-//! This module provides a web-based interface for visualization management.
+//! **Status:** Not yet implemented. A real server would require petalTongue (or equivalent)
+//! capability discovery and HTTP/WebSocket wiring from the ecosystem; those contracts are not
+//! available in this crate yet. [`WebVisualizationServer::start`] therefore logs and returns
+//! `Ok(())` so callers can opt in without failing the context runtime.
 
 use super::{VisualizationEvent, VisualizationSystemConfig};
 use crate::error::Result;
@@ -11,7 +14,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use tracing::debug;
 
-/// Web visualization server — capability stub pending petalTongue integration (`start`/`stop` reflect intent until discovery wiring lands).
+/// Placeholder for a future web UI (no listener is opened until petalTongue integration exists).
 #[derive(Debug)]
 pub struct WebVisualizationServer {
     /// Configuration

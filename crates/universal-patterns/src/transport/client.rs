@@ -12,6 +12,7 @@ use tokio::net::{TcpStream, UnixStream};
 use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
 
 use crate::transport::types::{InProcessTransport, IpcEndpoint, TransportConfig, TransportType};
+use universal_constants::network::LOCALHOST_IPV4;
 
 /// Universal transport abstraction
 ///
@@ -302,7 +303,7 @@ impl UniversalTransport {
                 // In a real implementation, this would query the service registry
                 // For now, use a default port mapping
                 let port = Self::get_tcp_port(service_name);
-                let addr = format!("127.0.0.1:{}", port);
+                let addr = format!("{}:{}", LOCALHOST_IPV4, port);
 
                 let stream = tokio::time::timeout(
                     std::time::Duration::from_millis(config.timeout_ms),

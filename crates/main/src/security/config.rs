@@ -85,7 +85,7 @@ impl Default for SecurityProviderConfig {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or(universal_constants::network::DEFAULT_SECURITY_PORT);
-                format!("http://localhost:{port}")
+                universal_constants::builders::localhost_http(port)
             }
         });
 
@@ -208,8 +208,8 @@ impl Default for SecurityServiceConfig {
                 let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8443); // Default security auth port
-                format!("http://localhost:{port}")
+                    .unwrap_or(universal_constants::network::DEFAULT_SECURITY_PORT);
+                universal_constants::builders::localhost_http(port)
             });
 
         Self {

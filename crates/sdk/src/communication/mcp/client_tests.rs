@@ -72,8 +72,11 @@ fn processed_payload_ai_message_and_response_serde() {
 
 #[test]
 fn mcp_client_constructors_and_state() {
-    let c = McpClient::with_server_url("ws://127.0.0.1:9999");
-    assert_eq!(c.config.server_url, "ws://127.0.0.1:9999");
+    let c = McpClient::with_server_url("unix:///tmp/squirrel-mcp-test-9999.sock");
+    assert_eq!(
+        c.config.server_url,
+        "unix:///tmp/squirrel-mcp-test-9999.sock"
+    );
     assert!(!c.connected());
     assert_eq!(c.state(), "Disconnected");
 

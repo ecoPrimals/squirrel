@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
+use std::path::PathBuf;
+
 use super::*;
 
 /// Socket-related env vars — used for temp_env isolation.
@@ -14,7 +16,36 @@ const SOCKET_ENV_VARS: &[&str] = &[
     "BIOMEOS_FAMILY_ID",
     "FAMILY_ID",
     "SQUIRREL_NODE_ID",
+    "XDG_RUNTIME_DIR",
 ];
+
+#[test]
+fn test_resolve_socket_path_for_ipc_absolute_unchanged() {
+    assert_eq!(
+        resolve_socket_path_for_ipc("/var/foo/squirrel.sock"),
+        PathBuf::from("/var/foo/squirrel.sock")
+    );
+}
+
+#[test]
+fn test_resolve_socket_path_for_ipc_relative_under_tmp_biomeos() {
+    temp_env::with_vars([("XDG_RUNTIME_DIR", None::<&str>)], || {
+        assert_eq!(
+            resolve_socket_path_for_ipc("squirrel.sock"),
+            PathBuf::from("/tmp/biomeos/squirrel.sock")
+        );
+    });
+}
+
+#[test]
+fn test_resolve_socket_path_for_ipc_relative_with_xdg_runtime() {
+    temp_env::with_var("XDG_RUNTIME_DIR", Some("/run/user/4242"), || {
+        assert_eq!(
+            resolve_socket_path_for_ipc("squirrel.sock"),
+            PathBuf::from("/run/user/4242/biomeos/squirrel.sock")
+        );
+    });
+}
 
 #[test]
 fn test_socket_path_tier1_squirrel_socket() {

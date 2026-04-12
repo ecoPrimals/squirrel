@@ -307,13 +307,14 @@ mod tests {
     use crate::rules::{ContextPlugin as RulesContextPlugin, RulePluginManager};
     use crate::rules::{NoOpPluginManager, RuleError};
     use async_trait::async_trait;
+    use serde_json::Value;
     use serde_json::json;
-    use squirrel_interfaces::context::ContextTransformation;
+    use squirrel_interfaces::context::{ContextTransformation, DynContextTransformation};
     use std::sync::Arc;
 
     #[derive(Debug)]
     struct TestPlugin {
-        transforms: Vec<Arc<dyn ContextTransformation>>,
+        transforms: Vec<Arc<dyn DynContextTransformation>>,
     }
 
     #[derive(Debug)]
@@ -321,7 +322,6 @@ mod tests {
         id: String,
     }
 
-    #[async_trait]
     impl ContextTransformation for PassthroughTransform {
         fn get_id(&self) -> &str {
             &self.id
@@ -335,11 +335,7 @@ mod tests {
             "test"
         }
 
-        async fn transform(
-            &self,
-            data: serde_json::Value,
-        ) -> std::result::Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>>
-        {
+        async fn transform(&self, data: Value) -> anyhow::Result<Value> {
             Ok(data)
         }
     }
@@ -349,7 +345,7 @@ mod tests {
         async fn get_transformation(
             &self,
             id: &str,
-        ) -> anyhow::Result<Arc<dyn ContextTransformation>> {
+        ) -> anyhow::Result<Arc<dyn DynContextTransformation>> {
             self.transforms
                 .iter()
                 .find(|t| t.get_id() == id)
@@ -364,7 +360,9 @@ mod tests {
             Err(anyhow::anyhow!("Adapter not found: {id}"))
         }
 
-        async fn get_transformations(&self) -> anyhow::Result<Vec<Arc<dyn ContextTransformation>>> {
+        async fn get_transformations(
+            &self,
+        ) -> anyhow::Result<Vec<Arc<dyn DynContextTransformation>>> {
             Ok(self.transforms.clone())
         }
 
@@ -498,10 +496,11 @@ mod tests {
     #[tokio::test]
     async fn execute_transformation_happy_path() {
         let tid = "t1";
+        let transform: Arc<dyn DynContextTransformation> = Arc::new(PassthroughTransform {
+            id: tid.to_string(),
+        });
         let plugin = Arc::new(TestPlugin {
-            transforms: vec![Arc::new(PassthroughTransform {
-                id: tid.to_string(),
-            })],
+            transforms: vec![transform],
         });
         let pm = Arc::new(RulePluginManager::new(plugin));
         let ex = ActionExecutor::new(pm);
@@ -521,10 +520,11 @@ mod tests {
     #[tokio::test]
     async fn execute_transformation_missing_input_path_errors() {
         let tid = "t1";
+        let transform: Arc<dyn DynContextTransformation> = Arc::new(PassthroughTransform {
+            id: tid.to_string(),
+        });
         let plugin = Arc::new(TestPlugin {
-            transforms: vec![Arc::new(PassthroughTransform {
-                id: tid.to_string(),
-            })],
+            transforms: vec![transform],
         });
         let pm = Arc::new(RulePluginManager::new(plugin));
         let ex = ActionExecutor::new(pm);

@@ -1,88 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
+use super::monitoring_provider::{MonitoringProviderImpl, TestFailingProvider, TestOkProvider};
 use super::*;
 use crate::HealthStatus;
-use async_trait::async_trait;
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
-
-/// Minimal provider that always succeeds.
-struct OkProvider(&'static str);
-
-#[async_trait]
-impl MonitoringProvider for OkProvider {
-    fn provider_name(&self) -> &'static str {
-        self.0
-    }
-
-    fn provider_version(&self) -> &'static str {
-        "test"
-    }
-
-    async fn record_event(&self, _: MonitoringEvent) -> crate::Result<()> {
-        Ok(())
-    }
-
-    async fn record_metric(&self, _: Metric) -> crate::Result<()> {
-        Ok(())
-    }
-
-    async fn record_health(&self, _: &str, _: HealthStatus) -> crate::Result<()> {
-        Ok(())
-    }
-
-    async fn record_performance(&self, _: &str, _: PerformanceMetrics) -> crate::Result<()> {
-        Ok(())
-    }
-
-    async fn provider_health(&self) -> crate::Result<HealthStatus> {
-        Ok(HealthStatus::Healthy)
-    }
-
-    async fn provider_capabilities(&self) -> crate::Result<Vec<MonitoringCapability>> {
-        Ok(vec![MonitoringCapability::Metrics])
-    }
-}
-
-/// Provider that errors on every record call (exercises best-effort paths).
-struct FailingProvider;
-
-#[async_trait]
-impl MonitoringProvider for FailingProvider {
-    fn provider_name(&self) -> &'static str {
-        "failing"
-    }
-
-    fn provider_version(&self) -> &'static str {
-        "0"
-    }
-
-    async fn record_event(&self, _: MonitoringEvent) -> crate::Result<()> {
-        Err(crate::Error::Monitoring("e".into()))
-    }
-
-    async fn record_metric(&self, _: Metric) -> crate::Result<()> {
-        Err(crate::Error::Monitoring("e".into()))
-    }
-
-    async fn record_health(&self, _: &str, _: HealthStatus) -> crate::Result<()> {
-        Err(crate::Error::Monitoring("e".into()))
-    }
-
-    async fn record_performance(&self, _: &str, _: PerformanceMetrics) -> crate::Result<()> {
-        Err(crate::Error::Monitoring("e".into()))
-    }
-
-    async fn provider_health(&self) -> crate::Result<HealthStatus> {
-        Err(crate::Error::Monitoring("e".into()))
-    }
-
-    async fn provider_capabilities(&self) -> crate::Result<Vec<MonitoringCapability>> {
-        Err(crate::Error::Monitoring("e".into()))
-    }
-}
 
 fn base_metric() -> Metric {
     Metric {
@@ -287,7 +211,9 @@ async fn record_paths_with_fallback_logger() {
 #[tokio::test]
 async fn record_with_failing_provider_still_ok() {
     let svc = MonitoringService::new(MonitoringConfig::default());
-    svc.add_provider(Arc::new(FailingProvider) as Arc<dyn MonitoringProvider>);
+    svc.add_provider(Arc::new(MonitoringProviderImpl::TestFailing(
+        TestFailingProvider,
+    )));
     svc.record_event(MonitoringEvent::Custom {
         event_type: "t".into(),
         data: serde_json::json!({}),
@@ -300,8 +226,12 @@ async fn record_with_failing_provider_still_ok() {
 #[tokio::test]
 async fn add_remove_get_providers_and_status() {
     let svc = MonitoringService::new(MonitoringConfig::default());
-    svc.add_provider(Arc::new(OkProvider("p1")) as Arc<dyn MonitoringProvider>);
-    svc.add_provider(Arc::new(OkProvider("p2")) as Arc<dyn MonitoringProvider>);
+    svc.add_provider(Arc::new(MonitoringProviderImpl::TestOk(TestOkProvider(
+        "p1",
+    ))));
+    svc.add_provider(Arc::new(MonitoringProviderImpl::TestOk(TestOkProvider(
+        "p2",
+    ))));
     assert_eq!(svc.get_providers().len(), 2);
     svc.remove_provider("p1");
     assert_eq!(svc.get_providers(), vec!["p2"]);
@@ -562,7 +492,7 @@ fn time_frame_and_capability_serde() {
 
 #[tokio::test]
 async fn monitoring_provider_default_query_health_and_metrics() {
-    let p = OkProvider("default-queries");
+    let p = TestOkProvider("default-queries");
     assert!(
         p.query_health("any")
             .await

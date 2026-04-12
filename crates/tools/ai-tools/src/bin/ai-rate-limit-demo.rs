@@ -11,7 +11,7 @@ use std::time::Instant;
 
 use squirrel_ai_tools::{
     Result,
-    common::{ChatRequest, create_provider_client},
+    common::{AIClient, ChatRequest, create_provider_client},
 };
 
 #[tokio::main]

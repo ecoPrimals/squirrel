@@ -39,7 +39,6 @@ use super::{
     TextGenerationRequest, TextGenerationResponse,
 };
 use crate::error::PrimalError;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -270,7 +269,6 @@ impl UniversalAiAdapter {
     }
 }
 
-#[async_trait]
 impl AiProviderAdapter for UniversalAiAdapter {
     fn provider_id(&self) -> &str {
         &self.metadata.primal_id

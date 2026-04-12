@@ -284,7 +284,12 @@ impl SecurePluginLoader {
     }
 }
 
-/// Secure plugin stub that replaces unsafe dynamic loading
+/// Sandboxed plugin implementation returned after validation (not a test double).
+///
+/// Native `.so` / arbitrary code execution is intentionally disabled. Plugins integrate through
+/// the CLI [`crate::commands::registry::CommandRegistry`] instead. A future WebAssembly runtime
+/// could replace this type; until then this is the supported production path after
+/// [`SecurePluginLoader::validate_plugin`].
 pub struct SecurePluginStub {
     metadata: PluginMetadata,
 }
