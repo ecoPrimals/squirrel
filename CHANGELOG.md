@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.50] - 2026-04-13
+
+Discovery noise reduction, coverage push, and doc cleanup sprint.
+
+### Added
+
+- Unit tests across 9 modules (transport, primal traits, federation, commands,
+  config builder, sovereign data, BTSP handshake) — coverage 88.69% → 89.03%
+- `docs/CRYPTO_MIGRATION.md` — fulfills broken references across Cargo.toml
+  files and deny.toml
+
+### Changed
+
+- ~40+ doc comments evolved from hardcoded primal names to capability-based
+  language (`capabilities.rs` table, auth providers, security client, BTSP
+  handshake, config defaults, error types)
+- `capabilities.rs` capability table: primal names → role-based ("Security
+  provider", "Compute provider", "Mesh provider", "AI provider")
+- Legacy env vars annotated as `[legacy]` in inline comments
+- Root docs updated: test count, coverage, file count, ecoBin version
+- `.cargo/config.toml` header: ecoBin v2 → v3
+
+### Removed
+
+- Operational primal name references from doc comments, log messages, and
+  inline comments (definitional type names and test data preserved)
+
+### Metrics
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Tests | 6,903 | 6,877 |
+| Coverage | ~86% | ~89% |
+| Doc primal-name noise | ~40 operational refs | ~0 (definitional only) |
+| `docs/CRYPTO_MIGRATION.md` | missing | present |
+
 ## [0.1.0-alpha.49] - 2026-04-12
 
 Deep debt resolution, overstep cleanup, and ecoBin compliance sprint. primalSpring audit

@@ -294,3 +294,206 @@ fn test_add_respects_max_size_in_memory() {
     }
     assert_eq!(history.get_last(100).expect("should succeed").len(), 3);
 }
+
+#[test]
+fn test_default_creates_history() {
+    let history = CommandHistory::default();
+    let entries = history.get_last(10).expect("should succeed");
+    assert!(entries.is_empty() || entries.len() <= 1000);
+}
+
+#[test]
+fn test_cleanup_trims_excess_entries() {
+    let dir = tempdir().expect("should succeed");
+    let path = dir.path().join("cleanup.json");
+    let mut history = CommandHistory::with_options(3, &path).expect("should succeed");
+
+    {
+        let mut entries = history.entries.write().expect("lock");
+        for i in 0..10 {
+            entries.push_back(HistoryEntry::new(
+                format!("cmd{i}"),
+                vec![],
+                true,
+                None,
+                None,
+            ));
+        }
+    }
+
+    let removed = history.cleanup().expect("cleanup");
+    assert_eq!(removed, 7);
+
+    let entries = history.get_last(100).expect("get");
+    assert_eq!(entries.len(), 3);
+}
+
+#[test]
+fn test_cleanup_no_excess_returns_zero() {
+    let dir = tempdir().expect("should succeed");
+    let path = dir.path().join("cleanup_noop.json");
+    let mut history = CommandHistory::with_options(10, &path).expect("should succeed");
+    history
+        .add("cmd".to_string(), vec![], true, None, None)
+        .expect("add");
+    let removed = history.cleanup().expect("cleanup");
+    assert_eq!(removed, 0);
+}
+
+#[test]
+fn test_cleanup_if_needed() {
+    let dir = tempdir().expect("should succeed");
+    let path = dir.path().join("cleanup_needed.json");
+    let mut history = CommandHistory::with_options(2, &path).expect("should succeed");
+
+    {
+        let mut entries = history.entries.write().expect("lock");
+        for i in 0..5 {
+            entries.push_back(HistoryEntry::new(
+                format!("cmd{i}"),
+                vec![],
+                true,
+                None,
+                None,
+            ));
+        }
+    }
+
+    history.cleanup_if_needed().expect("cleanup_if_needed");
+    let entries = history.get_last(100).expect("get");
+    assert_eq!(entries.len(), 2);
+}
+
+#[test]
+fn test_history_entry_failed_with_error_message() {
+    let entry = HistoryEntry::new(
+        "fail-cmd".to_string(),
+        vec!["--flag".to_string()],
+        false,
+        Some("command not found".to_string()),
+        None,
+    );
+    assert!(!entry.success);
+    assert_eq!(entry.error_message.as_deref(), Some("command not found"));
+    let formatted = entry.formatted();
+    assert!(formatted.contains("✗"));
+    assert!(formatted.contains("fail-cmd"));
+}
+
+#[test]
+fn test_history_entry_with_metadata() {
+    let meta = serde_json::json!({"duration_ms": 42});
+    let entry = HistoryEntry::new(
+        "meta-cmd".to_string(),
+        vec![],
+        true,
+        None,
+        Some(meta.clone()),
+    );
+    assert_eq!(entry.metadata, Some(meta));
+}
+
+#[test]
+fn test_get_last_for_command_not_found() {
+    let dir = tempdir().expect("should succeed");
+    let path = dir.path().join("notfound.json");
+    let history = CommandHistory::with_options(10, &path).expect("should succeed");
+    history
+        .add("ls".to_string(), vec![], true, None, None)
+        .expect("add");
+    let result = history.get_last_for_command("nonexistent").expect("get");
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_save_entry_to_empty_file() {
+    let dir = tempdir().expect("should succeed");
+    let path = dir.path().join("empty_save.json");
+    let history = CommandHistory::with_options(10, &path).expect("should succeed");
+
+    history
+        .add("first".to_string(), vec![], true, None, None)
+        .expect("add");
+
+    let contents = fs::read_to_string(&path).expect("read");
+    let parsed: Vec<HistoryEntry> = serde_json::from_str(&contents).expect("parse");
+    assert_eq!(parsed.len(), 1);
+    assert_eq!(parsed[0].command, "first");
+}
+
+#[test]
+fn test_save_entry_appends_to_existing() {
+    let dir = tempdir().expect("should succeed");
+    let path = dir.path().join("append.json");
+    let history = CommandHistory::with_options(10, &path).expect("should succeed");
+
+    history
+        .add("cmd1".to_string(), vec![], true, None, None)
+        .expect("add1");
+    history
+        .add("cmd2".to_string(), vec![], true, None, None)
+        .expect("add2");
+
+    let contents = fs::read_to_string(&path).expect("read");
+    let parsed: Vec<HistoryEntry> = serde_json::from_str(&contents).expect("parse");
+    assert_eq!(parsed.len(), 2);
+    assert_eq!(parsed[0].command, "cmd2");
+    assert_eq!(parsed[1].command, "cmd1");
+}
+
+#[test]
+fn test_corrupted_file_recovery() {
+    let dir = tempdir().expect("should succeed");
+    let path = dir.path().join("corrupt.json");
+
+    fs::write(&path, "this is not valid json at all").expect("write corrupt");
+
+    let history = CommandHistory::with_options(10, &path).expect("should still create");
+    let entries = history.get_last(10).expect("get");
+    assert!(entries.is_empty());
+
+    history
+        .add("after-corrupt".to_string(), vec![], true, None, None)
+        .expect("add after corruption");
+
+    let entries = history.get_last(10).expect("get");
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].command, "after-corrupt");
+}
+
+#[test]
+fn test_with_options_creates_parent_dirs() {
+    let dir = tempdir().expect("should succeed");
+    let nested_path = dir
+        .path()
+        .join("a")
+        .join("b")
+        .join("c")
+        .join("history.json");
+    let history = CommandHistory::with_options(10, &nested_path).expect("should succeed");
+    history
+        .add("nested".to_string(), vec![], true, None, None)
+        .expect("add");
+    assert!(nested_path.exists());
+}
+
+#[test]
+fn test_save_all_persists_all_entries() {
+    let dir = tempdir().expect("should succeed");
+    let path = dir.path().join("save_all.json");
+    let history = CommandHistory::with_options(10, &path).expect("should succeed");
+
+    for i in 0..5 {
+        history
+            .add(format!("cmd{i}"), vec![], true, None, None)
+            .expect("add");
+    }
+
+    history
+        .cleanup_older_than(0)
+        .expect("cleanup forces save_all");
+
+    let contents = fs::read_to_string(&path).expect("read");
+    let parsed: Vec<HistoryEntry> = serde_json::from_str(&contents).expect("parse");
+    assert_eq!(parsed.len(), 5);
+}

@@ -140,9 +140,25 @@ pub struct TokenUsage {
     pub total_tokens: u32,
 }
 
-/// AI inference stream
-pub type InferenceStream =
-    Box<dyn futures::Stream<Item = Result<InferenceChunk, AIError>> + Send + Unpin>;
+/// AI inference stream backed by an MPSC channel (zero `dyn` dispatch).
+///
+/// Providers create one via [`InferenceStream::new`] with an `mpsc::Receiver`.
+pub struct InferenceStream {
+    rx: tokio::sync::mpsc::Receiver<Result<InferenceChunk, AIError>>,
+}
+
+impl InferenceStream {
+    /// Wrap a channel receiver as an inference stream.
+    #[must_use]
+    pub const fn new(rx: tokio::sync::mpsc::Receiver<Result<InferenceChunk, AIError>>) -> Self {
+        Self { rx }
+    }
+
+    /// Receive the next inference chunk, or `None` when the provider is done.
+    pub async fn recv(&mut self) -> Option<Result<InferenceChunk, AIError>> {
+        self.rx.recv().await
+    }
+}
 
 /// AI inference chunk for streaming
 #[derive(Debug, Clone)]

@@ -3,8 +3,8 @@
 
 //! Capability-Based Crypto Provider - TRUE PRIMAL Architecture
 //!
-//! This module replaces the hardcoded `BearDogClient` with capability-based discovery.
-//! Instead of knowing about "`BearDog`", we discover "crypto.signing" capability at runtime.
+//! This module replaces the hardcoded security client with capability-based discovery.
+//! Instead of knowing about a specific security primal, we discover "crypto.signing" at runtime.
 //!
 //! **TRUE PRIMAL Pattern**:
 //! - Self-knowledge only (Squirrel knows it needs "crypto.signing")
@@ -18,7 +18,7 @@
 //!                          ↓
 //!                  Find "crypto.signing"
 //!                          ↓
-//!              (Could be BearDog, could be something else!)
+//!              (Could be any primal exposing crypto.signing!)
 //!                          ↓
 //!                   JSON-RPC over Unix socket
 //! ```
@@ -35,7 +35,7 @@ use universal_constants::network::resolve_capability_unix_socket;
 
 /// Primary env for tiered resolution of the `crypto.sign` / signing socket (see [`resolve_capability_unix_socket`]).
 const CRYPTO_SIGN_CAPABILITY_SOCKET_ENV: &str = "CRYPTO_CAPABILITY_SOCKET";
-/// Basename stem for `BearDog` under `$XDG_RUNTIME_DIR/biomeos/` (e.g. `beardog.sock`).
+/// Legacy basename stem under `$XDG_RUNTIME_DIR/biomeos/` (e.g. `beardog.sock`).
 const BEARDOG_BIOMEOS_SOCKET_STEM: &str = "beardog";
 
 fn push_unique_path(paths: &mut Vec<PathBuf>, path: PathBuf) {
@@ -44,7 +44,7 @@ fn push_unique_path(paths: &mut Vec<PathBuf>, path: PathBuf) {
     }
 }
 
-/// Candidate Unix socket paths for crypto signing (security primal / `BearDog`), ordered by precedence.
+/// Candidate Unix socket paths for crypto signing (security provider), ordered by precedence.
 ///
 /// Order:
 /// 1. `SECURITY_SOCKET` — primary override for the security primal socket
@@ -78,7 +78,7 @@ fn candidate_crypto_signing_socket_paths() -> Vec<PathBuf> {
     paths
 }
 
-/// Capability-based crypto provider (replaces hardcoded `BearDogClient`)
+/// Capability-based crypto provider (replaces hardcoded security client)
 #[derive(Clone)]
 pub struct CapabilityCryptoProvider {
     /// Discovered endpoint for crypto.signing capability
@@ -156,7 +156,7 @@ impl CapabilityCryptoProvider {
         error!(
             "   Set CRYPTO_SIGNING_ENDPOINT, CRYPTO_ENDPOINT, SECURITY_SOCKET, or BEARDOG_SOCKET"
         );
-        error!("   Example: export SECURITY_SOCKET=\"$XDG_RUNTIME_DIR/biomeos/beardog.sock\"");
+        error!("   Example: export SECURITY_SOCKET=\"$XDG_RUNTIME_DIR/biomeos/<security-provider>.sock\"");
 
         Err(anyhow::anyhow!(
             "Crypto capability not found. Set CRYPTO_SIGNING_ENDPOINT, CRYPTO_ENDPOINT, or SECURITY_SOCKET."
@@ -192,7 +192,7 @@ impl CapabilityCryptoProvider {
 
     /// Sign data using discovered crypto provider
     ///
-    /// This replaces `BearDogClient::ed25519_sign()`
+    /// Capability-based replacement for the legacy `ed25519_sign()` method
     ///
     /// # Errors
     ///
@@ -237,7 +237,7 @@ impl CapabilityCryptoProvider {
 
     /// Verify signature using discovered crypto provider (with public key bytes)
     ///
-    /// This replaces `BearDogClient::ed25519_verify()` when you have the raw public key
+    /// Capability-based replacement for the legacy `ed25519_verify()` method (raw public key)
     ///
     /// # Errors
     ///
@@ -400,7 +400,7 @@ impl Default for CapabilityCryptoConfig {
 }
 
 impl CapabilityCryptoProvider {
-    /// Create from config (for compatibility with old `BearDogClientConfig`)
+    /// Create from config (for compatibility with legacy security client config)
     #[must_use]
     pub fn from_config(config: CapabilityCryptoConfig) -> Self {
         let mut provider = Self::new();

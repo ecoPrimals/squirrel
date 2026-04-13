@@ -410,12 +410,12 @@ fn compute_service_endpoints() -> Vec<super::ServiceEndpoint> {
 pub async fn register_compute_service(
     registry: Arc<dyn UniversalServiceRegistry>,
 ) -> Result<(), PrimalError> {
-    info!("🍄 Registering ToadStool compute service with universal registry");
+    info!("Registering compute provider with universal registry");
 
     let registration = super::UniversalServiceRegistration {
         service_id: uuid::Uuid::new_v4(),
         metadata: super::ServiceMetadata {
-            name: "ToadStool Compute Platform".to_string(),
+            name: "Compute Platform".to_string(),
             category: super::ServiceCategory::Compute {
                 specialties: vec![
                     "container".to_string(),
@@ -494,7 +494,7 @@ pub async fn register_compute_service(
 
     registry.register_service(registration).await?;
 
-    info!("✅ ToadStool compute service successfully registered with universal registry");
+    info!("Compute provider registered with universal registry");
     Ok(())
 }
 
@@ -768,7 +768,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn register_toadstool_and_serde_roundtrip() {
+    async fn register_compute_and_serde_roundtrip() {
         let reg = Arc::new(InMemoryServiceRegistry::new());
         register_compute_service(reg.clone()).await.expect("reg");
         let services = reg.list_all_services().await.expect("list");

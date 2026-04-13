@@ -268,3 +268,163 @@ impl<C: NetworkConnection + 'static> FederationNetworkManager<C> {
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::federation::network_connection::MockNetworkConnection;
+    use crate::federation::network_types::PeerStatus;
+
+    fn test_config() -> NetworkConfig {
+        NetworkConfig {
+            heartbeat_interval: 60,
+            discovery_timeout: 1,
+            ..NetworkConfig::default()
+        }
+    }
+
+    fn test_node_info() -> NodeInfo {
+        NodeInfo {
+            id: Uuid::new_v4(),
+            name: "test-node".to_string(),
+            version: "1.0.0".to_string(),
+            capabilities: vec!["test".to_string()],
+            endpoints: vec![],
+            metadata: HashMap::new(),
+        }
+    }
+
+    fn test_peer_info() -> PeerInfo {
+        PeerInfo {
+            id: Uuid::new_v4(),
+            address: "127.0.0.1:9000".parse().expect("valid addr"),
+            last_seen: Utc::now(),
+            status: PeerStatus::Connected,
+            latency: None,
+            capabilities: vec![],
+            reliability: 1.0,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_new_creates_empty_manager() {
+        let mgr =
+            FederationNetworkManager::<MockNetworkConnection>::new(test_config(), test_node_info());
+        let stats = mgr.get_stats().await;
+        assert_eq!(stats.peer_count, 0);
+        assert_eq!(stats.connection_count, 0);
+        assert_eq!(stats.queued_messages, 0);
+    }
+
+    #[tokio::test]
+    async fn test_add_and_remove_peer() {
+        let mgr =
+            FederationNetworkManager::<MockNetworkConnection>::new(test_config(), test_node_info());
+        let peer = test_peer_info();
+        let peer_id = peer.id;
+
+        mgr.add_peer(peer).await.expect("add peer");
+        let stats = mgr.get_stats().await;
+        assert_eq!(stats.peer_count, 1);
+
+        mgr.remove_peer(peer_id).await.expect("remove peer");
+        let stats = mgr.get_stats().await;
+        assert_eq!(stats.peer_count, 0);
+    }
+
+    #[tokio::test]
+    async fn test_add_multiple_peers() {
+        let mgr =
+            FederationNetworkManager::<MockNetworkConnection>::new(test_config(), test_node_info());
+
+        for _ in 0..5 {
+            mgr.add_peer(test_peer_info()).await.expect("add peer");
+        }
+
+        let stats = mgr.get_stats().await;
+        assert_eq!(stats.peer_count, 5);
+    }
+
+    #[tokio::test]
+    async fn test_register_handler() {
+        let mgr =
+            FederationNetworkManager::<MockNetworkConnection>::new(test_config(), test_node_info());
+        mgr.register_handler("test_type".to_string(), |_msg| Ok(()))
+            .await
+            .expect("register handler");
+    }
+
+    #[tokio::test]
+    async fn test_send_to_peer_not_found() {
+        let mgr =
+            FederationNetworkManager::<MockNetworkConnection>::new(test_config(), test_node_info());
+        let msg = NetworkMessage::HealthCheck {
+            node_id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+        };
+        let result = mgr.send_to_peer(Uuid::new_v4(), msg).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            FederationError::PeerNotFound(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_empty_connections_succeeds() {
+        let mgr =
+            FederationNetworkManager::<MockNetworkConnection>::new(test_config(), test_node_info());
+        let msg = NetworkMessage::HealthCheck {
+            node_id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+        };
+        let result = mgr.broadcast(msg).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_start_and_stop() {
+        let mgr =
+            FederationNetworkManager::<MockNetworkConnection>::new(test_config(), test_node_info());
+
+        mgr.start().await.expect("start");
+        assert!(*mgr.running.read().await);
+
+        mgr.stop().await.expect("stop");
+        assert!(!*mgr.running.read().await);
+    }
+
+    #[tokio::test]
+    async fn test_start_twice_returns_error() {
+        let mgr =
+            FederationNetworkManager::<MockNetworkConnection>::new(test_config(), test_node_info());
+
+        mgr.start().await.expect("first start");
+        let result = mgr.start().await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            FederationError::AlreadyRunning(_)
+        ));
+
+        mgr.stop().await.expect("stop");
+    }
+
+    #[tokio::test]
+    async fn test_get_stats_returns_node_id() {
+        let info = test_node_info();
+        let node_id = info.id;
+        let mgr = FederationNetworkManager::<MockNetworkConnection>::new(test_config(), info);
+
+        let stats = mgr.get_stats().await;
+        assert_eq!(stats.node_id, node_id);
+    }
+
+    #[tokio::test]
+    async fn test_remove_nonexistent_peer_is_ok() {
+        let mgr =
+            FederationNetworkManager::<MockNetworkConnection>::new(test_config(), test_node_info());
+        let result = mgr.remove_peer(Uuid::new_v4()).await;
+        assert!(result.is_ok());
+    }
+}

@@ -1,5 +1,5 @@
 # biomeOS Cross-Compilation Configuration
-# TRUE ecoBin v2.0 → genomeBin Evolution
+# TRUE ecoBin v3.0 — Pure Rust, zero C deps, static-pie musl
 # Created: January 30, 2026
 
 [build]

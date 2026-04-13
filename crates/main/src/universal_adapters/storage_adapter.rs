@@ -330,16 +330,19 @@ impl UniversalStorageAdapter {
     }
 }
 
-/// Register `NestGate` (or any storage primal) with the universal registry
+/// Register a storage provider with the universal registry.
+///
+/// Capability-based: any primal providing the `storage.*` capability set
+/// can be registered here — the caller discovers the provider at runtime.
 pub async fn register_storage_service(
     registry: Arc<dyn UniversalServiceRegistry>,
 ) -> Result<(), PrimalError> {
-    info!("🏠 Registering NestGate storage service with universal registry");
+    info!("Registering storage provider with universal registry");
 
     let registration = super::UniversalServiceRegistration {
         service_id: uuid::Uuid::new_v4(),
         metadata: super::ServiceMetadata {
-            name: "NestGate Storage Primal".to_string(),
+            name: "Storage Provider".to_string(),
             category: super::ServiceCategory::Storage {
                 types: vec!["distributed".to_string(), "ai_optimized".to_string()],
             },
@@ -422,7 +425,7 @@ pub async fn register_storage_service(
 
     registry.register_service(registration).await?;
 
-    info!("✅ NestGate storage service successfully registered with universal registry");
+    info!("Storage provider registered with universal registry");
     Ok(())
 }
 

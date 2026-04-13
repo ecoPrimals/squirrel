@@ -161,7 +161,7 @@ impl ModelRegistry {
     }
 
     /// Load from a file
-    fn load_from_file(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+    fn load_from_file(path: &PathBuf) -> anyhow::Result<Self> {
         let mut file = fs::File::open(path)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
@@ -181,7 +181,7 @@ impl ModelRegistry {
     }
 
     /// Save to a file
-    fn save_to_file(&self, path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    fn save_to_file(&self, path: &PathBuf) -> anyhow::Result<()> {
         let json = serde_json::json!({ "models": self.models });
         let contents = serde_json::to_string_pretty(&json)?;
         fs::write(path, contents)?;

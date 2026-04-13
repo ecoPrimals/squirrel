@@ -15,7 +15,7 @@ use universal_constants::network::{DEFAULT_SECURITY_PORT, get_service_port, get_
 /// Resolution follows the Tower Atomic pattern:
 /// 1. Unix socket path (preferred — zero-HTTP, IPC-first)
 /// 2. Environment variable for full endpoint
-/// 3. Legacy primal-specific env var (deprecated)
+/// 3. Legacy service-name env var (deprecated)
 /// 4. HTTP localhost fallback (last resort)
 pub struct DefaultEndpoints;
 
@@ -39,7 +39,7 @@ impl DefaultEndpoints {
     /// Multi-tier resolution (primal-agnostic first, legacy fallback):
     /// 0. Unix socket at `$XDG_RUNTIME_DIR/biomeos/songbird.sock` (Tower Atomic — preferred)
     /// 1. `SERVICE_MESH_ENDPOINT` (full endpoint)
-    /// 2. `SONGBIRD_ENDPOINT` (legacy primal-specific — deprecated)
+    /// 2. `SONGBIRD_ENDPOINT` (legacy alias — deprecated)
     /// 3. `SERVICE_MESH_PORT` / `SONGBIRD_PORT` (port override)
     /// 4. Default: `universal_constants::network::get_service_port("discovery")`
     #[must_use]
@@ -66,7 +66,7 @@ impl DefaultEndpoints {
     ///
     /// Multi-tier resolution (primal-agnostic first, legacy fallback):
     /// 1. `COMPUTE_SERVICE_ENDPOINT` (full endpoint — preferred)
-    /// 2. `TOADSTOOL_ENDPOINT` (legacy primal-specific — deprecated)
+    /// 2. `TOADSTOOL_ENDPOINT` (legacy alias — deprecated)
     /// 3. `COMPUTE_PORT` / `TOADSTOOL_PORT` (port override)
     /// 4. Default: `universal_constants::network::get_service_port("http")`
     #[must_use]
@@ -94,7 +94,7 @@ impl DefaultEndpoints {
     ///
     /// Multi-tier resolution (primal-agnostic first, legacy fallback):
     /// 1. `STORAGE_SERVICE_ENDPOINT` (full endpoint — preferred)
-    /// 2. `NESTGATE_ENDPOINT` (legacy primal-specific — deprecated)
+    /// 2. `NESTGATE_ENDPOINT` (legacy alias — deprecated)
     /// 3. `STORAGE_PORT` / `NESTGATE_PORT` (port override)
     /// 4. Default: `universal_constants::network::get_service_port("admin")`
     #[must_use]

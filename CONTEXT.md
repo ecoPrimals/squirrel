@@ -73,11 +73,11 @@ Other workspace crates include auth, context, interfaces, plugins, config, comma
 
 ## Test suite
 
-- **6,903** tests passing, 0 failures.
+- **6,877** tests passing, 0 failures.
 - **Zero `.unwrap()`** and **zero `panic!()`** in production code — all error handling is typed.
 - **Chaos** and integration tests (e.g. under `crates/main/tests/chaos`).
 - **Property-based** tests (e.g. `proptest` for serialization invariants).
-- **Coverage** ~**86%** line coverage (all features) with **90%** as stated target (re-verify with `just coverage`).
+- **Coverage** ~**89%** line coverage (all features) with **90%** as stated target (re-verify with `just coverage`).
 
 ## What this does NOT do
 

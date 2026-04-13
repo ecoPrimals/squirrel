@@ -560,4 +560,141 @@ mod tests {
         let addr = listener.local_addr().expect("local addr");
         assert!(!addr.is_empty());
     }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_bind_unix_filesystem_socket() {
+        let tempdir = std::env::temp_dir().join(format!("squirrel_test_{}", std::process::id()));
+        std::fs::create_dir_all(&tempdir).expect("create temp dir");
+
+        let config = ListenerConfig {
+            preferred_transport: Some(TransportType::UnixFilesystem),
+            enable_fallback: false,
+            socket_base_dir: Some(tempdir.clone()),
+            ..Default::default()
+        };
+
+        let svc_name = format!("ut_unix_bind_{}", std::process::id());
+        let listener = UniversalListener::bind(&svc_name, Some(config))
+            .await
+            .expect("unix bind");
+
+        assert!(matches!(listener, UniversalListener::UnixSocket(_)));
+
+        let addr = listener.local_addr().expect("local addr");
+        assert!(!addr.is_empty());
+
+        let socket_path = tempdir.join(format!("{svc_name}.sock"));
+        assert!(socket_path.exists());
+
+        // Cleanup
+        let _ = std::fs::remove_file(&socket_path);
+        let _ = std::fs::remove_dir(&tempdir);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_bind_unix_and_accept() {
+        let tempdir = std::env::temp_dir().join(format!("squirrel_accept_{}", std::process::id()));
+        std::fs::create_dir_all(&tempdir).expect("create temp dir");
+
+        let svc_name = format!("ut_unix_accept_{}", std::process::id());
+        let config = ListenerConfig {
+            preferred_transport: Some(TransportType::UnixFilesystem),
+            enable_fallback: false,
+            socket_base_dir: Some(tempdir.clone()),
+            ..Default::default()
+        };
+
+        let listener = UniversalListener::bind(&svc_name, Some(config))
+            .await
+            .expect("unix bind");
+
+        let socket_path = tempdir.join(format!("{svc_name}.sock"));
+        let path_clone = socket_path.clone();
+        let connect_handle =
+            tokio::spawn(async move { tokio::net::UnixStream::connect(&path_clone).await });
+
+        let (transport, remote_addr) = listener.accept().await.expect("accept");
+        assert!(matches!(transport, UniversalTransport::UnixSocket(_)));
+        assert!(matches!(remote_addr, RemoteAddr::Unix(_)));
+
+        let _ = connect_handle.await;
+        let _ = std::fs::remove_file(&socket_path);
+        let _ = std::fs::remove_dir(&tempdir);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn test_bind_unix_abstract_socket() {
+        let svc_name = format!("ut_abstract_bind_{}", std::process::id());
+        let config = ListenerConfig {
+            preferred_transport: Some(TransportType::UnixAbstract),
+            enable_fallback: false,
+            ..Default::default()
+        };
+
+        let listener = UniversalListener::bind(&svc_name, Some(config))
+            .await
+            .expect("abstract bind");
+        assert!(matches!(listener, UniversalListener::UnixSocket(_)));
+    }
+
+    #[tokio::test]
+    async fn test_bind_default_config() {
+        let svc_name = format!("ut_default_bind_{}", std::process::id());
+        let result = UniversalListener::bind(&svc_name, None).await;
+        assert!(
+            result.is_ok(),
+            "bind with default config should succeed on any platform"
+        );
+        let listener = result.expect("should succeed");
+        let addr = listener.local_addr().expect("local addr");
+        assert!(!addr.is_empty());
+    }
+
+    #[test]
+    fn test_listener_socket_path_different_services() {
+        let config = ListenerConfig::default();
+        let path1 = UniversalListener::get_socket_path("svc_a", &config);
+        let path2 = UniversalListener::get_socket_path("svc_b", &config);
+        assert_ne!(path1, path2);
+        assert!(path1.to_string_lossy().contains("svc_a"));
+        assert!(path2.to_string_lossy().contains("svc_b"));
+    }
+
+    #[test]
+    fn test_listener_hierarchy_inprocess_only() {
+        let config = ListenerConfig {
+            preferred_transport: Some(TransportType::InProcess),
+            enable_fallback: false,
+            ..Default::default()
+        };
+        let hierarchy = UniversalListener::get_transport_hierarchy(&config);
+        assert_eq!(hierarchy.len(), 1);
+        assert_eq!(hierarchy[0], TransportType::InProcess);
+    }
+
+    #[test]
+    fn test_listener_hierarchy_inprocess_with_fallback() {
+        let config = ListenerConfig {
+            preferred_transport: Some(TransportType::InProcess),
+            enable_fallback: true,
+            ..Default::default()
+        };
+        let hierarchy = UniversalListener::get_transport_hierarchy(&config);
+        assert_eq!(hierarchy.len(), 2);
+        assert_eq!(hierarchy[0], TransportType::InProcess);
+        assert_eq!(hierarchy[1], TransportType::Tcp);
+    }
+
+    #[cfg(not(windows))]
+    #[tokio::test]
+    async fn test_try_bind_named_pipe_unsupported() {
+        let config = ListenerConfig::default();
+        let result =
+            UniversalListener::try_bind("test_pipe", TransportType::NamedPipe, &config).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::Unsupported);
+    }
 }

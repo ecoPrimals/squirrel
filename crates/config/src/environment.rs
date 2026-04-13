@@ -341,8 +341,8 @@ impl AIProviderConfig {
 
 /// Ecosystem service configuration from environment variables
 ///
-/// Uses capability-domain env vars as primary with primal-specific names as
-/// legacy fallbacks (wateringHole `PRIMAL_SELF_KNOWLEDGE_STANDARD` §4).
+/// Uses capability-domain env vars as primary with legacy service names as
+/// fallbacks (wateringHole `PRIMAL_SELF_KNOWLEDGE_STANDARD` §4).
 /// Production should use capability-based discovery; env vars override for explicit config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemConfig {

@@ -7,7 +7,6 @@
 
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 
@@ -41,7 +40,7 @@ struct ApiConfig {
 }
 
 impl ApiConfig {
-    fn load() -> Result<Self, Box<dyn Error>> {
+    fn load() -> anyhow::Result<Self> {
         let config_path = get_config_path()?;
 
         if !config_path.exists() {
@@ -54,7 +53,7 @@ impl ApiConfig {
         Ok(config)
     }
 
-    fn save(&self) -> Result<(), Box<dyn Error>> {
+    fn save(&self) -> anyhow::Result<()> {
         let config_path = get_config_path()?;
 
         // Ensure directory exists
@@ -87,20 +86,19 @@ impl ApiConfig {
     }
 }
 
-fn get_config_path() -> Result<PathBuf, Box<dyn Error>> {
-    let config_dir = dirs::config_dir().ok_or("Could not determine config directory")?;
+fn get_config_path() -> anyhow::Result<PathBuf> {
+    let config_dir = dirs::config_dir()
+        .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?;
     let config_path = config_dir.join("squirrel-ai-tools").join("api-keys.json");
     Ok(config_path)
 }
 
-fn validate_key(key: &str) -> Result<(), Box<dyn Error>> {
-    if key.is_empty() {
-        return Err("API key cannot be empty".into());
-    }
+fn validate_key(key: &str) -> anyhow::Result<()> {
+    anyhow::ensure!(!key.is_empty(), "API key cannot be empty");
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {

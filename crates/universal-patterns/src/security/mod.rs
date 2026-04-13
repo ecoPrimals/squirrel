@@ -3,7 +3,7 @@
 
 //! Security integration module for universal patterns
 //!
-//! This module provides security patterns and integration with Beardog
+//! This module provides security patterns and provider integration
 //! for consistent security across all primals.
 //!
 //! # Architecture
@@ -14,7 +14,7 @@
 //! - **Traits**: Core security provider interfaces
 //! - **Context**: Security context and health monitoring types
 //! - **Client**: Universal security client with fallback capabilities
-//! - **Providers**: Security provider implementations (Beardog, local, etc.)
+//! - **Providers**: Security provider implementations (primary, local, etc.)
 //! - **Types**: API request/response structures
 //! - **Tests**: Comprehensive test suite
 //!

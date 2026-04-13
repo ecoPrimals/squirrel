@@ -237,16 +237,19 @@ impl UniversalSecurityAdapter {
     }
 }
 
-/// Register `BearDog` (or any security primal) with the universal registry
-pub async fn register_beardog_service(
+/// Register a security provider with the universal registry.
+///
+/// Capability-based: any primal providing the `security.*` capability set
+/// can be registered here — the caller discovers the provider at runtime.
+pub async fn register_security_provider(
     registry: Arc<dyn UniversalServiceRegistry>,
 ) -> Result<(), PrimalError> {
-    info!("🐻 Registering BearDog security service with universal registry");
+    info!("Registering security provider with universal registry");
 
     let registration = super::UniversalServiceRegistration {
         service_id: uuid::Uuid::new_v4(),
         metadata: super::ServiceMetadata {
-            name: "BearDog Security Primal".to_string(),
+            name: "Security Provider".to_string(),
             category: super::ServiceCategory::Security {
                 domains: vec!["enterprise".to_string(), "ai_coordination".to_string()],
             },
@@ -326,7 +329,7 @@ pub async fn register_beardog_service(
 
     registry.register_service(registration).await?;
 
-    info!("✅ BearDog security service successfully registered with universal registry");
+    info!("Security provider registered with universal registry");
     Ok(())
 }
 
@@ -515,9 +518,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn register_beardog_and_serde_roundtrip() {
+    async fn register_security_and_serde_roundtrip() {
         let reg = Arc::new(InMemoryServiceRegistry::new());
-        register_beardog_service(reg.clone()).await.expect("reg");
+        register_security_provider(reg.clone()).await.expect("reg");
         let services = reg.list_all_services().await.expect("list");
         assert_eq!(services.len(), 1);
         let json = serde_json::to_string(&services[0].capabilities).expect("ser");

@@ -3,14 +3,14 @@
 
 //! Capability-Based JWT Service (TRUE PRIMAL!)
 //!
-//! **Evolution**: `BearDog` JWT → Capability JWT
-//! - OLD: `BearDogJwtService` (hardcoded primal name!)
+//! **Evolution**: Legacy security JWT → Capability JWT
+//! - OLD: `BearDogJwtService` (hardcoded to a single provider)
 //! - NEW: `CapabilityJwtService` (discovers crypto at runtime!)
 //!
 //! **Philosophy**: Deploy like an infant - knows nothing, discovers everything!
 //! - Squirrel doesn't know which primal provides crypto
 //! - Squirrel discovers "crypto.ed25519.sign" capability
-//! - Could be `BearDog`, could be any crypto primal, could be multiple!
+//! - Could be any crypto primal, could be multiple!
 
 use crate::capability_crypto::{CapabilityCryptoConfig, CapabilityCryptoProvider};
 use crate::{AuthContext, AuthError};
@@ -148,7 +148,7 @@ impl Default for CapabilityJwtConfig {
 /// **NO hardcoded primal names!**
 /// - Discovers crypto capability at runtime
 /// - Uses whichever primal provides "crypto.ed25519.sign"
-/// - Currently might be `BearDog`, future could be any crypto primal
+/// - Provider is fully interchangeable — any crypto primal can fulfill this role
 ///
 /// # Examples
 ///

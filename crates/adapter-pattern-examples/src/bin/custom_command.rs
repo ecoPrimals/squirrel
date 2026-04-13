@@ -134,7 +134,7 @@ impl Command for WeatherCommand {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> anyhow::Result<()> {
     println!("=== Custom Commands Demo ===\n");
 
     // Create registry adapter

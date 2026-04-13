@@ -717,4 +717,207 @@ mod tests {
             _ => unreachable!("Expected ResourceLimitExceeded error"),
         }
     }
+
+    fn test_data(owner: &str, content: &[u8]) -> SovereignData {
+        SovereignData {
+            id: Uuid::new_v4(),
+            owner: owner.to_string(),
+            content: content.to_vec(),
+            permissions: DataPermissions::default(),
+            encryption: EncryptionMetadata::default(),
+            created_at: Utc::now(),
+            modified_at: Utc::now(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_retrieve_data() {
+        let manager = DefaultSovereignDataManager::new(SovereignDataConfig::default());
+        let data = test_data("user1", b"hello");
+        let id = manager.store_data(data).await.expect("store");
+
+        let retrieved = manager.retrieve_data(id).await.expect("retrieve");
+        assert_eq!(retrieved.owner, "user1");
+        assert_eq!(retrieved.content, b"hello");
+    }
+
+    #[tokio::test]
+    async fn test_retrieve_data_not_found() {
+        let manager = DefaultSovereignDataManager::new(SovereignDataConfig::default());
+        let result = manager.retrieve_data(Uuid::new_v4()).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_delete_data() {
+        let manager = DefaultSovereignDataManager::new(SovereignDataConfig::default());
+        let data = test_data("user1", b"to-delete");
+        let id = manager.store_data(data).await.expect("store");
+
+        manager.delete_data(id).await.expect("delete");
+
+        let result = manager.retrieve_data(id).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_delete_data_not_found() {
+        let manager = DefaultSovereignDataManager::new(SovereignDataConfig::default());
+        let result = manager.delete_data(Uuid::new_v4()).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_list_data() {
+        let manager = DefaultSovereignDataManager::new(SovereignDataConfig::default());
+        let d1 = test_data("alice", b"data1");
+        let d2 = test_data("alice", b"data2");
+        let d3 = test_data("bob", b"data3");
+
+        let id1 = manager.store_data(d1).await.expect("store1");
+        let id2 = manager.store_data(d2).await.expect("store2");
+        let _id3 = manager.store_data(d3).await.expect("store3");
+
+        let alice_data = manager.list_data("alice").await.expect("list");
+        assert_eq!(alice_data.len(), 2);
+        assert!(alice_data.contains(&id1));
+        assert!(alice_data.contains(&id2));
+
+        let bob_data = manager.list_data("bob").await.expect("list");
+        assert_eq!(bob_data.len(), 1);
+
+        let empty = manager.list_data("nobody").await.expect("list");
+        assert!(empty.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_check_access() {
+        let manager = DefaultSovereignDataManager::new(SovereignDataConfig::default());
+        let data = test_data("owner", b"content");
+        let id = manager.store_data(data).await.expect("store");
+
+        let has_access = manager.check_access(id, "stranger").await.expect("check");
+        assert!(!has_access);
+    }
+
+    #[tokio::test]
+    async fn test_derive_key_deterministic() {
+        let key_mgr = DefaultEncryptionKeyManager::new();
+        let key1 = key_mgr
+            .derive_key("password", b"salt123")
+            .await
+            .expect("derive1");
+        let key2 = key_mgr
+            .derive_key("password", b"salt123")
+            .await
+            .expect("derive2");
+        assert_eq!(key1, key2);
+        assert!(!key1.is_empty());
+
+        let key3 = key_mgr
+            .derive_key("password", b"different_salt")
+            .await
+            .expect("derive3");
+        assert_ne!(key1, key3);
+    }
+
+    #[tokio::test]
+    async fn test_access_control_write_permission() {
+        let ac = DefaultAccessControlManager::new();
+        let id = Uuid::new_v4();
+
+        ac.grant_permission("user1", id, DataAccessType::Write)
+            .await
+            .expect("grant");
+        assert!(
+            ac.check_permission("user1", id, DataAccessType::Write)
+                .await
+                .expect("check")
+        );
+        assert!(
+            !ac.check_permission("user1", id, DataAccessType::Read)
+                .await
+                .expect("check")
+        );
+
+        ac.revoke_permission("user1", id, DataAccessType::Write)
+            .await
+            .expect("revoke");
+        assert!(
+            !ac.check_permission("user1", id, DataAccessType::Write)
+                .await
+                .expect("check")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_access_control_admin_permission() {
+        let ac = DefaultAccessControlManager::new();
+        let id = Uuid::new_v4();
+
+        ac.grant_permission("admin", id, DataAccessType::Admin)
+            .await
+            .expect("grant");
+        assert!(
+            ac.check_permission("admin", id, DataAccessType::Admin)
+                .await
+                .expect("check")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_access_control_delete_permission() {
+        let ac = DefaultAccessControlManager::new();
+        let id = Uuid::new_v4();
+
+        ac.grant_permission("user1", id, DataAccessType::Delete)
+            .await
+            .expect("grant");
+        assert!(
+            ac.check_permission("user1", id, DataAccessType::Delete)
+                .await
+                .expect("check")
+        );
+
+        ac.revoke_permission("user1", id, DataAccessType::Delete)
+            .await
+            .expect("revoke");
+        assert!(
+            !ac.check_permission("user1", id, DataAccessType::Delete)
+                .await
+                .expect("check")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_list_permissions_empty() {
+        let ac = DefaultAccessControlManager::new();
+        let perms = ac.list_permissions(Uuid::new_v4()).await.expect("list");
+        assert!(perms.read_users.is_empty());
+        assert!(perms.write_users.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_list_permissions_populated() {
+        let ac = DefaultAccessControlManager::new();
+        let id = Uuid::new_v4();
+
+        ac.grant_permission("user1", id, DataAccessType::Read)
+            .await
+            .expect("grant");
+        ac.grant_permission("user2", id, DataAccessType::Write)
+            .await
+            .expect("grant");
+
+        let perms = ac.list_permissions(id).await.expect("list");
+        assert!(perms.read_users.contains(&"user1".to_string()));
+        assert!(perms.write_users.contains(&"user2".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_sovereign_data_config_default() {
+        let config = SovereignDataConfig::default();
+        assert!(config.max_data_size > 0);
+        assert!(config.auto_encrypt);
+    }
 }

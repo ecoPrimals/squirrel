@@ -555,7 +555,7 @@ impl Default for ConfigManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::error::Error;
+    use anyhow::Result;
     use tempfile::tempdir;
 
     #[test]
@@ -571,7 +571,7 @@ mod tests {
     }
 
     #[test]
-    fn test_config_get_set() -> Result<(), Box<dyn Error>> {
+    fn test_config_get_set() -> Result<()> {
         let mut config = CliConfig::default();
 
         // Test standard fields
@@ -592,7 +592,7 @@ mod tests {
     }
 
     #[test]
-    fn test_config_save_load() -> Result<(), Box<dyn Error>> {
+    fn test_config_save_load() -> Result<()> {
         let dir = tempdir()?;
         let config_path = dir.path().join("test_config.toml");
 
@@ -740,7 +740,7 @@ mod tests {
     }
 
     #[test]
-    fn config_manager_import_export_file() -> Result<(), Box<dyn Error>> {
+    fn config_manager_import_export_file() -> Result<()> {
         let dir = tempdir()?;
         let src = dir.path().join("source.toml");
         let dst = dir.path().join("export.toml");
@@ -757,7 +757,7 @@ mod tests {
     }
 
     #[test]
-    fn config_manager_save_with_explicit_path() -> Result<(), Box<dyn Error>> {
+    fn config_manager_save_with_explicit_path() -> Result<()> {
         let dir = tempdir()?;
         let path = dir.path().join("out.toml");
         let mut mgr = ConfigManager::with_config(CliConfig::default());

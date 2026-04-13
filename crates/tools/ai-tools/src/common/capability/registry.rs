@@ -245,7 +245,7 @@ impl ModelRegistry {
     /// # Errors
     ///
     /// Propagates I/O and deserialization errors from [`Self::load_from_available_paths`].
-    pub fn initialize() -> Result<(), Box<dyn std::error::Error>> {
+    pub fn initialize() -> anyhow::Result<()> {
         let mut registry = Self::new();
 
         // Add standard configuration paths
@@ -276,7 +276,7 @@ impl ModelRegistry {
     /// # Errors
     ///
     /// Propagates errors from the first successful path's [`Self::load_from_file`].
-    pub fn load_from_available_paths(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn load_from_available_paths(&mut self) -> anyhow::Result<()> {
         let paths = self.config_paths.clone();
         for path in &paths {
             if path.exists() {
@@ -307,10 +307,7 @@ impl ModelRegistry {
     /// # Errors
     ///
     /// Propagates I/O and JSON/TOML deserialization errors.
-    pub fn load_from_file<P: AsRef<Path>>(
-        &mut self,
-        path: P,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn load_from_file<P: AsRef<Path>>(&mut self, path: P) -> anyhow::Result<()> {
         let path_ref = path.as_ref(); // Get a reference to avoid moving path
         let contents = fs::read_to_string(path_ref)?;
 
@@ -352,7 +349,7 @@ impl ModelRegistry {
     /// # Errors
     ///
     /// Propagates serialization and I/O errors.
-    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> anyhow::Result<()> {
         // Format depends on file extension
         let is_json = path.as_ref().extension().is_some_and(|ext| ext == "json");
 
@@ -557,7 +554,7 @@ impl ModelRegistry {
     /// # Errors
     ///
     /// Propagates the same errors as [`Self::load_from_file`] for the given path format.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
         let path_ref = path.as_ref(); // Get a reference to avoid moving path
         let contents = fs::read_to_string(path_ref)?;
 

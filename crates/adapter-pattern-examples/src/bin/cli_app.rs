@@ -335,7 +335,7 @@ impl CliApp {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> anyhow::Result<()> {
     // Get command line arguments
     let args: Vec<String> = env::args().collect();
     println!("Raw arguments: {args:?}");

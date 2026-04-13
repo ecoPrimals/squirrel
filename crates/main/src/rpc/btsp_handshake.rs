@@ -39,7 +39,7 @@ use tracing::{debug, info, warn};
 /// Maximum BTSP frame size: 16 MiB (`BTSP_PROTOCOL_STANDARD` §Wire Framing).
 const MAX_FRAME_SIZE: usize = 16 * 1024 * 1024;
 
-/// Handshake timeout per step (generous for local IPC + BearDog round-trip).
+/// Handshake timeout per step (generous for local IPC + security provider round-trip).
 const HANDSHAKE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// BTSP protocol version we speak.
@@ -173,15 +173,15 @@ pub fn is_btsp_required() -> bool {
 
 /// Discover the BTSP provider socket for handshake delegation (`btsp.session.*`).
 ///
-/// Routing is **capability- and env-first** (not “connect to BearDog by name”):
+/// Routing is **capability- and env-first** (discovers by role, not primal identity):
 ///
 /// 1. `BTSP_PROVIDER_SOCKET` — explicit path (orchestration override)
 /// 2. `BTSP_CAPABILITY_SOCKET` — explicit path (capability-first; same role as tier-1 overrides elsewhere)
 /// 3. `SECURITY_SOCKET` — shared with the security/crypto IPC stack
-/// 4. `BEARDOG_SOCKET` — **legacy** filename compatibility only (same endpoint as security in many deployments)
+/// 4. `BEARDOG_SOCKET` — **legacy** filename compatibility only
 /// 5. Manifest scan for any `btsp.*` capability with a socket path
 /// 6. Well-known basename under [`universal_constants::network::get_socket_dir`] using
-///    [`primal_names::BEARDOG`] only for **on-disk legacy layout** (`{stem}.sock` / `{stem}-{family}.sock`)
+///    legacy security socket stem for **on-disk layout compatibility**
 fn discover_btsp_provider() -> Result<PathBuf, BtspError> {
     if let Ok(path) = std::env::var("BTSP_PROVIDER_SOCKET") {
         let p = PathBuf::from(&path);
@@ -657,5 +657,130 @@ mod tests {
             .await
             .expect("read jsonrpc");
         assert_eq!(&line_buf, jsonrpc);
+    }
+
+    // ── discover_btsp_provider (env precedence + filesystem; no network) ─
+
+    #[test]
+    fn discover_btsp_prefers_btsp_provider_socket() {
+        let primary = tempfile::NamedTempFile::new().expect("temp file");
+        let secondary = tempfile::NamedTempFile::new().expect("temp file");
+        temp_env::with_vars(
+            [
+                (
+                    "BTSP_PROVIDER_SOCKET",
+                    Some(primary.path().to_str().expect("utf8 path")),
+                ),
+                (
+                    "BTSP_CAPABILITY_SOCKET",
+                    Some(secondary.path().to_str().expect("utf8 path")),
+                ),
+                ("SECURITY_SOCKET", None::<&str>),
+                ("BEARDOG_SOCKET", None::<&str>),
+            ],
+            || {
+                let got = discover_btsp_provider().expect("discover");
+                assert_eq!(got, primary.path());
+            },
+        );
+    }
+
+    #[test]
+    fn discover_btsp_falls_back_when_provider_path_missing() {
+        let cap = tempfile::NamedTempFile::new().expect("temp file");
+        temp_env::with_vars(
+            [
+                (
+                    "BTSP_PROVIDER_SOCKET",
+                    Some("/nonexistent/btsp_provider_missing.sock"),
+                ),
+                (
+                    "BTSP_CAPABILITY_SOCKET",
+                    Some(cap.path().to_str().expect("utf8 path")),
+                ),
+                ("SECURITY_SOCKET", None::<&str>),
+                ("BEARDOG_SOCKET", None::<&str>),
+            ],
+            || {
+                let got = discover_btsp_provider().expect("discover");
+                assert_eq!(got, cap.path());
+            },
+        );
+    }
+
+    #[test]
+    fn discover_btsp_security_socket_after_env_misses() {
+        let sec = tempfile::NamedTempFile::new().expect("temp file");
+        temp_env::with_vars(
+            [
+                (
+                    "BTSP_PROVIDER_SOCKET",
+                    Some("/nonexistent/btsp_provider_missing.sock"),
+                ),
+                (
+                    "BTSP_CAPABILITY_SOCKET",
+                    Some("/nonexistent/btsp_capability_missing.sock"),
+                ),
+                (
+                    "SECURITY_SOCKET",
+                    Some(sec.path().to_str().expect("utf8 path")),
+                ),
+                ("BEARDOG_SOCKET", None::<&str>),
+            ],
+            || {
+                let got = discover_btsp_provider().expect("discover");
+                assert_eq!(got, sec.path());
+            },
+        );
+    }
+
+    #[test]
+    fn discover_btsp_beardog_socket_after_higher_tiers_miss() {
+        let bd = tempfile::NamedTempFile::new().expect("temp file");
+        temp_env::with_vars(
+            [
+                (
+                    "BTSP_PROVIDER_SOCKET",
+                    Some("/nonexistent/btsp_provider_missing.sock"),
+                ),
+                (
+                    "BTSP_CAPABILITY_SOCKET",
+                    Some("/nonexistent/btsp_capability_missing.sock"),
+                ),
+                (
+                    "SECURITY_SOCKET",
+                    Some("/nonexistent/security_missing.sock"),
+                ),
+                (
+                    "BEARDOG_SOCKET",
+                    Some(bd.path().to_str().expect("utf8 path")),
+                ),
+            ],
+            || {
+                let got = discover_btsp_provider().expect("discover");
+                assert_eq!(got, bd.path());
+            },
+        );
+    }
+
+    #[test]
+    fn maybe_handshake_returns_none_when_btsp_not_required() {
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_FAMILY_ID", None::<&str>),
+                ("BIOMEOS_FAMILY_ID", None::<&str>),
+                ("FAMILY_ID", None::<&str>),
+                ("BIOMEOS_INSECURE", None::<&str>),
+            ],
+            || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("runtime");
+                let (_client, mut server) = duplex(4096);
+                let out = rt.block_on(maybe_handshake(&mut server));
+                assert!(out.expect("handshake").is_none());
+            },
+        );
     }
 }

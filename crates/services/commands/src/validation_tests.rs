@@ -382,3 +382,99 @@ fn test_validation_error_display() {
     };
     assert_eq!(err.to_string(), "r: m");
 }
+
+#[test]
+fn test_validation_error_into_command_error() {
+    let ve = ValidationError {
+        rule_name: "rule_a".to_string(),
+        message: "bad input".to_string(),
+    };
+    let ce: CommandError = ve.into();
+    match ce {
+        CommandError::ValidationError(s) => {
+            assert!(s.contains("rule_a"));
+            assert!(s.contains("bad input"));
+        }
+        _ => panic!("expected ValidationError variant"),
+    }
+}
+
+#[test]
+fn test_validation_context_default_is_empty() {
+    let ctx = ValidationContext::default();
+    assert!(ctx.arguments.is_empty());
+    assert!(ctx.environment.is_empty());
+}
+
+#[test]
+fn test_validation_context_set_and_get() {
+    let ctx = ValidationContext::new();
+    ctx.set("key1", "value1").expect("set");
+    assert_eq!(ctx.get("key1").expect("get"), Some("value1".to_string()));
+}
+
+#[test]
+fn test_validation_context_overwrite() {
+    let ctx = ValidationContext::new();
+    ctx.set("k", "v1").expect("set1");
+    ctx.set("k", "v2").expect("set2");
+    assert_eq!(ctx.get("k").expect("get"), Some("v2".to_string()));
+}
+
+#[test]
+fn test_command_validator_add_and_list_rules() {
+    let validator = CommandValidator::new();
+    assert_eq!(validator.rules(), 0);
+
+    validator
+        .add_rule(Arc::new(NameLengthRule::new(1, 50)))
+        .expect("add");
+    assert_eq!(validator.rules(), 1);
+
+    validator
+        .add_rule(Arc::new(DescriptionRule::new(5)))
+        .expect("add");
+    assert_eq!(validator.rules(), 2);
+}
+
+#[test]
+fn test_input_sanitization_rule_rejects_bad_pattern() {
+    let mut patterns = HashMap::new();
+    patterns.insert("input".to_string(), r"^\d+$");
+    let rule = InputSanitizationRule::new(patterns, 1024).expect("valid rule");
+
+    let mut context = ValidationContext::new();
+    context
+        .arguments
+        .insert("input".to_string(), "not-a-number".to_string());
+
+    let command = TestCommand;
+    let result = rule.validate(&command, &context);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_input_sanitization_rule_accepts_good_pattern() {
+    let mut patterns = HashMap::new();
+    patterns.insert("input".to_string(), r"^\d+$");
+    let rule = InputSanitizationRule::new(patterns, 1024).expect("valid rule");
+
+    let mut context = ValidationContext::new();
+    context
+        .arguments
+        .insert("input".to_string(), "12345".to_string());
+
+    let command = TestCommand;
+    let result = rule.validate(&command, &context);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_validation_error_is_std_error() {
+    let ve = ValidationError {
+        rule_name: "test".to_string(),
+        message: "msg".to_string(),
+    };
+    let dyn_err: &dyn std::error::Error = &ve;
+    assert!(dyn_err.to_string().contains("test"));
+}

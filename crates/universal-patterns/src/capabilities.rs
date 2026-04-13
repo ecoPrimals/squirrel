@@ -13,7 +13,7 @@
 //! Instead, integration happens through a three-stage process:
 //!
 //! 1. **Capability Discovery** - Find services by capability, not by primal name
-//! 2. **Runtime Binding** - Connect to services dynamically at runtime via Songbird
+//! 2. **Runtime Binding** - Connect to services dynamically at runtime via the service mesh
 //! 3. **Standard Protocols** - HTTP/gRPC communication, not direct function calls
 //!
 //! This pattern enables:
@@ -33,15 +33,15 @@
 //!
 //! # async fn example(ecosystem: &EcosystemManager) -> anyhow::Result<()> {
 //! // ❌ BAD: Direct dependency (compile-time coupling)
-//! // use beardog::AuthenticationService;
-//! // let result = beardog.authenticate(credentials)?;
+//! // use some_primal::AuthenticationService;
+//! // let result = provider.authenticate(credentials)?;
 //!
 //! // ✅ GOOD: Capability-based discovery
 //! let auth_providers = ecosystem
 //!     .discover_capability("authentication")
 //!     .await?;
 //!
-//! // Select provider (could be BearDog, or any other auth service)
+//! // Select any discovered auth service provider
 //! let auth_service = auth_providers
 //!     .first()
 //!     .ok_or("No authentication service available")?;
@@ -144,22 +144,22 @@
 //! 1. **Discovery Security**: Only authorized services can register capabilities
 //! 2. **Transport Security**: All communication via TLS (HTTP/gRPC)
 //! 3. **Token-Based Auth**: OAuth2/JWT tokens for capability invocation
-//! 4. **RBAC Integration**: Role-based access control via BearDog
+//! 4. **RBAC Integration**: Role-based access control via the security capability provider
 //!
 //! ## 🎨 Available Capabilities
 //!
-//! | Capability | Provider(s) | Description |
-//! |------------|-------------|-------------|
-//! | `authentication` | BearDog | User authentication, token validation |
-//! | `authorization` | BearDog | Permission checks, RBAC |
-//! | `compute.cpu` | ToadStool | CPU-bound computation |
-//! | `compute.gpu` | ToadStool | GPU-accelerated computation |
-//! | `storage.object` | NestGate | Object storage (S3-compatible) |
-//! | `storage.block` | NestGate | Block storage (volume mounting) |
-//! | `mesh.routing` | Songbird | Service mesh routing |
-//! | `mesh.discovery` | Songbird | Service discovery |
-//! | `ai.inference` | Squirrel | AI model inference |
-//! | `ai.embedding` | Squirrel | Text/image embeddings |
+//! | Capability | Role | Description |
+//! |------------|------|-------------|
+//! | `authentication` | Security provider | User authentication, token validation |
+//! | `authorization` | Security provider | Permission checks, RBAC |
+//! | `compute.cpu` | Compute provider | CPU-bound computation |
+//! | `compute.gpu` | Compute provider | GPU-accelerated computation |
+//! | `storage.object` | Storage provider | Object storage (S3-compatible) |
+//! | `storage.block` | Storage provider | Block storage (volume mounting) |
+//! | `mesh.routing` | Mesh provider | Service mesh routing |
+//! | `mesh.discovery` | Mesh provider | Service discovery |
+//! | `ai.inference` | AI provider | AI model inference |
+//! | `ai.embedding` | AI provider | Text/image embeddings |
 //!
 //! ## 🚀 Performance Considerations
 //!
@@ -192,7 +192,7 @@ pub type CapabilityError = anyhow::Error;
 /// Authentication capability - Secure credential validation
 ///
 /// Provides authentication services WITHOUT knowing which primal implements it.
-/// Could be BearDog, or any other authentication provider.
+/// Could be any provider exposing the `authentication` capability.
 ///
 /// # Example
 ///
@@ -293,7 +293,7 @@ pub struct TokenClaims {
 /// GPU inference capability - Model loading and execution
 ///
 /// Provides GPU-accelerated inference WITHOUT knowing which primal implements it.
-/// Could be ToadStool, or any other GPU provider.
+/// Could be any provider exposing the `compute.gpu` capability.
 ///
 /// # Example
 ///
@@ -431,7 +431,7 @@ pub struct GpuVramInfo {
 /// Service mesh capability - Cross-primal routing
 ///
 /// Provides service mesh coordination WITHOUT knowing which primal implements it.
-/// Could be Songbird, or any other mesh provider.
+/// Could be any provider exposing the `mesh.*` capabilities.
 #[expect(async_fn_in_trait, reason = "internal trait — all impls are Send + Sync")]
 pub trait ServiceMeshCapability: Send + Sync {
     /// Register a service with the mesh

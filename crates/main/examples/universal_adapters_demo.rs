@@ -61,7 +61,7 @@ use squirrel::universal_adapters::{
     compute_adapter::{UniversalComputeAdapter, register_compute_service},
     orchestration_adapter::{UniversalOrchestrationAdapter, register_orchestration_service},
     registry::InMemoryServiceRegistry,
-    security_adapter::{UniversalSecurityAdapter, register_beardog_service},
+    security_adapter::{UniversalSecurityAdapter, register_security_provider},
     storage_adapter::{UniversalStorageAdapter, register_storage_service},
 };
 
@@ -84,8 +84,8 @@ impl SquirrelAICoordinator {
         let registry = Arc::new(InMemoryServiceRegistry::new());
 
         // Register core primals with their capabilities
-        println!("🌌 Registering core primals with universal service registry...");
-        register_beardog_service(registry.clone()).await?;
+        println!("Registering capability providers with universal service registry...");
+        register_security_provider(registry.clone()).await?;
         register_orchestration_service(registry.clone()).await?;
         register_storage_service(registry.clone()).await?;
         register_compute_service(registry.clone()).await?;

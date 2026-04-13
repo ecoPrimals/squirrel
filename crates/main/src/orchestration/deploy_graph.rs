@@ -504,7 +504,7 @@ mod tests {
         let graph = NicheDeployGraph::from_toml(toml_str).expect("should succeed");
         assert!(
             graph.required_count() >= 2,
-            "at least Tower Atomic (beardog + songbird) must be required"
+            "at least Tower Atomic (security + service mesh) must be required"
         );
     }
 

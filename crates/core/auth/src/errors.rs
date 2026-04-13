@@ -3,12 +3,12 @@
 
 //! Modern error handling for Squirrel Authentication System
 //!
-//! Clean error types using thiserror patterns from beardog architecture.
+//! Clean error types using thiserror patterns from security provider architecture.
 //! Eliminates the anyhow/AuthError conflicts from the legacy system.
 
 use thiserror::Error;
 
-/// Result type alias for auth operations (leveraging beardog patterns)
+/// Result type alias for auth operations
 pub type AuthResult<T> = Result<T, AuthError>;
 
 /// Clean, comprehensive error types for authentication operations
@@ -60,10 +60,10 @@ pub enum AuthError {
         message: String,
     },
 
-    /// Beardog integration errors
+    /// Security provider integration errors
     #[error("Beardog integration error: {message}")]
     BeardogIntegration {
-        /// Error message describing the beardog integration issue
+        /// Error message describing the provider integration issue
         message: String,
     },
 
@@ -96,12 +96,12 @@ pub enum AuthError {
     CapabilityProviderError(String),
 
     // Legacy compatibility (for migration period)
-    /// `BearDog` service unavailable (deprecated: use `CapabilityProviderUnavailable`)
+    /// Legacy security service unavailable (deprecated: use `CapabilityProviderUnavailable`)
     #[error("BearDog unavailable: {0}")]
     #[deprecated(note = "Use CapabilityProviderUnavailable instead (capability-based)")]
     BeardogUnavailable(String),
 
-    /// `BearDog` returned an error (deprecated: use `CapabilityProviderError`)
+    /// Legacy security provider error (deprecated: use `CapabilityProviderError`)
     #[error("BearDog error: {0}")]
     #[deprecated(note = "Use CapabilityProviderError instead (capability-based)")]
     BeardogError(String),
@@ -152,7 +152,7 @@ impl AuthError {
         }
     }
 
-    /// Create a beardog integration error
+    /// Create a security provider integration error
     pub fn beardog_error(message: impl Into<String>) -> Self {
         Self::BeardogIntegration {
             message: message.into(),

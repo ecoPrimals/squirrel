@@ -50,7 +50,7 @@ async fn main() -> anyhow::Result<()> {
 
     info!("");
     info!("✅ Demo complete! All operations used Unix sockets, zero HTTP!");
-    info!("   Pattern: capability_ai → Songbird (Unix) → AI Provider (HTTP)");
+    info!("   Pattern: capability_ai → service mesh (Unix) → AI Provider (HTTP)");
     info!("");
     info!("See capability_registry.toml for the full capability catalog.");
 
@@ -69,7 +69,7 @@ async fn demo_basic_chat() -> anyhow::Result<()> {
         ChatMessage::user("Explain async/await in Rust in one sentence"),
     ];
 
-    info!("   Sending request to GPT-4 via Songbird...");
+    info!("   Sending request to GPT-4 via service mesh...");
     let response = client.chat_completion("gpt-4", messages, None).await?;
 
     info!("   Response: {}", response.content);
@@ -208,7 +208,7 @@ async fn demo_error_handling() {
 
         match client.chat_completion("gpt-4", messages, None).await {
             Ok(response) => info!("   Response: {}", response.content),
-            Err(e) => warn!("   Error (Songbird might not be running): {}", e),
+            Err(e) => warn!("   Error (service mesh might not be running): {e}"),
         }
     }
 

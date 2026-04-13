@@ -600,9 +600,10 @@ impl CommandProcessor for HistoryHook {
     }
 }
 
-/// Factory function to create a history hook
-pub fn create_history_hook(history: Arc<CommandHistory>) -> Box<dyn CommandProcessor> {
-    Box::new(HistoryHook::new(history))
+/// Factory function to create a history hook.
+#[must_use]
+pub fn create_history_hook(history: Arc<CommandHistory>) -> HistoryHook {
+    HistoryHook::new(history)
 }
 
 #[cfg(test)]

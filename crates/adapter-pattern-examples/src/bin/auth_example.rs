@@ -179,7 +179,7 @@ fn prompt(message: &str) -> String {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> anyhow::Result<()> {
     println!("=== Authentication and Authorization Example ===\n");
 
     // Create MCP adapter

@@ -3,7 +3,7 @@
 
 //! Authentication provider implementations.
 //!
-//! This module contains the BearDog security provider integration,
+//! This module contains the security provider integration,
 //! including authentication, encryption, and compliance monitoring.
 //!
 //! **REQUIRES**: http-auth feature (brings reqwest → ring)
@@ -24,7 +24,7 @@ use tracing::{debug, info};
 use super::capability_discovery::SecurityServiceDiscovery;
 use uuid::Uuid;
 
-/// BearDog authentication provider
+/// Security authentication provider
 #[derive(Debug, Clone)]
 pub struct AuthProvider {
     client: Client,
@@ -32,7 +32,7 @@ pub struct AuthProvider {
     api_key: String,
 }
 
-/// BearDog authentication context (internal)
+/// Security provider authentication context (internal)
 #[derive(Debug, Clone)]
 pub struct BeardogAuthContext {
     pub user_id: Uuid,
@@ -44,7 +44,7 @@ pub struct BeardogAuthContext {
     pub roles: Vec<String>,
 }
 
-/// BearDog permission structure (internal)
+/// Security provider permission structure (internal)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BeardogPermission {
     pub resource: String,
@@ -60,7 +60,7 @@ pub struct AuthRequest {
     pub remember_me: bool,
 }
 
-/// Session information for BearDog
+/// Session information from security provider
 #[derive(Debug, Clone)]
 pub struct BeardogSession {
     pub id: Uuid,
@@ -71,7 +71,7 @@ pub struct BeardogSession {
     pub created_at: DateTime<Utc>,
 }
 
-/// User information from BearDog
+/// User information from security provider
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserInfo {
     pub id: Uuid,
@@ -129,12 +129,12 @@ struct SessionCreateRequest {
 }
 
 impl AuthProvider {
-    /// Create a new BearDog authentication provider
+    /// Create a new security authentication provider
     pub async fn new(endpoint: &str, api_key: &str) -> Result<Self> {
         Self::new_with_timeout(endpoint, api_key, std::time::Duration::from_secs(30)).await
     }
 
-    /// Create a new BearDog authentication provider with custom timeout
+    /// Create a new security authentication provider with custom timeout
     pub async fn new_with_timeout(
         endpoint: &str,
         api_key: &str,
@@ -434,7 +434,7 @@ impl AuthProvider {
     }
 }
 
-/// BearDog encryption service
+/// Security provider encryption service
 #[derive(Debug, Clone)]
 pub struct EncryptionService {
     client: Client,
@@ -569,7 +569,7 @@ impl EncryptionService {
     }
 }
 
-/// BearDog compliance monitoring service
+/// Security provider compliance monitoring service
 #[derive(Debug, Clone)]
 pub struct ComplianceMonitor {
     client: Client,
@@ -697,7 +697,7 @@ impl ComplianceMonitor {
     }
 }
 
-/// Utility functions for converting between BearDog and public types
+/// Utility functions for converting between provider-internal and public types
 impl From<BeardogPermission> for Permission {
     fn from(beardog_perm: BeardogPermission) -> Self {
         Permission {

@@ -4,7 +4,7 @@
 //! Authentication service implementations and traits.
 //!
 //! This module contains the main authentication service trait and its
-//! implementation using the BearDog security provider.
+//! implementation using the discovered security provider.
 
 use super::providers::{
     AuthProvider, AuthRequest, BeardogPermission, BeardogSession, ComplianceMonitor,
@@ -47,7 +47,7 @@ pub trait AuthenticationService: Send + Sync {
     ) -> Result<bool, AuthError>;
 }
 
-/// BearDog security client implementing the authentication service
+/// Security client implementing the authentication service
 pub struct BeardogSecurityClient {
     auth_provider: Arc<AuthProvider>,
     encryption_service: Arc<EncryptionService>,
@@ -56,7 +56,7 @@ pub struct BeardogSecurityClient {
 }
 
 impl BeardogSecurityClient {
-    /// Create a new BearDog security client
+    /// Create a new security client
     pub async fn new(config: squirrel_mcp_config::BeardogConfig) -> Result<Self, AuthError> {
         let auth_provider = Arc::new(
             AuthProvider::new(&config.auth_endpoint.to_string(), &config.jwt_secret_key_id)
@@ -100,7 +100,7 @@ impl BeardogSecurityClient {
             .await
             .map_err(|e| AuthError::BeardogError(e.to_string()))?;
 
-        // Convert BearDog permissions to our format
+        // Convert provider permissions to our format
         let squirrel_permissions: Vec<Permission> = permissions
             .into_iter()
             .map(|p| Permission {
@@ -251,7 +251,7 @@ impl BeardogSecurityClient {
 
     /// Get configuration reference
     ///
-    /// Returns a reference to the Beardog security configuration that contains
+    /// Returns a reference to the security configuration that contains
     /// authentication settings, security policies, and service configuration
     /// parameters.
     ///
@@ -277,7 +277,7 @@ impl AuthenticationService for BeardogSecurityClient {
             .await
             .map_err(|e| AuthError::BeardogError(e.to_string()))?;
 
-        // Convert BearDog context to our format
+        // Convert provider context to our format
         let permissions: Vec<Permission> = beardog_context
             .permissions
             .into_iter()
@@ -373,7 +373,7 @@ impl AuthenticationService for BeardogSecurityClient {
     }
 }
 
-/// Convert UserInfo from BearDog to our User type
+/// Convert provider UserInfo to our User type
 fn convert_user_info_to_user(user_info: UserInfo) -> User {
     let permissions: Vec<Permission> = user_info
         .permissions

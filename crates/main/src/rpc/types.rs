@@ -253,8 +253,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_query_ai_request_serialization() -> std::result::Result<(), Box<dyn std::error::Error>>
-    {
+    fn test_query_ai_request_serialization() -> anyhow::Result<()> {
         let request = QueryAiRequest {
             prompt: "Test prompt".to_string(),
             provider: Some("auto".to_string()),
@@ -275,8 +274,7 @@ mod tests {
     }
 
     #[test]
-    fn test_list_providers_request_serialization()
-    -> std::result::Result<(), Box<dyn std::error::Error>> {
+    fn test_list_providers_request_serialization() -> anyhow::Result<()> {
         let request = ListProvidersRequest {
             capability: Some("ai.inference".to_string()),
             include_offline: Some(false),
@@ -291,8 +289,7 @@ mod tests {
     }
 
     #[test]
-    fn test_health_check_response_serialization()
-    -> std::result::Result<(), Box<dyn std::error::Error>> {
+    fn test_health_check_response_serialization() -> anyhow::Result<()> {
         let response = HealthCheckResponse {
             tier: HealthTier::Healthy,
             alive: true,
@@ -315,8 +312,7 @@ mod tests {
     }
 
     #[test]
-    fn test_query_ai_response_serialization() -> std::result::Result<(), Box<dyn std::error::Error>>
-    {
+    fn test_query_ai_response_serialization() -> anyhow::Result<()> {
         let response = QueryAiResponse {
             response: "Hello, world!".to_string(),
             provider: "openai".to_string(),
@@ -335,7 +331,7 @@ mod tests {
     }
 
     #[test]
-    fn test_provider_info_serialization() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    fn test_provider_info_serialization() -> anyhow::Result<()> {
         let info = ProviderInfo {
             id: "openai-1".to_string(),
             name: "OpenAI".to_string(),
@@ -355,8 +351,7 @@ mod tests {
     }
 
     #[test]
-    fn test_list_providers_response_serialization()
-    -> std::result::Result<(), Box<dyn std::error::Error>> {
+    fn test_list_providers_response_serialization() -> anyhow::Result<()> {
         let response = ListProvidersResponse {
             providers: vec![ProviderInfo {
                 id: "test".to_string(),
@@ -378,8 +373,7 @@ mod tests {
     }
 
     #[test]
-    fn test_announce_capabilities_request_serialization()
-    -> std::result::Result<(), Box<dyn std::error::Error>> {
+    fn test_announce_capabilities_request_serialization() -> anyhow::Result<()> {
         let request = AnnounceCapabilitiesRequest {
             capabilities: vec!["ai.inference".to_string(), "ai.embedding".to_string()],
             primal: Some("neuralSpring".to_string()),
@@ -398,8 +392,7 @@ mod tests {
     }
 
     #[test]
-    fn test_announce_capabilities_response_serialization()
-    -> std::result::Result<(), Box<dyn std::error::Error>> {
+    fn test_announce_capabilities_response_serialization() -> anyhow::Result<()> {
         let response = AnnounceCapabilitiesResponse {
             success: true,
             message: "Capabilities registered".to_string(),
@@ -415,8 +408,7 @@ mod tests {
     }
 
     #[test]
-    fn test_health_check_request_serialization()
-    -> std::result::Result<(), Box<dyn std::error::Error>> {
+    fn test_health_check_request_serialization() -> anyhow::Result<()> {
         let request = HealthCheckRequest {};
         let json = serde_json::to_string(&request)?;
         let deserialized: HealthCheckRequest = serde_json::from_str(&json)?;
@@ -425,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    fn test_query_ai_request_minimal() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    fn test_query_ai_request_minimal() -> anyhow::Result<()> {
         let request = QueryAiRequest {
             prompt: "Hello".to_string(),
             provider: None,
@@ -444,8 +436,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tool_list_response_and_source_serialization()
-    -> std::result::Result<(), Box<dyn std::error::Error>> {
+    fn test_tool_list_response_and_source_serialization() -> anyhow::Result<()> {
         let response = ToolListResponse {
             tools: vec![ToolListEntry {
                 name: "science.simulate".to_string(),

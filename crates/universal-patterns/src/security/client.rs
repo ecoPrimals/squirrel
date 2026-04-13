@@ -23,8 +23,8 @@ use super::traits::UniversalSecurityProvider;
 /// Universal security client for all primals
 ///
 /// This client provides a unified interface to security services with automatic
-/// fallback capabilities. It uses Beardog as the primary provider and can fall
-/// back to a local provider if configured.
+/// fallback capabilities. It uses the discovered security provider as primary
+/// and can fall back to a local provider if configured.
 ///
 /// # Examples
 ///
@@ -49,7 +49,7 @@ use super::traits::UniversalSecurityProvider;
 /// }
 /// ```
 pub struct UniversalSecurityClient {
-    /// Primary security provider (usually Beardog)
+    /// Primary security provider (capability-discovered)
     primary: Arc<UniversalSecurityProviderBox>,
     /// Fallback security provider (usually local)
     fallback: Option<Arc<UniversalSecurityProviderBox>>,
@@ -61,8 +61,8 @@ impl UniversalSecurityClient {
     /// Create a new universal security client
     ///
     /// This method creates a new client with the given configuration.
-    /// It sets up the primary provider (Beardog) and optionally a fallback
-    /// provider (local) based on the configuration.
+    /// It sets up the primary provider and optionally a local fallback
+    /// based on the configuration.
     ///
     /// # Arguments
     ///
@@ -97,7 +97,7 @@ impl UniversalSecurityClient {
             auth_config: None,
         };
 
-        // Create primary Beardog provider
+        // Create primary security provider
         let primary_provider = BeardogSecurityProvider::new(service_config.clone()).await?;
         let primary = Arc::new(UniversalSecurityProviderBox::Beardog(Arc::new(
             primary_provider,
@@ -394,7 +394,7 @@ mod tests {
         config.auth_method = AuthMethod::Beardog {
             service_id: "test-service".to_string(),
         };
-        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT or SECURITY_SERVICE_PORT)
+        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT [legacy] or SECURITY_SERVICE_PORT)
         let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
             universal_constants::deployment::endpoints::security_service_base()
         });
@@ -413,7 +413,7 @@ mod tests {
         config.auth_method = AuthMethod::Beardog {
             service_id: "test-service".to_string(),
         };
-        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT or SECURITY_SERVICE_PORT)
+        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT [legacy] or SECURITY_SERVICE_PORT)
         let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
             universal_constants::deployment::endpoints::security_service_base()
         });
@@ -434,7 +434,7 @@ mod tests {
         config.auth_method = AuthMethod::Beardog {
             service_id: "test-service".to_string(),
         };
-        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT or SECURITY_SERVICE_PORT)
+        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT [legacy] or SECURITY_SERVICE_PORT)
         let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
             universal_constants::deployment::endpoints::security_service_base()
         });
@@ -466,7 +466,7 @@ mod tests {
         config.auth_method = AuthMethod::Beardog {
             service_id: "test-service".to_string(),
         };
-        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT or SECURITY_SERVICE_PORT)
+        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT [legacy] or SECURITY_SERVICE_PORT)
         let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
             universal_constants::deployment::endpoints::security_service_base()
         });
@@ -509,7 +509,7 @@ mod tests {
 
         // Check that we get health responses (may succeed or fail depending on system state)
         // The important thing is that the method returns without panicking
-        // Primary may succeed if there's a beardog service running locally
+        // Primary may succeed if a security service is listening locally
         let _ = primary_health;
 
         // Fallback should be configured when fallback is enabled

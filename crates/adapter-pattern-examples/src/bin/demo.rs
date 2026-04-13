@@ -12,7 +12,7 @@ use adapter_pattern_examples::{
 use std::sync::Arc;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> anyhow::Result<()> {
     println!("=== Adapter Pattern Demo ===\n");
 
     // === Registry Adapter Demo ===

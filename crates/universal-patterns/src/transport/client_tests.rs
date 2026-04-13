@@ -353,3 +353,140 @@ fn test_discover_ipc_endpoint_delegates() {
     let r = UniversalTransport::discover_ipc_endpoint(&name);
     assert!(r.is_err());
 }
+
+#[tokio::test]
+async fn test_connect_with_inprocess_preferred() {
+    let config = TransportConfig {
+        preferred_transport: Some(TransportType::InProcess),
+        enable_fallback: false,
+        ..Default::default()
+    };
+
+    let result = UniversalTransport::connect("test_inprocess_connect", Some(config)).await;
+    assert!(result.is_ok());
+    let transport = result.expect("should succeed");
+    assert_eq!(transport.transport_type(), TransportType::InProcess);
+}
+
+#[tokio::test]
+async fn test_connect_with_inprocess_fallback() {
+    let config = TransportConfig {
+        preferred_transport: Some(TransportType::InProcess),
+        enable_fallback: true,
+        ..Default::default()
+    };
+
+    let result = UniversalTransport::connect("test_inprocess_fallback", Some(config)).await;
+    assert!(result.is_ok());
+    assert_eq!(
+        result.expect("should succeed").transport_type(),
+        TransportType::InProcess
+    );
+}
+
+#[tokio::test]
+async fn test_connect_default_config() {
+    let result = UniversalTransport::connect("test_default_config", None).await;
+    assert!(
+        result.is_err(),
+        "expected failure connecting to nonexistent service with default config"
+    );
+}
+
+#[tokio::test]
+async fn test_connect_all_transports_exhausted_no_fallback() {
+    let config = TransportConfig {
+        preferred_transport: Some(TransportType::NamedPipe),
+        enable_fallback: false,
+        timeout_ms: 100,
+        ..Default::default()
+    };
+
+    let result = UniversalTransport::connect("no_such_service", Some(config)).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_connect_discovered_error_no_endpoint() {
+    let result = UniversalTransport::connect_discovered("nonexistent_service_for_discovery").await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_async_read_write_inprocess() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let mut transport = UniversalTransport::InProcess(InProcessTransport::new());
+
+    let data = b"hello world";
+    let written = tokio::io::AsyncWriteExt::write(&mut transport, data)
+        .await
+        .expect("write should succeed");
+    assert_eq!(written, data.len());
+
+    AsyncWriteExt::flush(&mut transport)
+        .await
+        .expect("flush should succeed");
+
+    AsyncWriteExt::shutdown(&mut transport)
+        .await
+        .expect("shutdown should succeed");
+
+    let mut buf = vec![0u8; 64];
+    let read = AsyncReadExt::read(&mut transport, &mut buf)
+        .await
+        .expect("read should succeed");
+    assert_eq!(read, 0, "InProcess read stub returns empty");
+}
+
+#[test]
+fn test_transport_type_inprocess_debug() {
+    let transport = UniversalTransport::InProcess(InProcessTransport::new());
+    let debug_str = format!("{:?}", transport);
+    assert!(debug_str.contains("InProcess"));
+}
+
+#[test]
+fn test_is_platform_constraint_other_errors() {
+    let error = io::Error::new(io::ErrorKind::AddrInUse, "Address in use");
+    assert!(!UniversalTransport::is_platform_constraint(&error));
+
+    let error = io::Error::new(io::ErrorKind::BrokenPipe, "Broken pipe");
+    assert!(!UniversalTransport::is_platform_constraint(&error));
+
+    let error = io::Error::new(io::ErrorKind::AlreadyExists, "Already exists");
+    assert!(!UniversalTransport::is_platform_constraint(&error));
+
+    let error = io::Error::new(io::ErrorKind::InvalidInput, "Invalid input");
+    assert!(!UniversalTransport::is_platform_constraint(&error));
+}
+
+#[tokio::test]
+async fn test_try_connect_abstract_on_linux() {
+    #[cfg(target_os = "linux")]
+    {
+        let config = TransportConfig {
+            timeout_ms: 100,
+            ..Default::default()
+        };
+        let result = UniversalTransport::try_connect(
+            "nonexistent_abstract_test",
+            TransportType::UnixAbstract,
+            &config,
+        )
+        .await;
+        assert!(result.is_err());
+    }
+}
+
+#[test]
+fn test_get_tcp_port_deterministic() {
+    let port1 = universal_constants::network::get_service_port("http");
+    let port2 = universal_constants::network::get_service_port("http");
+    assert_eq!(port1, port2);
+    assert!(port1 > 0);
+
+    let port3 = universal_constants::network::get_service_port("unknown_svc");
+    let port4 = universal_constants::network::get_service_port("unknown_svc");
+    assert_eq!(port3, port4);
+}
