@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: April 13, 2026
-**Version**: 0.1.0-alpha.50
+**Version**: 0.1.0-alpha.51
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 6,877 passing / 0 failures across 22 workspace members |
+| Tests | 6,998 passing / 0 failures across 22 workspace members |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |

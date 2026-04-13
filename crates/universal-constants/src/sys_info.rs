@@ -128,19 +128,30 @@ pub fn uptime_seconds() -> Result<u64, io::Error> {
     Ok(0)
 }
 
-/// Hostname: HOSTNAME env var or gethostname via nix.
+/// Hostname: `HOSTNAME` env var → `/proc/sys/kernel/hostname` (Linux) → `gethostname(2)`.
+///
+/// Pure-Rust on Linux (no `nix` required). Falls back to `nix::unistd::gethostname`
+/// on other Unix platforms.
 ///
 /// # Errors
 ///
-/// Returns `io::Error` if neither `$HOSTNAME` nor `gethostname(2)` produce
-/// a non-empty hostname.
+/// Returns `io::Error` if no method produces a non-empty hostname.
 pub fn hostname() -> Result<String, io::Error> {
     if let Ok(h) = std::env::var("HOSTNAME")
         && !h.is_empty()
     {
         return Ok(h);
     }
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(h) = std::fs::read_to_string("/proc/sys/kernel/hostname") {
+            let h = h.trim().to_string();
+            if !h.is_empty() {
+                return Ok(h);
+            }
+        }
+    }
+    #[cfg(all(unix, not(target_os = "linux")))]
     {
         let name = nix::unistd::gethostname().map_err(io::Error::from)?;
         let s = name.to_string_lossy().to_string();
@@ -152,6 +163,33 @@ pub fn hostname() -> Result<String, io::Error> {
         io::ErrorKind::NotFound,
         "hostname not available",
     ))
+}
+
+/// Current user ID (UID). Pure-Rust on Linux via `/proc/self/status`.
+///
+/// Falls back to `nix::unistd::getuid()` on other Unix platforms or if
+/// `/proc` is unavailable.
+#[cfg(unix)]
+#[must_use]
+pub fn current_uid() -> u32 {
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(status) = std::fs::read_to_string("/proc/self/status") {
+            for line in status.lines() {
+                if let Some(rest) = line.strip_prefix("Uid:")
+                    && let Some(uid_str) = rest.split_whitespace().next()
+                    && let Ok(uid) = uid_str.parse::<u32>()
+                {
+                    return uid;
+                }
+            }
+        }
+        nix::unistd::getuid().as_raw()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        nix::unistd::getuid().as_raw()
+    }
 }
 
 /// System CPU usage % from /proc/stat (Linux). Average since boot.
@@ -288,5 +326,12 @@ mod tests {
         let usage = system_cpu_usage_percent()
             .expect("system_cpu_usage_percent should return Ok(0.0) on non-Linux");
         assert_eq!(usage, 0.0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_current_uid() {
+        let uid = current_uid();
+        assert!(uid < 65534, "UID should be within normal range");
     }
 }

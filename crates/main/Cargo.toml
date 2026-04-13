@@ -44,8 +44,7 @@ regex.workspace = true
 
 # JSON-RPC: Using manual implementation (BearDog pattern) - ZERO C dependencies!
 # jsonrpsee removed - it pulls ring via rustls
-hostname.workspace = true
-nix = { workspace = true }
+# hostname/nix: consolidated into universal_constants::sys_info (pure Rust on Linux)
 
 # tarpc for high-performance RPC (Phase 2) - Fixed with correct versions from Songbird/BearDog
 tarpc = { workspace = true, optional = true }

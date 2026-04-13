@@ -23,6 +23,7 @@ pub(crate) const STATUS_STARTING: &str = "starting";
 const STATUS_RUNNING: &str = "running";
 
 pub mod agent_deployment;
+mod agent_deployment_types;
 pub mod ai_intelligence;
 pub mod context_state;
 mod context_state_types;

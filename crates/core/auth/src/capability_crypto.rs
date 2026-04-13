@@ -50,7 +50,7 @@ fn push_unique_path(paths: &mut Vec<PathBuf>, path: PathBuf) {
 /// 1. `SECURITY_SOCKET` — primary override for the security primal socket
 /// 2. `BEARDOG_SOCKET` — legacy compat
 /// 3. [`resolve_capability_unix_socket`] for capability `crypto.sign` (tiered env + standard `XDG_RUNTIME_DIR/biomeos/beardog.sock`)
-/// 4. `/tmp/beardog.sock` — last resort
+/// 4. Fallback socket dir last resort
 #[must_use]
 fn candidate_crypto_signing_socket_paths() -> Vec<PathBuf> {
     let mut paths = Vec::new();
@@ -73,7 +73,11 @@ fn candidate_crypto_signing_socket_paths() -> Vec<PathBuf> {
             BEARDOG_BIOMEOS_SOCKET_STEM,
         ),
     );
-    push_unique_path(&mut paths, PathBuf::from("/tmp/beardog.sock"));
+    push_unique_path(
+        &mut paths,
+        universal_constants::network::get_socket_dir()
+            .join(format!("{BEARDOG_BIOMEOS_SOCKET_STEM}.sock")),
+    );
 
     paths
 }
@@ -104,7 +108,7 @@ impl CapabilityCryptoProvider {
     /// 1. Check `CRYPTO_SIGNING_ENDPOINT` env var
     /// 2. Check `CRYPTO_ENDPOINT` env var
     /// 3. Try [`candidate_crypto_signing_socket_paths`] (`SECURITY_SOCKET`, `BEARDOG_SOCKET`,
-    ///    [`resolve_capability_unix_socket`] for `crypto.sign` / `beardog.sock`, then `/tmp/beardog.sock`)
+    ///    [`resolve_capability_unix_socket`] for `crypto.sign`, then socket fallback dir)
     /// 4. Return error if not found
     async fn discover_endpoint(&mut self) -> Result<Arc<str>> {
         // Check cache first
@@ -131,7 +135,7 @@ impl CapabilityCryptoProvider {
         }
 
         // Strategy 2: capability-based paths (SECURITY_SOCKET, BEARDOG_SOCKET,
-        // universal-constants tiered resolution for crypto.sign → `/tmp/beardog.sock` last)
+        // universal-constants tiered resolution for crypto.sign → fallback dir last)
         for path in candidate_crypto_signing_socket_paths() {
             let path_str = path.to_string_lossy();
             debug!("Trying candidate crypto signing socket path: {}", path_str);
@@ -156,7 +160,9 @@ impl CapabilityCryptoProvider {
         error!(
             "   Set CRYPTO_SIGNING_ENDPOINT, CRYPTO_ENDPOINT, SECURITY_SOCKET, or BEARDOG_SOCKET"
         );
-        error!("   Example: export SECURITY_SOCKET=\"$XDG_RUNTIME_DIR/biomeos/<security-provider>.sock\"");
+        error!(
+            "   Example: export SECURITY_SOCKET=\"$XDG_RUNTIME_DIR/biomeos/<security-provider>.sock\""
+        );
 
         Err(anyhow::anyhow!(
             "Crypto capability not found. Set CRYPTO_SIGNING_ENDPOINT, CRYPTO_ENDPOINT, or SECURITY_SOCKET."

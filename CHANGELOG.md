@@ -9,6 +9,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.51] - 2026-04-13
+
+Deep debt execution, smart refactoring, and dependency evolution sprint.
+
+### Added
+
+- `universal_constants::sys_info::current_uid()` — pure-Rust UID on Linux via
+  `/proc/self/status`, fallback to `nix` on other Unix
+- `federation` service port (8087) in `get_service_port()` table
+- `agent_deployment_types.rs` — extracted types/config/defaults from
+  agent_deployment (909→566 lines)
+- `experience_types.rs` — extracted sampling strategies, stats, batch types from
+  experience replay (898→726 lines)
+- `sovereign_data/` module directory — encryption, access_control, and manager
+  split from monolithic file (923→3 focused modules)
+
+### Changed
+
+- `sovereign_data.rs` → `sovereign_data/{mod,encryption,access_control}.rs`
+  smart modular split preserving all 15 tests
+- `agent_deployment.rs` 909→566 lines via types extraction
+- `experience.rs` 898→726 lines via sampling/stats types extraction
+- MCP server `handle_subscribe`/`handle_unsubscribe` — deduplicated topic
+  extraction into shared `extract_topic()` helper (895→840 lines)
+- AI router — extracted `map_quality_tier()` const fn and `provider_to_info()`
+  async helper, eliminating duplicated provider listing (863→825 lines)
+- Federation `NetworkConfig::default().port` — `8080` hardcoded → 
+  `get_service_port("federation")` (capability-based)
+- `/tmp/beardog.sock` → `get_socket_dir().join("{stem}.sock")` (XDG-compliant)
+- All `nix::unistd::getuid()` calls (9 sites in 7 files) → 
+  `universal_constants::sys_info::current_uid()` 
+- All `hostname::get()` calls (3 sites) →
+  `universal_constants::sys_info::hostname()`
+- `hostname()` on Linux: `/proc/sys/kernel/hostname` (pure Rust, no syscall)
+
+### Removed
+
+- `nix` and `hostname` as direct dependencies from `squirrel` main crate
+  (consolidated into `universal-constants::sys_info`)
+
+### Metrics
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Tests | 6,877 | 6,998 |
+| Files >900L (production) | 3 | 0 |
+| Direct deps on main crate | nix + hostname | neither (via sys_info) |
+| Hardcoded ports | 1 (federation 8080) | 0 |
+| Hardcoded paths | 1 (/tmp/beardog.sock) | 0 |
+
 ## [0.1.0-alpha.50] - 2026-04-13
 
 Discovery noise reduction, coverage push, and doc cleanup sprint.

@@ -52,7 +52,7 @@ impl Default for NetworkConfig {
     fn default() -> Self {
         Self {
             protocol: NetworkProtocol::Http,
-            port: 8080,
+            port: universal_constants::network::get_service_port("federation"),
             encryption_enabled: true,
             max_connections: 1000,
             connection_timeout: 30,
@@ -240,7 +240,10 @@ mod tests {
     fn test_network_config_default() {
         let config = NetworkConfig::default();
         assert!(matches!(config.protocol, NetworkProtocol::Http));
-        assert_eq!(config.port, 8080);
+        assert_eq!(
+            config.port,
+            universal_constants::network::get_service_port("federation")
+        );
         assert!(config.encryption_enabled);
         assert_eq!(config.max_connections, 1000);
     }

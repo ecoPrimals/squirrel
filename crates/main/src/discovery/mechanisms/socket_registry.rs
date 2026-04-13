@@ -11,7 +11,6 @@
 
 use crate::discovery::types::{DiscoveredService, DiscoveryResult};
 use dashmap::DashMap;
-use nix::unistd::Uid;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -83,11 +82,8 @@ impl SocketRegistryDiscovery {
         }
 
         // Fallback: /run/user/<uid>/biomeos/socket-registry.json
-        let uid = Uid::current();
-        PathBuf::from(format!(
-            "/run/user/{}/biomeos/socket-registry.json",
-            uid.as_raw()
-        ))
+        let uid = universal_constants::sys_info::current_uid();
+        PathBuf::from(format!("/run/user/{uid}/biomeos/socket-registry.json"))
     }
 
     /// Read and parse the socket registry file

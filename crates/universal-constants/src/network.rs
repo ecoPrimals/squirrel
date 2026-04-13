@@ -79,6 +79,7 @@ pub fn get_service_port(service: &str) -> u16 {
         "ui" => 3000,
         "service_mesh" | "mesh" => 8085,
         "compute" => 8086,
+        "federation" => 8087,
         "mcp_tcp" => 9000,
         "metrics" => 9090,
         "discovery" => 8500,
@@ -536,6 +537,7 @@ mod tests {
         assert_eq!(get_service_port("service_mesh"), 8085);
         assert_eq!(get_service_port("mesh"), 8085);
         assert_eq!(get_service_port("compute"), 8086);
+        assert_eq!(get_service_port("federation"), 8087);
         assert_eq!(get_service_port("metrics"), 9090);
         assert_eq!(get_service_port("discovery"), 8500);
     }

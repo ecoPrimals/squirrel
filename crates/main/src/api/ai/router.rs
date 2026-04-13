@@ -707,48 +707,48 @@ impl AiRouter {
         provider.generate_text(request.clone()).await
     }
 
+    /// Map adapter quality tier to selector quality tier.
+    const fn map_quality_tier(tier: super::adapters::QualityTier) -> super::selector::QualityTier {
+        use super::adapters::QualityTier as AdapterQT;
+        use super::selector::QualityTier as SelectorQT;
+        match tier {
+            AdapterQT::Basic | AdapterQT::Fast => SelectorQT::Low,
+            AdapterQT::Standard => SelectorQT::Medium,
+            AdapterQT::High => SelectorQT::High,
+            AdapterQT::Premium => SelectorQT::Premium,
+        }
+    }
+
+    /// Build a `ProviderInfo` from a provider and a capability label.
+    async fn provider_to_info(
+        provider: &AiProvider,
+        capability: &str,
+        default_reliability: f64,
+    ) -> ProviderInfo {
+        ProviderInfo {
+            provider_id: provider.provider_id().to_string(),
+            provider_name: provider.provider_name().to_string(),
+            capabilities: vec![capability.to_string()],
+            quality_tier: Self::map_quality_tier(provider.quality_tier()),
+            cost_per_unit: provider.cost_per_unit(),
+            avg_latency_ms: provider.avg_latency_ms(),
+            reliability: default_reliability,
+            is_local: provider.is_local(),
+            is_available: provider.is_available().await,
+        }
+    }
+
     /// Get available providers for image generation
     pub(crate) async fn get_image_generation_providers(
         &self,
     ) -> Result<Vec<ProviderInfo>, PrimalError> {
         let providers = self.providers.read().await;
-        let mut provider_infos = Vec::new();
-
-        for provider in providers.iter() {
-            // Only include providers that support image generation
-            if !provider.supports_image_generation() {
-                continue;
-            }
-
-            let is_available = provider.is_available().await;
-
-            // Map adapter QualityTier to selector QualityTier
-            use super::adapters::QualityTier as AdapterQT;
-            use super::selector::QualityTier as SelectorQT;
-            let quality_tier = match provider.quality_tier() {
-                AdapterQT::Basic | AdapterQT::Fast => SelectorQT::Low,
-                AdapterQT::Standard => SelectorQT::Medium,
-                AdapterQT::High => SelectorQT::High,
-                AdapterQT::Premium => SelectorQT::Premium,
-            };
-
-            let info = ProviderInfo {
-                provider_id: provider.provider_id().to_string(),
-                provider_name: provider.provider_name().to_string(),
-                capabilities: vec!["image.generation".to_string()],
-                quality_tier,
-                cost_per_unit: provider.cost_per_unit(),
-                avg_latency_ms: provider.avg_latency_ms(),
-                reliability: 0.95, // Default reliability
-                is_local: provider.is_local(),
-                is_available,
-            };
-
-            provider_infos.push(info);
+        let mut infos = Vec::new();
+        for provider in providers.iter().filter(|p| p.supports_image_generation()) {
+            infos.push(Self::provider_to_info(provider, "image.generation", 0.95).await);
         }
-
-        debug!("Found {} image generation providers", provider_infos.len());
-        Ok(provider_infos)
+        debug!("Found {} image generation providers", infos.len());
+        Ok(infos)
     }
 
     /// Get available providers for text generation
@@ -756,66 +756,31 @@ impl AiRouter {
         &self,
     ) -> Result<Vec<ProviderInfo>, PrimalError> {
         let providers = self.providers.read().await;
-        let mut provider_infos = Vec::new();
-
-        for provider in providers.iter() {
-            // Only include providers that support text generation
-            if !provider.supports_text_generation() {
-                continue;
-            }
-
-            let is_available = provider.is_available().await;
-
-            // Map adapter QualityTier to selector QualityTier
-            use super::adapters::QualityTier as AdapterQT;
-            use super::selector::QualityTier as SelectorQT;
-            let quality_tier = match provider.quality_tier() {
-                AdapterQT::Basic | AdapterQT::Fast => SelectorQT::Low, // Fast models sacrifice quality for speed
-                AdapterQT::Standard => SelectorQT::Medium,
-                AdapterQT::High => SelectorQT::High,
-                AdapterQT::Premium => SelectorQT::Premium,
-            };
-
-            let info = ProviderInfo {
-                provider_id: provider.provider_id().to_string(),
-                provider_name: provider.provider_name().to_string(),
-                capabilities: vec!["text.generation".to_string()],
-                quality_tier,
-                cost_per_unit: provider.cost_per_unit(),
-                avg_latency_ms: provider.avg_latency_ms(),
-                reliability: 0.99, // Default for now
-                is_local: provider.is_local(),
-                is_available,
-            };
-
-            provider_infos.push(info);
+        let mut infos = Vec::new();
+        for provider in providers.iter().filter(|p| p.supports_text_generation()) {
+            infos.push(Self::provider_to_info(provider, "text.generation", 0.99).await);
         }
-
-        debug!("Found {} text generation providers", provider_infos.len());
-        Ok(provider_infos)
+        debug!("Found {} text generation providers", infos.len());
+        Ok(infos)
     }
 
     /// List all available providers and their capabilities
     pub async fn list_providers(&self) -> Vec<ProviderInfo> {
-        let mut all_providers = Vec::new();
-
-        if let Ok(image_providers) = self.get_image_generation_providers().await {
-            all_providers.extend(image_providers);
+        let mut all = Vec::new();
+        if let Ok(img) = self.get_image_generation_providers().await {
+            all.extend(img);
         }
-
-        if let Ok(text_providers) = self.get_text_generation_providers().await {
-            // Avoid duplicates
-            for provider in text_providers {
-                if !all_providers
+        if let Ok(txt) = self.get_text_generation_providers().await {
+            for p in txt {
+                if !all
                     .iter()
-                    .any(|p: &ProviderInfo| p.provider_id == provider.provider_id)
+                    .any(|existing: &ProviderInfo| existing.provider_id == p.provider_id)
                 {
-                    all_providers.push(provider);
+                    all.push(p);
                 }
             }
         }
-
-        all_providers
+        all
     }
 
     /// Register a remote spring as an inference provider.

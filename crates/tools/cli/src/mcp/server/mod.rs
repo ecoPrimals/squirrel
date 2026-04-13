@@ -635,108 +635,53 @@ impl MCPServer {
         }
     }
 
-    /// Handle subscribe request
-    ///
-    /// # Arguments
-    ///
-    /// * `client_id` - Client ID
-    /// * `request` - Subscribe request message
-    ///
-    /// # Returns
-    ///
-    /// A result containing an optional response message
-    fn handle_subscribe(&self, client_id: &str, request: MCPMessage) -> MCPResult<Option<String>> {
-        // Extract topic from request payload
-        let topic = if let Some(payload) = &request.payload {
-            if let Some(topic) = payload.get("topic") {
-                if let Some(topic_str) = topic.as_str() {
-                    topic_str.to_string()
-                } else {
-                    return Err(MCPError::ProtocolError(
-                        "Topic must be a string".to_string(),
-                    ));
-                }
-            } else {
-                return Err(MCPError::ProtocolError(
-                    "Missing 'topic' field in subscription request".to_string(),
-                ));
-            }
-        } else {
-            return Err(MCPError::ProtocolError(
-                "Missing payload in subscription request".to_string(),
-            ));
-        };
+    /// Extract the `"topic"` string from a request payload.
+    fn extract_topic(request: &MCPMessage) -> MCPResult<String> {
+        request
+            .payload
+            .as_ref()
+            .and_then(|p| p.get("topic"))
+            .and_then(|t| t.as_str())
+            .map(String::from)
+            .ok_or_else(|| {
+                MCPError::ProtocolError(
+                    "Missing or non-string 'topic' field in request payload".to_string(),
+                )
+            })
+    }
 
-        // Subscribe the client to the topic
+    /// Handle subscribe request
+    fn handle_subscribe(&self, client_id: &str, request: MCPMessage) -> MCPResult<Option<String>> {
+        let topic = Self::extract_topic(&request)?;
         self.subscribe_client(client_id, &topic)?;
 
-        // Create response
         let response = MCPMessage::new_response(
             request.id,
             "subscribe".to_string(),
-            Some(serde_json::json!({
-                "result": "ok",
-                "topic": topic
-            })),
+            Some(serde_json::json!({ "result": "ok", "topic": topic })),
         );
-
         Ok(Some(response.to_json()?))
     }
 
     /// Handle unsubscribe request
-    ///
-    /// # Arguments
-    ///
-    /// * `client_id` - Client ID
-    /// * `request` - Unsubscribe request message
-    ///
-    /// # Returns
-    ///
-    /// A result containing an optional response message
     fn handle_unsubscribe(
         &self,
         client_id: &str,
         request: MCPMessage,
     ) -> MCPResult<Option<String>> {
-        // Extract topic from request payload
-        let topic = if let Some(payload) = &request.payload {
-            if let Some(topic) = payload.get("topic") {
-                if let Some(topic_str) = topic.as_str() {
-                    topic_str.to_string()
-                } else {
-                    return Err(MCPError::ProtocolError(
-                        "Topic must be a string".to_string(),
-                    ));
-                }
-            } else {
-                return Err(MCPError::ProtocolError(
-                    "Missing 'topic' field in unsubscription request".to_string(),
-                ));
-            }
-        } else {
-            return Err(MCPError::ProtocolError(
-                "Missing payload in unsubscription request".to_string(),
-            ));
-        };
+        let topic = Self::extract_topic(&request)?;
 
-        // Check for special case of unsubscribing from all topics
         if topic == "*" {
             self.unsubscribe_client_all(client_id)?;
         } else {
-            // Unsubscribe the client from the topic
             self.unsubscribe_client(client_id, &topic)?;
         }
 
-        // Create response
         let response = MCPMessage::new_response(
             request.id,
             "unsubscribe".to_string(),
-            Some(serde_json::json!({
-                "result": "ok",
-                "topic": topic
-            })),
+            Some(serde_json::json!({ "result": "ok", "topic": topic })),
         );
-
         Ok(Some(response.to_json()?))
     }
 

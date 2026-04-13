@@ -74,7 +74,7 @@ impl Default for SecurityProviderConfig {
         // Endpoint will be discovered at runtime via SECURITY_SERVICE_ENDPOINT or capability discovery
         let endpoint = std::env::var("SECURITY_SERVICE_ENDPOINT").unwrap_or_else(|_| {
             // Fallback to standard socket path if available
-            let uid = nix::unistd::getuid();
+            let uid = universal_constants::sys_info::current_uid();
             let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
             let standard_socket = format!("/run/user/{uid}/{dir}/security.sock");
             if std::path::Path::new(&standard_socket).exists() {

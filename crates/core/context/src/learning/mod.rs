@@ -34,6 +34,7 @@
 mod adaptive;
 mod engine;
 mod experience;
+mod experience_types;
 mod integration;
 mod integration_types;
 mod manager;

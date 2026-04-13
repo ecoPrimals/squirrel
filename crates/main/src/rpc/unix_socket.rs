@@ -139,10 +139,8 @@ pub fn get_family_id_with(config: &SocketConfig) -> String {
 pub fn get_node_id_with(config: &SocketConfig) -> String {
     config.node_id.clone().unwrap_or_else(|| {
         debug!("No node_id in config, using hostname");
-        hostname::get()
-            .ok()
-            .and_then(|h| h.into_string().ok())
-            .unwrap_or_else(|| crate::niche::PRIMAL_ID.to_string())
+        universal_constants::sys_info::hostname()
+            .unwrap_or_else(|_| crate::niche::PRIMAL_ID.to_string())
     })
 }
 
@@ -188,7 +186,7 @@ pub fn get_socket_path(node_id: &str) -> String {
 ///
 /// This directory layout is shared across ecosystem primals (same inter-process discovery convention).
 fn get_xdg_socket_path(family_id: &str) -> Option<String> {
-    let uid = nix::unistd::getuid();
+    let uid = universal_constants::sys_info::current_uid();
     let xdg_runtime_dir = format!("/run/user/{uid}");
 
     if Path::new(&xdg_runtime_dir).exists() {
@@ -229,7 +227,7 @@ fn get_xdg_socket_path(family_id: &str) -> Option<String> {
 /// - Cannot create directory
 /// - Cannot set permissions
 pub fn ensure_biomeos_directory() -> std::io::Result<PathBuf> {
-    let uid = nix::unistd::getuid();
+    let uid = universal_constants::sys_info::current_uid();
     let biomeos_dir = format!("/run/user/{uid}/biomeos");
     let path = PathBuf::from(&biomeos_dir);
 

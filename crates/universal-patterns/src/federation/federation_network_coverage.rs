@@ -55,7 +55,7 @@ mod network_error_tests {
     fn test_network_config_defaults() {
         let config = NetworkConfig::default();
 
-        assert_eq!(config.port, 8080);
+        assert_eq!(config.port, universal_constants::network::get_service_port("federation"));
         assert!(config.encryption_enabled);
         assert_eq!(config.max_connections, 1000);
         assert_eq!(config.connection_timeout, 30);

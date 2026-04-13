@@ -32,7 +32,7 @@ pub fn find_biomeos_socket() -> Option<PathBuf> {
         }
     }
 
-    let uid = nix::unistd::getuid();
+    let uid = universal_constants::sys_info::current_uid();
     let dir = primal_names::BIOMEOS_SOCKET_DIR;
     let candidates = [
         format!(

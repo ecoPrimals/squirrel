@@ -65,7 +65,7 @@ pub fn discover_socket() -> Option<PathBuf> {
         }
     }
 
-    let uid = nix::unistd::getuid();
+    let uid = universal_constants::sys_info::current_uid();
     let dir = primal_names::BIOMEOS_SOCKET_DIR;
     let sock = primal_names::DISCOVERY_SOCKET_NAME;
     let candidates = [

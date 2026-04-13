@@ -5,12 +5,24 @@
 //!
 //! This module implements secure, user-controlled data management across
 //! the federation network, ensuring data sovereignty and privacy.
+//!
+//! Organized into focused submodules:
+//! - [`encryption`] — Key management traits and default implementation
+//! - [`access_control`] — Permission management, audit logging, and types
+
+mod access_control;
+mod encryption;
+
+pub use access_control::{
+    AccessControlManager, DataAccessLog, DataAccessType, DataLifecycleStage,
+    DefaultAccessControlManager,
+};
+pub use encryption::{DefaultEncryptionKeyManager, EncryptionKeyManager};
 
 use super::{
-    DataId, DataPermissions, EncryptionMetadata, FederationError, FederationResult, SovereignData,
+    DataId, EncryptionMetadata, FederationError, FederationResult, SovereignData,
     SovereignDataManager,
 };
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -38,7 +50,7 @@ pub struct SovereignDataConfig {
     pub max_data_size: usize,
     /// Default encryption algorithm
     pub default_encryption: String,
-    /// Enable automatic encryption
+    /// Whether to auto-encrypt data
     pub auto_encrypt: bool,
     /// Data retention period in days
     pub retention_days: u32,
@@ -46,353 +58,17 @@ pub struct SovereignDataConfig {
     pub backup_config: BackupConfig,
 }
 
-/// Backup configuration
+/// Backup configuration for sovereign data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupConfig {
-    /// Enable automatic backups
+    /// Whether backups are enabled
     pub enabled: bool,
     /// Backup interval in hours
     pub interval_hours: u32,
     /// Number of backups to retain
     pub retention_count: u32,
-    /// Backup encryption enabled
+    /// Whether to encrypt backups
     pub encrypt_backups: bool,
-}
-
-/// Data lifecycle stage
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum DataLifecycleStage {
-    /// Data is actively being used
-    Active,
-    /// Data is archived but accessible
-    Archived,
-    /// Data is marked for deletion
-    PendingDeletion,
-    /// Data has been deleted
-    Deleted,
-}
-
-/// Data access log entry
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DataAccessLog {
-    /// Access timestamp
-    pub timestamp: DateTime<Utc>,
-    /// User who accessed the data
-    pub user: String,
-    /// Type of access (read, write, delete)
-    pub access_type: DataAccessType,
-    /// Source IP address
-    pub source_ip: Option<String>,
-    /// Success status
-    pub success: bool,
-    /// Error message if access failed
-    pub error: Option<String>,
-}
-
-/// Type of data access
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum DataAccessType {
-    /// Read access
-    Read,
-    /// Write access
-    Write,
-    /// Delete access
-    Delete,
-    /// Admin access
-    Admin,
-}
-
-/// Encryption key manager trait
-#[expect(
-    async_fn_in_trait,
-    reason = "internal trait — all impls are Send + Sync"
-)]
-pub trait EncryptionKeyManager: Send + Sync {
-    /// Generate a new encryption key
-    async fn generate_key(&self, algorithm: &str) -> FederationResult<Vec<u8>>;
-
-    /// Encrypt data with the given key
-    async fn encrypt(&self, data: &[u8], key: &[u8], algorithm: &str) -> FederationResult<Vec<u8>>;
-
-    /// Decrypt data with the given key
-    async fn decrypt(&self, data: &[u8], key: &[u8], algorithm: &str) -> FederationResult<Vec<u8>>;
-
-    /// Derive key from password
-    async fn derive_key(&self, password: &str, salt: &[u8]) -> FederationResult<Vec<u8>>;
-}
-
-/// Access control manager trait
-#[expect(
-    async_fn_in_trait,
-    reason = "internal trait — all impls are Send + Sync"
-)]
-pub trait AccessControlManager: Send + Sync {
-    /// Check if user has permission to access data
-    async fn check_permission(
-        &self,
-        user: &str,
-        data_id: DataId,
-        access_type: DataAccessType,
-    ) -> FederationResult<bool>;
-
-    /// Grant permission to user
-    async fn grant_permission(
-        &self,
-        user: &str,
-        data_id: DataId,
-        access_type: DataAccessType,
-    ) -> FederationResult<()>;
-
-    /// Revoke permission from user
-    async fn revoke_permission(
-        &self,
-        user: &str,
-        data_id: DataId,
-        access_type: DataAccessType,
-    ) -> FederationResult<()>;
-
-    /// List permissions for data
-    async fn list_permissions(&self, data_id: DataId) -> FederationResult<DataPermissions>;
-}
-
-/// Default encryption key manager
-pub struct DefaultEncryptionKeyManager {
-    /// Key storage (reserved for future key persistence)
-    #[expect(dead_code, reason = "Phase 2 placeholder — key persistence")]
-    keys: Arc<RwLock<HashMap<String, Vec<u8>>>>,
-}
-
-impl DefaultEncryptionKeyManager {
-    /// Create a new key manager
-    pub fn new() -> Self {
-        Self {
-            keys: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
-}
-
-impl EncryptionKeyManager for DefaultEncryptionKeyManager {
-    async fn generate_key(&self, algorithm: &str) -> FederationResult<Vec<u8>> {
-        use rand::RngCore;
-
-        let key_len = match algorithm {
-            "AES-256-GCM" | "ChaCha20-Poly1305" => 32,
-            _ => {
-                return Err(FederationError::UnsupportedPlatform(format!(
-                    "Unsupported encryption algorithm: {algorithm}"
-                )));
-            }
-        };
-
-        let mut key = vec![0u8; key_len];
-        rand::thread_rng().fill_bytes(&mut key);
-        Ok(key)
-    }
-
-    async fn encrypt(&self, data: &[u8], key: &[u8], algorithm: &str) -> FederationResult<Vec<u8>> {
-        match algorithm {
-            "AES-256-GCM" | "ChaCha20-Poly1305" => Ok(blake3_xor_stream(data, key)),
-            _ => Err(FederationError::UnsupportedPlatform(format!(
-                "Unsupported encryption algorithm: {algorithm}"
-            ))),
-        }
-    }
-
-    async fn decrypt(&self, data: &[u8], key: &[u8], algorithm: &str) -> FederationResult<Vec<u8>> {
-        match algorithm {
-            "AES-256-GCM" | "ChaCha20-Poly1305" => Ok(blake3_xor_stream(data, key)),
-            _ => Err(FederationError::UnsupportedPlatform(format!(
-                "Unsupported encryption algorithm: {algorithm}"
-            ))),
-        }
-    }
-
-    async fn derive_key(&self, password: &str, salt: &[u8]) -> FederationResult<Vec<u8>> {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(password.as_bytes());
-        hasher.update(salt);
-        let hash = hasher.finalize();
-        Ok(hash.as_bytes().to_vec())
-    }
-}
-
-/// XOR-based stream cipher using blake3 keyed hash as a keystream generator.
-///
-/// Symmetric: `encrypt(encrypt(data, key), key) == data`.
-/// Not a standard AEAD construction — suitable for data-at-rest confidentiality
-/// within the federation store. For authenticated encryption, swap to
-/// `chacha20poly1305` or `aes-gcm` crates.
-fn blake3_xor_stream(data: &[u8], key: &[u8]) -> Vec<u8> {
-    let derived_key = blake3::derive_key("ecoPrimals sovereign-data encryption v1", key);
-    let mut output_reader = blake3::Hasher::new_keyed(&derived_key)
-        .update(b"keystream")
-        .finalize_xof();
-
-    let mut keystream = vec![0u8; data.len()];
-    output_reader.fill(&mut keystream);
-
-    data.iter()
-        .zip(keystream.iter())
-        .map(|(d, k)| d ^ k)
-        .collect()
-}
-
-/// Default access control manager
-pub struct DefaultAccessControlManager {
-    /// Permission storage
-    permissions: Arc<RwLock<HashMap<DataId, DataPermissions>>>,
-    /// Access logs
-    access_logs: Arc<RwLock<HashMap<DataId, Vec<DataAccessLog>>>>,
-}
-
-impl DefaultAccessControlManager {
-    /// Create a new access control manager
-    pub fn new() -> Self {
-        Self {
-            permissions: Arc::new(RwLock::new(HashMap::new())),
-            access_logs: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
-
-    /// Log data access
-    async fn log_access(
-        &self,
-        data_id: DataId,
-        user: &str,
-        access_type: DataAccessType,
-        success: bool,
-        error: Option<String>,
-    ) {
-        let log_entry = DataAccessLog {
-            timestamp: Utc::now(),
-            user: user.to_string(),
-            access_type,
-            source_ip: None, // Would be populated in real implementation
-            success,
-            error,
-        };
-
-        let mut logs = self.access_logs.write().await;
-        logs.entry(data_id).or_insert_with(Vec::new).push(log_entry);
-    }
-}
-
-impl AccessControlManager for DefaultAccessControlManager {
-    async fn check_permission(
-        &self,
-        user: &str,
-        data_id: DataId,
-        access_type: DataAccessType,
-    ) -> FederationResult<bool> {
-        let permissions = self.permissions.read().await;
-
-        if let Some(data_permissions) = permissions.get(&data_id) {
-            let has_permission = match access_type {
-                DataAccessType::Read => {
-                    data_permissions.public_read
-                        || data_permissions.read_users.contains(&user.to_string())
-                        || data_permissions.admin_users.contains(&user.to_string())
-                }
-                DataAccessType::Write => {
-                    data_permissions.public_write
-                        || data_permissions.write_users.contains(&user.to_string())
-                        || data_permissions.admin_users.contains(&user.to_string())
-                }
-                DataAccessType::Delete | DataAccessType::Admin => {
-                    data_permissions.admin_users.contains(&user.to_string())
-                }
-            };
-
-            // Log access attempt
-            self.log_access(data_id, user, access_type, has_permission, None)
-                .await;
-
-            Ok(has_permission)
-        } else {
-            self.log_access(
-                data_id,
-                user,
-                access_type,
-                false,
-                Some("Data not found".to_string()),
-            )
-            .await;
-            Ok(false)
-        }
-    }
-
-    async fn grant_permission(
-        &self,
-        user: &str,
-        data_id: DataId,
-        access_type: DataAccessType,
-    ) -> FederationResult<()> {
-        let mut permissions = self.permissions.write().await;
-        let data_permissions = permissions
-            .entry(data_id)
-            .or_insert_with(DataPermissions::default);
-
-        match access_type {
-            DataAccessType::Read => {
-                if !data_permissions.read_users.contains(&user.to_string()) {
-                    data_permissions.read_users.push(user.to_string());
-                }
-            }
-            DataAccessType::Write => {
-                if !data_permissions.write_users.contains(&user.to_string()) {
-                    data_permissions.write_users.push(user.to_string());
-                }
-            }
-            DataAccessType::Admin => {
-                if !data_permissions.admin_users.contains(&user.to_string()) {
-                    data_permissions.admin_users.push(user.to_string());
-                }
-            }
-            DataAccessType::Delete => {
-                // Delete permission is same as admin
-                if !data_permissions.admin_users.contains(&user.to_string()) {
-                    data_permissions.admin_users.push(user.to_string());
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    async fn revoke_permission(
-        &self,
-        user: &str,
-        data_id: DataId,
-        access_type: DataAccessType,
-    ) -> FederationResult<()> {
-        let mut permissions = self.permissions.write().await;
-
-        if let Some(data_permissions) = permissions.get_mut(&data_id) {
-            match access_type {
-                DataAccessType::Read => {
-                    data_permissions.read_users.retain(|u| u != user);
-                }
-                DataAccessType::Write => {
-                    data_permissions.write_users.retain(|u| u != user);
-                }
-                DataAccessType::Admin | DataAccessType::Delete => {
-                    data_permissions.admin_users.retain(|u| u != user);
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    async fn list_permissions(&self, data_id: DataId) -> FederationResult<DataPermissions> {
-        let permissions = self.permissions.read().await;
-
-        if let Some(data_permissions) = permissions.get(&data_id) {
-            Ok(data_permissions.clone())
-        } else {
-            Ok(DataPermissions::default())
-        }
-    }
 }
 
 impl DefaultSovereignDataManager<DefaultEncryptionKeyManager, DefaultAccessControlManager> {
@@ -484,7 +160,6 @@ where
     A: AccessControlManager,
 {
     async fn store_data(&self, mut data: SovereignData) -> FederationResult<DataId> {
-        // Check data size limits
         if data.content.len() > self.config.max_data_size {
             return Err(FederationError::ResourceLimitExceeded(format!(
                 "Data size {} exceeds limit {}",
@@ -493,70 +168,48 @@ where
             )));
         }
 
-        // Encrypt data if needed
-        let encrypted_content = self
-            .encrypt_data(&data.content, &mut data.encryption)
-            .await?;
+        let id = data.id;
+        let mut encryption = data.encryption.clone();
+        let encrypted_content = self.encrypt_data(&data.content, &mut encryption).await?;
         data.content = encrypted_content;
+        data.encryption = encryption;
 
-        // Set timestamps
-        data.created_at = Utc::now();
-        data.modified_at = data.created_at;
-
-        // Store data
-        let data_id = data.id;
-        let owner = data.owner.clone();
-        {
-            let mut store = self.data_store.write().await;
-            store.insert(data_id, data);
-        }
-
-        // Set up permissions
         self.access_control
-            .grant_permission(&owner, data_id, DataAccessType::Admin)
+            .grant_permission(&data.owner, id, DataAccessType::Admin)
             .await?;
 
-        Ok(data_id)
+        let mut store = self.data_store.write().await;
+        store.insert(id, data);
+        Ok(id)
     }
 
     async fn retrieve_data(&self, id: DataId) -> FederationResult<SovereignData> {
         let store = self.data_store.read().await;
-
         if let Some(data) = store.get(&id) {
-            let mut retrieved_data = data.clone();
-
-            // Decrypt data if needed
-            let decrypted_content = self
-                .decrypt_data(&retrieved_data.content, &retrieved_data.encryption)
-                .await?;
-            retrieved_data.content = decrypted_content;
-
-            Ok(retrieved_data)
+            let mut result = data.clone();
+            result.content = self.decrypt_data(&data.content, &data.encryption).await?;
+            Ok(result)
         } else {
-            Err(FederationError::ExecutionNotFound(id))
+            Err(FederationError::PeerNotFound(id.to_string()))
         }
     }
 
     async fn delete_data(&self, id: DataId) -> FederationResult<()> {
         let mut store = self.data_store.write().await;
-
         if store.remove(&id).is_some() {
             Ok(())
         } else {
-            Err(FederationError::ExecutionNotFound(id))
+            Err(FederationError::PeerNotFound(id.to_string()))
         }
     }
 
     async fn list_data(&self, owner: &str) -> FederationResult<Vec<DataId>> {
         let store = self.data_store.read().await;
-
-        let data_ids: Vec<DataId> = store
-            .values()
-            .filter(|data| data.owner == owner)
-            .map(|data| data.id)
-            .collect();
-
-        Ok(data_ids)
+        Ok(store
+            .iter()
+            .filter(|(_, data)| data.owner == owner)
+            .map(|(id, _)| *id)
+            .collect())
     }
 
     async fn check_access(&self, id: DataId, requester: &str) -> FederationResult<bool> {
@@ -589,29 +242,30 @@ impl Default for BackupConfig {
     }
 }
 
-impl Default for DefaultEncryptionKeyManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Default for DefaultAccessControlManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use super::super::{DataPermissions, EncryptionMetadata};
     use super::*;
-    use uuid::Uuid; // Evolution: Add missing import
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    fn test_data(owner: &str, content: &[u8]) -> SovereignData {
+        SovereignData {
+            id: Uuid::new_v4(),
+            owner: owner.to_string(),
+            content: content.to_vec(),
+            permissions: DataPermissions::default(),
+            encryption: EncryptionMetadata::default(),
+            created_at: Utc::now(),
+            modified_at: Utc::now(),
+        }
+    }
 
     #[tokio::test]
     async fn test_sovereign_data_manager_creation() {
         let config = SovereignDataConfig::default();
         let manager = DefaultSovereignDataManager::new(config);
 
-        // Test basic functionality
         let data = SovereignData {
             id: Uuid::new_v4(),
             owner: "test_user".to_string(),
@@ -654,33 +308,28 @@ mod tests {
         let access_control = DefaultAccessControlManager::new();
         let data_id = Uuid::new_v4();
 
-        // Initially no permission
         let has_permission = access_control
             .check_permission("user1", data_id, DataAccessType::Read)
             .await
             .expect("should succeed");
         assert!(!has_permission);
 
-        // Grant permission
         access_control
             .grant_permission("user1", data_id, DataAccessType::Read)
             .await
             .expect("should succeed");
 
-        // Check permission again
         let has_permission = access_control
             .check_permission("user1", data_id, DataAccessType::Read)
             .await
             .expect("should succeed");
         assert!(has_permission);
 
-        // Revoke permission
         access_control
             .revoke_permission("user1", data_id, DataAccessType::Read)
             .await
             .expect("should succeed");
 
-        // Check permission after revocation
         let has_permission = access_control
             .check_permission("user1", data_id, DataAccessType::Read)
             .await
@@ -691,7 +340,7 @@ mod tests {
     #[tokio::test]
     async fn test_data_size_limits() {
         let config = SovereignDataConfig {
-            max_data_size: 10, // Very small limit for testing
+            max_data_size: 10,
             ..Default::default()
         };
 
@@ -700,7 +349,7 @@ mod tests {
         let data = SovereignData {
             id: Uuid::new_v4(),
             owner: "test_user".to_string(),
-            content: b"this is too much data".to_vec(), // Exceeds limit
+            content: b"this is too much data".to_vec(),
             permissions: DataPermissions::default(),
             encryption: EncryptionMetadata::default(),
             created_at: Utc::now(),
@@ -715,18 +364,6 @@ mod tests {
                 assert!(msg.contains("exceeds limit"));
             }
             _ => unreachable!("Expected ResourceLimitExceeded error"),
-        }
-    }
-
-    fn test_data(owner: &str, content: &[u8]) -> SovereignData {
-        SovereignData {
-            id: Uuid::new_v4(),
-            owner: owner.to_string(),
-            content: content.to_vec(),
-            permissions: DataPermissions::default(),
-            encryption: EncryptionMetadata::default(),
-            created_at: Utc::now(),
-            modified_at: Utc::now(),
         }
     }
 

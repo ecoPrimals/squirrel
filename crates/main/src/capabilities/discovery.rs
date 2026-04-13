@@ -223,7 +223,7 @@ async fn try_registry_query(
     info!("🧠 Checking Neural API for capability: {}", capability);
 
     let neural_api_socket = std::env::var("NEURAL_API_SOCKET").ok().or_else(|| {
-        let uid = nix::unistd::getuid();
+        let uid = universal_constants::sys_info::current_uid();
         let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
         let sock = crate::primal_names::NEURAL_API_SOCKET_NAME;
         let paths = [
@@ -511,7 +511,7 @@ fn get_socket_directories() -> Vec<PathBuf> {
     let mut dirs = vec![];
 
     // Priority 1: Standard biomeOS socket directory (NUCLEUS-compliant!)
-    let uid = nix::unistd::getuid();
+    let uid = universal_constants::sys_info::current_uid();
     let biomeos_dir = PathBuf::from(format!("/run/user/{uid}/biomeos"));
     if biomeos_dir.exists() {
         dirs.push(biomeos_dir);

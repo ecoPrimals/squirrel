@@ -151,10 +151,8 @@ impl PrimalSelfKnowledge {
         let instance_id = format!("{}-{}", name, std::process::id());
 
         // Host
-        let host = hostname::get()
-            .ok()
-            .and_then(|h| h.to_str().map(String::from))
-            .unwrap_or_else(|| "localhost".to_string());
+        let host =
+            universal_constants::sys_info::hostname().unwrap_or_else(|_| "localhost".to_string());
 
         // Port (if serving)
         let port = env::var("PRIMAL_PORT").ok().and_then(|p| p.parse().ok());
@@ -679,7 +677,9 @@ mod tests {
                 PrimalSelfKnowledge::discover_self().expect("discover_self in test");
             let identity = self_knowledge.identity();
             assert!(!identity.host.is_empty());
-            assert!(identity.host == "localhost" || hostname::get().is_ok());
+            assert!(
+                identity.host == "localhost" || universal_constants::sys_info::hostname().is_ok()
+            );
         });
     }
 
