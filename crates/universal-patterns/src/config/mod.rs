@@ -66,6 +66,7 @@
 
 // Core modules
 pub mod builder;
+mod builder_presets;
 pub mod endpoint_resolver;
 pub mod loader;
 pub mod methods;

@@ -28,10 +28,10 @@ fn discover_socket_path() -> String {
     if let Ok(p) = std::env::var("BIOMEOS_SOCKET_PATH") {
         return p;
     }
-    if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
-        return format!("{xdg}/biomeos/squirrel.sock");
-    }
-    "/tmp/squirrel.sock".to_string()
+    universal_constants::network::get_socket_dir()
+        .join("squirrel.sock")
+        .to_string_lossy()
+        .into_owned()
 }
 
 /// Wrapper that renders `Option<u64>` as `"N/A"` when absent.

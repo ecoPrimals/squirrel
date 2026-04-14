@@ -43,8 +43,16 @@ pub fn find_biomeos_socket() -> Option<PathBuf> {
             "/run/user/{uid}/{dir}/{}",
             primal_names::NEURAL_API_SOCKET_NAME
         ),
-        format!("/tmp/{}", primal_names::BIOMEOS_SOCKET_NAME),
-        format!("/tmp/{}", primal_names::NEURAL_API_SOCKET_NAME),
+        format!(
+            "{}/{}",
+            universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR,
+            primal_names::BIOMEOS_SOCKET_NAME
+        ),
+        format!(
+            "{}/{}",
+            universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR,
+            primal_names::NEURAL_API_SOCKET_NAME
+        ),
     ];
 
     candidates

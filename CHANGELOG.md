@@ -9,6 +9,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.52] - 2026-04-14
+
+primalSpring audit resolution, CLI bind gap, hardcoding evolution, production stub
+maturity, and smart large-file refactoring sprint.
+
+### Added
+
+- `--bind` CLI flag on `squirrel server` for configurable TCP bind address (SQ-04)
+- `SQUIRREL_BIND` / `SQUIRREL_IPC_HOST` env var support for bind address
+  (precedence: CLI > env > config > default `127.0.0.1`)
+- `integration_data.rs` — extracted config/state/stat types from learning
+  integration (881→700 lines)
+- `dashboard_types.rs` — extracted all DTOs from plugin dashboard (856→605 lines)
+- `zero_copy_config.rs` — extracted config/state types from zero-copy plugin
+  (851→670 lines)
+- `service_swarm.rs` — extracted SwarmManager impl from federation service
+  (828→723 lines)
+- `builder_presets.rs` — extracted preset constructors from ConfigBuilder
+  (827→768 lines)
+- `jsonrpc_dispatch.rs` — extracted dispatch table from JSON-RPC server
+  (872→756 lines)
+- `router_init.rs` — extracted provider init helpers from AI router
+  (828→701 lines)
+- `sync_types.rs` — extracted config/status types from sync manager
+  (819→733 lines)
+
+### Changed
+
+- TCP bind address now configurable instead of hardcoded `127.0.0.1` —
+  Docker/benchScale: `--bind 0.0.0.0 --port 9500`
+- AI router socket discovery: `"toadstool"` → `"compute"` capability stem
+- Discovery service: removed `SONGBIRD_SOCKET` fallback (prefer `DISCOVERY_SOCKET`)
+- Web visualization: `"petalTongue"` → "visualization capability discovery"
+- Universal listener: `"127.0.0.1"` → `LOCALHOST_IPV4` constant
+- 5 files: `/tmp/` paths → `get_socket_dir()` / `BIOMEOS_SOCKET_FALLBACK_DIR`
+- RL policy: `get_training_iterations`/`get_last_loss`/`get_performance_metrics` →
+  real `training_state`/`metrics` fields; `load_weights` → real file I/O
+- Context learning: `extract_features` → JSON-aware extraction from state
+
+### Removed
+
+- `hostname` workspace dependency (unused by any member crate)
+- `crates/config/src/unified/security.rs` — orphaned file never compiled
+  (not in module graph); canonical SecurityConfig lives in `unified/types/definitions.rs`
+- `zero_copy_types.rs` — duplicate artifact (superseded by `zero_copy_config.rs`)
+
 ## [0.1.0-alpha.51] - 2026-04-13
 
 Deep debt execution, smart refactoring, and dependency evolution sprint.

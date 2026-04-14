@@ -6,8 +6,7 @@
 //! This module provides the integration layer that connects the learning system
 //! with the existing Context Management System components.
 
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::Utc;
 use serde_json::Value;
 
 use std::sync::Arc;
@@ -30,78 +29,11 @@ pub use super::integration_types::{
     StateChangePatternAnalysis, analyze_state_change_patterns,
 };
 
-/// Context monitoring results for tracking
-///
-/// Note: Planned feature for context monitoring - implementation in progress
-#[derive(Debug, Clone)]
-#[expect(dead_code, reason = "planned feature not yet wired")]
-pub struct ContextMonitoringResults {
-    pub total_contexts: usize,
-    pub contexts_needing_intervention: usize,
-    pub monitoring_timestamp: chrono::DateTime<chrono::Utc>,
-}
-
-/// Learning integration configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LearningIntegrationConfig {
-    /// Enable context manager integration
-    pub enable_context_manager: bool,
-
-    /// Enable rule manager integration
-    pub enable_rule_manager: bool,
-
-    /// Enable visualization integration
-    pub enable_visualization: bool,
-
-    /// Integration update interval
-    pub update_interval: std::time::Duration,
-
-    /// Enable automatic learning triggers
-    pub enable_auto_triggers: bool,
-
-    /// Learning trigger thresholds
-    pub trigger_thresholds: TriggerThresholds,
-}
-
-impl Default for LearningIntegrationConfig {
-    fn default() -> Self {
-        Self {
-            enable_context_manager: true,
-            enable_rule_manager: true,
-            enable_visualization: true,
-            update_interval: std::time::Duration::from_secs(30),
-            enable_auto_triggers: true,
-            trigger_thresholds: TriggerThresholds::default(),
-        }
-    }
-}
-
-/// Trigger thresholds for automatic learning
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TriggerThresholds {
-    /// Minimum context changes to trigger learning
-    pub min_context_changes: usize,
-
-    /// Minimum rule applications to trigger adaptation
-    pub min_rule_applications: usize,
-
-    /// Error rate threshold for learning trigger
-    pub error_rate_threshold: f64,
-
-    /// Performance degradation threshold
-    pub performance_threshold: f64,
-}
-
-impl Default for TriggerThresholds {
-    fn default() -> Self {
-        Self {
-            min_context_changes: 10,
-            min_rule_applications: 5,
-            error_rate_threshold: 0.2,
-            performance_threshold: 0.7,
-        }
-    }
-}
+#[expect(unused_imports, reason = "re-export for test and downstream consumers")]
+pub use super::integration_data::{
+    ContextMonitoringResults, IntegrationError, IntegrationRefs, IntegrationState,
+    IntegrationStats, IntegrationStatus, LearningIntegrationConfig, TriggerThresholds,
+};
 
 /// Learning integration layer
 #[derive(Debug)]
@@ -144,103 +76,6 @@ pub struct LearningIntegration {
 
     /// Background task handles
     task_handles: Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>,
-}
-
-/// Integration state
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IntegrationState {
-    /// Integration status
-    pub status: IntegrationStatus,
-
-    /// Last integration update
-    pub last_update: DateTime<Utc>,
-
-    /// Active integrations
-    pub active_integrations: Vec<String>,
-
-    /// Integration errors
-    pub errors: Vec<IntegrationError>,
-}
-
-/// Integration status
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum IntegrationStatus {
-    /// Integration is initializing
-    Initializing,
-
-    /// Integration is active
-    Active,
-
-    /// Integration is paused
-    Paused,
-
-    /// Integration is stopped
-    Stopped,
-
-    /// Integration has errors
-    Error,
-}
-
-/// Integration error
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IntegrationError {
-    /// Error ID
-    pub id: String,
-
-    /// Error type
-    pub error_type: String,
-
-    /// Error message
-    pub message: String,
-
-    /// Error timestamp
-    pub timestamp: DateTime<Utc>,
-
-    /// Component that caused the error
-    pub component: String,
-}
-
-/// Integration statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IntegrationStats {
-    /// Total integration operations
-    pub total_operations: usize,
-
-    /// Successful operations
-    pub successful_operations: usize,
-
-    /// Failed operations
-    pub failed_operations: usize,
-
-    /// Context synchronizations
-    pub context_syncs: usize,
-
-    /// Rule adaptations triggered
-    pub rule_adaptations: usize,
-
-    /// Learning episodes triggered
-    pub learning_episodes: usize,
-
-    /// Average operation time
-    pub average_operation_time: f64,
-
-    /// Last operation time
-    pub last_operation: DateTime<Utc>,
-}
-
-impl Default for IntegrationStats {
-    fn default() -> Self {
-        Self {
-            total_operations: 0,
-            successful_operations: 0,
-            failed_operations: 0,
-            context_syncs: 0,
-            rule_adaptations: 0,
-            learning_episodes: 0,
-            average_operation_time: 0.0,
-            last_operation: Utc::now(),
-        }
-    }
 }
 
 impl LearningIntegration {
@@ -862,20 +697,4 @@ impl LearningIntegration {
 
         Ok(status)
     }
-}
-
-/// References to integration components
-///
-/// Note: Component references for future integration - some components not yet wired up
-#[derive(Debug, Clone)]
-#[expect(dead_code, reason = "planned feature not yet wired")]
-pub struct IntegrationRefs {
-    pub context_manager: Option<Arc<ContextManager>>,
-    pub rule_manager: Option<Arc<RuleManager>>,
-    pub learning_engine: Option<Arc<LearningEngine>>,
-    pub context_learning_manager: Option<Arc<ContextLearningManager>>,
-    pub reward_system: Option<Arc<RewardSystem>>,
-    pub policy_network: Option<Arc<PolicyNetwork>>,
-    pub learning_metrics: Option<Arc<LearningMetrics>>,
-    pub adaptive_rule_system: Option<Arc<AdaptiveRuleSystem>>,
 }

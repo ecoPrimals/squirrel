@@ -20,6 +20,7 @@ pub mod dignity;
 pub mod discovery; // Capability-based AI provider discovery
 pub mod http_provider_config; // HTTP provider configuration (vendor-agnostic)
 pub mod router;
+mod router_init;
 pub mod selector;
 pub mod types;
 pub mod universal; // Universal AI interface (vendor-agnostic)

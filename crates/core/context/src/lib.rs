@@ -112,6 +112,7 @@ pub mod rules;
 pub mod sync;
 #[cfg(test)]
 mod sync_tests;
+mod sync_types;
 pub mod tracker;
 pub mod visualization;
 pub use error::{ContextError, Result};

@@ -265,7 +265,7 @@ impl UniversalListener {
             TransportType::Tcp => {
                 // TCP fallback: bind to localhost with port from service registry
                 let port = Self::get_tcp_port(service_name);
-                let addr = format!("127.0.0.1:{}", port);
+                let addr = format!("{}:{port}", universal_constants::network::LOCALHOST_IPV4);
 
                 let listener = TcpListener::bind(&addr).await?;
 

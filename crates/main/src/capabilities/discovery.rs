@@ -226,9 +226,10 @@ async fn try_registry_query(
         let uid = universal_constants::sys_info::current_uid();
         let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
         let sock = crate::primal_names::NEURAL_API_SOCKET_NAME;
+        let fallback = universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR;
         let paths = [
-            format!("/tmp/{sock}"),
             format!("/run/user/{uid}/{dir}/{sock}"),
+            format!("{fallback}/{sock}"),
         ];
         paths.into_iter().find(|p| Path::new(p).exists())
     });

@@ -51,13 +51,12 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 use universal_constants::network::LOCALHOST_IPV4;
 use universal_patterns::transport::{UniversalListener, UniversalTransport};
 
-pub(crate) use super::jsonrpc_types::normalize_method;
 pub use super::jsonrpc_types::{
     JsonRpcError, JsonRpcRequest, JsonRpcResponse, ServerMetrics, error_codes,
 };
@@ -85,8 +84,12 @@ pub struct JsonRpcServer {
     /// Capability registry loaded from capability_registry.toml (source of truth)
     pub capability_registry: Arc<crate::capabilities::registry::CapabilityRegistry>,
 
-    /// When set, binds an additional TCP JSON-RPC listener on `127.0.0.1:<port>` (localhost only).
+    /// When set, binds an additional TCP JSON-RPC listener on `<tcp_bind_host>:<port>`.
     tcp_port: Option<u16>,
+
+    /// Bind address for the TCP listener. Defaults to `127.0.0.1` (localhost only).
+    /// Set to `0.0.0.0` for Docker/benchScale deployments.
+    tcp_bind_host: String,
 }
 
 impl JsonRpcServer {
@@ -115,6 +118,7 @@ impl JsonRpcServer {
             announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
             capability_registry: Self::load_registry(),
             tcp_port: None,
+            tcp_bind_host: LOCALHOST_IPV4.to_string(),
         }
     }
 
@@ -129,14 +133,22 @@ impl JsonRpcServer {
             announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
             capability_registry: Self::load_registry(),
             tcp_port: None,
+            tcp_bind_host: LOCALHOST_IPV4.to_string(),
         }
+    }
+
+    /// Enable a TCP JSON-RPC listener on `<bind_host>:<port>` alongside Universal Transport.
+    #[must_use]
+    pub fn with_tcp(mut self, port: u16, bind_host: String) -> Self {
+        self.tcp_port = Some(port);
+        self.tcp_bind_host = bind_host;
+        self
     }
 
     /// Enable a localhost TCP JSON-RPC listener on `127.0.0.1:<port>` alongside Universal Transport.
     #[must_use]
-    pub const fn with_tcp_port(mut self, port: u16) -> Self {
-        self.tcp_port = Some(port);
-        self
+    pub fn with_tcp_port(self, port: u16) -> Self {
+        self.with_tcp(port, LOCALHOST_IPV4.to_string())
     }
 
     /// Start the JSON-RPC server with Universal Transport (Isomorphic IPC)
@@ -211,20 +223,18 @@ impl JsonRpcServer {
         }
 
         if let Some(port) = self.tcp_port {
-            let addr = format!("{LOCALHOST_IPV4}:{port}");
+            let bind_host = &self.tcp_bind_host;
+            let addr = format!("{bind_host}:{port}");
             match tokio::net::TcpListener::bind(&addr).await {
                 Ok(tcp_listener) => {
-                    info!("TCP JSON-RPC listener on {}:{port}", LOCALHOST_IPV4);
+                    info!("TCP JSON-RPC listener on {addr}");
                     let server = Arc::clone(&self);
                     tokio::spawn(async move {
                         Self::accept_tcp_jsonrpc(server, tcp_listener).await;
                     });
                 }
                 Err(e) => {
-                    warn!(
-                        "Could not bind TCP JSON-RPC on {}: {} (continuing without TCP)",
-                        addr, e
-                    );
+                    warn!("Could not bind TCP JSON-RPC on {addr}: {e} (continuing without TCP)");
                 }
             }
         }
@@ -525,52 +535,6 @@ impl JsonRpcServer {
         Ok(())
     }
 
-    /// Handle a client connection (LEGACY - kept for backward compatibility)
-    ///
-    /// Note: New code should use handle_universal_connection() instead.
-    /// This method is kept for any legacy direct Unix socket usage.
-    #[deprecated(note = "Use handle_universal_connection() with UniversalTransport instead")]
-    #[expect(dead_code, reason = "deprecated legacy path; kept for fallback")]
-    async fn handle_connection<S>(&self, stream: S) -> Result<()>
-    where
-        S: AsyncRead + AsyncWrite + Unpin,
-    {
-        let mut reader = BufReader::new(stream);
-        let mut line = String::new();
-
-        loop {
-            line.clear();
-            match reader.read_line(&mut line).await {
-                Ok(0) => {
-                    debug!("Client disconnected");
-                    break;
-                }
-                Ok(_) => {
-                    if let Some(response_json) = self.handle_request_or_batch(&line).await {
-                        let mut out = response_json;
-                        out.push('\n');
-                        reader
-                            .get_mut()
-                            .write_all(out.as_bytes())
-                            .await
-                            .context("Failed to write JSON-RPC response (legacy)")?;
-                        reader
-                            .get_mut()
-                            .flush()
-                            .await
-                            .context("Failed to flush JSON-RPC response (legacy)")?;
-                    }
-                }
-                Err(e) => {
-                    warn!("Error reading from socket: {}", e);
-                    break;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     /// Handle a JSON-RPC request or batch (JSON-RPC 2.0 Section 6).
     ///
     /// Parses the raw JSON. If it's an array, dispatches each element as a
@@ -634,75 +598,6 @@ impl JsonRpcServer {
         match self.handle_single_request(trimmed).await {
             Some(resp) => serde_json::to_string(&resp).ok(),
             None => None,
-        }
-    }
-
-    /// Dispatch a validated JSON-RPC method name (after `normalize_method`).
-    pub(crate) async fn dispatch_jsonrpc_method(
-        &self,
-        original_method: &str,
-        params: Option<Value>,
-    ) -> Result<Value, JsonRpcError> {
-        let method = normalize_method(original_method);
-        match method {
-            // Inference domain — CANONICAL per SEMANTIC_METHOD_NAMING_STANDARD v2.0 §7
-            // ai.query / ai.complete / ai.chat are backward-compat aliases.
-            "inference.complete" | "ai.query" | "ai.complete" | "ai.chat" => {
-                self.handle_inference_complete(params).await
-            }
-            "inference.embed" => self.handle_inference_embed(params).await,
-            "inference.models" => self.handle_inference_models(params).await,
-            "inference.register_provider" => self.handle_inference_register_provider(params).await,
-            "ai.list_providers" => self.handle_list_providers(params).await,
-
-            // Capabilities domain — SEMANTIC_METHOD_NAMING_STANDARD v2.1
-            // `capabilities.list` canonical; aliases per standard + ecosystem compat.
-            "capabilities.announce" | "capability.announce" => {
-                self.handle_announce_capabilities(params).await
-            }
-            "capabilities.discover" | "capability.discover" => {
-                self.handle_discover_capabilities().await
-            }
-            "capabilities.list" | "capability.list" | "primal.capabilities" => {
-                self.handle_capability_list().await
-            }
-
-            // Identity domain — CAPABILITY_BASED_DISCOVERY_STANDARD v1.0
-            "identity.get" => self.handle_identity_get().await,
-
-            // Health domain — PRIMAL_IPC_PROTOCOL v3.0 (canonical)
-            // SEMANTIC_METHOD_NAMING_STANDARD: health.* is NON-NEGOTIABLE.
-            // system.health / system.status are backward-compat aliases.
-            "health.check" | "system.health" | "system.status" => self.handle_health().await,
-            "health.liveness" => self.handle_health_liveness().await,
-            "health.readiness" => self.handle_health_readiness().await,
-
-            // System domain — backward-compat (metrics/ping have no health.* equivalent)
-            "system.metrics" => self.handle_metrics().await,
-            "system.ping" => self.handle_ping().await,
-
-            // Discovery domain — semantic names (preferred)
-            "discovery.peers" | "discovery.list" => self.handle_discover_peers(params).await,
-
-            // Tool domain — semantic names (preferred)
-            "tool.execute" => self.handle_execute_tool(params).await,
-            "tool.list" => self.handle_list_tools().await,
-
-            // Context domain — semantic names (preferred)
-            "context.create" => self.handle_context_create(params).await,
-            "context.update" => self.handle_context_update(params).await,
-            "context.summarize" => self.handle_context_summarize(params).await,
-
-            // Lifecycle domain — biomeOS registration
-            "lifecycle.register" => self.handle_lifecycle_register().await,
-            "lifecycle.status" => self.handle_lifecycle_status().await,
-
-            // Graph domain — primalSpring BYOB coordination
-            "graph.parse" => self.handle_graph_parse(params).await,
-            "graph.validate" => self.handle_graph_validate(params).await,
-
-            // Method not found
-            _ => Err(self.method_not_found(original_method)),
         }
     }
 

@@ -20,10 +20,10 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use universal_constants::deployment::ports;
-use universal_constants::network::BIND_ALL_INTERFACES;
+use universal_constants::network::LOCALHOST_IPV4;
 
 fn default_bind() -> String {
-    BIND_ALL_INTERFACES.to_string()
+    LOCALHOST_IPV4.to_string()
 }
 
 /// Main Squirrel configuration
@@ -54,9 +54,10 @@ pub struct ServerConfig {
     /// directory at startup — see `unix_socket::resolve_socket_path_for_ipc`.
     pub socket: Option<String>,
 
-    /// Bind address — retained for config-file backward compatibility.
-    /// Squirrel uses Unix sockets + localhost TCP JSON-RPC; this field is not
-    /// consumed by the server runtime.
+    /// TCP bind address for JSON-RPC when `--port` is set.
+    /// Defaults to `127.0.0.1` (localhost only, secure by default).
+    /// Set to `0.0.0.0` for Docker/benchScale deployments.
+    /// Override via CLI `--bind`, env `SQUIRREL_BIND` or `SQUIRREL_IPC_HOST`.
     #[serde(default = "default_bind")]
     pub bind: String,
 
@@ -122,7 +123,7 @@ impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             socket: None,
-            bind: BIND_ALL_INTERFACES.to_string(),
+            bind: LOCALHOST_IPV4.to_string(),
             port: ports::squirrel_server(),
             daemon: false,
             max_connections: 100,
@@ -239,6 +240,8 @@ impl ConfigLoader {
         }
         if let Ok(bind) = std::env::var("SQUIRREL_BIND") {
             config.server.bind = bind;
+        } else if let Ok(ipc_host) = std::env::var("SQUIRREL_IPC_HOST") {
+            config.server.bind = ipc_host;
         }
         if let Ok(port) = std::env::var("SQUIRREL_PORT") {
             config.server.port = port.parse().context("Invalid SQUIRREL_PORT value")?;
@@ -286,7 +289,7 @@ mod tests {
     fn test_default_config() {
         let config = SquirrelConfig::default();
         assert_eq!(config.server.port, 9010);
-        assert_eq!(config.server.bind, "0.0.0.0");
+        assert_eq!(config.server.bind, "127.0.0.1");
         assert!(config.ai.enabled);
         assert_eq!(config.logging.level, "info");
     }
@@ -304,7 +307,7 @@ mod tests {
     #[test]
     fn test_default_server_config() {
         let server = ServerConfig::default();
-        assert_eq!(server.bind, "0.0.0.0");
+        assert_eq!(server.bind, "127.0.0.1");
         assert_eq!(server.port, 9010);
         assert!(!server.daemon);
         assert_eq!(server.max_connections, 100);
@@ -377,6 +380,7 @@ mod tests {
     const SQUIRREL_ENV_VARS: &[&str] = &[
         "SQUIRREL_SOCKET",
         "SQUIRREL_BIND",
+        "SQUIRREL_IPC_HOST",
         "SQUIRREL_PORT",
         "SQUIRREL_DAEMON",
         "AI_PROVIDER_SOCKETS",
@@ -601,6 +605,41 @@ discovery:
 
         let result = ConfigLoader::load(Some(config_path.as_path()));
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_env_override_squirrel_ipc_host() {
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_IPC_HOST", Some("0.0.0.0")),
+                ("SQUIRREL_BIND", None::<&str>),
+            ],
+            || {
+                let mut config = SquirrelConfig::default();
+                ConfigLoader::apply_env_overrides(&mut config)
+                    .expect("apply_env_overrides with SQUIRREL_IPC_HOST");
+                assert_eq!(config.server.bind, "0.0.0.0");
+            },
+        );
+    }
+
+    #[test]
+    fn test_env_squirrel_bind_takes_precedence_over_ipc_host() {
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_BIND", Some("192.168.1.1")),
+                ("SQUIRREL_IPC_HOST", Some("0.0.0.0")),
+            ],
+            || {
+                let mut config = SquirrelConfig::default();
+                ConfigLoader::apply_env_overrides(&mut config)
+                    .expect("apply_env_overrides with both SQUIRREL_BIND and IPC_HOST");
+                assert_eq!(
+                    config.server.bind, "192.168.1.1",
+                    "SQUIRREL_BIND should take precedence over SQUIRREL_IPC_HOST"
+                );
+            },
+        );
     }
 
     #[test]

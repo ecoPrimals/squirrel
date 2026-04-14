@@ -36,6 +36,7 @@ mod engine;
 mod experience;
 mod experience_types;
 mod integration;
+mod integration_data;
 mod integration_types;
 mod manager;
 mod manager_types;

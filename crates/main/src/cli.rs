@@ -44,10 +44,16 @@ pub enum Commands {
     /// Supports multiple AI providers (cloud APIs, local servers, model hubs) with
     /// intelligent routing based on cost, quality, and latency.
     Server {
-        /// TCP port for JSON-RPC on localhost `127.0.0.1` (env: `SQUIRREL_SERVER_PORT`).
+        /// TCP port for JSON-RPC (env: `SQUIRREL_PORT`, `SQUIRREL_SERVER_PORT`).
         /// Omit to run UDS-only (Tower Atomic standard).
         #[arg(short, long)]
         port: Option<u16>,
+
+        /// TCP bind address when `--port` is set (env: `SQUIRREL_BIND`, `SQUIRREL_IPC_HOST`).
+        /// Defaults to `127.0.0.1` (localhost only). Use `0.0.0.0` for Docker/benchScale
+        /// deployments where Squirrel must be reachable from outside the container.
+        #[arg(short, long)]
+        bind: Option<String>,
 
         /// Run as background daemon
         ///
@@ -171,12 +177,14 @@ mod tests {
         let cli = Cli::try_parse_from(["squirrel", "server"]).expect("should succeed");
         if let Commands::Server {
             port,
+            bind,
             daemon,
             socket,
             ..
         } = cli.command
         {
             assert!(port.is_none(), "No --port = UDS-only (Tower Atomic)");
+            assert!(bind.is_none(), "No --bind = use config/env/default");
             assert!(!daemon);
             assert!(socket.is_none());
         } else {
@@ -285,6 +293,8 @@ mod tests {
             "server",
             "--port",
             "3000",
+            "--bind",
+            "0.0.0.0",
             "--daemon",
             "--socket",
             "/custom/socket.sock",
@@ -294,12 +304,14 @@ mod tests {
 
         if let Commands::Server {
             port,
+            bind,
             daemon,
             socket,
             verbose,
         } = cli.command
         {
             assert_eq!(port, Some(3000));
+            assert_eq!(bind, Some("0.0.0.0".to_string()));
             assert!(daemon);
             assert_eq!(socket, Some("/custom/socket.sock".to_string()));
             assert!(verbose);
@@ -500,16 +512,20 @@ mod tests {
 
     #[test]
     fn test_short_flags_work() {
-        let cli = Cli::try_parse_from(["squirrel", "server", "-p", "8080", "-d", "-v"])
-            .expect("should succeed");
+        let cli = Cli::try_parse_from([
+            "squirrel", "server", "-p", "8080", "-b", "0.0.0.0", "-d", "-v",
+        ])
+        .expect("should succeed");
         if let Commands::Server {
             port,
+            bind,
             daemon,
             verbose,
             ..
         } = cli.command
         {
             assert_eq!(port, Some(8080));
+            assert_eq!(bind, Some("0.0.0.0".to_string()));
             assert!(daemon);
             assert!(verbose);
         } else {
@@ -519,19 +535,48 @@ mod tests {
 
     #[test]
     fn test_mixed_short_and_long_flags() {
-        let cli = Cli::try_parse_from(["squirrel", "server", "-p", "3000", "--daemon", "-v"])
-            .expect("should succeed");
+        let cli = Cli::try_parse_from([
+            "squirrel", "server", "-p", "3000", "--bind", "0.0.0.0", "--daemon", "-v",
+        ])
+        .expect("should succeed");
 
         if let Commands::Server {
             port,
+            bind,
             daemon,
             verbose,
             ..
         } = cli.command
         {
             assert_eq!(port, Some(3000));
+            assert_eq!(bind, Some("0.0.0.0".to_string()));
             assert!(daemon);
             assert!(verbose);
+        } else {
+            unreachable!("Expected Server command");
+        }
+    }
+
+    #[test]
+    fn test_bind_without_port() {
+        let cli = Cli::try_parse_from(["squirrel", "server", "--bind", "0.0.0.0"])
+            .expect("should succeed");
+        if let Commands::Server { port, bind, .. } = cli.command {
+            assert!(port.is_none());
+            assert_eq!(bind, Some("0.0.0.0".to_string()));
+        } else {
+            unreachable!("Expected Server command");
+        }
+    }
+
+    #[test]
+    fn test_bind_with_port_docker_pattern() {
+        let cli =
+            Cli::try_parse_from(["squirrel", "server", "--port", "9500", "--bind", "0.0.0.0"])
+                .expect("should succeed");
+        if let Commands::Server { port, bind, .. } = cli.command {
+            assert_eq!(port, Some(9500));
+            assert_eq!(bind, Some("0.0.0.0".to_string()));
         } else {
             unreachable!("Expected Server command");
         }

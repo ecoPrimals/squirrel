@@ -48,6 +48,7 @@ mod traits;
 mod types;
 mod unified_manager;
 mod zero_copy;
+mod zero_copy_config;
 
 // Platform-specific modules
 pub mod cli;

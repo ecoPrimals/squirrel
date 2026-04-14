@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 6,998 passing | **Edition**: 2024 | **Coverage**: ~89% | **ecoBin**: 3.5 MB
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,003 passing | **Edition**: 2024 | **Coverage**: ~89% | **ecoBin**: 3.5 MB
 
 ---
 
@@ -76,11 +76,11 @@ Capability symlink: `ai.sock` → `squirrel.sock` (auto-created for capability-b
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   6,877 tests passing (0 failures) | 1,001 files | ~333k lines
+Fitness:   7,003 tests passing (0 failures) | 1,014 files | ~333k lines
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
-TCP:       JSON-RPC 2.0 over TCP via `--port` (newline-delimited)
+TCP:       JSON-RPC 2.0 over TCP via `--port` + `--bind` (newline-delimited)
 Transport: Unix sockets → Named pipes → TCP (automatic fallback)
 HTTP:      Feature-gated OFF by default (optional dev/test only)
 Lifecycle: biomeOS lifecycle.register + discovery.register + 30s heartbeat

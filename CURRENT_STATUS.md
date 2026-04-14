@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 13, 2026
-**Version**: 0.1.0-alpha.51
+**Last Updated**: April 14, 2026
+**Version**: 0.1.0-alpha.52
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 6,998 passing / 0 failures across 22 workspace members |
+| Tests | 7,003 passing / 0 failures across 22 workspace members |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
@@ -23,7 +23,7 @@
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors + `anyhow::Result` (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`, `anyhow::Error`) |
 | Crates | 22 workspace members |
-| Files >1000 lines | 0 — all `.rs` files under 1,000 lines (test files extracted: `jsonrpc_ai_router_tests.rs`, `validation_tests.rs`, `shutdown_tests.rs`, `integration_lifecycle_tests.rs`, `session_tests.rs`, `client_tests.rs`, `api_tests.rs`, `self_healing_tests.rs`, `ecosystem_jwt_tests.rs`, `error_tests.rs`, `history_tests.rs`, `hardening_tests.rs`, `monitoring_tests.rs`, `unix_socket_tests.rs`, `retry_tests.rs`, `plugin_tests.rs`; types extracted: `context_state_types.rs`, `api_types.rs`) |
+| Files >1000 lines | 0 — all `.rs` files under 1,000 lines (max 965L); test files extracted: `jsonrpc_ai_router_tests.rs`, `validation_tests.rs`, `shutdown_tests.rs`, `integration_lifecycle_tests.rs`, `session_tests.rs`, `client_tests.rs`, `api_tests.rs`, `self_healing_tests.rs`, `ecosystem_jwt_tests.rs`, `error_tests.rs`, `history_tests.rs`, `hardening_tests.rs`, `monitoring_tests.rs`, `unix_socket_tests.rs`, `retry_tests.rs`, `plugin_tests.rs`; types extracted: `context_state_types.rs`, `api_types.rs`, `integration_data.rs`, `dashboard_types.rs`, `zero_copy_config.rs`, `sync_types.rs`, `builder_presets.rs`, `service_swarm.rs`, `jsonrpc_dispatch.rs`, `router_init.rs` |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
@@ -275,7 +275,19 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `base64` duplicate (0.21 via `config`/`ron`, 0.22 direct) — transitive, benign
 5. `async-trait` — 129 annotations remaining (down from 228); 20+ trait definitions migrated to native `async fn` in trait with dyn→generics/enum dispatch; remaining usage is traits deeply embedded in heterogeneous `dyn` collections (`Plugin`, `Command`, `AIClient`, `MonitoringProvider`, `PrimalProvider`, etc.) — will be progressively removed as `dyn` surface shrinks
 
-## Changes Since Last Handoff (April 11, 2026)
+## Changes Since Last Handoff (April 14, 2026)
+
+### April 14, 2026 session T (primalSpring audit: CLI bind gap, hardcoding evolution, production stubs, smart refactoring)
+
+- **SQ-04 RESOLVED — CLI bind gap**: `squirrel server --port 9500` was unreachable from Docker containers because TCP bound to `127.0.0.1`. Added `--bind` CLI flag + `SQUIRREL_BIND`/`SQUIRREL_IPC_HOST` env vars with precedence: CLI > env > config > default (`127.0.0.1`). Docker pattern: `--bind 0.0.0.0 --port 9500`
+- **Hardcoded primal names eliminated**: `"toadstool"` → `"compute"` capability stem in AI router socket discovery; `SONGBIRD_SOCKET` fallback removed from discovery service (prefer `DISCOVERY_SOCKET`); `"petalTongue"` → "visualization capability discovery" in web visualization
+- **Hardcoded `127.0.0.1`** in universal listener → `universal_constants::network::LOCALHOST_IPV4`
+- **Hardcoded `/tmp/` paths** evolved across 5 files: discovery.rs, lifecycle.rs, status.rs, local.rs, discovery_service.rs → `universal_constants::network::get_socket_dir()` / `BIOMEOS_SOCKET_FALLBACK_DIR`
+- **Production stubs evolved**: RL policy `get_training_iterations`/`get_last_loss`/`get_performance_metrics`/`load_weights` → use real `training_state`/`metrics` fields + file I/O; context learning `extract_features` → JSON-aware extraction from context state
+- **Unused `hostname` dependency removed** from workspace
+- **Smart refactoring — 9 production files under 800L**: `integration.rs` (881→700), `dashboard.rs` (856→605), `zero_copy.rs` (851→670), `service.rs` (828→723), `builder.rs` (827→768), `jsonrpc_server.rs` (872→756), `router.rs` (828→701), `sync.rs` (819→733) — types/configs/impl blocks extracted to sibling modules
+- **Orphaned files removed**: `crates/config/src/unified/security.rs` (not in build graph, dead code), `zero_copy_types.rs` (duplicate artifact)
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓ (0 warnings), `test` ✓ (7,003 passed / 0 failures), `check --workspace` ✓
 
 ### April 11, 2026 session S (Deep debt cleanup: test extraction, stub evolution, hardcoding elimination, dead code removal)
 

@@ -44,6 +44,7 @@ pub mod api;
 pub mod api_types;
 pub mod component;
 pub mod dashboard;
+mod dashboard_types;
 pub mod endpoint;
 pub mod example;
 pub mod http;

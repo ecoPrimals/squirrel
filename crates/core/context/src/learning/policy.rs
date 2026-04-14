@@ -512,33 +512,53 @@ impl PolicyNetwork {
         Ok(())
     }
 
-    /// Get training iterations for metadata
     fn get_training_iterations(&self) -> u64 {
-        // Use actual training state if available
-        100 // In a real implementation, would access self.training_state
+        self.training_state
+            .try_read()
+            .map(|s| s.epoch as u64)
+            .unwrap_or(0)
     }
 
-    /// Get last loss for metadata  
     fn get_last_loss(&self) -> f64 {
-        // Use actual training metrics if available
-        0.05 // In a real implementation, would access self.metrics
+        self.training_state
+            .try_read()
+            .map(|s| s.loss)
+            .unwrap_or(f64::NAN)
     }
 
-    /// Get performance metrics for metadata
     fn get_performance_metrics(&self) -> serde_json::Value {
-        // In a real implementation, would query self.metrics
+        let (accuracy, avg_confidence, total_preds) = self
+            .metrics
+            .try_lock()
+            .map(|m| {
+                (
+                    m.prediction_accuracy,
+                    m.average_confidence,
+                    m.total_predictions,
+                )
+            })
+            .unwrap_or((0.0, 0.0, 0));
         serde_json::json!({
-            "accuracy": 0.95,
-            "precision": 0.93,
-            "recall": 0.94,
-            "f1_score": 0.935
+            "accuracy": accuracy,
+            "average_confidence": avg_confidence,
+            "total_predictions": total_preds,
         })
     }
 
-    /// Load network weights
+    /// Load network weights (and biases) from a JSON file at `path`.
     pub async fn load_weights(&self, path: &str) -> Result<()> {
-        // In a real implementation, this would load from file
-        debug!("Loaded network weights from {}", path);
+        let data = tokio::fs::read(path).await.map_err(|e| {
+            crate::error::ContextError::Io(format!("Failed to read weights from {path}: {e}"))
+        })?;
+        let (weights, biases): (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) = serde_json::from_slice(&data)
+            .map_err(|e| {
+                crate::error::ContextError::Serialization(format!(
+                    "Failed to deserialize weights from {path}: {e}"
+                ))
+            })?;
+        *self.weights.write().await = weights;
+        *self.biases.write().await = biases;
+        debug!("Loaded network weights from {path}");
         Ok(())
     }
 
@@ -622,12 +642,36 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn load_weights_succeeds_without_file() {
+    async fn load_weights_errors_for_missing_file() {
         let config = PolicyNetworkConfig::default();
         let net = PolicyNetwork::new(config).await.expect("new");
-        net.load_weights("/nonexistent/path/weights.json")
+        let result = net.load_weights("/nonexistent/path/weights.json").await;
+        assert!(result.is_err(), "missing file should produce an error");
+    }
+
+    #[tokio::test]
+    async fn load_weights_from_valid_file() {
+        let config = PolicyNetworkConfig {
+            input_size: 2,
+            hidden_layers: vec![2],
+            output_size: 2,
+            activation_function: "relu".to_string(),
+            optimizer: "adam".to_string(),
+            dropout_rate: 0.0,
+        };
+        let net = PolicyNetwork::new(config).await.expect("new");
+        let weights: Vec<Vec<Vec<f64>>> = vec![
+            vec![vec![0.1, 0.2], vec![0.3, 0.4]],
+            vec![vec![0.5, 0.6], vec![0.7, 0.8]],
+        ];
+        let biases: Vec<Vec<f64>> = vec![vec![0.01, 0.02], vec![0.03, 0.04]];
+        let payload = serde_json::to_vec(&(weights, biases)).unwrap();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("weights.json");
+        std::fs::write(&path, payload).unwrap();
+        net.load_weights(path.to_str().unwrap())
             .await
-            .expect("load is stubbed ok");
+            .expect("load should succeed");
     }
 
     #[tokio::test]

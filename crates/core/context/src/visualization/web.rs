@@ -3,8 +3,8 @@
 
 //! Web Visualization Server
 //!
-//! **Status:** Not yet implemented. A real server would require petalTongue (or equivalent)
-//! capability discovery and HTTP/WebSocket wiring from the ecosystem; those contracts are not
+//! **Status:** Not yet implemented. A real server would require visualization capability
+//! discovery and HTTP/WebSocket wiring from the ecosystem; those contracts are not
 //! available in this crate yet. [`WebVisualizationServer::start`] therefore logs and returns
 //! `Ok(())` so callers can opt in without failing the context runtime.
 
@@ -14,7 +14,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use tracing::debug;
 
-/// Placeholder for a future web UI (no listener is opened until petalTongue integration exists).
+/// Placeholder for a future web UI (no listener is opened until visualization capability is discovered).
 #[derive(Debug)]
 pub struct WebVisualizationServer {
     /// Configuration
@@ -41,7 +41,7 @@ impl WebVisualizationServer {
     /// Start the web server
     pub async fn start(&self) -> Result<()> {
         debug!(
-            "Web visualization server not yet wired — awaiting petalTongue capability discovery"
+            "Web visualization server not yet wired — awaiting visualization capability discovery"
         );
         Ok(())
     }

@@ -6,29 +6,24 @@ use super::*;
 use crate::api::ai::adapters::AiProvider;
 use crate::api::ai::adapters::test_mocks::JsonRpcMockTextAdapter;
 use crate::api::ai::router::AiRouter;
+use crate::rpc::jsonrpc_types::normalize_method;
 use serde_json::{Value, json};
 use std::sync::Arc;
 
 #[test]
 fn normalize_method_strips_squirrel_prefix() {
-    assert_eq!(
-        super::normalize_method("squirrel.system.health"),
-        "system.health"
-    );
+    assert_eq!(normalize_method("squirrel.system.health"), "system.health");
 }
 
 #[test]
 fn normalize_method_strips_mcp_prefix() {
-    assert_eq!(
-        super::normalize_method("mcp.system.health"),
-        "system.health"
-    );
+    assert_eq!(normalize_method("mcp.system.health"), "system.health");
 }
 
 #[test]
 fn normalize_method_leaves_unprefixed_methods() {
-    assert_eq!(super::normalize_method("system.health"), "system.health");
-    assert_eq!(super::normalize_method("identity.get"), "identity.get");
+    assert_eq!(normalize_method("system.health"), "system.health");
+    assert_eq!(normalize_method("identity.get"), "identity.get");
 }
 
 #[tokio::test]

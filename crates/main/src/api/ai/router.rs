@@ -18,13 +18,8 @@
 //! let router = AiRouter::new().await?;
 //! ```
 
-// Always available (production + dev)
-use super::adapters::{AiProvider, AiProviderAdapter, ProviderMetadata, UniversalAiAdapter};
-
-// Deprecated adapters (feature-gated, v0.3.0 removal planned)
-#[cfg(feature = "deprecated-adapters")]
-use super::adapters::{AnthropicAdapter, OpenAiAdapter};
-use super::http_provider_config::{HttpAiProviderConfig, get_enabled_http_providers};
+use super::adapters::{AiProvider, AiProviderAdapter};
+use super::http_provider_config::get_enabled_http_providers;
 
 use super::constraint_router::select_provider_with_constraints;
 use super::dignity::{DignityCheckRequest, DignityEvaluator};
@@ -34,7 +29,6 @@ use super::types::{
     TextGenerationResponse,
 };
 use crate::error::PrimalError;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -76,7 +70,7 @@ fn run_dignity_check(prompt: &str, model: Option<&str>, context: Option<&str>) {
 /// Unix socket path for the local compute capability (`COMPUTE_SOCKET` → tiered resolution).
 #[inline]
 fn compute_capability_unix_socket() -> PathBuf {
-    resolve_capability_unix_socket("COMPUTE_SOCKET", "toadstool")
+    resolve_capability_unix_socket("COMPUTE_SOCKET", "compute")
 }
 
 impl AiRouter {
@@ -317,127 +311,6 @@ impl AiRouter {
             enable_retry: true,
             max_retries: 2,
         })
-    }
-
-    /// Initialize HTTP provider adapter based on configuration
-    ///
-    /// Maps provider_id to the appropriate adapter implementation.
-    ///
-    /// **Note**: Vendor-specific adapters (Anthropic, OpenAI) are deprecated
-    /// and gated behind the `deprecated-adapters` feature.
-    /// Use capability-based discovery with UniversalAiAdapter instead.
-    async fn init_http_provider(
-        config: &HttpAiProviderConfig,
-    ) -> Result<Option<Arc<AiProvider>>, PrimalError> {
-        #[cfg(not(feature = "deprecated-adapters"))]
-        {
-            if config.provider_id == "anthropic" || config.provider_id == "openai" {
-                warn!(
-                    "⚠️  Provider '{}' requires deprecated-adapters feature. \
-                     Use capability-based discovery instead.",
-                    config.provider_id
-                );
-                return Ok(None);
-            }
-            Err(PrimalError::Configuration(format!(
-                "Unknown HTTP provider: {}. Use capability-based discovery instead.",
-                config.provider_id
-            )))
-        }
-
-        #[cfg(feature = "deprecated-adapters")]
-        {
-            let adapter_result: Result<Arc<AiProvider>, PrimalError> =
-                match config.provider_id.as_str() {
-                    "anthropic" => {
-                        // Backward compatibility: deprecated-adapters feature, v0.3.0 removal planned
-                        #[expect(
-                            deprecated,
-                            reason = "backward compat: AnthropicAdapter until v0.3.0 removal"
-                        )]
-                        match AnthropicAdapter::new() {
-                            Ok(adapter) => Ok(Arc::new(AiProvider::Anthropic(adapter))),
-                            Err(e) => Err(e),
-                        }
-                    }
-                    "openai" => {
-                        // Backward compatibility: deprecated-adapters feature, v0.3.0 removal planned
-                        #[expect(
-                            deprecated,
-                            reason = "backward compat: OpenAiAdapter until v0.3.0 removal"
-                        )]
-                        match OpenAiAdapter::new() {
-                            Ok(adapter) => Ok(Arc::new(AiProvider::OpenAi(adapter))),
-                            Err(e) => Err(e),
-                        }
-                    }
-                    _ => {
-                        return Err(PrimalError::Configuration(format!(
-                            "Unknown HTTP provider: {}. Use capability-based discovery instead.",
-                            config.provider_id
-                        )));
-                    }
-                };
-
-            match adapter_result {
-                Ok(adapter) => {
-                    // Availability check with 5s timeout to prevent hangs
-                    match tokio::time::timeout(
-                        std::time::Duration::from_secs(5),
-                        adapter.is_available(),
-                    )
-                    .await
-                    {
-                        Ok(true) => Ok(Some(adapter)),
-                        Ok(false) => Ok(None), // Not available (missing API key or HTTP provider)
-                        Err(_) => {
-                            warn!("⏱️  {} availability check timed out", config.provider_name);
-                            Ok(None)
-                        }
-                    }
-                }
-                Err(e) => Err(e),
-            }
-        }
-    }
-
-    /// Create UniversalAiAdapter from socket path (helper for discovery)
-    async fn create_universal_adapter_from_path(
-        socket_path: &str,
-    ) -> Result<UniversalAiAdapter, PrimalError> {
-        // Parse socket path to extract metadata
-        // Format: /path/to/socket.sock or /path/to/primal-capability.sock
-        let path = PathBuf::from(socket_path);
-        let file_name = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("unknown");
-
-        // Create basic metadata from socket path
-        let metadata = ProviderMetadata {
-            primal_id: file_name.to_string(),
-            name: format!("Universal AI ({file_name})"),
-            is_local: Some(true), // Unix socket implies local
-            quality: Some("standard".to_string()),
-            cost: Some(0.0), // Local providers are free
-            max_tokens: Some(4096),
-            additional: HashMap::new(),
-        };
-
-        let adapter = UniversalAiAdapter::from_discovery(
-            "ai:text-generation", // Default capability
-            path,
-            metadata,
-        );
-
-        // Verify adapter is available
-        if !adapter.is_available().await {
-            return Err(PrimalError::OperationFailed(format!(
-                "Provider at {socket_path} is not available"
-            )));
-        }
-
-        Ok(adapter)
     }
 
     /// Resolve the local AI inference endpoint from environment variables.

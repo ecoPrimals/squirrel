@@ -47,9 +47,7 @@ use crate::primal_names;
 ///
 /// Returns `None` if no discovery service socket is found at any standard location.
 pub fn discover_socket() -> Option<PathBuf> {
-    if let Ok(path) =
-        std::env::var("DISCOVERY_SOCKET").or_else(|_| std::env::var("SONGBIRD_SOCKET"))
-    {
+    if let Ok(path) = std::env::var("DISCOVERY_SOCKET") {
         let p = PathBuf::from(path);
         if p.exists() {
             return Some(p);
@@ -68,9 +66,10 @@ pub fn discover_socket() -> Option<PathBuf> {
     let uid = universal_constants::sys_info::current_uid();
     let dir = primal_names::BIOMEOS_SOCKET_DIR;
     let sock = primal_names::DISCOVERY_SOCKET_NAME;
+    let fallback = universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR;
     let candidates = [
         format!("/run/user/{uid}/{dir}/{sock}"),
-        format!("/tmp/{sock}"),
+        format!("{fallback}/{sock}"),
     ];
 
     candidates

@@ -7,6 +7,7 @@
 //! and observability types live in [`types`].
 
 mod service;
+mod service_swarm;
 mod types;
 
 pub use service::FederationService;

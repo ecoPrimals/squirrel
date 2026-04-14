@@ -56,11 +56,12 @@ async fn run() -> i32 {
     match cli.command {
         Commands::Server {
             port,
+            bind,
             daemon,
             socket,
             verbose,
         } => {
-            if let Err(e) = run_server(port, daemon, socket, verbose).await {
+            if let Err(e) = run_server(port, bind, daemon, socket, verbose).await {
                 error!("Error: {e:?}");
                 return exit_codes::ERROR;
             }
@@ -152,6 +153,7 @@ async fn run_client(
 )]
 async fn run_server(
     port: Option<u16>,
+    bind: Option<String>,
     daemon: bool,
     socket: Option<String>,
     _verbose: bool,
@@ -170,6 +172,9 @@ async fn run_server(
     // CLI arguments override config file
     if let Some(ref s) = socket {
         config.server.socket = Some(s.clone());
+    }
+    if let Some(ref b) = bind {
+        config.server.bind = b.clone();
     }
     if daemon {
         config.server.daemon = true;
@@ -237,13 +242,12 @@ async fn run_server(
         return daemonize_reexec();
     }
 
+    let bind_host = config.server.bind.clone();
+
     info!("Starting JSON-RPC server...");
     info!("Socket: {socket_path}");
     if let Some(p) = port {
-        info!(
-            "Port: {p} (TCP JSON-RPC on {}:{p})",
-            universal_constants::network::LOCALHOST_IPV4
-        );
+        info!("Port: {p} (TCP JSON-RPC on {bind_host}:{p})");
     } else {
         info!("UDS-only mode (no TCP listener)");
     }
@@ -292,7 +296,7 @@ async fn run_server(
         || {
             let s = JsonRpcServer::new(socket_path.clone());
             Arc::new(if let Some(p) = port {
-                s.with_tcp_port(p)
+                s.with_tcp(p, bind_host.clone())
             } else {
                 s
             })
@@ -300,7 +304,7 @@ async fn run_server(
         |router| {
             let s = JsonRpcServer::with_ai_router(socket_path.clone(), router);
             Arc::new(if let Some(p) = port {
-                s.with_tcp_port(p)
+                s.with_tcp(p, bind_host.clone())
             } else {
                 s
             })

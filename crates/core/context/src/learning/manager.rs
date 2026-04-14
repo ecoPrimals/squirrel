@@ -473,32 +473,55 @@ impl ContextLearningManager {
         Ok(())
     }
 
-    /// Extract features from context state
+    /// Extract features from a context state JSON value.
+    ///
+    /// Walks the top-level keys and derives a fixed-length feature vector:
+    /// version, data-field count, synchronization flag, total key count,
+    /// string-field density, and numeric-field density.
     async fn extract_features(context_state: &Value) -> Result<Vec<f64>> {
-        // Simplified feature extraction
-        // In a real implementation, this would extract meaningful features
-        // from the context state
+        let obj = context_state.as_object();
+        let key_count = obj.map_or(0, |o| o.len());
 
-        let features = vec![
-            context_state
-                .get("version")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as f64,
-            context_state
-                .get("data")
-                .map(|d| d.as_object().map(|o| o.len()).unwrap_or(0))
-                .unwrap_or(0) as f64,
-            context_state
-                .get("synchronized")
-                .and_then(|s| s.as_bool())
-                .map(|b| if b { 1.0 } else { 0.0 })
-                .unwrap_or(0.0),
-            1.0, // Placeholder features
-            0.5,
-            0.0,
-        ];
+        let version = context_state
+            .get("version")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as f64;
+        let data_fields = context_state
+            .get("data")
+            .and_then(|d| d.as_object())
+            .map_or(0, |o| o.len()) as f64;
+        let synchronized = context_state
+            .get("synchronized")
+            .and_then(|s| s.as_bool())
+            .map_or(0.0, |b| if b { 1.0 } else { 0.0 });
+        let total_keys = key_count as f64;
+        let (string_count, numeric_count) = obj.map_or((0, 0), |o| {
+            o.values().fold((0usize, 0usize), |(s, n), v| {
+                (
+                    s + usize::from(v.is_string()),
+                    n + usize::from(v.is_number()),
+                )
+            })
+        });
+        let string_density = if key_count > 0 {
+            string_count as f64 / key_count as f64
+        } else {
+            0.0
+        };
+        let numeric_density = if key_count > 0 {
+            numeric_count as f64 / key_count as f64
+        } else {
+            0.0
+        };
 
-        Ok(features)
+        Ok(vec![
+            version,
+            data_fields,
+            synchronized,
+            total_keys,
+            string_density,
+            numeric_density,
+        ])
     }
 
     /// Start a new learning episode

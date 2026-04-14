@@ -42,6 +42,7 @@ mod handlers_inference;
 mod handlers_system;
 mod handlers_tool;
 pub mod ipc_client;
+mod jsonrpc_dispatch;
 mod jsonrpc_handlers;
 pub mod jsonrpc_server;
 pub mod jsonrpc_types;
