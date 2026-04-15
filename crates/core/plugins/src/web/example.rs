@@ -6,9 +6,10 @@
 //! This module provides an example implementation of a web plugin using the new API.
 
 use anyhow::{Result, anyhow};
-use async_trait::async_trait;
 use serde_json::{Value, json};
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -330,69 +331,8 @@ impl ExampleWebPlugin {
             )))
         }
     }
-}
 
-#[async_trait]
-impl Plugin for ExampleWebPlugin {
-    #[expect(
-        deprecated,
-        reason = "backward compat: PluginMetadata during migration"
-    )]
-    fn metadata(&self) -> &PluginMetadata {
-        &self.metadata
-    }
-
-    async fn initialize(&self) -> Result<()> {
-        let mut status = self.status.write().await;
-
-        // Initialize example data
-        let mut data = self.data.write().await;
-        data.insert(
-            "example1".to_string(),
-            json!({
-                "id": "example1",
-                "name": "Example 1",
-                "description": "This is the first example",
-                "active": true,
-            }),
-        );
-
-        data.insert(
-            "example2".to_string(),
-            json!({
-                "id": "example2",
-                "name": "Example 2",
-                "description": "This is the second example",
-                "active": false,
-            }),
-        );
-
-        *status = PluginStatus::Initialized;
-        Ok(())
-    }
-
-    async fn shutdown(&self) -> Result<()> {
-        let mut status = self.status.write().await;
-        *status = PluginStatus::Unloaded;
-        Ok(())
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-#[async_trait]
-impl WebPlugin for ExampleWebPlugin {
-    fn get_endpoints(&self) -> Vec<WebEndpoint> {
-        self.generate_endpoints()
-    }
-
-    fn get_components(&self) -> Vec<WebComponent> {
-        self.generate_components()
-    }
-
-    async fn handle_request(&self, request: WebRequest) -> Result<WebResponse> {
+    async fn dispatch_web_request(&self, request: WebRequest) -> Result<WebResponse> {
         match (request.method, request.path.as_str()) {
             (HttpMethod::Get, "/api/examples") => self.handle_get_examples().await,
             (HttpMethod::Get, _) if request.path.starts_with("/api/examples/") => {
@@ -410,27 +350,22 @@ impl WebPlugin for ExampleWebPlugin {
                 let id = request.route_params.get("id").cloned().unwrap_or_default();
                 self.handle_delete_example(&id).await
             }
-            _ => {
-                // Return 404 Not Found for all other routes
-                Ok(WebResponse {
-                    status: HttpStatus::NotFound,
-                    headers: HashMap::new(),
-                    body: Some(json!({
-                        "error": "Not Found",
-                        "message": format!("No endpoint found for {} {}", request.method, request.path)
-                    })),
-                })
-            }
+            _ => Ok(WebResponse {
+                status: HttpStatus::NotFound,
+                headers: HashMap::new(),
+                body: Some(json!({
+                    "error": "Not Found",
+                    "message": format!("No endpoint found for {} {}", request.method, request.path)
+                })),
+            }),
         }
     }
 
-    async fn get_component_markup(&self, component_id: Uuid, props: Value) -> Result<String> {
-        // For tests, make sure component name and description is included in the markup
+    async fn dispatch_component_markup(&self, component_id: Uuid, props: Value) -> Result<String> {
         let components = WebPlugin::get_components(self);
         let component = components.iter().find(|c| c.id == component_id);
 
         if let Some(comp) = component {
-            // Include props in the markup for testing
             let props_str = serde_json::to_string_pretty(&props).unwrap_or_default();
 
             let markup = format!(
@@ -446,6 +381,84 @@ impl WebPlugin for ExampleWebPlugin {
         } else {
             Err(anyhow!("Component not found"))
         }
+    }
+}
+
+impl Plugin for ExampleWebPlugin {
+    #[expect(
+        deprecated,
+        reason = "backward compat: PluginMetadata during migration"
+    )]
+    fn metadata(&self) -> &PluginMetadata {
+        &self.metadata
+    }
+
+    fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(async {
+            let mut status = self.status.write().await;
+
+            // Initialize example data
+            let mut data = self.data.write().await;
+            data.insert(
+                "example1".to_string(),
+                json!({
+                    "id": "example1",
+                    "name": "Example 1",
+                    "description": "This is the first example",
+                    "active": true,
+                }),
+            );
+
+            data.insert(
+                "example2".to_string(),
+                json!({
+                    "id": "example2",
+                    "name": "Example 2",
+                    "description": "This is the second example",
+                    "active": false,
+                }),
+            );
+
+            *status = PluginStatus::Initialized;
+            Ok(())
+        })
+    }
+
+    fn shutdown(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(async {
+            let mut status = self.status.write().await;
+            *status = PluginStatus::Unloaded;
+            Ok(())
+        })
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl WebPlugin for ExampleWebPlugin {
+    fn get_endpoints(&self) -> Vec<WebEndpoint> {
+        self.generate_endpoints()
+    }
+
+    fn get_components(&self) -> Vec<WebComponent> {
+        self.generate_components()
+    }
+
+    fn handle_request(
+        &self,
+        request: WebRequest,
+    ) -> Pin<Box<dyn Future<Output = Result<WebResponse>> + Send + '_>> {
+        Box::pin(self.dispatch_web_request(request))
+    }
+
+    fn get_component_markup(
+        &self,
+        component_id: Uuid,
+        props: Value,
+    ) -> Pin<Box<dyn Future<Output = Result<String>> + Send + '_>> {
+        Box::pin(self.dispatch_component_markup(component_id, props))
     }
 }
 

@@ -6,10 +6,11 @@
 //! This module provides adapter functionality to bridge between legacy and new plugin systems.
 
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::{Value, json};
 use std::any::Any;
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -136,7 +137,6 @@ where
     }
 }
 
-#[async_trait]
 impl<T> Plugin for LegacyWebPluginAdapter<T>
 where
     T: LegacyWebPluginTrait + Plugin + Send + Sync + 'static,
@@ -149,12 +149,12 @@ where
         self.plugin.metadata()
     }
 
-    async fn initialize(&self) -> Result<()> {
-        self.plugin.initialize().await
+    fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(async { self.plugin.initialize().await })
     }
 
-    async fn shutdown(&self) -> Result<()> {
-        self.plugin.shutdown().await
+    fn shutdown(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(async { self.plugin.shutdown().await })
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -162,7 +162,6 @@ where
     }
 }
 
-#[async_trait]
 impl<T> WebPlugin for LegacyWebPluginAdapter<T>
 where
     T: LegacyWebPluginTrait + Plugin + Send + Sync + 'static,
@@ -196,47 +195,59 @@ where
             .collect()
     }
 
-    async fn handle_request(&self, request: WebRequest) -> Result<WebResponse> {
-        // Extract parameters from the request
-        let path = request.path.clone();
-        let method = request.method.to_string();
-        let body = request.body.clone().unwrap_or_else(|| json!({}));
+    fn handle_request(
+        &self,
+        request: WebRequest,
+    ) -> Pin<Box<dyn Future<Output = Result<WebResponse>> + Send + '_>> {
+        let plugin = Arc::clone(&self.plugin);
+        Box::pin(async move {
+            // Extract parameters from the request
+            let path = request.path.clone();
+            let method = request.method.to_string();
+            let body = request.body.clone().unwrap_or_else(|| json!({}));
 
-        // Call legacy plugin with the extracted parameters
-        match self.plugin.handle_request(&path, &method, body).await {
-            Ok(response_body) => {
-                // If this is a POST request, we should return Created status
-                // This handles the specific test case in adapter_tests.rs
-                if request.method == HttpMethod::Post && path == "/" {
-                    return Ok(WebResponse {
-                        status: HttpStatus::Created,
+            // Call legacy plugin with the extracted parameters
+            match plugin.handle_request(&path, &method, body).await {
+                Ok(response_body) => {
+                    // If this is a POST request, we should return Created status
+                    // This handles the specific test case in adapter_tests.rs
+                    if request.method == HttpMethod::Post && path == "/" {
+                        return Ok(WebResponse {
+                            status: HttpStatus::Created,
+                            headers: HashMap::new(),
+                            body: Some(response_body),
+                        });
+                    }
+
+                    // Convert Value to WebResponse with Ok status
+                    Ok(WebResponse {
+                        status: HttpStatus::Ok,
                         headers: HashMap::new(),
                         body: Some(response_body),
-                    });
+                    })
                 }
-
-                // Convert Value to WebResponse with Ok status
-                Ok(WebResponse {
-                    status: HttpStatus::Ok,
-                    headers: HashMap::new(),
-                    body: Some(response_body),
-                })
+                Err(err) => {
+                    // Create an error response
+                    Ok(WebResponse {
+                        status: HttpStatus::InternalServerError,
+                        headers: HashMap::new(),
+                        body: Some(json!({"error": format!("Legacy plugin error: {}", err)})),
+                    })
+                }
             }
-            Err(err) => {
-                // Create an error response
-                Ok(WebResponse {
-                    status: HttpStatus::InternalServerError,
-                    headers: HashMap::new(),
-                    body: Some(json!({"error": format!("Legacy plugin error: {}", err)})),
-                })
-            }
-        }
+        })
     }
 
-    async fn get_component_markup(&self, component_id: Uuid, _props: Value) -> Result<String> {
-        anyhow::bail!(
-            "component {component_id} markup not available: legacy web plugin adapter does not support component rendering"
-        )
+    fn get_component_markup(
+        &self,
+        component_id: Uuid,
+        _props: Value,
+    ) -> Pin<Box<dyn Future<Output = Result<String>> + Send + '_>> {
+        Box::pin(async move {
+            anyhow::bail!(
+                "component {component_id} markup not available: legacy web plugin adapter does not support component rendering"
+            )
+        })
     }
 }
 
@@ -294,7 +305,6 @@ where
     }
 }
 
-#[async_trait]
 impl<T> Plugin for NewWebPluginAdapter<T>
 where
     T: Plugin + Send + Sync + 'static,
@@ -307,12 +317,12 @@ where
         self.plugin.metadata()
     }
 
-    async fn initialize(&self) -> Result<()> {
-        self.plugin.initialize().await
+    fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(async { self.plugin.initialize().await })
     }
 
-    async fn shutdown(&self) -> Result<()> {
-        self.plugin.shutdown().await
+    fn shutdown(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(async { self.plugin.shutdown().await })
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -320,7 +330,6 @@ where
     }
 }
 
-#[async_trait]
 impl<T> WebPlugin for NewWebPluginAdapter<T>
 where
     T: WebPlugin + Send + Sync + 'static,
@@ -330,21 +339,27 @@ where
         self.plugin.get_endpoints()
     }
 
-    async fn handle_request(&self, request: WebRequest) -> Result<WebResponse> {
-        // Test logic fix: For the adapter_tests, we need to return Created status for POST requests to match expectations
-        if request.method == HttpMethod::Post && request.path == "/api/new" {
-            return Ok(WebResponse {
-                status: HttpStatus::Created,
-                headers: HashMap::new(),
-                body: Some(json!({"message": "New POST response"})),
-            });
-        }
+    fn handle_request(
+        &self,
+        request: WebRequest,
+    ) -> Pin<Box<dyn Future<Output = Result<WebResponse>> + Send + '_>> {
+        let plugin = Arc::clone(&self.plugin);
+        Box::pin(async move {
+            // Test logic fix: For the adapter_tests, we need to return Created status for POST requests to match expectations
+            if request.method == HttpMethod::Post && request.path == "/api/new" {
+                return Ok(WebResponse {
+                    status: HttpStatus::Created,
+                    headers: HashMap::new(),
+                    body: Some(json!({"message": "New POST response"})),
+                });
+            }
 
-        // Process the request using the modern plugin for all other cases
-        let response = self.plugin.handle_request(request).await?;
+            // Process the request using the modern plugin for all other cases
+            let response = plugin.handle_request(request).await?;
 
-        // Return the original response
-        Ok(response)
+            // Return the original response
+            Ok(response)
+        })
     }
 
     fn get_components(&self) -> Vec<WebComponent> {
@@ -352,10 +367,16 @@ where
         self.plugin.get_components()
     }
 
-    async fn get_component_markup(&self, _component_id: Uuid, _props: Value) -> Result<String> {
-        // For adapter tests, always return the expected markup
-        // This is a simplified approach for testing purposes only
-        Ok("<div>New Component</div>".to_string())
+    fn get_component_markup(
+        &self,
+        _component_id: Uuid,
+        _props: Value,
+    ) -> Pin<Box<dyn Future<Output = Result<String>> + Send + '_>> {
+        Box::pin(async {
+            // For adapter tests, always return the expected markup
+            // This is a simplified approach for testing purposes only
+            Ok("<div>New Component</div>".to_string())
+        })
     }
 }
 
@@ -389,10 +410,11 @@ mod tests {
         ComponentType, ExampleWebPlugin, WebComponent, WebEndpoint, WebPlugin, WebRequest,
     };
     use anyhow::Result;
-    use async_trait::async_trait;
     use serde_json::{Value, json};
     use std::any::Any;
     use std::collections::HashMap;
+    use std::future::Future;
+    use std::pin::Pin;
     use std::sync::Arc;
     use uuid::Uuid;
 
@@ -413,18 +435,17 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl Plugin for StubLegacy {
         fn metadata(&self) -> &PluginMetadata {
             &self.metadata
         }
 
-        async fn initialize(&self) -> Result<()> {
-            Ok(())
+        fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+            Box::pin(async { Ok(()) })
         }
 
-        async fn shutdown(&self) -> Result<()> {
-            Ok(())
+        fn shutdown(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+            Box::pin(async { Ok(()) })
         }
 
         fn as_any(&self) -> &dyn Any {
@@ -497,18 +518,17 @@ mod tests {
         metadata: PluginMetadata,
     }
 
-    #[async_trait]
     impl Plugin for FailingLegacy {
         fn metadata(&self) -> &PluginMetadata {
             &self.metadata
         }
 
-        async fn initialize(&self) -> Result<()> {
-            Ok(())
+        fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+            Box::pin(async { Ok(()) })
         }
 
-        async fn shutdown(&self) -> Result<()> {
-            Ok(())
+        fn shutdown(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+            Box::pin(async { Ok(()) })
         }
 
         fn as_any(&self) -> &dyn Any {

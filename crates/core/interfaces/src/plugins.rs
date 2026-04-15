@@ -7,12 +7,14 @@
 //! These interfaces are used by multiple components in the Squirrel ecosystem.
 //!
 //! [`Plugin`] uses `impl Future<Output = _> + Send` for async methods so futures are
-//! `Send` and can be forwarded from object-safe [`DynPlugin`].
+//! `Send`. Object-safe [`DynPlugin`] exposes the same operations via
+//! `Pin<Box<dyn Future<...>>>` so `dyn DynPlugin` works without the `async_trait` crate.
 
 use anyhow::Result;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::future::Future;
+use std::pin::Pin;
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 /// Metadata about a plugin
@@ -125,30 +127,31 @@ pub trait Plugin: Send + Sync + Debug {
 }
 
 /// Object-safe projection of [`Plugin`] for heterogeneous registries.
-#[async_trait]
+///
+/// Async methods use `Pin<Box<dyn Future<...>>>` so the trait remains `dyn`-safe without
+/// the `async_trait` crate (native `async fn` in traits is not object-safe).
 pub trait DynPlugin: Send + Sync + Debug {
     /// Get plugin metadata
     fn metadata(&self) -> &PluginMetadata;
 
     /// Initialize the plugin
-    async fn initialize(&self) -> Result<()>;
+    fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>>;
 
     /// Shutdown the plugin
-    async fn shutdown(&self) -> Result<()>;
+    fn shutdown(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>>;
 }
 
-#[async_trait]
 impl<T: Plugin + Send + Sync> DynPlugin for T {
     fn metadata(&self) -> &PluginMetadata {
         Plugin::metadata(self)
     }
 
-    async fn initialize(&self) -> Result<()> {
-        Plugin::initialize(self).await
+    fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(Plugin::initialize(self))
     }
 
-    async fn shutdown(&self) -> Result<()> {
-        Plugin::shutdown(self).await
+    fn shutdown(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(Plugin::shutdown(self))
     }
 }
 

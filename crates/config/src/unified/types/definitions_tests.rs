@@ -176,13 +176,19 @@ fn database_backend_default_is_sqlite() {
 #[test]
 fn database_backend_serializes_roundtrip() {
     for backend in [
-        DatabaseBackend::NestGate,
+        DatabaseBackend::ContentAddressed,
         DatabaseBackend::PostgreSQL,
         DatabaseBackend::SQLite,
         DatabaseBackend::Memory,
     ] {
         assert_serde_json_roundtrip(&backend);
     }
+}
+
+#[test]
+fn database_backend_deserializes_nestgate_alias() {
+    let v: DatabaseBackend = serde_json::from_str("\"nestgate\"").expect("alias");
+    assert!(matches!(v, DatabaseBackend::ContentAddressed));
 }
 
 #[test]

@@ -81,16 +81,16 @@ pub type WebPluginEndpoint = WebEndpoint;
 pub use WebPlugin as WebPluginExt;
 
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::Value;
+use std::future::Future;
+use std::pin::Pin;
 use uuid::Uuid;
 
 use crate::DefaultPluginManager;
 use crate::plugin::Plugin;
 use crate::registry::PluginRegistry;
 
-/// Web plugin trait
-#[async_trait]
+/// Web plugin trait (`dyn`-safe via boxed futures on async methods).
 pub trait WebPlugin: Plugin {
     /// Get web endpoints provided by this plugin
     fn get_endpoints(&self) -> Vec<WebEndpoint>;
@@ -98,7 +98,10 @@ pub trait WebPlugin: Plugin {
     /// Handle web request
     ///
     /// This method is called when a request matches one of the plugin's endpoints
-    async fn handle_request(&self, request: WebRequest) -> Result<WebResponse>;
+    fn handle_request(
+        &self,
+        request: WebRequest,
+    ) -> Pin<Box<dyn Future<Output = Result<WebResponse>> + Send + '_>>;
 
     /// Get web components provided by this plugin
     fn get_components(&self) -> Vec<WebComponent>;
@@ -106,7 +109,11 @@ pub trait WebPlugin: Plugin {
     /// Get component markup
     ///
     /// This method is called to render a component with the given properties
-    async fn get_component_markup(&self, component_id: Uuid, props: Value) -> Result<String>;
+    fn get_component_markup(
+        &self,
+        component_id: Uuid,
+        props: Value,
+    ) -> Pin<Box<dyn Future<Output = Result<String>> + Send + '_>>;
 
     /// Check if plugin supports the given endpoint
     fn supports_endpoint(&self, path: &str, method: HttpMethod) -> bool {

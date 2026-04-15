@@ -31,7 +31,7 @@ use universal_constants::network::resolve_capability_unix_socket;
 
 /// Security provider client configuration
 #[derive(Debug, Clone)]
-pub struct BearDogClientConfig {
+pub struct SecurityProviderClientConfig {
     /// Path to security provider's crypto Unix socket
     pub socket_path: String,
 
@@ -45,7 +45,7 @@ pub struct BearDogClientConfig {
     pub retry_delay_ms: u64,
 }
 
-impl Default for BearDogClientConfig {
+impl Default for SecurityProviderClientConfig {
     fn default() -> Self {
         Self {
             socket_path: resolve_capability_unix_socket(
@@ -66,12 +66,12 @@ impl Default for BearDogClientConfig {
 /// # Examples
 ///
 /// ```no_run
-/// use squirrel_mcp_auth::security_provider_client::{BearDogClient, BearDogClientConfig};
+/// use squirrel_mcp_auth::security_provider_client::{SecurityProviderClient, SecurityProviderClientConfig};
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
-///     let config = BearDogClientConfig::default();
-///     let client = BearDogClient::new(config)?;
+///     let config = SecurityProviderClientConfig::default();
+///     let client = SecurityProviderClient::new(config)?;
 ///
 ///     let data = b"Hello, ecoPrimals!";
 ///     let signature = client.ed25519_sign(data, "my-key-id").await?;
@@ -81,18 +81,18 @@ impl Default for BearDogClientConfig {
 ///     Ok(())
 /// }
 /// ```
-pub struct BearDogClient {
-    config: BearDogClientConfig,
+pub struct SecurityProviderClient {
+    config: SecurityProviderClientConfig,
     request_id: std::sync::atomic::AtomicU64,
 }
 
-impl BearDogClient {
+impl SecurityProviderClient {
     /// Create a new security provider client
     ///
     /// # Errors
     ///
     /// Returns [`anyhow::Error`] if the client cannot be initialized.
-    pub fn new(config: BearDogClientConfig) -> Result<Self> {
+    pub fn new(config: SecurityProviderClientConfig) -> Result<Self> {
         // Validate socket path exists (in production)
         if !Path::new(&config.socket_path).exists() {
             warn!(
@@ -331,6 +331,14 @@ struct JsonRpcError {
     data: Option<JsonValue>,
 }
 
+/// Deprecated alias for [`SecurityProviderClientConfig`].
+#[deprecated(since = "0.1.0", note = "Use SecurityProviderClientConfig")]
+pub type BearDogClientConfig = SecurityProviderClientConfig;
+
+/// Deprecated alias for [`SecurityProviderClient`].
+#[deprecated(since = "0.1.0", note = "Use SecurityProviderClient")]
+pub type BearDogClient = SecurityProviderClient;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -350,7 +358,7 @@ mod tests {
                 "XDG_RUNTIME_DIR",
             ],
             || {
-                let config = BearDogClientConfig::default();
+                let config = SecurityProviderClientConfig::default();
                 assert!(
                     config.socket_path.ends_with("crypto-provider.sock")
                         && (config.socket_path.starts_with("/tmp/biomeos/")
@@ -367,22 +375,22 @@ mod tests {
 
     #[test]
     fn test_beardog_client_creation() {
-        let config = BearDogClientConfig::default();
-        let client = BearDogClient::new(config);
+        let config = SecurityProviderClientConfig::default();
+        let client = SecurityProviderClient::new(config);
 
         assert!(client.is_ok());
     }
 
     #[test]
     fn test_beardog_client_custom_config() {
-        let config = BearDogClientConfig {
+        let config = SecurityProviderClientConfig {
             socket_path: "/tmp/test-beardog.sock".to_string(),
             timeout_secs: 10,
             max_retries: 5,
             retry_delay_ms: 200,
         };
 
-        let client = BearDogClient::new(config).expect("should succeed");
+        let client = SecurityProviderClient::new(config).expect("should succeed");
         assert_eq!(client.config.socket_path, "/tmp/test-beardog.sock");
         assert_eq!(client.config.timeout_secs, 10);
         assert_eq!(client.config.max_retries, 5);
@@ -391,18 +399,18 @@ mod tests {
 
     #[test]
     fn test_beardog_client_creation_nonexistent_socket() {
-        let config = BearDogClientConfig {
+        let config = SecurityProviderClientConfig {
             socket_path: "/nonexistent/path/crypto.sock".to_string(),
             ..Default::default()
         };
-        let client = BearDogClient::new(config);
+        let client = SecurityProviderClient::new(config);
         assert!(client.is_ok());
     }
 
     #[test]
     fn test_request_id_increments() {
-        let config = BearDogClientConfig::default();
-        let client = BearDogClient::new(config).expect("should succeed");
+        let config = SecurityProviderClientConfig::default();
+        let client = SecurityProviderClient::new(config).expect("should succeed");
 
         let id1 = client.next_request_id();
         let id2 = client.next_request_id();
@@ -446,13 +454,13 @@ mod tests {
                 stream.write_all(b"\n").await.expect("should succeed");
             });
 
-            let config = BearDogClientConfig {
+            let config = SecurityProviderClientConfig {
                 socket_path: path_str.clone(),
                 timeout_secs: 5,
                 max_retries: 1,
                 retry_delay_ms: 10,
             };
-            let client = BearDogClient::new(config).expect("should succeed");
+            let client = SecurityProviderClient::new(config).expect("should succeed");
             let sig = client.ed25519_sign(b"hello", "test-key").await;
 
             let _ = server_handle.await;
@@ -493,13 +501,13 @@ mod tests {
                 stream.write_all(b"\n").await.expect("should succeed");
             });
 
-            let config = BearDogClientConfig {
+            let config = SecurityProviderClientConfig {
                 socket_path: path_str.clone(),
                 timeout_secs: 5,
                 max_retries: 1,
                 retry_delay_ms: 10,
             };
-            let client = BearDogClient::new(config).expect("should succeed");
+            let client = SecurityProviderClient::new(config).expect("should succeed");
             let valid = client.ed25519_verify(b"data", b"signature", "key-1").await;
 
             let _ = server_handle.await;
@@ -539,13 +547,13 @@ mod tests {
                 stream.write_all(b"\n").await.expect("should succeed");
             });
 
-            let config = BearDogClientConfig {
+            let config = SecurityProviderClientConfig {
                 socket_path: path_str.clone(),
                 timeout_secs: 5,
                 max_retries: 1,
                 retry_delay_ms: 10,
             };
-            let client = BearDogClient::new(config).expect("should succeed");
+            let client = SecurityProviderClient::new(config).expect("should succeed");
             let valid = client.ed25519_verify(b"data", b"bad-sig", "key-1").await;
 
             let _ = server_handle.await;
@@ -559,13 +567,13 @@ mod tests {
     fn test_ed25519_sign_no_socket_fails() {
         let rt = tokio::runtime::Runtime::new().expect("should succeed");
         let result = rt.block_on(async {
-            let config = BearDogClientConfig {
+            let config = SecurityProviderClientConfig {
                 socket_path: "/nonexistent/socket/path.sock".to_string(),
                 timeout_secs: 1,
                 max_retries: 1,
                 retry_delay_ms: 10,
             };
-            let client = BearDogClient::new(config).expect("should succeed");
+            let client = SecurityProviderClient::new(config).expect("should succeed");
             client.ed25519_sign(b"data", "key").await
         });
         assert!(result.is_err());
@@ -600,13 +608,13 @@ mod tests {
                 stream.write_all(b"\n").await.expect("should succeed");
             });
 
-            let config = BearDogClientConfig {
+            let config = SecurityProviderClientConfig {
                 socket_path: path_str.clone(),
                 timeout_secs: 5,
                 max_retries: 1,
                 retry_delay_ms: 10,
             };
-            let client = BearDogClient::new(config).expect("should succeed");
+            let client = SecurityProviderClient::new(config).expect("should succeed");
             let sig = client.ed25519_sign(b"data", "key").await;
 
             let _ = server_handle.await;

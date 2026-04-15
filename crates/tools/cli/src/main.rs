@@ -10,7 +10,7 @@ use squirrel_cli::commands::{executor::ExecutionContext, register_commands};
 use std::env;
 use std::process;
 use std::sync::Arc;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 /// Squirrel CLI application entry point
 #[tokio::main]
@@ -155,7 +155,7 @@ async fn main() {
                     match serde_json::to_string_pretty(&status_json) {
                         Ok(json_string) => println!("{json_string}"),
                         Err(e) => {
-                            eprintln!("Error serializing status to JSON: {e}");
+                            error!("Error serializing status to JSON: {e}");
                             process::exit(1);
                         }
                     }
@@ -196,7 +196,7 @@ async fn main() {
                         match serde_json::to_string_pretty(&config_json) {
                             Ok(json_string) => println!("{json_string}"),
                             Err(e) => {
-                                eprintln!("Error serializing config to JSON: {e}");
+                                error!("Error serializing config to JSON: {e}");
                                 process::exit(1);
                             }
                         }
@@ -271,8 +271,8 @@ async fn main() {
             }
             cmd => {
                 // Invalid command
-                eprintln!("Error: Command '{cmd}' not found");
-                eprintln!("Run 'squirrel help' for a list of available commands");
+                error!("Error: Command '{cmd}' not found");
+                error!("Run 'squirrel help' for a list of available commands");
                 process::exit(1);
             }
         }

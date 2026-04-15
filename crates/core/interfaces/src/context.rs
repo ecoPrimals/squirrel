@@ -5,12 +5,15 @@
 //!
 //! Core traits use `impl Future<Output = _> + Send` so implementations are `Send`.
 //! Object-safe [`DynContextTransformation`], [`DynContextPlugin`], and
-//! [`DynContextAdapterPlugin`] support heterogeneous collections.
+//! [`DynContextAdapterPlugin`] use `Pin<Box<dyn Future<...>>>` for async methods so they
+//! remain `dyn`-compatible without the `async_trait` crate (native `async fn` in traits is
+//! not object-safe). [`ContextManager`] uses native `async fn` and is not used as a trait object.
 
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::Value;
 use std::fmt::Debug;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use crate::plugins::{DynPlugin, Plugin};
@@ -34,7 +37,9 @@ pub trait ContextTransformation: Send + Sync + Debug {
 }
 
 /// Object-safe projection of [`ContextTransformation`] for heterogeneous collections.
-#[async_trait]
+///
+/// [`transform`](DynContextTransformation::transform) returns a boxed future so this trait
+/// stays `dyn`-compatible without `async_trait`.
 pub trait DynContextTransformation: Send + Sync + Debug {
     /// Get the transformation ID
     fn get_id(&self) -> &str;
@@ -46,10 +51,9 @@ pub trait DynContextTransformation: Send + Sync + Debug {
     fn get_description(&self) -> &str;
 
     /// Transform context data
-    async fn transform(&self, data: Value) -> Result<Value>;
+    fn transform(&self, data: Value) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>>;
 }
 
-#[async_trait]
 impl<T: ContextTransformation + Send + Sync> DynContextTransformation for T {
     fn get_id(&self) -> &str {
         ContextTransformation::get_id(self)
@@ -63,8 +67,8 @@ impl<T: ContextTransformation + Send + Sync> DynContextTransformation for T {
         ContextTransformation::get_description(self)
     }
 
-    async fn transform(&self, data: Value) -> Result<Value> {
-        ContextTransformation::transform(self, data).await
+    fn transform(&self, data: Value) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>> {
+        Box::pin(ContextTransformation::transform(self, data))
     }
 }
 
@@ -101,23 +105,37 @@ pub trait ContextPlugin: Plugin + Send + Sync {
 }
 
 /// Object-safe projection of [`ContextPlugin`] for registries.
-#[async_trait]
 pub trait DynContextPlugin: DynPlugin {
     /// Get available context transformations
-    async fn get_transformations(&self) -> Vec<Arc<dyn DynContextTransformation>>;
+    #[expect(
+        clippy::type_complexity,
+        reason = "dyn-safe async trait; Pin<Box<Future<...>>>"
+    )]
+    fn get_transformations(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = Vec<Arc<dyn DynContextTransformation>>> + Send + '_>>;
 
     /// Get available adapters
-    async fn get_adapters(&self) -> Vec<Arc<dyn DynContextAdapterPlugin>>;
+    #[expect(
+        clippy::type_complexity,
+        reason = "dyn-safe async trait; Pin<Box<Future<...>>>"
+    )]
+    fn get_adapters(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = Vec<Arc<dyn DynContextAdapterPlugin>>> + Send + '_>>;
 }
 
-#[async_trait]
 impl<T: ContextPlugin + Send + Sync> DynContextPlugin for T {
-    async fn get_transformations(&self) -> Vec<Arc<dyn DynContextTransformation>> {
-        ContextPlugin::get_transformations(self).await
+    fn get_transformations(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = Vec<Arc<dyn DynContextTransformation>>> + Send + '_>> {
+        Box::pin(ContextPlugin::get_transformations(self))
     }
 
-    async fn get_adapters(&self) -> Vec<Arc<dyn DynContextAdapterPlugin>> {
-        ContextPlugin::get_adapters(self).await
+    fn get_adapters(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = Vec<Arc<dyn DynContextAdapterPlugin>>> + Send + '_>> {
+        Box::pin(ContextPlugin::get_adapters(self))
     }
 }
 
@@ -150,23 +168,21 @@ pub trait ContextAdapterPlugin: Plugin + Send + Sync + Debug {
 }
 
 /// Object-safe projection of [`ContextAdapterPlugin`].
-#[async_trait]
 pub trait DynContextAdapterPlugin: DynPlugin {
     /// Get the adapter metadata
-    async fn get_metadata(&self) -> AdapterMetadata;
+    fn get_metadata(&self) -> Pin<Box<dyn Future<Output = AdapterMetadata> + Send + '_>>;
 
     /// Convert data from source format to target format
-    async fn convert(&self, data: Value) -> Result<Value>;
+    fn convert(&self, data: Value) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>>;
 }
 
-#[async_trait]
 impl<T: ContextAdapterPlugin + Send + Sync> DynContextAdapterPlugin for T {
-    async fn get_metadata(&self) -> AdapterMetadata {
-        ContextAdapterPlugin::get_metadata(self).await
+    fn get_metadata(&self) -> Pin<Box<dyn Future<Output = AdapterMetadata> + Send + '_>> {
+        Box::pin(ContextAdapterPlugin::get_metadata(self))
     }
 
-    async fn convert(&self, data: Value) -> Result<Value> {
-        ContextAdapterPlugin::convert(self, data).await
+    fn convert(&self, data: Value) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>> {
+        Box::pin(ContextAdapterPlugin::convert(self, data))
     }
 }
 

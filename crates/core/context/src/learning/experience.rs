@@ -9,8 +9,6 @@
 
 use chrono::{DateTime, Utc};
 use rand::prelude::*;
-use rand::seq::SliceRandom;
-use rand::thread_rng;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -107,7 +105,7 @@ impl ExperienceBuffer {
 
     /// Sample random experiences
     pub fn sample_uniform(&self, batch_size: usize) -> Vec<RLExperience> {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let experiences: Vec<_> = self.experiences.iter().cloned().collect();
 
         experiences
@@ -239,11 +237,11 @@ impl ExperienceReplay {
         let mut sampled_experiences = Vec::new();
         let mut sampled_indices = Vec::new();
         let mut weights = Vec::new();
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         for _ in 0..batch_size {
             let mut cumulative_prob = 0.0;
-            let random_prob = rng.r#gen::<f64>() * total_priority;
+            let random_prob = rng.random::<f64>() * total_priority;
 
             for (i, &priority) in priorities.iter().enumerate() {
                 cumulative_prob += priority;
@@ -304,7 +302,7 @@ impl ExperienceReplay {
         // Sample based on temporal weights
         let mut sampled_experiences = Vec::new();
         let mut sampled_indices = Vec::new();
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         for _ in 0..batch_size {
             let weighted_choices: Vec<_> =
@@ -347,7 +345,7 @@ impl ExperienceReplay {
 
         let mut sampled_experiences = Vec::new();
         let mut sampled_indices = Vec::new();
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         // Sample recent experiences
         let recent_sample = recent_experiences.choose_multiple(&mut rng, recent_count);

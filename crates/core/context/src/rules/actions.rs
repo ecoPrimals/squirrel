@@ -306,10 +306,11 @@ mod tests {
     use crate::rules::models::{Rule, RuleAction, RuleMetadata};
     use crate::rules::{ContextPlugin as RulesContextPlugin, RulePluginManager};
     use crate::rules::{NoOpPluginManager, RuleError};
-    use async_trait::async_trait;
     use serde_json::Value;
     use serde_json::json;
     use squirrel_interfaces::context::{ContextTransformation, DynContextTransformation};
+    use std::future::Future;
+    use std::pin::Pin;
     use std::sync::Arc;
 
     #[derive(Debug)]
@@ -340,36 +341,57 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl RulesContextPlugin for TestPlugin {
-        async fn get_transformation(
+        fn get_transformation(
             &self,
             id: &str,
-        ) -> anyhow::Result<Arc<dyn DynContextTransformation>> {
-            self.transforms
-                .iter()
-                .find(|t| t.get_id() == id)
-                .cloned()
-                .ok_or_else(|| anyhow::anyhow!("Transformation not found: {id}"))
+        ) -> Pin<
+            Box<dyn Future<Output = anyhow::Result<Arc<dyn DynContextTransformation>>> + Send + '_>,
+        > {
+            let id_owned = id.to_string();
+            let found = self.transforms.iter().find(|t| t.get_id() == id).cloned();
+            Box::pin(async move {
+                found.ok_or_else(|| anyhow::anyhow!("Transformation not found: {}", id_owned))
+            })
         }
 
-        async fn get_adapter(
+        fn get_adapter(
             &self,
             id: &str,
-        ) -> anyhow::Result<Arc<dyn crate::rules::ContextAdapterDyn>> {
-            Err(anyhow::anyhow!("Adapter not found: {id}"))
+        ) -> Pin<
+            Box<
+                dyn Future<Output = anyhow::Result<Arc<dyn crate::rules::ContextAdapterDyn>>>
+                    + Send
+                    + '_,
+            >,
+        > {
+            let id = id.to_string();
+            Box::pin(async move { Err(anyhow::anyhow!("Adapter not found: {id}")) })
         }
 
-        async fn get_transformations(
+        fn get_transformations(
             &self,
-        ) -> anyhow::Result<Vec<Arc<dyn DynContextTransformation>>> {
-            Ok(self.transforms.clone())
+        ) -> Pin<
+            Box<
+                dyn Future<Output = anyhow::Result<Vec<Arc<dyn DynContextTransformation>>>>
+                    + Send
+                    + '_,
+            >,
+        > {
+            let transforms = self.transforms.clone();
+            Box::pin(async move { Ok(transforms) })
         }
 
-        async fn get_adapters(
+        fn get_adapters(
             &self,
-        ) -> anyhow::Result<Vec<Arc<dyn crate::rules::ContextAdapterDyn>>> {
-            Ok(Vec::new())
+        ) -> Pin<
+            Box<
+                dyn Future<Output = anyhow::Result<Vec<Arc<dyn crate::rules::ContextAdapterDyn>>>>
+                    + Send
+                    + '_,
+            >,
+        > {
+            Box::pin(async { Ok(Vec::new()) })
         }
     }
 

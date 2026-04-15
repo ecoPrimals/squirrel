@@ -29,7 +29,6 @@ mod plugin;
 mod repository;
 mod tests;
 
-use async_trait::async_trait;
 use serde_json::Value;
 use std::future::Future;
 use std::path::Path;
@@ -121,7 +120,9 @@ impl<T: ContextAdapter + 'static> ContextAdapterDyn for T {
 }
 
 /// Minimal ContextPlugin trait for testing purposes
-#[async_trait]
+///
+/// Async methods use explicit `Pin<Box<dyn Future>>` so the trait stays object-safe for
+/// `Arc<dyn ContextPlugin>`.
 pub trait ContextPlugin: Send + Sync + std::fmt::Debug {
     /// Retrieve a specific context transformation by ID
     ///
@@ -130,8 +131,14 @@ pub trait ContextPlugin: Send + Sync + std::fmt::Debug {
     ///
     /// # Returns
     /// An Arc-wrapped ContextTransformation if found, or an error if not found
-    async fn get_transformation(&self, id: &str)
-    -> AnyhowResult<Arc<dyn DynContextTransformation>>;
+    #[expect(
+        clippy::type_complexity,
+        reason = "object-safe async trait; Pin<Box<Future<...>>>"
+    )]
+    fn get_transformation(
+        &self,
+        id: &str,
+    ) -> Pin<Box<dyn Future<Output = AnyhowResult<Arc<dyn DynContextTransformation>>> + Send + '_>>;
 
     /// Retrieve a specific context adapter by ID
     ///
@@ -140,19 +147,40 @@ pub trait ContextPlugin: Send + Sync + std::fmt::Debug {
     ///
     /// # Returns
     /// An Arc-wrapped [`ContextAdapterDyn`] if found, or an error if not found
-    async fn get_adapter(&self, id: &str) -> AnyhowResult<Arc<dyn ContextAdapterDyn>>;
+    #[expect(
+        clippy::type_complexity,
+        reason = "object-safe async trait; Pin<Box<Future<...>>>"
+    )]
+    fn get_adapter(
+        &self,
+        id: &str,
+    ) -> Pin<Box<dyn Future<Output = AnyhowResult<Arc<dyn ContextAdapterDyn>>> + Send + '_>>;
 
     /// Retrieve all available context transformations
     ///
     /// # Returns
     /// A vector of Arc-wrapped ContextTransformation instances
-    async fn get_transformations(&self) -> AnyhowResult<Vec<Arc<dyn DynContextTransformation>>>;
+    #[expect(
+        clippy::type_complexity,
+        reason = "object-safe async trait; Pin<Box<Future<...>>>"
+    )]
+    fn get_transformations(
+        &self,
+    ) -> Pin<
+        Box<dyn Future<Output = AnyhowResult<Vec<Arc<dyn DynContextTransformation>>>> + Send + '_>,
+    >;
 
     /// Retrieve all available context adapters
     ///
     /// # Returns
     /// A vector of Arc-wrapped [`ContextAdapterDyn`] instances
-    async fn get_adapters(&self) -> AnyhowResult<Vec<Arc<dyn ContextAdapterDyn>>>;
+    #[expect(
+        clippy::type_complexity,
+        reason = "object-safe async trait; Pin<Box<Future<...>>>"
+    )]
+    fn get_adapters(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = AnyhowResult<Vec<Arc<dyn ContextAdapterDyn>>>> + Send + '_>>;
 }
 
 /// No-op plugin manager: returns errors for all lookups.
@@ -164,25 +192,37 @@ pub trait ContextPlugin: Send + Sync + std::fmt::Debug {
 #[derive(Debug, Default)]
 pub struct NoOpPluginManager;
 
-#[async_trait]
 impl ContextPlugin for NoOpPluginManager {
-    async fn get_transformation(
+    fn get_transformation(
         &self,
         id: &str,
-    ) -> AnyhowResult<Arc<dyn DynContextTransformation>> {
-        Err(anyhow::anyhow!("Transformation not found: {}", id))
+    ) -> Pin<Box<dyn Future<Output = AnyhowResult<Arc<dyn DynContextTransformation>>> + Send + '_>>
+    {
+        let id = id.to_string();
+        Box::pin(async move { Err(anyhow::anyhow!("Transformation not found: {}", id)) })
     }
 
-    async fn get_adapter(&self, id: &str) -> AnyhowResult<Arc<dyn ContextAdapterDyn>> {
-        Err(anyhow::anyhow!("Adapter not found: {}", id))
+    fn get_adapter(
+        &self,
+        id: &str,
+    ) -> Pin<Box<dyn Future<Output = AnyhowResult<Arc<dyn ContextAdapterDyn>>> + Send + '_>> {
+        let id = id.to_string();
+        Box::pin(async move { Err(anyhow::anyhow!("Adapter not found: {}", id)) })
     }
 
-    async fn get_transformations(&self) -> AnyhowResult<Vec<Arc<dyn DynContextTransformation>>> {
-        Ok(Vec::new())
+    fn get_transformations(
+        &self,
+    ) -> Pin<
+        Box<dyn Future<Output = AnyhowResult<Vec<Arc<dyn DynContextTransformation>>>> + Send + '_>,
+    > {
+        Box::pin(async { Ok(Vec::new()) })
     }
 
-    async fn get_adapters(&self) -> AnyhowResult<Vec<Arc<dyn ContextAdapterDyn>>> {
-        Ok(Vec::new())
+    fn get_adapters(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = AnyhowResult<Vec<Arc<dyn ContextAdapterDyn>>>> + Send + '_>>
+    {
+        Box::pin(async { Ok(Vec::new()) })
     }
 }
 

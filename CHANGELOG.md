@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [Unreleased]
+
+### Summary (April 15, 2026)
+
+Documentation and metrics sync: **7,012** tests, **~1,025** `.rs` files, **async-trait** eliminated in Squirrel code (**0** `#[async_trait]` annotations), **blake3** pinned to pure Rust via `features = ["pure"]`, capability-based naming for self-knowledge (e.g. SecurityProvider / Discovery / ContentAddressed patterns), and coverage figures reconciled to **86.0%** line coverage (`cargo-llvm-cov`). Production file-size policy reflected as **800 lines** (tests may exceed).
+
 ## [0.1.0-alpha.52] - 2026-04-14
 
 primalSpring audit resolution, CLI bind gap, hardcoding evolution, production stub

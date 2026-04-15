@@ -9,8 +9,9 @@ use crate::commands::registry::CommandRegistry;
 use crate::plugins::error::PluginError;
 use crate::plugins::manager::PluginManager;
 use crate::plugins::plugin::Plugin;
-use async_trait::async_trait;
 use squirrel_commands::Command;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 /// Test plugin implementation
@@ -28,7 +29,6 @@ impl TestPlugin {
     }
 }
 
-#[async_trait]
 impl Plugin for TestPlugin {
     fn name(&self) -> &str {
         &self.name
@@ -42,8 +42,8 @@ impl Plugin for TestPlugin {
         Some("A test plugin")
     }
 
-    async fn initialize(&self) -> Result<(), PluginError> {
-        Ok(())
+    fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async { Ok(()) })
     }
 
     fn register_commands(&self, _registry: &CommandRegistry) -> Result<(), PluginError> {
@@ -54,12 +54,15 @@ impl Plugin for TestPlugin {
         Vec::new()
     }
 
-    async fn execute(&self, _args: &[String]) -> Result<String, PluginError> {
-        Ok("Test command executed".to_string())
+    fn execute(
+        &self,
+        _args: &[String],
+    ) -> Pin<Box<dyn Future<Output = Result<String, PluginError>> + Send + '_>> {
+        Box::pin(async { Ok("Test command executed".to_string()) })
     }
 
-    async fn cleanup(&self) -> Result<(), PluginError> {
-        Ok(())
+    fn cleanup(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async { Ok(()) })
     }
 }
 

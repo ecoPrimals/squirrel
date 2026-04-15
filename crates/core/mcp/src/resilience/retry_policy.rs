@@ -136,9 +136,9 @@ impl StandardRetryPolicy {
     /// Applies jitter to a delay value
     fn apply_jitter(&self, delay: Duration) -> Duration {
         if self.use_jitter {
-            let mut rng = rand::thread_rng();
+            let mut rng = rand::rng();
             let millis = delay.as_millis();
-            let numer = rng.gen_range(0u128..100u128);
+            let numer = rng.random_range(0u128..100u128);
             let jitter_scaled = millis.saturating_mul(numer).saturating_div(100);
             let jitter_millis =
                 u64::try_from(jitter_scaled.min(u128::from(u64::MAX))).unwrap_or(u64::MAX);

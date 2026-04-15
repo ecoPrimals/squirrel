@@ -3,8 +3,9 @@
 
 //! Command registry and registry adapter implementation
 
-use async_trait::async_trait;
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use crate::types::{Command, CommandError, CommandResult};
@@ -59,16 +60,24 @@ impl CommandRegistry {
 }
 
 /// Adapter interface for command operations
-#[async_trait]
 pub trait CommandAdapter: Send + Sync {
     /// Execute a command with given arguments
-    async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String>;
+    fn execute(
+        &self,
+        command: &str,
+        args: Vec<String>,
+    ) -> Pin<Box<dyn Future<Output = CommandResult<String>> + Send + '_>>;
 
     /// Get help information for a command
-    async fn get_help(&self, command: &str) -> CommandResult<String>;
+    fn get_help(
+        &self,
+        command: &str,
+    ) -> Pin<Box<dyn Future<Output = CommandResult<String>> + Send + '_>>;
 
     /// List all available commands
-    async fn list_commands(&self) -> CommandResult<Vec<String>>;
+    fn list_commands(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = CommandResult<Vec<String>>> + Send + '_>>;
 }
 
 /// Registry adapter implementation
@@ -120,18 +129,29 @@ impl RegistryAdapter {
     }
 }
 
-#[async_trait]
 impl CommandAdapter for RegistryAdapter {
-    async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
-        self.execute(command, args)
+    fn execute(
+        &self,
+        command: &str,
+        args: Vec<String>,
+    ) -> Pin<Box<dyn Future<Output = CommandResult<String>> + Send + '_>> {
+        let out = Self::execute(self, command, args);
+        Box::pin(async move { out })
     }
 
-    async fn get_help(&self, command: &str) -> CommandResult<String> {
-        self.get_help(command)
+    fn get_help(
+        &self,
+        command: &str,
+    ) -> Pin<Box<dyn Future<Output = CommandResult<String>> + Send + '_>> {
+        let out = Self::get_help(self, command);
+        Box::pin(async move { out })
     }
 
-    async fn list_commands(&self) -> CommandResult<Vec<String>> {
-        self.list_commands()
+    fn list_commands(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = CommandResult<Vec<String>>> + Send + '_>> {
+        let out = Self::list_commands(self);
+        Box::pin(async move { out })
     }
 }
 

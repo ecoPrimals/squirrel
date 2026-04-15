@@ -18,6 +18,16 @@
 //! `BTSP_NULL` cipher, the connection reverts to newline-delimited JSON-RPC
 //! (backward-compatible per standard §Wire Framing).
 //!
+//! ## Evolution roadmap
+//!
+//! - **Three-tier genetics (mito-beacon):** When `primalspring >= 0.10.0` ships,
+//!   `family_seed_ref` in `btsp.session.create` evolves to `mito_beacon` fields
+//!   (`family_id`, `beacon_id`, `seed`). See `DARK_FOREST_BEACON_GENETICS_STANDARD.md`.
+//!   Nuclear genetics will gate AI provider routing (permission-scoped).
+//! - **Phase 3 cipher negotiation:** When BearDog server-side `btsp.negotiate`
+//!   is ready, extend post-handshake to select `BTSP_CHACHA20_POLY1305` /
+//!   `BTSP_HMAC_PLAIN` cipher suites instead of `BTSP_NULL`.
+//!
 //! ## Sequence
 //!
 //! ```text
@@ -293,10 +303,12 @@ where
 
     // Generate challenge (32 random bytes)
     let mut challenge_bytes = [0u8; 32];
-    rand::thread_rng().fill_bytes(&mut challenge_bytes);
+    rand::rng().fill_bytes(&mut challenge_bytes);
     let challenge_b64 = BASE64.encode(challenge_bytes);
 
     // Step 2: Call BTSP provider btsp.session.create
+    // EVOLUTION: When primalspring 0.10.0 ships, replace `family_seed_ref` with
+    // mito-beacon fields from `mito_beacon_from_env()` — three-tier genetics.
     let create_params = serde_json::json!({
         "family_seed_ref": "env:FAMILY_SEED",
         "client_ephemeral_pub": client_hello.client_ephemeral_pub,

@@ -6,13 +6,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::commands::registry::CommandRegistry;
-use squirrel_commands::Command;
 use tokio::runtime::Runtime;
 use tracing::{debug, error, info, warn};
 
 use super::security::SecurePluginLoader;
 use crate::plugins::error::PluginError;
-use crate::plugins::manifest;
+use crate::plugins::manager_metadata;
+use crate::plugins::manager_test_plugin;
 use crate::plugins::plugin::Plugin;
 use crate::plugins::plugin::{PluginFactory, PluginItem, PluginMetadata, PluginStatus};
 use crate::plugins::state::PluginState;
@@ -186,8 +186,7 @@ impl PluginManager {
         name: &str,
         path: &Path,
     ) -> Result<Arc<dyn Plugin>, PluginError> {
-        // Get plugin metadata
-        let metadata = self.get_plugin_metadata(name, path)?;
+        let metadata = manager_metadata::plugin_metadata_from_dir(name, path)?;
 
         // Use secure loader instead of unsafe dynamic loading
         match self.secure_loader.load_plugin_secure(path, &metadata) {
@@ -206,51 +205,6 @@ impl PluginManager {
                 )))
             }
         }
-    }
-
-    /// Get plugin metadata from plugin directory
-    fn get_plugin_metadata(&self, name: &str, path: &Path) -> Result<PluginMetadata, PluginError> {
-        // Look for plugin.toml or other metadata file
-        let metadata_file = path.join("plugin.toml");
-
-        let mut metadata = PluginMetadata {
-            name: name.to_string(),
-            version: "1.0.0".to_string(),
-            description: Some(format!("Plugin loaded from {}", path.display())),
-            author: Some("Unknown".to_string()),
-            homepage: None,
-            capabilities: vec![],
-        };
-
-        if metadata_file.exists() {
-            let content = std::fs::read_to_string(&metadata_file).map_err(PluginError::IoError)?;
-            let merged = manifest::parse_plugin_manifest(&content)?;
-            if let Some(n) = merged.name {
-                metadata.name = n;
-            }
-            if let Some(v) = merged.version {
-                metadata.version = v;
-            }
-            if merged.description.is_some() {
-                metadata.description = merged.description;
-            }
-            if merged.author.is_some() {
-                metadata.author = merged.author;
-            }
-            if merged.homepage.is_some() {
-                metadata.homepage = merged.homepage;
-            }
-            if !merged.capabilities.is_empty() {
-                metadata.capabilities = merged.capabilities;
-            }
-        } else {
-            warn!(
-                "⚠️ No metadata file found for plugin {}, using defaults",
-                name
-            );
-        }
-
-        Ok(metadata)
     }
 
     /// Register all commands from loaded plugins with the command registry
@@ -500,52 +454,7 @@ impl PluginManager {
         name: String,
         path: PathBuf,
     ) -> Result<Arc<dyn Plugin>, PluginError> {
-        struct TestPlugin {
-            name: String,
-            _path: PathBuf,
-        }
-
-        #[async_trait::async_trait]
-        impl Plugin for TestPlugin {
-            fn name(&self) -> &str {
-                &self.name
-            }
-
-            fn version(&self) -> &'static str {
-                "0.1.0"
-            }
-
-            fn description(&self) -> Option<&str> {
-                Some("A test plugin")
-            }
-
-            async fn initialize(&self) -> Result<(), PluginError> {
-                debug!("Test plugin {} initialized", self.name);
-                Ok(())
-            }
-
-            fn register_commands(&self, _registry: &CommandRegistry) -> Result<(), PluginError> {
-                debug!("Test plugin {} registered commands", self.name);
-                Ok(())
-            }
-
-            fn commands(&self) -> Vec<Arc<dyn Command>> {
-                // Return an empty vector for test plugin
-                Vec::new()
-            }
-
-            async fn execute(&self, args: &[String]) -> Result<String, PluginError> {
-                debug!("Test plugin {} executed with args: {:?}", self.name, args);
-                Ok(format!("Test plugin {} executed", self.name))
-            }
-
-            async fn cleanup(&self) -> Result<(), PluginError> {
-                debug!("Test plugin {} cleaned up", self.name);
-                Ok(())
-            }
-        }
-
-        Ok(Arc::new(TestPlugin { name, _path: path }))
+        manager_test_plugin::test_plugin_arc(name, path)
     }
 
     /// Register a plugin factory for creating plugins

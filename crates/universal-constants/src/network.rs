@@ -239,12 +239,6 @@ pub const DEFAULT_METRICS_PORT: u16 = DEFAULT_METRICS_LISTEN_PORT;
 /// Default TCP port for Consul-style service discovery listens (`discovery` service fallback).
 pub const DEFAULT_DISCOVERY_LISTEN_PORT: u16 = 8500;
 
-/// Fallback discovery port (use `get_service_port("discovery")` instead)
-///
-/// **Deprecated**: Use `get_service_port("discovery")` for runtime discovery
-#[deprecated(since = "3.0.0", note = "Use get_service_port(\"discovery\")")]
-pub const DEFAULT_DISCOVERY_PORT: u16 = DEFAULT_DISCOVERY_LISTEN_PORT;
-
 /// Legacy security port constant — prefer [`crate::deployment::ports::security_service`].
 ///
 /// Squirrel must not treat this as another primal’s fixed port; capability discovery applies.
@@ -274,15 +268,17 @@ pub const DEFAULT_GRPC_PORT: u16 = 50051;
 /// Use for production servers that accept external connections.
 pub const BIND_ALL_INTERFACES: &str = "0.0.0.0";
 
-/// Fallback orchestration/ecosystem API port (discovery, registration)
+/// Fallback TCP port for ecosystem discovery / service-mesh API when env-based resolution is unavailable.
 ///
-/// **Deprecated**: Use `universal_constants::deployment::ports::service_mesh()` for
-/// env-aware, capability-based port resolution instead.
+/// Prefer [`crate::deployment::ports::service_mesh()`] and capability discovery at runtime.
+pub const DEFAULT_DISCOVERY_PORT: u16 = 8001;
+
+/// Legacy name for [`DEFAULT_DISCOVERY_PORT`] (orchestration / ecosystem API fallback).
 #[deprecated(
-    since = "3.0.0",
-    note = "Use deployment::ports::service_mesh() for capability-based discovery"
+    since = "0.2.0",
+    note = "Use DEFAULT_DISCOVERY_PORT; resolve the service mesh by capability at runtime"
 )]
-pub const DEFAULT_SONGBIRD_PORT: u16 = 8001;
+pub const DEFAULT_SONGBIRD_PORT: u16 = DEFAULT_DISCOVERY_PORT;
 
 /// Fallback Squirrel main server port
 pub const DEFAULT_SQUIRREL_SERVER_PORT: u16 = 9010;
@@ -568,6 +564,7 @@ mod tests {
         assert_eq!(super::DEFAULT_AGENT_DEPLOY_BASE_PORT_HIGH, 8090);
         assert_eq!(super::DEFAULT_METRICS_LISTEN_PORT, 9090);
         assert_eq!(super::DEFAULT_DISCOVERY_LISTEN_PORT, 8500);
+        assert_eq!(super::DEFAULT_DISCOVERY_PORT, 8001);
     }
 
     #[test]

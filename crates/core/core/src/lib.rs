@@ -114,7 +114,7 @@ pub enum Error {
     CapabilityUnavailable {
         /// Capability id (e.g. `http.client`, `federation:probe-node`).
         capability: String,
-        /// How to resolve (registry, socket env, Songbird delegation, etc.).
+        /// How to resolve (registry, socket env, service-mesh delegation, etc.).
         hint: String,
     },
 
@@ -215,10 +215,13 @@ pub use types::{
     MeshFederationConfig, MeshFederationStats, MeshLoadBalancingStrategy, MeshServiceStats,
 };
 
-// Deprecated alias for backward compatibility
+// Deprecated alias for backward compatibility (`ServiceMeshLoadBalancerConfig` is the canonical name, re-exported from [`types`]).
 #[cfg(feature = "mesh")]
-#[deprecated(since = "0.1.0", note = "Use ServiceMeshLoadBalancerConfig instead")]
-/// Deprecated alias for [`types::ServiceMeshLoadBalancerConfig`]; use that type instead.
+#[deprecated(
+    since = "0.2.0",
+    note = "Use ServiceMeshLoadBalancerConfig (service mesh is discovered by capability at runtime)"
+)]
+/// Deprecated alias for [`ServiceMeshLoadBalancerConfig`].
 pub type SongbirdLoadBalancerConfig = types::ServiceMeshLoadBalancerConfig;
 
 // Service Mesh Load Balancer Integration Trait (Capability-Based)
@@ -251,8 +254,8 @@ pub trait ServiceMeshLoadBalancerIntegration: Send + Sync {
 // Deprecated alias for backward compatibility
 #[cfg(feature = "mesh")]
 #[deprecated(
-    since = "0.1.0",
-    note = "Use ServiceMeshLoadBalancerIntegration instead"
+    since = "0.2.0",
+    note = "Use ServiceMeshLoadBalancerIntegration (discover mesh capabilities at runtime)"
 )]
 /// Deprecated marker trait; use [`ServiceMeshLoadBalancerIntegration`] instead.
 pub trait SongbirdLoadBalancerIntegration: ServiceMeshLoadBalancerIntegration {}

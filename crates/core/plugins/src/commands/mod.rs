@@ -6,7 +6,6 @@
 //! This module provides functionality for creating and managing command plugins.
 
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -132,20 +131,17 @@ impl CommandsPlugin {
     }
 }
 
-#[async_trait]
 impl Plugin for CommandsPlugin {
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
     }
 
-    async fn initialize(&self) -> Result<()> {
-        // No initialization needed
-        Ok(())
+    fn initialize(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(async { Ok(()) })
     }
 
-    async fn shutdown(&self) -> Result<()> {
-        // No shutdown needed
-        Ok(())
+    fn shutdown(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(async { Ok(()) })
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

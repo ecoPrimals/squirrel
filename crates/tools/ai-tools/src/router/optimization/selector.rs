@@ -9,6 +9,7 @@ use crate::Result;
 use crate::common::AIClient;
 use crate::error::Error;
 use crate::router::types::{RequestContext, RoutingStrategy};
+use rand::Rng;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::debug;
@@ -166,7 +167,7 @@ impl ProviderSelector {
 
     fn select_random(providers: &[(String, Arc<AiClientImpl>)]) -> (String, Arc<AiClientImpl>) {
         debug!("Using Random strategy");
-        let index = rand::random::<usize>() % providers.len();
+        let index = rand::rng().random_range(0..providers.len());
         let (id, client) = &providers[index];
         (id.clone(), Arc::clone(client))
     }

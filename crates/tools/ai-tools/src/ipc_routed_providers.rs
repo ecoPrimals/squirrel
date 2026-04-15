@@ -454,8 +454,8 @@ impl<D: IpcHttpDelegate> IpcRoutedVendorClient<D> {
     }
 }
 
-/// Test-only HTTP delegate mock (FIFO responses). Lives in [`ipc_routed_mocks`] so production
-/// sources do not define `struct Mock*` at crate root (see workspace mock verification tests).
+/// Test-only HTTP delegate mock (`MockNeuralHttp` is **never** compiled in non-test builds).
+/// Kept in a `#[cfg(test)]` submodule so production sources do not define `struct Mock*` at crate root.
 #[cfg(test)]
 mod ipc_routed_mocks {
     use super::IpcHttpDelegate;

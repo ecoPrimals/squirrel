@@ -7,7 +7,9 @@
 //! and management from remote repositories.
 
 use std::collections::HashMap;
+use std::future::Future;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -82,23 +84,34 @@ pub struct PluginPackageInfo {
     pub size: Option<u64>,
 }
 
-/// A provider for a plugin repository
-#[async_trait::async_trait]
+/// A provider for a plugin repository (`dyn`-safe via boxed futures).
 pub trait RepositoryProvider: Send + Sync {
     /// Get repository information
-    async fn get_info(&self) -> Result<RepositoryInfo>;
+    fn get_info(&self) -> Pin<Box<dyn Future<Output = Result<RepositoryInfo>> + Send + '_>>;
 
     /// List all plugins
-    async fn list_plugins(&self) -> Result<Vec<PluginPackageInfo>>;
+    fn list_plugins(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = Result<Vec<PluginPackageInfo>>> + Send + '_>>;
 
     /// Get a specific plugin by ID
-    async fn get_plugin(&self, id: &Uuid) -> Result<Option<PluginPackageInfo>>;
+    fn get_plugin(
+        &self,
+        id: &Uuid,
+    ) -> Pin<Box<dyn Future<Output = Result<Option<PluginPackageInfo>>> + Send + '_>>;
 
     /// Search for plugins by query string
-    async fn search_plugins(&self, query: &str) -> Result<Vec<PluginPackageInfo>>;
+    fn search_plugins(
+        &self,
+        query: &str,
+    ) -> Pin<Box<dyn Future<Output = Result<Vec<PluginPackageInfo>>> + Send + '_>>;
 
     /// Download a plugin
-    async fn download_plugin(&self, id: &Uuid, path: &Path) -> Result<()>;
+    fn download_plugin(
+        &self,
+        id: &Uuid,
+        path: &Path,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>>;
 }
 
 /// HTTP-based repository provider
@@ -143,67 +156,88 @@ impl HttpRepositoryProvider {
 }
 
 #[cfg(feature = "marketplace")]
-#[async_trait::async_trait]
 impl RepositoryProvider for HttpRepositoryProvider {
-    async fn get_info(&self) -> Result<RepositoryInfo> {
+    fn get_info(&self) -> Pin<Box<dyn Future<Output = Result<RepositoryInfo>> + Send + '_>> {
         let url = format!("{}/info", self.base_url);
-        let info = self
-            .client
-            .get(&url)
-            .send()
-            .await?
-            .json::<RepositoryInfo>()
-            .await?;
-        Ok(info)
+        Box::pin(async {
+            let info = self
+                .client
+                .get(&url)
+                .send()
+                .await?
+                .json::<RepositoryInfo>()
+                .await?;
+            Ok(info)
+        })
     }
 
-    async fn list_plugins(&self) -> Result<Vec<PluginPackageInfo>> {
+    fn list_plugins(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = Result<Vec<PluginPackageInfo>>> + Send + '_>> {
         let url = format!("{}/plugins", self.base_url);
-        let plugins = self
-            .client
-            .get(&url)
-            .send()
-            .await?
-            .json::<Vec<PluginPackageInfo>>()
-            .await?;
-        Ok(plugins)
+        Box::pin(async {
+            let plugins = self
+                .client
+                .get(&url)
+                .send()
+                .await?
+                .json::<Vec<PluginPackageInfo>>()
+                .await?;
+            Ok(plugins)
+        })
     }
 
-    async fn get_plugin(&self, id: &Uuid) -> Result<Option<PluginPackageInfo>> {
+    fn get_plugin(
+        &self,
+        id: &Uuid,
+    ) -> Pin<Box<dyn Future<Output = Result<Option<PluginPackageInfo>>> + Send + '_>> {
         let url = format!("{}/plugin/{}", self.base_url, id);
-        let response = self.client.get(&url).send().await?;
+        Box::pin(async {
+            let response = self.client.get(&url).send().await?;
 
-        if response.status().is_success() {
-            let plugin = response.json::<PluginPackageInfo>().await?;
-            Ok(Some(plugin))
-        } else {
-            Ok(None)
-        }
+            if response.status().is_success() {
+                let plugin = response.json::<PluginPackageInfo>().await?;
+                Ok(Some(plugin))
+            } else {
+                Ok(None)
+            }
+        })
     }
 
-    async fn search_plugins(&self, query: &str) -> Result<Vec<PluginPackageInfo>> {
+    fn search_plugins(
+        &self,
+        query: &str,
+    ) -> Pin<Box<dyn Future<Output = Result<Vec<PluginPackageInfo>>> + Send + '_>> {
         let url = format!("{}/search?q={}", self.base_url, urlencoding::encode(query));
-        let plugins = self
-            .client
-            .get(&url)
-            .send()
-            .await?
-            .json::<Vec<PluginPackageInfo>>()
-            .await?;
-        Ok(plugins)
+        Box::pin(async {
+            let plugins = self
+                .client
+                .get(&url)
+                .send()
+                .await?
+                .json::<Vec<PluginPackageInfo>>()
+                .await?;
+            Ok(plugins)
+        })
     }
 
-    async fn download_plugin(&self, id: &Uuid, path: &Path) -> Result<()> {
+    fn download_plugin(
+        &self,
+        id: &Uuid,
+        path: &Path,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
         let url = format!("{}/download/{}", self.base_url, id);
-        let response = self.client.get(&url).send().await?;
+        Box::pin(async {
+            let response = self.client.get(&url).send().await?;
 
-        if response.status().is_success() {
-            let bytes = response.bytes().await?;
-            tokio::fs::write(path, bytes).await?;
-            Ok(())
-        } else {
-            anyhow::bail!("Failed to download plugin: {}", response.status())
-        }
+            if response.status().is_success() {
+                let bytes = response.bytes().await?;
+                tokio::fs::write(path, bytes).await?;
+                Ok(())
+            } else {
+                anyhow::bail!("Failed to download plugin: {}", response.status())
+            }
+        })
     }
 }
 

@@ -3,7 +3,6 @@
 
 use crate::plugin::{Plugin, PluginMetadata, PluginStatus, WebEndpoint, WebPluginExt};
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::any::Any;
 use std::fmt;
@@ -49,20 +48,23 @@ impl HelloWorldPlugin {
     }
 }
 
-#[async_trait]
 impl Plugin for HelloWorldPlugin {
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
     }
 
-    async fn initialize(&self) -> Result<()> {
-        println!("Initializing HelloWorldPlugin");
-        Ok(())
+    fn initialize(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(async {
+            println!("Initializing HelloWorldPlugin");
+            Ok(())
+        })
     }
 
-    async fn shutdown(&self) -> Result<()> {
-        println!("Shutting down HelloWorldPlugin");
-        Ok(())
+    fn shutdown(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(async {
+            println!("Shutting down HelloWorldPlugin");
+            Ok(())
+        })
     }
 
     fn as_any(&self) -> &dyn Any {

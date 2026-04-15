@@ -3,7 +3,8 @@
 
 //! Plugin adapter and integration test helpers
 
-use async_trait::async_trait;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::{Arc, RwLock};
 
 use crate::commands::{CommandAdapter, RegistryAdapter};
@@ -67,21 +68,37 @@ impl PluginAdapter {
     }
 }
 
-#[async_trait]
 impl CommandAdapter for PluginAdapter {
-    async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
-        let adapter = self.adapter.read().expect("should succeed");
-        adapter.execute(command, args)
+    fn execute(
+        &self,
+        command: &str,
+        args: Vec<String>,
+    ) -> Pin<Box<dyn Future<Output = CommandResult<String>> + Send + '_>> {
+        let out = self
+            .adapter
+            .read()
+            .expect("should succeed")
+            .execute(command, args);
+        Box::pin(async move { out })
     }
 
-    async fn get_help(&self, command: &str) -> CommandResult<String> {
-        let adapter = self.adapter.read().expect("should succeed");
-        adapter.get_help(command)
+    fn get_help(
+        &self,
+        command: &str,
+    ) -> Pin<Box<dyn Future<Output = CommandResult<String>> + Send + '_>> {
+        let out = self
+            .adapter
+            .read()
+            .expect("should succeed")
+            .get_help(command);
+        Box::pin(async move { out })
     }
 
-    async fn list_commands(&self) -> CommandResult<Vec<String>> {
-        let adapter = self.adapter.read().expect("should succeed");
-        adapter.list_commands()
+    fn list_commands(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = CommandResult<Vec<String>>> + Send + '_>> {
+        let out = self.adapter.read().expect("should succeed").list_commands();
+        Box::pin(async move { out })
     }
 }
 

@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 14, 2026
-**Version**: 0.1.0-alpha.52
+**Last Updated**: April 15, 2026
+**Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,25 +10,27 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,003 passing / 0 failures across 22 workspace members |
+| Tests | 7,012 passing / 0 failures across 22 workspace members |
 | Edition | 2024 (Rust 1.94+) |
+| async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`, `test-context`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
 | Unsafe Code | 0 in production — `unsafe_code = "forbid"` in workspace `[lints.rust]` (all 22 crates) |
-| Pure Rust | 100% default features (zero C deps, zero non-Rust crypto); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed; `ed25519-dalek` feature-gated behind `local-crypto`; `flate2` → pure Rust `miniz_oxide` backend; `pprof`, `openai`, `libloading` removed |
+| Pure Rust | 100% default features (zero C deps, zero non-Rust crypto); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed; `ed25519-dalek` feature-gated behind `local-crypto`; `flate2` → pure Rust `miniz_oxide` backend; `blake3` → `features = ["pure"]` (no SIMD assembly); `pprof`, `openai`, `libloading` removed; `rand` upgraded 0.8→0.9.4 (RUSTSEC-2026-0097); `ring`/`reqwest`/`zstd-sys` only resolve under `--all-features` (not in default/ecoBin build) |
 | ecoBin | Compliant v3.0 — 3.5 MB static-pie musl binary, stripped, BLAKE3 checksummed, zero host paths (`--remap-path-prefix`), zero dynamic deps; `deny.toml` bans 14 C-dep crates + `tokio-tungstenite` (Tower Atomic) + `reqwest` (Tower Atomic); pure Rust `sys_info` via `/proc` parsing |
-| Coverage | ~89% line coverage via `cargo-llvm-cov` (target: 90%); remaining gap is IPC/network code, demo binaries, and binary entry points |
+| Coverage | **86.0%** line coverage via `cargo-llvm-cov` (target: 90%); remaining gap is IPC/network code, demo binaries, and binary entry points |
 | `.unwrap()` in code | 0 — workspace-wide elimination; all Results use `?` or `.expect("invariant")` |
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors + `anyhow::Result` (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`, `anyhow::Error`) |
 | Crates | 22 workspace members |
-| Files >1000 lines | 0 — all `.rs` files under 1,000 lines (max 965L); test files extracted: `jsonrpc_ai_router_tests.rs`, `validation_tests.rs`, `shutdown_tests.rs`, `integration_lifecycle_tests.rs`, `session_tests.rs`, `client_tests.rs`, `api_tests.rs`, `self_healing_tests.rs`, `ecosystem_jwt_tests.rs`, `error_tests.rs`, `history_tests.rs`, `hardening_tests.rs`, `monitoring_tests.rs`, `unix_socket_tests.rs`, `retry_tests.rs`, `plugin_tests.rs`; types extracted: `context_state_types.rs`, `api_types.rs`, `integration_data.rs`, `dashboard_types.rs`, `zero_copy_config.rs`, `sync_types.rs`, `builder_presets.rs`, `service_swarm.rs`, `jsonrpc_dispatch.rs`, `router_init.rs` |
+| Files >800 lines (prod) | 0 — all production `.rs` files under 800 lines; max production file ~798L (`btsp_handshake.rs`); test files up to 965L (expected). Smart-refactored: `workflow_manager.rs` (831→403), `server/mod.rs` (840→647), `mcp/client.rs` (836→605), `ecosystem client.rs` (824→659), `plugins/manager.rs` (816→706); types extracted to sibling modules |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
 | cargo deny | `advisories ok, bans ok, licenses ok, sources ok` |
-| Mocks in production | 0 — all production stubs evolved to honest capability-based patterns: `SecurePluginStub` rejects execution (security sandbox); `NoOpPluginManager` returns errors; plugin web API returns 501 (Phase 2); `WebVisualizationServer` logs capability-pending; `UnavailableServiceRegistry` returns empty (honest); predictive loader logs no-patterns-yet; identity auth warns on password skip; all test mocks behind `#[cfg(any(test, feature = "testing"))]` |
+| Mocks in production | 0 — all production stubs evolved to honest capability-based patterns: `SecurePluginStub` rejects execution (security sandbox, documented); `NoOpPluginManager` returns errors; plugin web API returns 501 (Phase 2); `WebVisualizationServer` logs capability-pending; `UnavailableServiceRegistry` returns empty (honest); learning integration wired to live `ContextManager` data; neural engine evolved from tanh stub to ReLU MLP; federation `dead_code` fields wired to real diagnostics; all test mocks behind `#[cfg(any(test, feature = "testing"))]` |
+| Primal self-knowledge | All hardcoded primal names evolved to capability-based: `BearDog*` → `SecurityProvider*`, `Songbird*` → `Discovery*`/`ServiceMesh*`, `NestGate` → `ContentAddressed`; deprecated type aliases for backward compat; env var chains prefer capability names (`SECURITY_ENDPOINT` → `BEARDOG_ENDPOINT` fallback) |
 | Legacy aliases | Backward-compatible aliases for ecosystem compat; `capabilities.list` canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1 |
 | TODO/FIXME in code | 0 — no TODO/FIXME/HACK markers in committed code; Phase 2 placeholders wired with capability fallback or documented with `#[expect(dead_code, reason)]` |
 | Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
@@ -269,13 +271,34 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Known Issues
 
-1. Coverage at ~86% — remaining ~4% gap to 90% is primarily IPC/network code needing integration infrastructure, demo binaries, and binary entry points; all large production files have test modules
+1. Coverage at **86.0%** — remaining ~4% gap to 90% is primarily IPC/network code needing integration infrastructure, demo binaries, and binary entry points; all large production files have test modules
 2. Performance optimizer `batch_processor` / `optimizer` are complete (no deferred stubs); coverage gap to 90% remains as in item 1
 3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
 4. `base64` duplicate (0.21 via `config`/`ron`, 0.22 direct) — transitive, benign
-5. `async-trait` — 129 annotations remaining (down from 228); 20+ trait definitions migrated to native `async fn` in trait with dyn→generics/enum dispatch; remaining usage is traits deeply embedded in heterogeneous `dyn` collections (`Plugin`, `Command`, `AIClient`, `MonitoringProvider`, `PrimalProvider`, etc.) — will be progressively removed as `dyn` surface shrinks
+5. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`, `test-context`)
 
-## Changes Since Last Handoff (April 14, 2026)
+## Changes Since Last Handoff (April 15, 2026)
+
+### April 15, 2026 session W (deep debt: primal self-knowledge, smart refactoring, mock evolution, dependency purity)
+
+- **Primal self-knowledge — BearDog→SecurityProvider**: `capability_crypto.rs` socket stem → `"security"`; `errors.rs` `BeardogIntegration` → `SecurityProviderIntegration`; `lib.rs` exports → `SecurityProviderJwtConfig`, `SecurityProviderJwtService`, `SecurityProviderClient`; `security_coordinator.rs` → `authenticate_with_security_provider`, `requires_security_provider`. All primal-named symbols have `#[deprecated(since = "0.2.0")]` aliases.
+- **Primal self-knowledge — Songbird→Discovery**: `SongbirdLoadBalancerConfig` → deprecated, `DEFAULT_SONGBIRD_PORT` → `DEFAULT_DISCOVERY_PORT`; `DISCOVERY_ENDPOINT`/`DISCOVERY_PORT` canonical env vars with `SONGBIRD_*` as fallback.
+- **Primal self-knowledge — NestGate→ContentAddressed**: `ContextStorage::NestGate` → `ContentAddressed` with `serde(alias = "nestgate")`; `DatabaseBackend::NestGate` → `ContentAddressed` with serde backward compat.
+- **Smart refactoring — 5 production files under 800L**: `workflow_manager.rs` (831→403, tests+helpers extracted), `server/mod.rs` (840→647, handlers extracted), `mcp/client.rs` (836→605, listener+interactive extracted), `ecosystem client.rs` (824→659, DTOs+mock extracted), `plugins/manager.rs` (816→706, metadata+test_plugin extracted)
+- **Production mocks evolved**: Learning integration wired to live `ContextManager` data (session count, intervention detection); neural engine evolved from tanh stub to ReLU MLP (`new_mlp`, `forward_scores`); federation `dead_code` fields wired to real `find_leader_node` + diagnostics; all stubs documented as intentional deny-policy or honest capability-fallback
+- **blake3 → pure Rust**: `blake3 = { default-features = false, features = ["pure"] }` — no SIMD assembly compilation, no C code in default build
+- **Dependency verification**: `ring`/`reqwest`/`zstd-sys` confirmed absent from default build (only resolve under `--all-features`); `cargo deny` clean
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓ (0 warnings), `test` ✓ (7,012 passed / 0 failures), `deny` ✓, `doc` ✓
+
+### April 15, 2026 session V (primalSpring audit: async-trait elimination, genetics prep, smart refactoring, rand upgrade)
+
+- **async-trait fully eliminated**: All 64 remaining `#[async_trait]` annotations removed across 8 crates (`squirrel-interfaces`, `squirrel-plugins`, `squirrel-context`, `squirrel-rule-system`, `squirrel-cli`, `squirrel`, `adapter-pattern-examples`, `adapter-pattern-tests`). Dyn-safe traits (`Plugin`, `DynPlugin`, `DynContext*`, `ContextPlugin`, `ConditionEvaluator`, `ActionExecutor`, `WebPlugin`, `ZeroCopyPlugin`, `CommandAdapter`, `UniversalServiceRegistry`) use explicit `Pin<Box<dyn Future<Output = …> + Send + '_>>`. Non-dyn traits use native `async fn in trait` + `#[expect(async_fn_in_trait)]`. `async-trait` removed from workspace `[dependencies]` and all 8 crate `Cargo.toml`s. Zero Squirrel code imports it; only remains as transitive dep from `config`, `wiremock`, `test-context`.
+- **Three-tier genetics / mito-beacon prep**: Assessed readiness for `primalspring >= 0.10.0` `mito_beacon_from_env()`. BTSP handshake code (`btsp_handshake.rs`) annotated with evolution roadmap: `family_seed_ref` → mito-beacon fields; Phase 3 cipher negotiation → `BTSP_CHACHA20_POLY1305` when BearDog server-side ready. FAMILY_ID env var chain and discovery already clean. No local code action needed until primalspring 0.10.0 ships (currently 0.9.14).
+- **BLAKE3 content curation**: Assessed — blocked on NestGate content-addressed storage API stability. Squirrel already uses BLAKE3 for ecoBin checksums.
+- **Phase 3 cipher negotiation**: Assessed — blocked on BearDog `btsp.negotiate` server-side readiness. Current NULL cipher post-handshake is per-spec.
+- **Smart refactoring**: `client.rs` (844→664L), `dependency_resolver.rs` (814→731L) extracted DTOs to sibling modules
+- **rand 0.8→0.9.4**: Upgraded per RUSTSEC-2026-0097; ed25519-dalek compat via `rand::fill` + `SigningKey::from_bytes`
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓ (0 warnings), `test` ✓ (7,011 passed / 0 failures), `deny` ✓, `doc` ✓
 
 ### April 14, 2026 session T (primalSpring audit: CLI bind gap, hardcoding evolution, production stubs, smart refactoring)
 

@@ -29,7 +29,6 @@ tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 anyhow.workspace = true
 thiserror.workspace = true
-async-trait.workspace = true
 dashmap.workspace = true
 
 # HTTP framework REMOVED - Squirrel uses Unix sockets + JSON-RPC + tarpc

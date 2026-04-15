@@ -344,15 +344,19 @@ impl AIProviderConfig {
 /// Uses capability-domain env vars as primary with legacy service names as
 /// fallbacks (wateringHole `PRIMAL_SELF_KNOWLEDGE_STANDARD` §4).
 /// Production should use capability-based discovery; env vars override for explicit config.
+///
+/// **Deprecated env names (still read as fallbacks):** `NESTGATE_ENDPOINT`, `BEARDOG_ENDPOINT`,
+/// `TOADSTOOL_ENDPOINT`, `NESTGATE_PORT`, `TOADSTOOL_PORT` — prefer `STORAGE_*`, `SECURITY_*`,
+/// and `COMPUTE_*` capability-oriented names; primal-specific names remain for backward compatibility only.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemConfig {
-    /// Storage capability endpoint (env: `STORAGE_ENDPOINT` > `NESTGATE_ENDPOINT`)
+    /// Storage capability endpoint (canonical env: `STORAGE_ENDPOINT`; deprecated fallback: `NESTGATE_ENDPOINT`; port: `STORAGE_PORT` / deprecated `NESTGATE_PORT`)
     #[serde(alias = "nestgate_endpoint")]
     pub storage_endpoint: String,
-    /// Security capability endpoint (env: `SECURITY_ENDPOINT` > `BEARDOG_ENDPOINT`)
+    /// Security capability endpoint (canonical env: `SECURITY_ENDPOINT`; deprecated fallback: `BEARDOG_ENDPOINT`)
     #[serde(alias = "beardog_endpoint")]
     pub security_endpoint: String,
-    /// Compute capability endpoint (env: `COMPUTE_ENDPOINT` > `TOADSTOOL_ENDPOINT`)
+    /// Compute capability endpoint (canonical env: `COMPUTE_ENDPOINT`; deprecated fallback: `TOADSTOOL_ENDPOINT`; port: `COMPUTE_PORT` / deprecated `TOADSTOOL_PORT`)
     #[serde(alias = "toadstool_endpoint")]
     pub compute_endpoint: String,
     /// Ecosystem registry / service mesh endpoint (env: `SERVICE_MESH_ENDPOINT` > `BIOMEOS_ENDPOINT`)
@@ -434,7 +438,8 @@ impl EcosystemConfig {
         // Capability-based endpoint resolution (TRUE PRIMAL pattern).
         // Production defaults use discovered://{capability} - actual endpoints are resolved
         // at runtime via ecosystem registry capability discovery.
-        // Env vars (NESTGATE_ENDPOINT, etc.) are ecosystem role endpoints - override for explicit config.
+        // Canonical env vars: STORAGE_*, SECURITY_*, COMPUTE_*.
+        // Deprecated fallbacks (NESTGATE_*, BEARDOG_*, TOADSTOOL_*) remain in the chain for existing deployments.
         let storage_endpoint = env::var("STORAGE_ENDPOINT")
             .or_else(|_| env::var("NESTGATE_ENDPOINT"))
             .unwrap_or_else(|_| {

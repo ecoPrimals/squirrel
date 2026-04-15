@@ -19,7 +19,6 @@ use crate::registry::PluginRegistry;
 use crate::traits::PluginManagerTrait;
 use crate::types::PluginStatus;
 use crate::{Plugin, PluginConfig};
-use async_trait::async_trait;
 use dashmap::DashMap;
 use std::any::Any;
 use std::collections::HashMap;
@@ -34,28 +33,35 @@ struct DefaultPlugin {
     metadata: plugin::PluginMetadata,
 }
 
-#[async_trait]
 impl Plugin for DefaultPlugin {
     fn metadata(&self) -> &plugin::PluginMetadata {
         &self.metadata
     }
 
-    async fn initialize(&self) -> anyhow::Result<()> {
-        info!(
-            plugin_id = %self.metadata.id,
-            plugin_name = %self.metadata.name,
-            "DefaultPlugin: built-in no-op; optional plugins arrive from other primals via IPC discovery"
-        );
-        Ok(())
+    fn initialize(
+        &self,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + Send + '_>> {
+        Box::pin(async {
+            info!(
+                plugin_id = %self.metadata.id,
+                plugin_name = %self.metadata.name,
+                "DefaultPlugin: built-in no-op; optional plugins arrive from other primals via IPC discovery"
+            );
+            Ok(())
+        })
     }
 
-    async fn shutdown(&self) -> anyhow::Result<()> {
-        info!(
-            plugin_id = %self.metadata.id,
-            plugin_name = %self.metadata.name,
-            "DefaultPlugin shutdown (no-op)"
-        );
-        Ok(())
+    fn shutdown(
+        &self,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + Send + '_>> {
+        Box::pin(async {
+            info!(
+                plugin_id = %self.metadata.id,
+                plugin_name = %self.metadata.name,
+                "DefaultPlugin shutdown (no-op)"
+            );
+            Ok(())
+        })
     }
 
     fn as_any(&self) -> &dyn Any {

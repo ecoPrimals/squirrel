@@ -10,6 +10,7 @@ mod processor;
 mod router;
 mod team_types;
 mod workflow_manager;
+pub mod workflow_types;
 
 // Re-export for backward compatibility
 pub use message_router::{MessageRouter, RouterHandlerSlot};

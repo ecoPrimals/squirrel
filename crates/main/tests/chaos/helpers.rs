@@ -93,14 +93,14 @@ impl ChaosMetrics {
 /// Simulate random failures based on failure rate
 pub fn should_fail(failure_rate: f64) -> bool {
     use rand::Rng;
-    let mut rng = rand::thread_rng();
-    rng.r#gen::<f64>() < failure_rate
+    let mut rng = rand::rng();
+    rng.random::<f64>() < failure_rate
 }
 
 /// Simulate network delay
 pub async fn simulate_network_delay(min_ms: u64, max_ms: u64) {
     use rand::Rng;
-    let delay_ms = rand::thread_rng().gen_range(min_ms..=max_ms);
+    let delay_ms = rand::rng().random_range(min_ms..=max_ms);
     tokio::time::sleep(Duration::from_millis(delay_ms)).await;
 }
 

@@ -9,18 +9,21 @@
 use crate::{ContextRequirements, Error, Result};
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{debug, info, warn};
 
 /// Storage backend for contexts
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ContextStorage {
     /// Store contexts locally in memory
     #[default]
     Local,
-    /// Store contexts in `NestGate`
-    NestGate {
-        /// `NestGate` base URL or connection target for context storage.
+    /// Content-addressed / external context storage (endpoint discovered by capability at runtime)
+    #[serde(rename = "content_addressed", alias = "nestgate")]
+    ContentAddressed {
+        /// Base URL or connection target for content-addressed context storage.
         endpoint: String,
     },
     /// Store contexts across federation nodes
@@ -484,14 +487,24 @@ mod tests {
     #[test]
     fn context_storage_variants_and_default() {
         assert!(matches!(ContextStorage::default(), ContextStorage::Local));
-        let nest = ContextStorage::NestGate {
+        let ca = ContextStorage::ContentAddressed {
             endpoint: "http://ng".to_string(),
         };
         let fed = ContextStorage::Federation {
             nodes: vec!["a".to_string()],
         };
-        assert!(matches!(nest, ContextStorage::NestGate { .. }));
+        assert!(matches!(ca, ContextStorage::ContentAddressed { .. }));
         assert!(matches!(fed, ContextStorage::Federation { .. }));
+    }
+
+    #[test]
+    fn context_storage_deserializes_nestgate_alias() {
+        let j = r#"{"nestgate":{"endpoint":"http://storage.example"}}"#;
+        let s: ContextStorage = serde_json::from_str(j).expect("serde");
+        assert!(matches!(
+            s,
+            ContextStorage::ContentAddressed { ref endpoint } if endpoint == "http://storage.example"
+        ));
     }
 
     #[test]

@@ -35,8 +35,9 @@ use universal_constants::network::resolve_capability_unix_socket;
 
 /// Primary env for tiered resolution of the `crypto.sign` / signing socket (see [`resolve_capability_unix_socket`]).
 const CRYPTO_SIGN_CAPABILITY_SOCKET_ENV: &str = "CRYPTO_CAPABILITY_SOCKET";
-/// Legacy basename stem under `$XDG_RUNTIME_DIR/biomeos/` (e.g. `beardog.sock`).
-const BEARDOG_BIOMEOS_SOCKET_STEM: &str = "beardog";
+/// Basename stem for the security capability socket under `$XDG_RUNTIME_DIR/biomeos/` (e.g. `security.sock`).
+/// Primal-specific names are not embedded; any provider exposing the capability may use this convention.
+const SECURITY_CAPABILITY_SOCKET_STEM: &str = "security";
 
 fn push_unique_path(paths: &mut Vec<PathBuf>, path: PathBuf) {
     if !paths.iter().any(|p| p == &path) {
@@ -47,9 +48,9 @@ fn push_unique_path(paths: &mut Vec<PathBuf>, path: PathBuf) {
 /// Candidate Unix socket paths for crypto signing (security provider), ordered by precedence.
 ///
 /// Order:
-/// 1. `SECURITY_SOCKET` — primary override for the security primal socket
-/// 2. `BEARDOG_SOCKET` — legacy compat
-/// 3. [`resolve_capability_unix_socket`] for capability `crypto.sign` (tiered env + standard `XDG_RUNTIME_DIR/biomeos/beardog.sock`)
+/// 1. `SECURITY_SOCKET` — primary override for the security capability socket
+/// 2. `BEARDOG_SOCKET` — deprecated legacy alias (same role as `SECURITY_SOCKET`)
+/// 3. [`resolve_capability_unix_socket`] for capability `crypto.sign` (tiered env + `XDG_RUNTIME_DIR/biomeos/{stem}.sock` with [`SECURITY_CAPABILITY_SOCKET_STEM`])
 /// 4. Fallback socket dir last resort
 #[must_use]
 fn candidate_crypto_signing_socket_paths() -> Vec<PathBuf> {
@@ -70,13 +71,13 @@ fn candidate_crypto_signing_socket_paths() -> Vec<PathBuf> {
         &mut paths,
         resolve_capability_unix_socket(
             CRYPTO_SIGN_CAPABILITY_SOCKET_ENV,
-            BEARDOG_BIOMEOS_SOCKET_STEM,
+            SECURITY_CAPABILITY_SOCKET_STEM,
         ),
     );
     push_unique_path(
         &mut paths,
         universal_constants::network::get_socket_dir()
-            .join(format!("{BEARDOG_BIOMEOS_SOCKET_STEM}.sock")),
+            .join(format!("{SECURITY_CAPABILITY_SOCKET_STEM}.sock")),
     );
 
     paths
@@ -567,6 +568,7 @@ mod tests {
                     let req: serde_json::Value =
                         serde_json::from_str(&line).expect("should succeed");
                     assert_eq!(req["method"], "crypto.sign");
+                    // Test-only fake payload (64 bytes); production code never embeds this string.
                     let sig_b64 = base64::Engine::encode(
                         &base64::engine::general_purpose::STANDARD,
                         b"mock-signature-64-bytes!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",

@@ -7,11 +7,15 @@
 //! communication between machines or between machines and humans.
 
 mod client;
+mod client_interactive;
+mod client_listener;
+mod client_types;
 pub mod config; // Changed from `mod config;` to `pub mod config;`
 mod protocol;
 mod server;
 
 pub use client::MCPClient;
+pub use client_types::NotificationCallback;
 pub use config::{MCPClientConfig, MCPServerConfig};
 pub use protocol::{MCPError, MCPMessage, MCPMessageType, MCPResult};
 pub use server::MCPServer;

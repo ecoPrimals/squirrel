@@ -14,16 +14,12 @@
 //! instead of direct adapter references to avoid potential Send/Sync issues.
 
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::Value;
 use std::any::Any;
 use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::plugin::{Plugin, PluginMetadata, WebEndpoint};
-
-// Note: async_trait still needed for Plugin trait (used as dyn Plugin),
-// but PluginV2 and WebPluginExtV2 use native async (no trait objects)
 
 /// Callback for logging
 pub type LogCallback = Box<dyn Fn(&str, &str) -> Result<()> + Send + Sync>;
@@ -118,18 +114,21 @@ impl<T: PluginV2> PluginWrapper<T> {
     }
 }
 
-#[async_trait]
 impl<T: PluginV2 + 'static> Plugin for PluginWrapper<T> {
     fn metadata(&self) -> &PluginMetadata {
         self.inner.metadata()
     }
 
-    async fn initialize(&self) -> Result<()> {
-        self.inner.initialize().await
+    fn initialize(
+        &self,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(PluginV2::initialize(&self.inner))
     }
 
-    async fn shutdown(&self) -> Result<()> {
-        self.inner.shutdown().await
+    fn shutdown(
+        &self,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(PluginV2::shutdown(&self.inner))
     }
 
     fn as_any(&self) -> &dyn Any {

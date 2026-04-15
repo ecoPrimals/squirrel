@@ -486,14 +486,14 @@ patterns:
     let generated_mdc = rule_to_mdc(&rule).expect("Should generate MDC");
 
     // Debug: Print the generated MDC to see what's happening
-    eprintln!("Generated MDC:\n{}", generated_mdc);
+    tracing::debug!("Generated MDC:\n{}", generated_mdc);
 
     // Parse generated MDC
     let reparsed_result = RuleParser::parse_string(&generated_mdc);
 
     // Check if parsing succeeded
     if let Err(e) = &reparsed_result {
-        eprintln!("Failed to parse generated MDC: {:?}", e);
+        tracing::debug!("Failed to parse generated MDC: {:?}", e);
         // The MDC generation may use different section header format (# vs ##)
         // This is a known limitation, so we'll just check the generated structure
         // instead of full roundtrip

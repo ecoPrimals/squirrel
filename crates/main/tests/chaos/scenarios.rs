@@ -6,6 +6,7 @@
 //! Common chaos engineering scenarios for testing system resilience.
 
 use super::framework::*;
+use rand::Rng;
 use std::time::Duration;
 
 /// Network partition scenario
@@ -55,7 +56,6 @@ pub struct ServiceCrashScenario {
     pub crash_count: u32,
 }
 
-#[async_trait]
 impl ChaosScenario for ServiceCrashScenario {
     fn name(&self) -> &str {
         "service_crash"
@@ -156,9 +156,16 @@ impl ChaosScenario for LatencyInjectionScenario {
         let start = std::time::Instant::now();
         
         // Inject latency
-        let latency = self.min_latency + Duration::from_millis(
-            rand::random::<u64>() % (self.max_latency.as_millis() - self.min_latency.as_millis()) as u64
-        );
+        let span_ms = self
+            .max_latency
+            .as_millis()
+            .saturating_sub(self.min_latency.as_millis()) as u64;
+        let extra_ms = if span_ms == 0 {
+            0
+        } else {
+            rand::rng().random_range(0..span_ms)
+        };
+        let latency = self.min_latency + Duration::from_millis(extra_ms);
         // CHAOS NOTE: This sleep is LEGITIMATE - simulating actual network latency
         // In real networks, packets take time to traverse. This models that reality.
         // Not hiding a race condition, modeling physical behavior.

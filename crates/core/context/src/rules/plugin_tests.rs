@@ -6,8 +6,9 @@
 use super::error::Result;
 use super::plugin::{ActionExecutor, ConditionEvaluator, RulePluginManager};
 use crate::rules::NoOpPluginManager;
-use async_trait::async_trait;
 use serde_json::{json, Value};
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 // Test condition evaluator
@@ -16,10 +17,14 @@ struct TestConditionEvaluator {
     result: bool,
 }
 
-#[async_trait]
 impl ConditionEvaluator for TestConditionEvaluator {
-    async fn evaluate(&self, _params: &Value, _context: &Value) -> Result<bool> {
-        Ok(self.result)
+    fn evaluate(
+        &self,
+        _params: &Value,
+        _context: &Value,
+    ) -> Pin<Box<dyn Future<Output = Result<bool>> + Send + '_>> {
+        let result = self.result;
+        Box::pin(async move { Ok(result) })
     }
 }
 
@@ -29,10 +34,14 @@ struct TestActionExecutor {
     output: Value,
 }
 
-#[async_trait]
 impl ActionExecutor for TestActionExecutor {
-    async fn execute(&self, _params: &Value, _context: &Value) -> Result<Value> {
-        Ok(self.output.clone())
+    fn execute(
+        &self,
+        _params: &Value,
+        _context: &Value,
+    ) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>> {
+        let output = self.output.clone();
+        Box::pin(async move { Ok(output) })
     }
 }
 
@@ -204,10 +213,14 @@ async fn test_condition_evaluator_with_params() {
     #[derive(Debug)]
     struct ParamConditionEvaluator;
 
-    #[async_trait]
     impl ConditionEvaluator for ParamConditionEvaluator {
-        async fn evaluate(&self, params: &Value, _context: &Value) -> Result<bool> {
-            Ok(params["enabled"].as_bool().unwrap_or(false))
+        fn evaluate(
+            &self,
+            params: &Value,
+            _context: &Value,
+        ) -> Pin<Box<dyn Future<Output = Result<bool>> + Send + '_>> {
+            let enabled = params["enabled"].as_bool().unwrap_or(false);
+            Box::pin(async move { Ok(enabled) })
         }
     }
 
@@ -241,13 +254,19 @@ async fn test_action_executor_with_context() {
     #[derive(Debug)]
     struct ContextActionExecutor;
 
-    #[async_trait]
     impl ActionExecutor for ContextActionExecutor {
-        async fn execute(&self, _params: &Value, context: &Value) -> Result<Value> {
-            Ok(json!({
-                "user": context["user"].clone(),
-                "timestamp": "2024-01-01"
-            }))
+        fn execute(
+            &self,
+            _params: &Value,
+            context: &Value,
+        ) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>> {
+            let user = context["user"].clone();
+            Box::pin(async move {
+                Ok(json!({
+                    "user": user,
+                    "timestamp": "2024-01-01"
+                }))
+            })
         }
     }
 

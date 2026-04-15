@@ -2,10 +2,11 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin manager for rule-specific plugins
-use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -100,17 +101,27 @@ impl RulePluginManager {
 }
 
 /// Custom condition evaluator trait
-#[async_trait]
+///
+/// Uses explicit futures so `Arc<dyn ConditionEvaluator>` remains object-safe.
 pub trait ConditionEvaluator: Send + Sync + Debug {
     /// Evaluate a custom condition
-    async fn evaluate(&self, params: &Value, context: &Value) -> Result<bool>;
+    fn evaluate(
+        &self,
+        params: &Value,
+        context: &Value,
+    ) -> Pin<Box<dyn Future<Output = Result<bool>> + Send + '_>>;
 }
 
 /// Custom action executor trait
-#[async_trait]
+///
+/// Uses explicit futures so `Arc<dyn ActionExecutor>` remains object-safe.
 pub trait ActionExecutor: Send + Sync + Debug {
     /// Execute a custom action
-    async fn execute(&self, params: &Value, context: &Value) -> Result<Value>;
+    fn execute(
+        &self,
+        params: &Value,
+        context: &Value,
+    ) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>>;
 }
 
 #[cfg(test)]
@@ -120,32 +131,33 @@ mod tests {
     use crate::rules::NoOpPluginManager;
     use crate::rules::RuleError;
     use serde_json::json;
+    use std::future::Future;
+    use std::pin::Pin;
 
     #[derive(Debug)]
     struct TrueEvaluator;
 
-    #[async_trait]
     impl ConditionEvaluator for TrueEvaluator {
-        async fn evaluate(
+        fn evaluate(
             &self,
             _params: &serde_json::Value,
             _context: &serde_json::Value,
-        ) -> Result<bool> {
-            Ok(true)
+        ) -> Pin<Box<dyn Future<Output = Result<bool>> + Send + '_>> {
+            Box::pin(async { Ok(true) })
         }
     }
 
     #[derive(Debug)]
     struct EchoActionExecutor;
 
-    #[async_trait]
     impl ActionExecutor for EchoActionExecutor {
-        async fn execute(
+        fn execute(
             &self,
             _params: &serde_json::Value,
             context: &serde_json::Value,
-        ) -> Result<serde_json::Value> {
-            Ok(context.clone())
+        ) -> Pin<Box<dyn Future<Output = Result<serde_json::Value>> + Send + '_>> {
+            let context = context.clone();
+            Box::pin(async move { Ok(context) })
         }
     }
 

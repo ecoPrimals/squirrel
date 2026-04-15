@@ -59,7 +59,7 @@ fn test_jwt_header_default() {
 
 #[test]
 fn test_beardog_jwt_config_default() {
-    let config = BearDogJwtConfig::default();
+    let config = SecurityProviderJwtConfig::default();
     assert_eq!(config.key_id, identity::JWT_SIGNING_KEY_ID);
     assert_eq!(config.expiry_hours, 24);
     assert_eq!(config.crypto_config.discovery_timeout_ms, Some(500));
@@ -67,8 +67,8 @@ fn test_beardog_jwt_config_default() {
 
 #[test]
 fn test_extract_token_from_header() {
-    let config = BearDogJwtConfig::default();
-    let service = BearDogJwtService::new(config).expect("should succeed");
+    let config = SecurityProviderJwtConfig::default();
+    let service = SecurityProviderJwtService::new(config).expect("should succeed");
 
     // Valid header
     let header = "Bearer abc123def456";
@@ -128,7 +128,7 @@ fn test_jwt_claims_to_auth_context_invalid_session_id() {
 
 #[test]
 fn test_beardog_jwt_service_new_with_custom_config() {
-    let config = BearDogJwtConfig {
+    let config = SecurityProviderJwtConfig {
         crypto_config: CapabilityCryptoConfig {
             endpoint: Some("/tmp/nonexistent.sock".to_string()),
             discovery_timeout_ms: Some(100),
@@ -136,14 +136,14 @@ fn test_beardog_jwt_service_new_with_custom_config() {
         key_id: "custom-key".to_string(),
         expiry_hours: 12,
     };
-    let service = BearDogJwtService::new(config).expect("should succeed");
+    let service = SecurityProviderJwtService::new(config).expect("should succeed");
     // Service creation succeeds; crypto calls would fail at runtime
     assert!(service.extract_token_from_header("Bearer x").is_ok());
 }
 
 #[tokio::test]
 async fn test_verify_token_invalid_format_too_few_parts() {
-    let config = BearDogJwtConfig {
+    let config = SecurityProviderJwtConfig {
         crypto_config: CapabilityCryptoConfig {
             endpoint: Some("/tmp/nonexistent.sock".to_string()),
             discovery_timeout_ms: Some(100),
@@ -151,7 +151,7 @@ async fn test_verify_token_invalid_format_too_few_parts() {
         key_id: identity::JWT_SIGNING_KEY_ID.to_string(),
         expiry_hours: 24,
     };
-    let service = BearDogJwtService::new(config).expect("should succeed");
+    let service = SecurityProviderJwtService::new(config).expect("should succeed");
 
     let result = service.verify_token("only.two").await;
     assert!(matches!(result, Err(AuthError::InvalidToken)));
@@ -159,7 +159,7 @@ async fn test_verify_token_invalid_format_too_few_parts() {
 
 #[tokio::test]
 async fn test_verify_token_invalid_format_too_many_parts() {
-    let config = BearDogJwtConfig {
+    let config = SecurityProviderJwtConfig {
         crypto_config: CapabilityCryptoConfig {
             endpoint: Some("/tmp/nonexistent.sock".to_string()),
             discovery_timeout_ms: Some(100),
@@ -167,7 +167,7 @@ async fn test_verify_token_invalid_format_too_many_parts() {
         key_id: identity::JWT_SIGNING_KEY_ID.to_string(),
         expiry_hours: 24,
     };
-    let service = BearDogJwtService::new(config).expect("should succeed");
+    let service = SecurityProviderJwtService::new(config).expect("should succeed");
 
     let result = service.verify_token("one.two.three.four").await;
     assert!(matches!(result, Err(AuthError::InvalidToken)));
@@ -175,7 +175,7 @@ async fn test_verify_token_invalid_format_too_many_parts() {
 
 #[tokio::test]
 async fn test_verify_token_invalid_signature_base64() {
-    let config = BearDogJwtConfig {
+    let config = SecurityProviderJwtConfig {
         crypto_config: CapabilityCryptoConfig {
             endpoint: Some("/tmp/nonexistent.sock".to_string()),
             discovery_timeout_ms: Some(100),
@@ -183,7 +183,7 @@ async fn test_verify_token_invalid_signature_base64() {
         key_id: identity::JWT_SIGNING_KEY_ID.to_string(),
         expiry_hours: 24,
     };
-    let service = BearDogJwtService::new(config).expect("should succeed");
+    let service = SecurityProviderJwtService::new(config).expect("should succeed");
 
     let header_b64 = BASE64_URL.encode(r#"{"alg":"EdDSA","typ":"JWT"}"#);
     let claims_b64 =
@@ -223,7 +223,7 @@ async fn test_verify_token_expired() {
         stream.write_all(b"\n").await.expect("should succeed");
     });
 
-    let config = BearDogJwtConfig {
+    let config = SecurityProviderJwtConfig {
         crypto_config: CapabilityCryptoConfig {
             endpoint: Some(path_str),
             discovery_timeout_ms: Some(5000),
@@ -231,7 +231,7 @@ async fn test_verify_token_expired() {
         key_id: identity::JWT_SIGNING_KEY_ID.to_string(),
         expiry_hours: 24,
     };
-    let service = BearDogJwtService::new(config).expect("should succeed");
+    let service = SecurityProviderJwtService::new(config).expect("should succeed");
 
     let header_b64 = BASE64_URL.encode(r#"{"alg":"EdDSA","typ":"JWT"}"#);
     let claims = serde_json::json!({
@@ -283,7 +283,7 @@ async fn test_verify_token_nbf_future() {
         stream.write_all(b"\n").await.expect("should succeed");
     });
 
-    let config = BearDogJwtConfig {
+    let config = SecurityProviderJwtConfig {
         crypto_config: CapabilityCryptoConfig {
             endpoint: Some(path_str),
             discovery_timeout_ms: Some(5000),
@@ -291,7 +291,7 @@ async fn test_verify_token_nbf_future() {
         key_id: identity::JWT_SIGNING_KEY_ID.to_string(),
         expiry_hours: 24,
     };
-    let service = BearDogJwtService::new(config).expect("should succeed");
+    let service = SecurityProviderJwtService::new(config).expect("should succeed");
 
     let header_b64 = BASE64_URL.encode(r#"{"alg":"EdDSA","typ":"JWT"}"#);
     let future_nbf = Utc::now().timestamp() + 3600;
@@ -343,7 +343,7 @@ async fn test_verify_token_invalid_claims_json() {
         stream.write_all(b"\n").await.expect("should succeed");
     });
 
-    let config = BearDogJwtConfig {
+    let config = SecurityProviderJwtConfig {
         crypto_config: CapabilityCryptoConfig {
             endpoint: Some(path_str),
             discovery_timeout_ms: Some(5000),
@@ -351,7 +351,7 @@ async fn test_verify_token_invalid_claims_json() {
         key_id: identity::JWT_SIGNING_KEY_ID.to_string(),
         expiry_hours: 24,
     };
-    let service = BearDogJwtService::new(config).expect("should succeed");
+    let service = SecurityProviderJwtService::new(config).expect("should succeed");
 
     let header_b64 = BASE64_URL.encode(r#"{"alg":"EdDSA","typ":"JWT"}"#);
     let claims_b64 = BASE64_URL.encode("{ invalid json }");
@@ -411,7 +411,7 @@ async fn test_create_and_verify_token_roundtrip() {
         stream2.write_all(b"\n").await.expect("should succeed");
     });
 
-    let config = BearDogJwtConfig {
+    let config = SecurityProviderJwtConfig {
         crypto_config: CapabilityCryptoConfig {
             endpoint: Some(path_str.clone()),
             discovery_timeout_ms: Some(5000),
@@ -419,7 +419,7 @@ async fn test_create_and_verify_token_roundtrip() {
         key_id: identity::JWT_SIGNING_KEY_ID.to_string(),
         expiry_hours: 24,
     };
-    let service = BearDogJwtService::new(config).expect("should succeed");
+    let service = SecurityProviderJwtService::new(config).expect("should succeed");
 
     let claims = JwtClaims::new(
         Uuid::new_v4(),

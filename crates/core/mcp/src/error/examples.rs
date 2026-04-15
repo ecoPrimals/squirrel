@@ -61,13 +61,13 @@ impl ErrorContextTrait for ServiceError {
 pub fn log_error_with_context(error: &dyn ErrorContextTrait) {
     let log_entry = error.to_log_entry();
 
-    eprintln!("Error occurred:");
+    error!("Error occurred:");
     for (key, value) in log_entry {
-        eprintln!("  {key}: {value}");
+        error!("  {key}: {value}");
     }
 
     if error.should_alert() {
-        eprintln!("  ⚠️  Alert triggered!");
+        warn!("  ⚠️  Alert triggered!");
     }
 }
 
@@ -101,7 +101,7 @@ pub mod context_propagation {
     impl WithContext for DatabaseError {
         fn with_context(self, operation: &str, component: &str) -> Self {
             // In a real implementation, you'd add this context to the error
-            eprintln!("Adding context: {operation} in {component}");
+            tracing::debug!("Adding context: {operation} in {component}");
             self
         }
 

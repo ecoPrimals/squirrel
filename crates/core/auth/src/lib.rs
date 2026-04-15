@@ -120,11 +120,47 @@ pub use capability_jwt::{
     CapabilityJwtConfig, CapabilityJwtService, JwtClaims as CapabilityJwtClaims,
 };
 
-// Primary exports from capability-based modules
+// Primary exports from capability-based modules (canonical capability-oriented names)
 #[cfg(feature = "delegated-jwt")]
-pub use ecosystem_jwt::{BearDogJwtConfig, BearDogJwtService, JwtClaims as BearDogJwtClaims};
+pub use ecosystem_jwt::{
+    JwtClaims as SecurityProviderJwtClaims, SecurityProviderJwtConfig, SecurityProviderJwtService,
+};
 #[cfg(feature = "delegated-jwt")]
-pub use security_provider_client::{BearDogClient, BearDogClientConfig};
+pub use security_provider_client::{SecurityProviderClient, SecurityProviderClientConfig};
+
+// Primal-named aliases: still public for migration; deprecation applies to downstream callers.
+#[cfg(feature = "delegated-jwt")]
+#[allow(
+    deprecated,
+    reason = "Intentional re-export of deprecated type aliases for backward compatibility"
+)]
+pub mod deprecated_primal_named_auth {
+    //! Deprecated re-exports — prefer [`super::SecurityProviderJwtConfig`], [`super::SecurityProviderClient`], etc.
+
+    #[deprecated(since = "0.1.0", note = "Use SecurityProviderJwtConfig")]
+    pub use crate::ecosystem_jwt::BearDogJwtConfig;
+
+    #[deprecated(since = "0.1.0", note = "Use SecurityProviderJwtService")]
+    pub use crate::ecosystem_jwt::BearDogJwtService;
+
+    #[deprecated(since = "0.1.0", note = "Use SecurityProviderJwtClaims")]
+    pub use crate::ecosystem_jwt::JwtClaims as BearDogJwtClaims;
+
+    #[deprecated(since = "0.1.0", note = "Use SecurityProviderClient")]
+    pub use crate::security_provider_client::BearDogClient;
+
+    #[deprecated(since = "0.1.0", note = "Use SecurityProviderClientConfig")]
+    pub use crate::security_provider_client::BearDogClientConfig;
+}
+
+#[cfg(feature = "delegated-jwt")]
+#[allow(
+    deprecated,
+    reason = "Crate-root re-exports of deprecated aliases for downstream migration"
+)]
+pub use deprecated_primal_named_auth::{
+    BearDogClient, BearDogClientConfig, BearDogJwtClaims, BearDogJwtConfig, BearDogJwtService,
+};
 
 // Dev/Testing: Local JWT (brings ring)
 #[cfg(feature = "local-jwt")]

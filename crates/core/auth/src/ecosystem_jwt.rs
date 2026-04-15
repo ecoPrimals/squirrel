@@ -126,7 +126,7 @@ impl JwtClaims {
 
 /// Ecosystem JWT service configuration (capability-based)
 #[derive(Debug, Clone)]
-pub struct BearDogJwtConfig {
+pub struct SecurityProviderJwtConfig {
     /// Crypto provider configuration (capability-based)
     pub crypto_config: CapabilityCryptoConfig,
 
@@ -137,7 +137,7 @@ pub struct BearDogJwtConfig {
     pub expiry_hours: i64,
 }
 
-impl Default for BearDogJwtConfig {
+impl Default for SecurityProviderJwtConfig {
     fn default() -> Self {
         Self {
             crypto_config: CapabilityCryptoConfig::default(),
@@ -147,19 +147,23 @@ impl Default for BearDogJwtConfig {
     }
 }
 
+/// Deprecated alias for [`SecurityProviderJwtConfig`].
+#[deprecated(since = "0.1.0", note = "Use SecurityProviderJwtConfig")]
+pub type BearDogJwtConfig = SecurityProviderJwtConfig;
+
 /// Ecosystem JWT token manager using capability-based crypto (Pure Rust!)
 ///
 /// # Examples
 ///
 /// ```no_run
-/// use squirrel_mcp_auth::ecosystem_jwt::{BearDogJwtService, BearDogJwtConfig, JwtClaims};
+/// use squirrel_mcp_auth::ecosystem_jwt::{SecurityProviderJwtService, SecurityProviderJwtConfig, JwtClaims};
 /// use chrono::{Utc, Duration};
 /// use uuid::Uuid;
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
-///     let config = BearDogJwtConfig::default();
-///     let jwt_service = BearDogJwtService::new(config)?;
+///     let config = SecurityProviderJwtConfig::default();
+///     let jwt_service = SecurityProviderJwtService::new(config)?;
 ///
 ///     let claims = JwtClaims::new(
 ///         Uuid::new_v4(),
@@ -176,18 +180,22 @@ impl Default for BearDogJwtConfig {
 ///     Ok(())
 /// }
 /// ```
-pub struct BearDogJwtService {
+pub struct SecurityProviderJwtService {
     crypto: CapabilityCryptoProvider,
     key_id: String,
 }
 
-impl BearDogJwtService {
+/// Deprecated alias for [`SecurityProviderJwtService`].
+#[deprecated(since = "0.1.0", note = "Use SecurityProviderJwtService")]
+pub type BearDogJwtService = SecurityProviderJwtService;
+
+impl SecurityProviderJwtService {
     /// Create new capability-based JWT service
     ///
     /// # Errors
     ///
     /// Returns [`anyhow::Error`] if the service cannot be initialized.
-    pub fn new(config: BearDogJwtConfig) -> Result<Self> {
+    pub fn new(config: SecurityProviderJwtConfig) -> Result<Self> {
         info!(
             "Initializing ecosystem JWT service: key_id={}, endpoint={:?}",
             config.key_id, config.crypto_config.endpoint

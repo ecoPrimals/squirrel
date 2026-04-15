@@ -1,6 +1,6 @@
 # Machine Context Protocol (MCP) Integration
 
-> **Note (April 2026):** WebSocket transport was removed from Squirrel in v0.1.0-alpha.47 (Tower Atomic pattern — WebSocket provided by Songbird service mesh). WebSocket references below are historical.
+> **Note (April 2026):** WebSocket transport removed per Tower Atomic — mesh provides WebSocket. Native transports: Unix socket (UDS) + TCP with JSON-RPC 2.0 newline-delimited framing. WebSocket mentions below are historical or refer to external/mesh paths unless noted.
 
 ## Overview
 
@@ -325,7 +325,7 @@ Additional features to consider for future versions:
 Extending MCP's reach to other technologies:
 
 1. **Protocol Bridges**:
-   - Create bridges to other protocols (MQTT, WebSockets, etc.)
+   - Create bridges to other protocols (MQTT, WebSocket `[via mesh / Tower Atomic]`, etc.) — native Squirrel MCP uses UDS + TCP (JSON-RPC NDJSON), not an in-process WebSocket transport
    - Support protocol translation and message mapping
    - Enable multi-protocol server capabilities
 

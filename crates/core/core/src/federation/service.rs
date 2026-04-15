@@ -4,14 +4,13 @@
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use parking_lot::RwLock;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::types::{FederationConfig, FederationStats, ScalingPolicy};
 use crate::{
-    Error, FederationLoadBalancer, FederationResult, FederationStatus, FederationTopology,
-    InstanceStatus, LoadBalanceResult, LoadMetrics, NodeSpec, Result, SquirrelConfig,
-    SquirrelInstance, SwarmManager, monitoring::MonitoringService,
+    Error, FederationLoadBalancer, FederationStatus, FederationTopology, InstanceStatus,
+    LoadMetrics, Result, SquirrelConfig, SquirrelInstance, SwarmManager,
+    monitoring::MonitoringService,
 };
 use universal_constants::limits::DEFAULT_MAX_CONNECTIONS;
 use universal_constants::network::{DEFAULT_SQUIRREL_SERVER_PORT, get_service_port};
@@ -213,11 +212,14 @@ impl FederationService {
         ))
     }
 
-    /// Find the leader node in the federation
-    #[expect(dead_code, reason = "Phase 2 placeholder — leader election")]
+    /// Find the leader node in the federation from the **local** instance registry.
+    ///
+    /// Cross-node consensus and HTTP probes are Phase 2; until then this returns the
+    /// lexicographically smallest registered peer as a deterministic stand-in, or
+    /// [`Error::CapabilityUnavailable`] when the registry is empty (callers should use IPC
+    /// discovery before relying on this).
     fn find_leader_node(&self) -> Result<SquirrelInstance> {
-        // Simple leader election: use the node with the lowest ID
-        // In practice, this would be more sophisticated
+        // Deterministic local view: lowest instance id (not distributed consensus).
 
         let mut best_key: Option<String> = None;
         for entry in self.instances.iter() {
@@ -475,8 +477,8 @@ impl FederationService {
         Ok(())
     }
 
-    /// Calculate overall utilization across all metrics
-    fn calculate_overall_utilization(&self) -> f64 {
+    /// Calculate overall utilization across all metrics.
+    pub(super) fn calculate_overall_utilization(&self) -> f64 {
         let cpu = self.load_metrics.cpu_usage;
         let memory = self.load_metrics.memory_usage;
         let queue_pressure = f64::from(self.load_metrics.queue_length) / 100.0;
@@ -587,6 +589,12 @@ impl FederationService {
 
         // 3. Optimize topology if needed
         self.optimize_topology();
+
+        tracing::trace!(
+            endpoint = %self.get_node_endpoint(),
+            caps = ?Self::get_node_capabilities(),
+            "maintain_federation: local node snapshot (operator diagnostics)"
+        );
     }
 
     /// Sync federation state with other nodes
@@ -603,12 +611,20 @@ impl FederationService {
     /// Check leader health and trigger re-election if needed
     ///
     /// **Phase 2**: Requires live probes of the leader endpoint and consensus or
-    /// lease-based failover; `find_leader_node` is the local registry view only.
+    /// lease-based failover. Today we only reconcile the local [`find_leader_node`] view with
+    /// tracing for observability.
     fn check_leader_health(&self) {
-        tracing::trace!(
-            leader = ?self.state.leader_node.read().as_ref(),
-            "check_leader_health: deferred to Phase 2 (leader probes)"
-        );
+        if self.instances.is_empty() {
+            tracing::trace!("check_leader_health: no peers in local registry");
+            return;
+        }
+        match self.find_leader_node() {
+            Ok(leader) => tracing::trace!(
+                leader_id = %leader.id,
+                "check_leader_health: resolved leader from local registry"
+            ),
+            Err(e) => tracing::trace!(error = %e, "check_leader_health: no leader resolved"),
+        }
     }
 
     /// Optimize federation topology
@@ -623,11 +639,9 @@ impl FederationService {
         );
     }
 
-    /// Get current node endpoint
-    #[expect(
-        dead_code,
-        reason = "Phase 2 placeholder — connection address tracking"
-    )]
+    /// Advertised HTTP endpoint for this node (config + [`resolve_node_host`]).
+    ///
+    /// Used for logging and future mesh handshakes; federation traffic still delegates via IPC.
     fn get_node_endpoint(&self) -> String {
         let host = Self::resolve_node_host();
         universal_constants::builders::build_http_url(&host, self.config.federation_port)
@@ -636,17 +650,15 @@ impl FederationService {
     /// Resolve the host address for this node via env discovery.
     ///
     /// Tier: `NODE_IP` -> `MCP_HOST` -> `localhost`
-    fn resolve_node_host() -> String {
+    pub(super) fn resolve_node_host() -> String {
         std::env::var("NODE_IP")
             .or_else(|_| std::env::var("MCP_HOST"))
             .unwrap_or_else(|_| universal_constants::network::DEFAULT_LOCALHOST.to_string())
     }
 
-    /// Get current node capabilities from niche self-knowledge ([`universal_constants::capabilities::SQUIRREL_EXPOSED_CAPABILITIES`]).
-    #[expect(
-        dead_code,
-        reason = "Phase 2 — peer advertisements will use discovered capability sets"
-    )]
+    /// Current node capabilities from niche self-knowledge ([`universal_constants::capabilities::SQUIRREL_EXPOSED_CAPABILITIES`]).
+    ///
+    /// Phase 2 will merge this with peer advertisements from IPC; today it is the local view only.
     fn get_node_capabilities() -> Vec<String> {
         let caps = universal_constants::capabilities::SQUIRREL_EXPOSED_CAPABILITIES;
         if caps.is_empty() {
@@ -656,6 +668,28 @@ impl FederationService {
             return Vec::new();
         }
         caps.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    // -- Scoped accessors for sibling trait impls (service_swarm.rs) --
+
+    /// Node ID from federation config.
+    pub(super) fn node_id(&self) -> &str {
+        &self.config.node_id
+    }
+
+    /// Shared instance registry.
+    pub(super) fn instances(&self) -> &DashMap<String, SquirrelInstance> {
+        &self.instances
+    }
+
+    /// Federation identifier string.
+    pub(super) fn federation_id(&self) -> &str {
+        &self.state.federation_id
+    }
+
+    /// Write the current utilization gauge.
+    pub(super) fn set_current_utilization(&self, value: f64) {
+        *self.state.current_utilization.write() = value;
     }
 
     /// Get federation statistics

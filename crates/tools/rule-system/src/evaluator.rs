@@ -13,6 +13,8 @@
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -72,14 +74,15 @@ impl Default for EvaluationStatistics {
 }
 
 /// Trait for custom condition evaluators
-#[async_trait::async_trait]
+///
+/// Uses explicit futures so `Box<dyn ConditionEvaluator>` remains object-safe.
 pub trait ConditionEvaluator: Send + Sync + std::fmt::Debug {
     /// Evaluate a condition against context data
-    async fn evaluate(
-        &self,
-        condition: &RuleCondition,
-        context_data: &Value,
-    ) -> RuleSystemResult<bool>;
+    fn evaluate<'a>(
+        &'a self,
+        condition: &'a RuleCondition,
+        context_data: &'a Value,
+    ) -> Pin<Box<dyn Future<Output = RuleSystemResult<bool>> + Send + 'a>>;
 
     /// Get the name of the evaluator
     fn name(&self) -> &str;
@@ -382,46 +385,47 @@ impl Default for RuleEvaluator {
 #[derive(Debug)]
 pub struct RegexEvaluator;
 
-#[async_trait::async_trait]
 impl ConditionEvaluator for RegexEvaluator {
-    async fn evaluate(
-        &self,
-        condition: &RuleCondition,
-        context_data: &Value,
-    ) -> RuleSystemResult<bool> {
-        if let RuleCondition::Plugin { config, .. } = condition {
-            // Extract pattern and path from config
-            let pattern = config
-                .get("pattern")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| {
-                    RuleEvaluatorError::Other(
-                        "Missing pattern in regex evaluator config".to_string(),
-                    )
+    fn evaluate<'a>(
+        &'a self,
+        condition: &'a RuleCondition,
+        context_data: &'a Value,
+    ) -> Pin<Box<dyn Future<Output = RuleSystemResult<bool>> + Send + 'a>> {
+        Box::pin(async move {
+            if let RuleCondition::Plugin { config, .. } = condition {
+                // Extract pattern and path from config
+                let pattern = config
+                    .get("pattern")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        RuleEvaluatorError::Other(
+                            "Missing pattern in regex evaluator config".to_string(),
+                        )
+                    })?;
+
+                let path = config.get("path").and_then(|v| v.as_str()).ok_or_else(|| {
+                    RuleEvaluatorError::Other("Missing path in regex evaluator config".to_string())
                 })?;
 
-            let path = config.get("path").and_then(|v| v.as_str()).ok_or_else(|| {
-                RuleEvaluatorError::Other("Missing path in regex evaluator config".to_string())
-            })?;
+                // Extract value from context
+                let context_value = utils::extract_value_by_path(context_data, path);
 
-            // Extract value from context
-            let context_value = utils::extract_value_by_path(context_data, path);
+                if let Some(Value::String(text)) = context_value {
+                    // Use regex to match
+                    let regex = regex::Regex::new(pattern).map_err(|e| {
+                        RuleEvaluatorError::Other(format!("Invalid regex pattern: {e}"))
+                    })?;
 
-            if let Some(Value::String(text)) = context_value {
-                // Use regex to match
-                let regex = regex::Regex::new(pattern).map_err(|e| {
-                    RuleEvaluatorError::Other(format!("Invalid regex pattern: {e}"))
-                })?;
-
-                Ok(regex.is_match(&text))
+                    Ok(regex.is_match(&text))
+                } else {
+                    Ok(false)
+                }
             } else {
-                Ok(false)
+                Err(RuleSystemError::EvaluatorError(RuleEvaluatorError::Other(
+                    "Invalid condition type for regex evaluator".to_string(),
+                )))
             }
-        } else {
-            Err(RuleSystemError::EvaluatorError(RuleEvaluatorError::Other(
-                "Invalid condition type for regex evaluator".to_string(),
-            )))
-        }
+        })
     }
 
     fn name(&self) -> &'static str {

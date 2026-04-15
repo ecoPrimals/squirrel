@@ -284,7 +284,6 @@ impl UnifiedPluginManager {
 mod tests {
     use super::*;
     use crate::plugin::PluginMetadata;
-    use async_trait::async_trait;
     use std::any::Any;
 
     /// Test plugin implementation for unified manager tests.
@@ -300,18 +299,23 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl Plugin for TestPlugin {
         fn metadata(&self) -> &PluginMetadata {
             &self.metadata
         }
 
-        async fn initialize(&self) -> anyhow::Result<()> {
-            Ok(())
+        fn initialize(
+            &self,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + Send + '_>>
+        {
+            Box::pin(async { Ok(()) })
         }
 
-        async fn shutdown(&self) -> anyhow::Result<()> {
-            Ok(())
+        fn shutdown(
+            &self,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + Send + '_>>
+        {
+            Box::pin(async { Ok(()) })
         }
 
         fn as_any(&self) -> &dyn Any {

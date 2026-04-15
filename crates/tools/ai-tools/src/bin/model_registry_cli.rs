@@ -19,6 +19,7 @@ use std::process;
 
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 /// Model registry CLI for managing AI model capabilities
 #[derive(Parser)]
@@ -190,6 +191,8 @@ impl ModelRegistry {
 }
 
 fn main() {
+    tracing_subscriber::fmt::init();
+
     let cli = Cli::parse();
 
     match &cli.command {
@@ -268,7 +271,7 @@ fn main() {
                 match ModelRegistry::load_from_file(output) {
                     Ok(reg) => reg,
                     Err(e) => {
-                        eprintln!("Error loading registry: {e}");
+                        error!("Error loading registry: {e}");
                         process::exit(1);
                     }
                 }
@@ -293,7 +296,7 @@ fn main() {
             match registry.save_to_file(output) {
                 Ok(_) => println!("Model '{name}' added to registry"),
                 Err(e) => {
-                    eprintln!("Error saving registry: {e}");
+                    error!("Error saving registry: {e}");
                     process::exit(1);
                 }
             }
@@ -303,7 +306,7 @@ fn main() {
             let registry = match ModelRegistry::load_from_file(input) {
                 Ok(reg) => reg,
                 Err(e) => {
-                    eprintln!("Error loading registry from {}: {}", input.display(), e);
+                    error!("Error loading registry from {}: {}", input.display(), e);
                     process::exit(1);
                 }
             };
@@ -312,7 +315,7 @@ fn main() {
             match output {
                 Some(output_path) => {
                     if let Err(e) = registry.save_to_file(output_path) {
-                        eprintln!("Error saving registry to {}: {}", output_path.display(), e);
+                        error!("Error saving registry to {}: {}", output_path.display(), e);
                         process::exit(1);
                     }
                     println!(
@@ -370,7 +373,7 @@ fn main() {
                         .insert(provider_id.clone(), models.clone());
                     registry = filtered_registry;
                 } else {
-                    eprintln!("Provider '{provider_id}' not found");
+                    error!("Provider '{provider_id}' not found");
                     process::exit(1);
                 }
             }
@@ -378,7 +381,7 @@ fn main() {
             match registry.save_to_file(output) {
                 Ok(_) => println!("Registry exported to {}", output.display()),
                 Err(e) => {
-                    eprintln!("Error exporting registry: {e}");
+                    error!("Error exporting registry: {e}");
                     process::exit(1);
                 }
             }

@@ -16,10 +16,8 @@ use std::time::Duration;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
+use crate::mcp::client_types::NotificationCallback;
 use crate::mcp::protocol::{MCPError, MCPMessage, MCPMessageType, MCPResult};
-
-/// Callback for notification handlers
-pub type NotificationCallback = Box<dyn Fn(&str, &MCPMessage) -> MCPResult<()> + Send + Sync>;
 
 /// MCP client for communicating with MCP servers
 pub struct MCPClient {
@@ -152,86 +150,12 @@ impl MCPClient {
 
         // Start listener thread
         let thread = thread::spawn(move || {
-            let mut reader = BufReader::new(stream);
-
-            while match running.lock() {
-                Ok(guard) => *guard,
-                Err(_) => {
-                    error!("Running flag mutex poisoned, exiting listener thread");
-                    false
-                }
-            } {
-                let mut line = String::new();
-
-                // Read a line from the server
-                match reader.read_line(&mut line) {
-                    Ok(0) => {
-                        // End of stream, server disconnected
-                        debug!("Server disconnected (EOF)");
-                        break;
-                    }
-                    Ok(_) => {
-                        // Process message
-                        match MCPMessage::from_json(line.trim()) {
-                            Ok(message) => {
-                                // Only process notifications
-                                if message.message_type == MCPMessageType::Notification {
-                                    let topic = message.command.clone();
-
-                                    // Find handlers for this topic
-                                    let handlers = match subscriptions.lock() {
-                                        Ok(subs) => {
-                                            if let Some(handler_ids) = subs.get(&topic) {
-                                                handler_ids.clone()
-                                            } else {
-                                                HashSet::new()
-                                            }
-                                        }
-                                        Err(_) => {
-                                            error!(
-                                                "Subscriptions mutex poisoned, skipping notification"
-                                            );
-                                            continue;
-                                        }
-                                    };
-
-                                    // Call handlers
-                                    for handler_id in handlers {
-                                        match notification_handlers.lock() {
-                                            Ok(handlers) => {
-                                                if let Some(handler) = handlers.get(&handler_id)
-                                                    && let Err(e) = handler(&topic, &message)
-                                                {
-                                                    error!("Error in notification handler: {}", e);
-                                                }
-                                            }
-                                            Err(_) => {
-                                                error!(
-                                                    "Notification handlers mutex poisoned, skipping handler"
-                                                );
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    debug!(
-                                        "Ignored non-notification message: {:?}",
-                                        message.message_type
-                                    );
-                                }
-                            }
-                            Err(e) => {
-                                error!("Error parsing notification: {}", e);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        error!("Error reading from server: {}", e);
-                        break;
-                    }
-                }
-            }
-
-            debug!("Notification listener thread exiting");
+            crate::mcp::client_listener::run_notification_listener(
+                stream,
+                subscriptions,
+                notification_handlers,
+                running,
+            );
         });
 
         // Store thread handle
@@ -527,6 +451,17 @@ impl MCPClient {
         Ok(())
     }
 
+    /// Snapshot of subscription IDs for a topic (for interactive / internal helpers).
+    pub(crate) fn subscription_ids_for_topic(&self, topic: &str) -> MCPResult<Option<Vec<Uuid>>> {
+        let subscriptions = self
+            .subscriptions
+            .lock()
+            .map_err(|_| MCPError::ConnectionError("Subscriptions mutex poisoned".to_string()))?;
+        Ok(subscriptions
+            .get(topic)
+            .map(|ids| ids.iter().copied().collect()))
+    }
+
     /// Send a subscribe message to the server
     ///
     /// # Arguments
@@ -576,176 +511,8 @@ impl MCPClient {
     /// # Returns
     ///
     /// A Result indicating success or an error
-    #[expect(
-        clippy::too_many_lines,
-        reason = "REPL command loop; split later if this grows further"
-    )]
     pub fn run_interactive(&self) -> MCPResult<()> {
-        // Ensure connected
-        if !self.is_connected() {
-            return Err(MCPError::ConnectionError(
-                "Not connected to MCP server".to_string(),
-            ));
-        }
-
-        println!("MCP Interactive Mode");
-        println!("Type 'exit' or 'quit' to exit");
-        println!("Type 'help' for available commands");
-        println!("Format: <command> [JSON args]");
-
-        // Read commands from stdin
-        let stdin = std::io::stdin();
-        let mut lines = stdin.lock().lines();
-
-        loop {
-            print!("> ");
-            std::io::stdout().flush()?;
-
-            if let Some(line) = lines.next() {
-                let line = line?;
-                let line = line.trim();
-
-                // Exit command
-                if line == "exit" || line == "quit" {
-                    break;
-                }
-
-                // Help command
-                if line == "help" {
-                    println!("Available commands:");
-                    println!("  <command> [JSON args] - Execute command");
-                    println!("  subscribe <topic>     - Subscribe to topic");
-                    println!("  unsubscribe <topic>   - Unsubscribe from topic");
-                    println!("  notify <topic> [JSON] - Send notification");
-                    println!("  help                  - Show this help");
-                    println!("  exit, quit            - Exit interactive mode");
-                    continue;
-                }
-
-                // Parse command and args
-                let parts: Vec<&str> = line.splitn(2, ' ').collect();
-                if parts.is_empty() {
-                    continue;
-                }
-
-                let command = parts[0];
-
-                // Handle special commands
-                match command {
-                    "subscribe" => {
-                        if parts.len() > 1 {
-                            let topic = parts[1];
-
-                            // Subscribe to topic with a handler that prints notifications
-                            match self.subscribe(topic, |topic, msg| {
-                                println!("Notification received from topic {}: {:?}", topic, msg);
-                                Ok(())
-                            }) {
-                                Ok(_) => println!("Subscribed to topic: {}", topic),
-                                Err(e) => eprintln!("Error subscribing to topic: {}", e),
-                            }
-                        } else {
-                            eprintln!("Missing topic. Usage: subscribe <topic>");
-                        }
-                        continue;
-                    }
-                    "unsubscribe" => {
-                        if parts.len() > 1 {
-                            let topic = parts[1];
-
-                            // Find all subscription IDs for this topic
-                            let subscription_ids = {
-                                match self.subscriptions.lock() {
-                                    Ok(subscriptions) => {
-                                        if let Some(ids) = subscriptions.get(topic) {
-                                            ids.clone()
-                                        } else {
-                                            eprintln!("Not subscribed to topic: {}", topic);
-                                            continue;
-                                        }
-                                    }
-                                    Err(_) => {
-                                        eprintln!("Subscriptions mutex poisoned");
-                                        continue;
-                                    }
-                                }
-                            };
-
-                            // Unsubscribe from all
-                            for id in subscription_ids {
-                                match self.unsubscribe(id) {
-                                    Ok(_) => println!("Unsubscribed from topic: {}", topic),
-                                    Err(e) => eprintln!("Error unsubscribing from topic: {}", e),
-                                }
-                            }
-                        } else {
-                            eprintln!("Missing topic. Usage: unsubscribe <topic>");
-                        }
-                        continue;
-                    }
-                    "notify" => {
-                        if parts.len() < 2 {
-                            eprintln!("Missing topic. Usage: notify <topic> [JSON]");
-                            continue;
-                        }
-
-                        let notify_parts: Vec<&str> = parts[1].splitn(2, ' ').collect();
-                        let topic = notify_parts[0];
-
-                        // Parse JSON payload if provided
-                        let payload = if notify_parts.len() > 1 {
-                            match serde_json::from_str(notify_parts[1]) {
-                                Ok(json) => Some(json),
-                                Err(e) => {
-                                    eprintln!("Error parsing JSON payload: {}", e);
-                                    continue;
-                                }
-                            }
-                        } else {
-                            None
-                        };
-
-                        // Send notification
-                        match self.send_notification(topic, payload) {
-                            Ok(_) => println!("Notification sent to topic: {}", topic),
-                            Err(e) => eprintln!("Error sending notification: {}", e),
-                        }
-                        continue;
-                    }
-                    _ => {}
-                }
-
-                // Parse JSON args if provided
-                let args = if parts.len() > 1 {
-                    match serde_json::from_str(parts[1]) {
-                        Ok(json) => Some(json),
-                        Err(e) => {
-                            eprintln!("Error parsing JSON args: {}", e);
-                            continue;
-                        }
-                    }
-                } else {
-                    None
-                };
-
-                // Send command
-                match self.send_command(command, args) {
-                    Ok(response) => {
-                        // Pretty print response
-                        match serde_json::to_string_pretty(&response) {
-                            Ok(json) => println!("{}", json),
-                            Err(e) => eprintln!("Error formatting response: {}", e),
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Error sending command: {}", e);
-                    }
-                }
-            }
-        }
-
-        println!("Exiting interactive mode");
-        Ok(())
+        crate::mcp::client_interactive::run_interactive(self)
     }
 
     /// Send a message to the MCP server and receive a response

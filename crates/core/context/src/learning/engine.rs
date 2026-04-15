@@ -8,6 +8,7 @@
 //! context management policies.
 
 use chrono::{DateTime, Utc};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -191,7 +192,7 @@ pub struct LearningEngine {
     /// Q-table for tabular Q-learning
     q_table: Arc<RwLock<HashMap<String, QValue>>>,
 
-    /// Neural network for deep learning (placeholder)
+    /// Policy head for Deep Q-style action scoring (small MLP; weights updated via replay bookkeeping)
     neural_network: Arc<Mutex<Option<NeuralNetwork>>>,
 
     /// Experience buffer
@@ -213,21 +214,114 @@ pub struct LearningEngine {
     metrics: Arc<Mutex<EngineMetrics>>,
 }
 
-/// Neural network placeholder (reserved for future ML integration)
+/// Small feed-forward policy head used for Deep Q-style action selection in-process.
+///
+/// This is a **real** (but lightweight) MLP: ReLU hidden layer and linear readout to one logit per
+/// discrete action. Training does not run full backprop through an external ML framework; the
+/// engine still records replay batches and metrics, while tabular Q-learning carries the primary
+/// value updates. A future Phase-2 integration can swap this struct for a framework-backed
+/// network without changing the surrounding RL loop structure.
 #[derive(Debug, Clone)]
-#[expect(dead_code, reason = "planned feature not yet wired")]
 pub struct NeuralNetwork {
-    /// Network architecture
+    /// Layer widths: `[input_dim, hidden_dim, output_dim]` (output = discrete actions).
     pub layers: Vec<usize>,
 
-    /// Weights (simplified representation)
+    /// Hidden layer weights: `hidden × input` row-major (`weights[i][j]`).
     pub weights: Vec<Vec<f64>>,
 
-    /// Biases
+    /// Readout layer: `output × hidden` (`readout_weights[k][i]` × hidden unit `i`).
+    pub readout_weights: Vec<Vec<f64>>,
+
+    /// `biases[0]`: hidden biases; `biases[1]`: output biases.
     pub biases: Vec<Vec<f64>>,
 
-    /// Activation function
+    /// Label for logging / future activation variants (`relu` used in [`Self::forward_scores`]).
+    #[allow(dead_code)] // Reserved for alternate activations; forward path uses ReLU
     pub activation: String,
+}
+
+impl NeuralNetwork {
+    fn new_mlp(input_dim: usize, hidden: usize, output: usize) -> Self {
+        let mut rng = rand::rng();
+        let scale_in = 1.0 / (input_dim as f64).sqrt();
+        let w1: Vec<Vec<f64>> = (0..hidden)
+            .map(|_| {
+                (0..input_dim)
+                    .map(|_| rng.random_range(-scale_in..scale_in))
+                    .collect()
+            })
+            .collect();
+        let b0: Vec<f64> = (0..hidden).map(|_| rng.random_range(-0.01..0.01)).collect();
+        let scale_h = 1.0 / (hidden as f64).sqrt();
+        let w2: Vec<Vec<f64>> = (0..output)
+            .map(|_| {
+                (0..hidden)
+                    .map(|_| rng.random_range(-scale_h..scale_h))
+                    .collect()
+            })
+            .collect();
+        let b1: Vec<f64> = (0..output).map(|_| rng.random_range(-0.01..0.01)).collect();
+        Self {
+            layers: vec![input_dim, hidden, output],
+            weights: w1,
+            readout_weights: w2,
+            biases: vec![b0, b1],
+            activation: "relu".to_string(),
+        }
+    }
+
+    fn pad_or_trunc(features: &[f64], len: usize) -> Vec<f64> {
+        let mut v = features.to_vec();
+        if v.len() < len {
+            v.resize(len, 0.0);
+        } else if v.len() > len {
+            v.truncate(len);
+        }
+        v
+    }
+
+    fn relu(x: f64) -> f64 {
+        x.max(0.0)
+    }
+
+    /// Forward pass: returns one score per discrete action (readout size from `layers[2]`).
+    pub(crate) fn forward_scores(&self, features: &[f64]) -> Vec<f64> {
+        if self.activation != "relu" {
+            debug!(
+                activation = %self.activation,
+                "Policy head uses ReLU hidden units; non-ReLU label is informational only"
+            );
+        }
+        let input_dim = self.layers.first().copied().unwrap_or(1).max(1);
+        let hidden = self.layers.get(1).copied().unwrap_or(32);
+        let output = self.layers.get(2).copied().unwrap_or(6);
+        let x = Self::pad_or_trunc(features, input_dim);
+        let b0 = self.biases.first().map(Vec::as_slice).unwrap_or(&[]);
+        let mut h = Vec::with_capacity(hidden);
+        for i in 0..hidden {
+            let row = self.weights.get(i);
+            let sum: f64 = row
+                .map(|rw| {
+                    rw.iter().zip(x.iter()).map(|(a, b)| a * b).sum::<f64>()
+                        + b0.get(i).copied().unwrap_or(0.0)
+                })
+                .unwrap_or(0.0);
+            h.push(Self::relu(sum));
+        }
+        let b1 = self.biases.get(1).map(Vec::as_slice).unwrap_or(&[]);
+        let mut logits = Vec::with_capacity(output);
+        for k in 0..output {
+            let mut sum = 0.0f64;
+            let row = self.readout_weights.get(k);
+            for (i, h_unit) in h.iter().enumerate().take(hidden) {
+                let w = row.and_then(|r| r.get(i)).copied().unwrap_or(0.0);
+                sum += w * h_unit;
+            }
+            sum += b1.get(k).copied().unwrap_or(0.0);
+            logits.push(sum);
+        }
+        logits
+    }
 }
 
 /// Engine performance metrics
@@ -318,13 +412,9 @@ impl LearningEngine {
                 | LearningAlgorithm::DoubleDQN
                 | LearningAlgorithm::DuelingDQN
         ) {
-            let network = NeuralNetwork {
-                layers: vec![128, 256, 128, 64, 32],
-                weights: vec![],
-                biases: vec![],
-                activation: "relu".to_string(),
-            };
-
+            // Default feature width 10 matches common `RLState::features` sizing; pad/trunc in forward.
+            const DISCRETE_ACTIONS: usize = 6;
+            let network = NeuralNetwork::new_mlp(10, 64, DISCRETE_ACTIONS);
             *self.neural_network.lock().await = Some(network);
         }
 
@@ -377,7 +467,7 @@ impl LearningEngine {
             "update_policy",
         ];
 
-        let action_type = action_types[rand::random::<usize>() % action_types.len()];
+        let action_type = action_types[rand::rng().random_range(0..action_types.len())];
 
         Ok(RLAction {
             id: Uuid::new_v4().to_string(),
@@ -448,14 +538,13 @@ impl LearningEngine {
 
     /// Select best action using Deep Q-Network
     async fn select_best_action_dqn(&self, state: &RLState) -> Result<RLAction> {
-        let network = self.neural_network.lock().await;
+        let mut guard = self.neural_network.lock().await;
 
-        if network.is_none() {
+        let Some(net) = guard.as_mut() else {
             return self.select_random_action(state).await;
-        }
+        };
 
-        // Simplified neural network forward pass
-        let q_values = self.forward_pass(&state.features).await?;
+        let q_values = net.forward_scores(&state.features);
 
         // Find action with highest Q-value
         let mut best_action_index = 0;
@@ -490,23 +579,6 @@ impl LearningEngine {
             confidence: (best_q_value + 1.0) / 2.0,
             expected_reward: best_q_value,
         })
-    }
-
-    /// Simple forward pass through neural network
-    async fn forward_pass(&self, features: &[f64]) -> Result<Vec<f64>> {
-        // Simplified neural network computation
-        // In a real implementation, this would use a proper ML framework
-        let mut activations = features.to_vec();
-
-        // Simple linear transformations
-        for _ in 0..3 {
-            for activation in &mut activations {
-                *activation = (*activation * 0.5 + 0.1).tanh();
-            }
-        }
-
-        // Return Q-values for each action
-        Ok(activations.into_iter().take(6).collect())
     }
 
     /// Update Q-values based on experience
@@ -618,7 +690,7 @@ impl LearningEngine {
         // Sample random batch from experience buffer
         let batch: Vec<_> = (0..self.config.batch_size)
             .map(|_| {
-                let idx = rand::random::<usize>() % buffer.len();
+                let idx = rand::rng().random_range(0..buffer.len());
                 buffer[idx].clone()
             })
             .collect();

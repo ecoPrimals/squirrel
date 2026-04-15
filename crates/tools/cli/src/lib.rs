@@ -56,7 +56,6 @@ pub mod command_adapter {
     pub use crate::commands::adapter::registry::CommandRegistryAdapter as RegistryAdapter;
     pub use crate::commands::adapter::{CommandAdapter, CommandAdapterTrait};
     pub use crate::commands::registry::CommandRegistry;
-    pub use async_trait::async_trait;
 }
 
 /// Error handling re-exports

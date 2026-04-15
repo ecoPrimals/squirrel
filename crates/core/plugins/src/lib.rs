@@ -35,6 +35,7 @@
 
 mod default_manager;
 mod dependency_resolver;
+mod dependency_types;
 mod discovery;
 mod errors;
 mod manager;
@@ -58,7 +59,8 @@ pub mod web;
 // Re-export public API
 pub use default_manager::DefaultPluginManager;
 pub use dependency_resolver::{
-    DependencyResolver, EnhancedPluginDependency, ResolutionResult, ResolutionStatistics,
+    DependencyResolver, DependencyType, EnhancedPluginDependency, ResolutionResult,
+    ResolutionStatistics, VersionConflict,
 };
 pub use discovery::{DefaultPluginDiscovery, NoOpPlugin, PluginDiscovery, create_noop_plugin};
 pub use errors::{PluginError, Result};

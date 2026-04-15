@@ -13,6 +13,7 @@
 //! Squirrel MCP demo binary — configuration-based routing and primal coordination showcase.
 
 use anyhow::Result;
+use rand::Rng;
 use serde_json::json;
 use std::collections::HashMap;
 use tokio::time::{Duration, sleep};
@@ -305,7 +306,7 @@ impl EnhancedDemoRouter {
         Ok(TaskResponse {
             destination: selected_destination,
             _response: response,
-            _execution_time: Duration::from_millis(rand::random::<u64>() % 500 + 100),
+            _execution_time: Duration::from_millis(rand::rng().random_range(100..600)),
             routing_method: self.get_routing_method(task),
         })
     }

@@ -75,8 +75,8 @@ impl MockService {
         // Simulate random errors based on error rate
         if self.error_rate > 0.0 {
             use rand::Rng;
-            let mut rng = rand::thread_rng();
-            if rng.r#gen::<f64>() < self.error_rate {
+            let mut rng = rand::rng();
+            if rng.random::<f64>() < self.error_rate {
                 return Err(format!("simulated error for request {}", request_id).into());
             }
         }

@@ -58,6 +58,7 @@ impl Default for DiscoveryConfig {
         Self {
             auto_discovery: true,
             discovery_endpoint: std::env::var("SERVICE_MESH_ENDPOINT")
+                .or_else(|_| std::env::var("DISCOVERY_ENDPOINT"))
                 .or_else(|_| std::env::var("SONGBIRD_ENDPOINT"))
                 .ok(),
             direct_endpoints: HashMap::new(),

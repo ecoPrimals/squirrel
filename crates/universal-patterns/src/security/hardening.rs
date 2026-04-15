@@ -290,13 +290,13 @@ impl SecurityHardening {
                     let handler = incident_handler.clone();
                     tokio::spawn(async move {
                         if let Err(e) = handler.handle_incident(incident).await {
-                            eprintln!("Failed to handle panic incident: {}", e);
+                            error!("Failed to handle panic incident: {}", e);
                         }
                     });
 
                     // Attempt graceful shutdown for production
                     if environment == Environment::Production {
-                        eprintln!("🚨 PRODUCTION PANIC DETECTED - INITIATING GRACEFUL SHUTDOWN");
+                        error!("🚨 PRODUCTION PANIC DETECTED - INITIATING GRACEFUL SHUTDOWN");
 
                         // Brief grace period for incident handler (panic hook, tokio may be unavailable)
                         std::thread::sleep(Duration::from_millis(10));

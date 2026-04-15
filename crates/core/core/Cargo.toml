@@ -39,8 +39,8 @@ tower-http = { version = "0.5", features = ["cors", "trace"], optional = true }
 dashmap = "5.5"
 parking_lot = "0.12"
 
-# Random number generation (CRITICAL FIX: Missing rand dependency) 
-rand = "0.8"
+# Random number generation
+rand.workspace = true
 
 # Logging and tracing
 tracing = { version = "0.1", features = ["log"] }
@@ -62,7 +62,7 @@ required-features = ["http-api"]
 
 [features]
 default = []
-# Songbird service mesh functionality (coordination, federation, swarm, etc.)
+# Service mesh / multi-node coordination (federation, swarm, routing, discovery)
 mesh = []
 # Legacy HTTP API server (brings axum, tower, hyper stack; requires mesh for routing/federation)
 http-api = ["dep:axum", "dep:tower", "dep:tower-http", "mesh"]

@@ -7,8 +7,9 @@
 //! [`Command`] uses `impl Future + Send` (no `async_trait`).
 //! [`DynCommand`] provides the object-safe bridge for registries.
 
-use async_trait::async_trait;
 use std::fmt::Debug;
+use std::future::Future;
+use std::pin::Pin;
 
 use crate::CommandResult;
 
@@ -31,7 +32,6 @@ pub trait Command: Send + Sync + Debug {
 }
 
 /// Object-safe command trait for registries (`Arc<dyn DynCommand>`).
-#[async_trait]
 pub trait DynCommand: Send + Sync + Debug {
     /// Get the command name
     fn name(&self) -> &str;
@@ -40,10 +40,12 @@ pub trait DynCommand: Send + Sync + Debug {
     fn description(&self) -> &str;
 
     /// Execute the command with the given arguments
-    async fn execute(&self, args: Vec<String>) -> CommandResult<String>;
+    fn execute(
+        &self,
+        args: Vec<String>,
+    ) -> Pin<Box<dyn Future<Output = CommandResult<String>> + Send + '_>>;
 }
 
-#[async_trait]
 impl<T: Command + Send + Sync> DynCommand for T {
     fn name(&self) -> &str {
         Command::name(self)
@@ -53,8 +55,11 @@ impl<T: Command + Send + Sync> DynCommand for T {
         Command::description(self)
     }
 
-    async fn execute(&self, args: Vec<String>) -> CommandResult<String> {
-        Command::execute(self, args).await
+    fn execute(
+        &self,
+        args: Vec<String>,
+    ) -> Pin<Box<dyn Future<Output = CommandResult<String>> + Send + '_>> {
+        Box::pin(Command::execute(self, args))
     }
 }
 

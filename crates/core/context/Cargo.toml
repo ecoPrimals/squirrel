@@ -17,7 +17,6 @@ workspace = true
 # Core dependencies
 tokio.workspace = true
 futures.workspace = true
-async-trait.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 serde.workspace = true

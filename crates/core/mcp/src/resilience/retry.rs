@@ -5,7 +5,7 @@
 //!
 //! This module provides functionality to retry operations that might fail transiently.
 
-use rand::{Rng, thread_rng};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use squirrel_mcp_config::unified::LoadedConfig;
 use std::error::Error as StdError;
@@ -327,12 +327,12 @@ impl RetryMechanism {
 
     /// Apply jitter to avoid retry storms when many instances retry simultaneously
     fn apply_jitter(delay: Duration) -> Duration {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         // Apply full jitter: random value between 0.1 and calculated delay
         // This helps prevent retry storm synchronization and ensures we never return zero delay
         let millis = delay.as_millis();
-        let numer = rng.gen_range(10u128..=100u128);
+        let numer = rng.random_range(10u128..=100u128);
         let jitter_scaled = millis.saturating_mul(numer).saturating_div(100);
         let jitter_millis =
             u64::try_from(jitter_scaled.min(u128::from(u64::MAX))).unwrap_or(u64::MAX);

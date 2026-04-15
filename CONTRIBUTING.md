@@ -33,7 +33,7 @@ cargo doc --all-features --no-deps
 | `clippy::pedantic + nursery + cargo` | Zero warnings under `-D warnings`. |
 | `#[expect(reason)]` over `#[allow]` | Dead suppressions caught automatically. |
 | `deny(unwrap_used, expect_used)` | Production code. Tests relax via `cfg_attr`. |
-| No files > 1000 lines | Split into modules. |
+| No production files > 800 lines | Split into modules; test-only files may be larger. |
 | No TODO/FIXME/HACK | Track in wateringHole handoffs. |
 | `domain.verb` method naming | All JSON-RPC methods. |
 | SPDX headers | Every `.rs` file. |

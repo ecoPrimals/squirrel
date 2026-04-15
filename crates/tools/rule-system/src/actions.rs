@@ -17,6 +17,8 @@
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -129,15 +131,16 @@ impl Default for ActionStatistics {
 }
 
 /// Trait for custom action plugins
-#[async_trait::async_trait]
+///
+/// Uses explicit futures so `Box<dyn ActionPlugin>` remains object-safe.
 pub trait ActionPlugin: Send + Sync + std::fmt::Debug {
     /// Execute an action
-    async fn execute(
-        &self,
-        action: &RuleAction,
-        context_id: &str,
-        rule_id: &str,
-    ) -> RuleSystemResult<ActionResult>;
+    fn execute<'a>(
+        &'a self,
+        action: &'a RuleAction,
+        context_id: &'a str,
+        rule_id: &'a str,
+    ) -> Pin<Box<dyn Future<Output = RuleSystemResult<ActionResult>> + Send + 'a>>;
 
     /// Get the name of the action plugin
     fn name(&self) -> &str;
@@ -565,35 +568,36 @@ impl Default for ActionExecutor {
 #[derive(Debug)]
 pub struct NotificationAction;
 
-#[async_trait::async_trait]
 impl ActionPlugin for NotificationAction {
-    async fn execute(
-        &self,
-        action: &RuleAction,
-        context_id: &str,
-        rule_id: &str,
-    ) -> RuleSystemResult<ActionResult> {
-        if let RuleAction::Notify {
-            channel,
-            message,
-            data,
-        } = action
-        {
-            // In a real implementation, this would send notifications to external systems
-            Ok(ActionResult {
-                action_id: format!("notification_{}", uuid::Uuid::new_v4()),
-                rule_id: rule_id.to_string(),
-                context_id: context_id.to_string(),
-                success: true,
-                message: format!("Notification sent to {channel}: {message}"),
-                data: data.clone(),
-                timestamp: Utc::now(),
-            })
-        } else {
-            Err(RuleSystemError::ActionError(RuleActionError::Other(
-                "Invalid action type for notification plugin".to_string(),
-            )))
-        }
+    fn execute<'a>(
+        &'a self,
+        action: &'a RuleAction,
+        context_id: &'a str,
+        rule_id: &'a str,
+    ) -> Pin<Box<dyn Future<Output = RuleSystemResult<ActionResult>> + Send + 'a>> {
+        Box::pin(async move {
+            if let RuleAction::Notify {
+                channel,
+                message,
+                data,
+            } = action
+            {
+                // In a real implementation, this would send notifications to external systems
+                Ok(ActionResult {
+                    action_id: format!("notification_{}", uuid::Uuid::new_v4()),
+                    rule_id: rule_id.to_string(),
+                    context_id: context_id.to_string(),
+                    success: true,
+                    message: format!("Notification sent to {channel}: {message}"),
+                    data: data.clone(),
+                    timestamp: Utc::now(),
+                })
+            } else {
+                Err(RuleSystemError::ActionError(RuleActionError::Other(
+                    "Invalid action type for notification plugin".to_string(),
+                )))
+            }
+        })
     }
 
     fn name(&self) -> &'static str {
@@ -609,33 +613,34 @@ impl ActionPlugin for NotificationAction {
 #[derive(Debug)]
 pub struct ContextModificationAction;
 
-#[async_trait::async_trait]
 impl ActionPlugin for ContextModificationAction {
-    async fn execute(
-        &self,
-        action: &RuleAction,
-        context_id: &str,
-        rule_id: &str,
-    ) -> RuleSystemResult<ActionResult> {
-        if let RuleAction::ModifyContext { path, value } = action {
-            // In a real implementation, this would modify the actual context data
-            Ok(ActionResult {
-                action_id: format!("context_mod_{}", uuid::Uuid::new_v4()),
-                rule_id: rule_id.to_string(),
-                context_id: context_id.to_string(),
-                success: true,
-                message: format!("Context modified at path: {path}"),
-                data: Some(serde_json::json!({
-                    "path": path,
-                    "value": value
-                })),
-                timestamp: Utc::now(),
-            })
-        } else {
-            Err(RuleSystemError::ActionError(RuleActionError::Other(
-                "Invalid action type for context modification plugin".to_string(),
-            )))
-        }
+    fn execute<'a>(
+        &'a self,
+        action: &'a RuleAction,
+        context_id: &'a str,
+        rule_id: &'a str,
+    ) -> Pin<Box<dyn Future<Output = RuleSystemResult<ActionResult>> + Send + 'a>> {
+        Box::pin(async move {
+            if let RuleAction::ModifyContext { path, value } = action {
+                // In a real implementation, this would modify the actual context data
+                Ok(ActionResult {
+                    action_id: format!("context_mod_{}", uuid::Uuid::new_v4()),
+                    rule_id: rule_id.to_string(),
+                    context_id: context_id.to_string(),
+                    success: true,
+                    message: format!("Context modified at path: {path}"),
+                    data: Some(serde_json::json!({
+                        "path": path,
+                        "value": value
+                    })),
+                    timestamp: Utc::now(),
+                })
+            } else {
+                Err(RuleSystemError::ActionError(RuleActionError::Other(
+                    "Invalid action type for context modification plugin".to_string(),
+                )))
+            }
+        })
     }
 
     fn name(&self) -> &'static str {
@@ -651,32 +656,33 @@ impl ActionPlugin for ContextModificationAction {
 #[derive(Debug)]
 pub struct ValidationAction;
 
-#[async_trait::async_trait]
 impl ActionPlugin for ValidationAction {
-    async fn execute(
-        &self,
-        action: &RuleAction,
-        context_id: &str,
-        rule_id: &str,
-    ) -> RuleSystemResult<ActionResult> {
-        if let RuleAction::ValidateContext { schema } = action {
-            // In a real implementation, this would validate context against a schema
-            Ok(ActionResult {
-                action_id: format!("validation_{}", uuid::Uuid::new_v4()),
-                rule_id: rule_id.to_string(),
-                context_id: context_id.to_string(),
-                success: true,
-                message: "Context validation completed".to_string(),
-                data: Some(serde_json::json!({
-                    "schema": schema
-                })),
-                timestamp: Utc::now(),
-            })
-        } else {
-            Err(RuleSystemError::ActionError(RuleActionError::Other(
-                "Invalid action type for validation plugin".to_string(),
-            )))
-        }
+    fn execute<'a>(
+        &'a self,
+        action: &'a RuleAction,
+        context_id: &'a str,
+        rule_id: &'a str,
+    ) -> Pin<Box<dyn Future<Output = RuleSystemResult<ActionResult>> + Send + 'a>> {
+        Box::pin(async move {
+            if let RuleAction::ValidateContext { schema } = action {
+                // In a real implementation, this would validate context against a schema
+                Ok(ActionResult {
+                    action_id: format!("validation_{}", uuid::Uuid::new_v4()),
+                    rule_id: rule_id.to_string(),
+                    context_id: context_id.to_string(),
+                    success: true,
+                    message: "Context validation completed".to_string(),
+                    data: Some(serde_json::json!({
+                        "schema": schema
+                    })),
+                    timestamp: Utc::now(),
+                })
+            } else {
+                Err(RuleSystemError::ActionError(RuleActionError::Other(
+                    "Invalid action type for validation plugin".to_string(),
+                )))
+            }
+        })
     }
 
     fn name(&self) -> &'static str {

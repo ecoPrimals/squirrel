@@ -63,7 +63,7 @@ impl EncryptionKeyManager for DefaultEncryptionKeyManager {
         };
 
         let mut key = vec![0u8; key_len];
-        rand::thread_rng().fill_bytes(&mut key);
+        rand::rng().fill_bytes(&mut key);
         Ok(key)
     }
 

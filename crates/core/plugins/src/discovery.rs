@@ -30,7 +30,6 @@ use std::sync::Arc;
 use std::any::Any;
 
 use anyhow::Result;
-use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::fs;
 use tracing::{debug, info};
@@ -203,29 +202,36 @@ pub struct NoOpPlugin {
     metadata: PluginMetadata,
 }
 
-#[async_trait]
 #[expect(deprecated, reason = "backward-compatible alias")]
 impl Plugin for NoOpPlugin {
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
     }
 
-    async fn initialize(&self) -> Result<()> {
-        info!(
-            plugin_id = %self.metadata.id,
-            plugin_name = %self.metadata.name,
-            "NoOpPlugin initialize (no-op); no native code loaded on this primal"
-        );
-        Ok(())
+    fn initialize(
+        &self,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(async {
+            info!(
+                plugin_id = %self.metadata.id,
+                plugin_name = %self.metadata.name,
+                "NoOpPlugin initialize (no-op); no native code loaded on this primal"
+            );
+            Ok(())
+        })
     }
 
-    async fn shutdown(&self) -> Result<()> {
-        info!(
-            plugin_id = %self.metadata.id,
-            plugin_name = %self.metadata.name,
-            "NoOpPlugin shutdown (no-op)"
-        );
-        Ok(())
+    fn shutdown(
+        &self,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(async {
+            info!(
+                plugin_id = %self.metadata.id,
+                plugin_name = %self.metadata.name,
+                "NoOpPlugin shutdown (no-op)"
+            );
+            Ok(())
+        })
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -295,10 +301,17 @@ impl DefaultPluginDiscovery {
     }
 }
 
-/// Default plugin loader implementation (kept for trait impl / future use)
+/// Default plugin loader: satisfies [`PluginLoader`] for type-erased discovery pipelines.
+///
+/// This primal does not embed native `dlopen` loading; the type exists so `FilePluginDiscovery`
+/// and tests can use a concrete loader type. Calls return a structured error rather than
+/// panicking — that is the honest production behavior until an optional native loader ships.
 #[cfg_attr(
     not(test),
-    expect(dead_code, reason = "Trait-object placeholder for native loader path")
+    expect(
+        dead_code,
+        reason = "Constructed only in tests / future native-loader wiring"
+    )
 )]
 #[derive(Debug, Copy, Clone)]
 pub struct DefaultPluginLoader;

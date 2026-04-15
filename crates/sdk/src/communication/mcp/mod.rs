@@ -32,6 +32,7 @@
 //! ```ignore
 
 pub mod client;
+pub mod client_types;
 pub mod connection;
 pub mod message;
 pub mod operations;
@@ -42,6 +43,10 @@ mod tests;
 
 // Re-export main types for public API
 pub use self::client::McpClient;
+pub use self::client_types::{
+    AiMcpMessage, ClientContext, MessageCategory, MessageResponse, ProcessedPayload,
+    ProcessingStrategy,
+};
 pub use self::types::{
     ConnectionState, McpCapabilities, McpMessage, McpPrompt, McpResource, McpTool,
 };

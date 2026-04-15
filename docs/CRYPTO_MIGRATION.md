@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Crypto Migration Guide
 
-**Status**: Complete (as of alpha.46)
-**Last Updated**: April 13, 2026
+**Status**: Complete — pure-Rust default build current as of April 2026 (workspace v0.1.0)
+**Last Updated**: April 15, 2026
 
 ## Summary
 
@@ -12,7 +12,7 @@ cryptographic operations use pure-Rust implementations:
 | Operation | Library | Notes |
 |-----------|---------|-------|
 | TLS | `rustls` | Pure Rust TLS via `rustls-tls` feature |
-| Hashing | `blake3` | Pure Rust BLAKE3 (no C `blake3` backend) |
+| Hashing | `blake3` | Pure Rust BLAKE3 — workspace uses `default-features = false` with `features = ["pure"]` (no bundled C/SIMD assembly backend) |
 | JWT signing | `ed25519-dalek` | **Feature-gated** behind `local-crypto` |
 | Compression | `miniz_oxide` | Pure Rust deflate (flate2 backend) |
 

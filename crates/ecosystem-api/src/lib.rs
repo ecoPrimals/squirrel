@@ -38,7 +38,16 @@
 #![warn(rust_2018_idioms)]
 #![warn(missing_docs)]
 #[cfg(feature = "http-api")]
+pub mod client_types;
+#[cfg(feature = "http-api")]
+pub use client_types::{
+    EmptyResponse, HealthReport, HeartbeatData, MeshStatusResponse, ServiceDiscoveryResponse,
+    ServiceRegistrationResponse, ServiceResponse,
+};
+#[cfg(feature = "http-api")]
 pub mod client;
+#[cfg(all(feature = "http-api", test))]
+mod client_mock;
 pub mod config;
 pub mod defaults;
 pub mod error;

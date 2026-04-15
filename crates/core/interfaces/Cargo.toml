@@ -15,7 +15,6 @@ workspace = true
 
 [dependencies]
 # Core dependencies
-async-trait.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 serde.workspace = true

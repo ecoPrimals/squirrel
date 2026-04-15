@@ -195,9 +195,9 @@ impl SecurityCoordinator {
         self.sessions.read().ok()?.get(session_id).cloned() // Clone the context instead of returning a reference
     }
 
-    /// Check if operation requires elevated security via security service
+    /// Check if operation requires elevated security via a discovered security provider
     #[must_use]
-    pub const fn requires_security_coordination(&self, request_type: &SecurityRequestType) -> bool {
+    pub const fn requires_security_provider(&self, request_type: &SecurityRequestType) -> bool {
         // Simple policy - delegate critical operations to security service
         matches!(
             request_type,
@@ -209,15 +209,22 @@ impl SecurityCoordinator {
         )
     }
 
-    /// Legacy method name for backward compatibility
-    #[deprecated(since = "0.1.0", note = "Use requires_security_coordination instead")]
+    /// Deprecated: use [`requires_security_provider`].
+    #[deprecated(since = "0.1.0", note = "Use requires_security_provider")]
     #[must_use]
-    pub const fn requires_beardog_security(&self, request_type: &SecurityRequestType) -> bool {
-        self.requires_security_coordination(request_type)
+    pub const fn requires_security_coordination(&self, request_type: &SecurityRequestType) -> bool {
+        self.requires_security_provider(request_type)
     }
 
-    /// Authenticate user via security service
-    pub async fn authenticate_with_security_service(
+    /// Deprecated: use [`requires_security_provider`].
+    #[deprecated(since = "0.1.0", note = "Use requires_security_provider")]
+    #[must_use]
+    pub const fn requires_beardog_security(&self, request_type: &SecurityRequestType) -> bool {
+        self.requires_security_provider(request_type)
+    }
+
+    /// Authenticate user via discovered security provider (capability-based; not primal-specific)
+    pub async fn authenticate_with_security_provider(
         &mut self,
         user_id: &str,
     ) -> Result<String, PrimalError> {
@@ -248,18 +255,22 @@ impl SecurityCoordinator {
             })
     }
 
-    /// Legacy method name for backward compatibility
-    ///
-    /// **DEPRECATED**: Use `authenticate_with_security_service` instead.
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use authenticate_with_security_service instead"
-    )]
+    /// Deprecated: use [`authenticate_with_security_provider`].
+    #[deprecated(since = "0.1.0", note = "Use authenticate_with_security_provider")]
+    pub async fn authenticate_with_security_service(
+        &mut self,
+        user_id: &str,
+    ) -> Result<String, PrimalError> {
+        self.authenticate_with_security_provider(user_id).await
+    }
+
+    /// Deprecated: use [`authenticate_with_security_provider`].
+    #[deprecated(since = "0.1.0", note = "Use authenticate_with_security_provider")]
     pub async fn authenticate_with_beardog(
         &mut self,
         user_id: &str,
     ) -> Result<String, PrimalError> {
-        self.authenticate_with_security_service(user_id).await
+        self.authenticate_with_security_provider(user_id).await
     }
 
     /// Simple health check - much simpler than complex over-engineered system
@@ -346,13 +357,13 @@ mod tests {
     }
 
     #[test]
-    fn test_requires_security_coordination() {
+    fn test_requires_security_provider() {
         let coord = BeardogSecurityCoordinator::new();
-        assert!(coord.requires_security_coordination(&SecurityRequestType::Authentication));
-        assert!(coord.requires_security_coordination(&SecurityRequestType::Authorization));
-        assert!(coord.requires_security_coordination(&SecurityRequestType::Encryption));
-        assert!(coord.requires_security_coordination(&SecurityRequestType::Decryption));
-        assert!(coord.requires_security_coordination(&SecurityRequestType::Audit));
+        assert!(coord.requires_security_provider(&SecurityRequestType::Authentication));
+        assert!(coord.requires_security_provider(&SecurityRequestType::Authorization));
+        assert!(coord.requires_security_provider(&SecurityRequestType::Encryption));
+        assert!(coord.requires_security_provider(&SecurityRequestType::Decryption));
+        assert!(coord.requires_security_provider(&SecurityRequestType::Audit));
     }
 
     #[tokio::test]
@@ -380,14 +391,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_authenticate_with_security_service() {
+    async fn test_authenticate_with_security_provider() {
         let mut coord = BeardogSecurityCoordinator {
             security_service_endpoint: "http://test:8443".to_string(),
             sessions: Arc::new(RwLock::new(HashMap::new())),
         };
 
         let session = coord
-            .authenticate_with_security_service("user1")
+            .authenticate_with_security_provider("user1")
             .await
             .expect("authenticate");
         assert!(session.starts_with("security_session_"));

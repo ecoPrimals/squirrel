@@ -22,8 +22,9 @@
 //! follow these same patterns to avoid potential deadlocks or performance issues.
 
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::Value;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -176,7 +177,6 @@ impl InterfaceContextManager for ContextManager {
 #[derive(Debug)]
 struct TransformationWrapper(Arc<dyn DynContextTransformation>);
 
-#[async_trait]
 impl DynContextTransformation for TransformationWrapper {
     fn get_id(&self) -> &str {
         self.0.get_id()
@@ -190,8 +190,9 @@ impl DynContextTransformation for TransformationWrapper {
         self.0.get_description()
     }
 
-    async fn transform(&self, data: Value) -> Result<Value> {
-        self.0.transform(data).await
+    fn transform(&self, data: Value) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>> {
+        let inner = Arc::clone(&self.0);
+        Box::pin(async move { inner.transform(data).await })
     }
 }
 

@@ -55,7 +55,6 @@ version = "0.1.0"
 [workspace.dependencies]
 # Core dependencies - shared across workspace
 tokio = { version = "1.0", features = ["full"] }
-async-trait = "0.1"
 thiserror = "1.0"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive", "rc"] }
@@ -81,7 +80,7 @@ dashmap = "5.5"
 semver = "1.0"
 
 # More common dependencies
-rand = "0.8"
+rand = "0.9"
 base64 = "0.22"
 nix = { version = "0.27", features = ["user"] }
 
@@ -95,7 +94,7 @@ prometheus = "0.14"
 
 # Security and additional deps
 zeroize = { version = "1.7", features = ["zeroize_derive"] }
-blake3 = "1.5"
+blake3 = { version = "1.5", default-features = false, features = ["pure"] }
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 # axum/tower: optional HTTP API surface (feature-gated, off by default). Declared below.
 

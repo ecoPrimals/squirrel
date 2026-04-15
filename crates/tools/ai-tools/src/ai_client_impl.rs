@@ -2,6 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Concrete [`AiClientImpl`] enum for static dispatch over AI client backends.
+//!
+//! The [`AiClientImpl::Mock`] variant is **not** part of default production builds: it is
+//! compiled only under `cfg(test)` or the `testing` Cargo feature (see crate `Cargo.toml`).
+//! [`AiClientImpl::RouterHarness`] is `cfg(test)` only.
 
 use crate::common::capability::AICapabilities;
 use crate::common::client::AIClient;

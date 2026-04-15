@@ -29,12 +29,14 @@
 use std::fmt;
 use std::process;
 
+use tracing::error;
+
 /// Extension trait for `Result<T, E>` that exits the process on error
 /// with a structured exit code and human-readable message.
 pub trait OrExit<T> {
     /// Unwrap the result or exit with a structured error message.
     ///
-    /// Prints `"fatal: {context}: {error}"` to stderr and exits with the
+    /// Logs `"fatal: {context}: {error}"` via tracing and exits with the
     /// appropriate exit code based on the error kind.
     fn or_exit(self, context: &str) -> T;
 
@@ -49,7 +51,7 @@ impl<T, E: fmt::Display> OrExit<T> for Result<T, E> {
             Err(e) => {
                 let msg = e.to_string();
                 let code = exit_code_for_error(&msg);
-                eprintln!("fatal: {context}: {e}");
+                error!("fatal: {context}: {e}");
                 process::exit(code);
             }
         }
@@ -59,7 +61,7 @@ impl<T, E: fmt::Display> OrExit<T> for Result<T, E> {
         match self {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("fatal: {context}: {e}");
+                error!("fatal: {context}: {e}");
                 process::exit(code);
             }
         }
@@ -71,7 +73,7 @@ impl<T> OrExit<T> for Option<T> {
         if let Some(v) = self {
             v
         } else {
-            eprintln!("fatal: {context}: value was None");
+            error!("fatal: {context}: value was None");
             process::exit(exit_codes::ERROR);
         }
     }
@@ -80,7 +82,7 @@ impl<T> OrExit<T> for Option<T> {
         if let Some(v) = self {
             v
         } else {
-            eprintln!("fatal: {context}: value was None");
+            error!("fatal: {context}: value was None");
             process::exit(code);
         }
     }

@@ -137,21 +137,24 @@ impl DefaultEndpoints {
 
     /// Get ecosystem registry (service mesh) endpoint from environment or default
     ///
-    /// Env vars are runtime config; `SONGBIRD_ENDPOINT` / `SONGBIRD_PORT` remain backward-compatible.
-    /// Code treats this as ecosystem role endpoint, not hardcoded primal identity.
+    /// Prefer `DISCOVERY_ENDPOINT` / `DISCOVERY_PORT` for capability-oriented discovery.
+    /// `SONGBIRD_ENDPOINT` / `SONGBIRD_PORT` are **deprecated legacy** fallbacks (same semantics).
     ///
     /// Multi-tier resolution:
-    /// 1. `SERVICE_MESH_ENDPOINT` (capability-based)
-    /// 2. `SONGBIRD_ENDPOINT` (legacy full URL)
-    /// 3. `SERVICE_MESH_PORT` or `SONGBIRD_PORT` (port override)
-    /// 4. Fallback: [`ports::service_mesh`] when resolving port via `config_helpers::get_port`
+    /// 1. `SERVICE_MESH_ENDPOINT` (service-mesh coordination URL)
+    /// 2. `DISCOVERY_ENDPOINT` (ecosystem discovery URL)
+    /// 3. `SONGBIRD_ENDPOINT` (deprecated legacy full URL)
+    /// 4. Port: `SERVICE_MESH_PORT`, then `DISCOVERY_PORT`, then `SONGBIRD_PORT`, then
+    ///    [`ports::service_mesh`] via `config_helpers::get_port`
     #[must_use]
     pub fn service_mesh_endpoint() -> String {
         env::var("SERVICE_MESH_ENDPOINT")
+            .or_else(|_| env::var("DISCOVERY_ENDPOINT"))
             .or_else(|_| env::var("SONGBIRD_ENDPOINT"))
             .unwrap_or_else(|_| {
                 let host = config_helpers::get_host("SERVICE_MESH_HOST", "localhost");
                 let port = env::var("SERVICE_MESH_PORT")
+                    .or_else(|_| env::var("DISCOVERY_PORT"))
                     .or_else(|_| env::var("SONGBIRD_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
@@ -244,9 +247,12 @@ Security Services (Capability-Based Discovery):
 - SECURITY_COMPLIANCE_PORT: Compliance service port (env-driven)
 
 ecoPrimals Services (capability-domain env vars, not primal identity):
-- SERVICE_MESH_ENDPOINT: Ecosystem registry / service mesh (primary)
-- SONGBIRD_ENDPOINT: Ecosystem registry (legacy alias)
-- SERVICE_MESH_PORT / SONGBIRD_PORT: Port overrides (legacy fallback)
+- SERVICE_MESH_ENDPOINT: Ecosystem registry / service mesh (primary URL)
+- DISCOVERY_ENDPOINT: Ecosystem discovery URL (preferred over legacy names)
+- SONGBIRD_ENDPOINT: Deprecated legacy alias for discovery/mesh URL
+- SERVICE_MESH_PORT: Port override for mesh coordination
+- DISCOVERY_PORT: Preferred port override for discovery
+- SONGBIRD_PORT: Deprecated legacy port override (same role as DISCOVERY_PORT)
 - COMPUTE_ENDPOINT: Compute capability endpoint (primary)
 - TOADSTOOL_ENDPOINT: Compute (legacy alias)
 - COMPUTE_HOST / COMPUTE_PORT: Compute host/port (primary)

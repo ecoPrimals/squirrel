@@ -3,7 +3,9 @@
 
 //! [`SwarmManager`] implementation for [`FederationService`].
 //!
-//! Extracted from `service.rs` for module size management.
+//! Extracted from `service.rs` for module size management.  Uses scoped accessors
+//! (`node_id()`, `instances()`, `federation_id()`, etc.) instead of direct field
+//! access so `FederationService` internals remain private.
 
 use chrono::Utc;
 use std::collections::HashMap;
@@ -24,7 +26,7 @@ impl SwarmManager for FederationService {
         let node_host = Self::resolve_node_host();
         let instance = SquirrelInstance {
             id: instance_id.clone(),
-            node_id: self.config.node_id.clone(),
+            node_id: self.node_id().to_owned(),
             endpoint: universal_constants::builders::build_http_url(&node_host, instance_port),
             capabilities: vec![
                 "mcp".to_string(),
@@ -41,7 +43,7 @@ impl SwarmManager for FederationService {
         };
 
         tracing::info!("Successfully created instance: {}", instance_id);
-        self.instances.insert(instance_id, instance.clone());
+        self.instances().insert(instance_id, instance.clone());
         Ok(instance)
     }
 
@@ -62,7 +64,7 @@ impl SwarmManager for FederationService {
         };
 
         Ok(FederationResult {
-            federation_id: (*self.state.federation_id).to_string(),
+            federation_id: self.federation_id().to_owned(),
             nodes_joined,
             total_capacity: joined_capacity.max(1),
             status,
@@ -71,18 +73,10 @@ impl SwarmManager for FederationService {
 
     async fn balance_load(&self, _load: LoadMetrics) -> Result<LoadBalanceResult> {
         let current_utilization = self.calculate_overall_utilization();
-        *self.state.current_utilization.write() = current_utilization;
-
-        let _action = if current_utilization > 0.8 {
-            "scale_up".to_string()
-        } else if current_utilization < 0.3 {
-            "scale_down".to_string()
-        } else {
-            "maintain".to_string()
-        };
+        self.set_current_utilization(current_utilization);
 
         Ok(LoadBalanceResult {
-            distribution: std::collections::HashMap::new(),
+            distribution: HashMap::new(),
             balance_score: current_utilization,
             rebalance_time: std::time::Duration::from_millis(100),
         })
@@ -90,12 +84,12 @@ impl SwarmManager for FederationService {
 }
 
 impl FederationService {
-    /// Add a new node to the federation
+    /// Add a new node to the federation.
     pub(super) fn add_federation_node(&self, node_spec: NodeSpec) -> u32 {
         let cap = node_spec.capacity;
         let node = SquirrelInstance {
             id: node_spec.id.clone(),
-            node_id: self.config.node_id.clone(),
+            node_id: self.node_id().to_owned(),
             endpoint: node_spec.endpoint,
             capabilities: node_spec.capabilities,
             health: InstanceStatus::Running,
@@ -107,7 +101,7 @@ impl FederationService {
             metadata: HashMap::new(),
         };
 
-        self.instances.insert(node_spec.id, node);
+        self.instances().insert(node_spec.id, node);
         cap
     }
 }

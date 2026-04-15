@@ -35,7 +35,7 @@ use universal_constants::deployment;
 // Re-export DatabaseBackend from types (already exists and is good!)
 pub use super::types::DatabaseBackend;
 
-// Note: Only PostgreSQL, SQLite, Memory, and NestGate are supported
+// Note: Only PostgreSQL, SQLite, Memory, and content-addressed storage are supported
 // MySQL is not in the DatabaseBackend enum
 
 /// Modern database configuration with builder pattern
@@ -247,10 +247,9 @@ impl DatabaseConfig {
                 format!("sqlite://{}", self.database)
             }
             DatabaseBackend::Memory => "sqlite://:memory:".to_string(),
-            DatabaseBackend::NestGate => {
-                // NestGate uses custom protocol
+            DatabaseBackend::ContentAddressed => {
                 format!(
-                    "nestgate://{}:{}/{}",
+                    "content-addressed://{}:{}/{}",
                     self.host,
                     self.port.unwrap_or(9000),
                     self.database

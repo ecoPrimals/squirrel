@@ -4,7 +4,7 @@
 //! Capability-Based JWT Service (TRUE PRIMAL!)
 //!
 //! **Evolution**: Legacy security JWT → Capability JWT
-//! - OLD: `BearDogJwtService` (hardcoded to a single provider)
+//! - OLD: primal-named JWT helpers (use [`crate::ecosystem_jwt::SecurityProviderJwtService`])
 //! - NEW: `CapabilityJwtService` (discovers crypto at runtime!)
 //!
 //! **Philosophy**: Deploy like an infant - knows nothing, discovers everything!

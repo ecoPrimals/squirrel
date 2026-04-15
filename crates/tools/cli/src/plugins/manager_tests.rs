@@ -7,7 +7,9 @@ use crate::plugins::plugin::{Plugin, PluginFactory};
 use clap::Command as ClapCommand;
 use squirrel_commands::Command as SquirrelCommand;
 use squirrel_commands::error::CommandError;
+use std::future::Future;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::Arc;
 
 struct RegistryCommand;
@@ -39,7 +41,6 @@ struct SimplePlugin {
     cmds: Vec<Arc<dyn SquirrelCommand>>,
 }
 
-#[async_trait::async_trait]
 impl Plugin for SimplePlugin {
     fn name(&self) -> &str {
         &self.name
@@ -53,8 +54,8 @@ impl Plugin for SimplePlugin {
         Some("simple")
     }
 
-    async fn initialize(&self) -> Result<(), PluginError> {
-        Ok(())
+    fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async { Ok(()) })
     }
 
     fn register_commands(&self, _registry: &CommandRegistry) -> Result<(), PluginError> {
@@ -65,18 +66,20 @@ impl Plugin for SimplePlugin {
         self.cmds.clone()
     }
 
-    async fn execute(&self, _args: &[String]) -> Result<String, PluginError> {
-        Ok("exec".to_string())
+    fn execute(
+        &self,
+        _args: &[String],
+    ) -> Pin<Box<dyn Future<Output = Result<String, PluginError>> + Send + '_>> {
+        Box::pin(async { Ok("exec".to_string()) })
     }
 
-    async fn cleanup(&self) -> Result<(), PluginError> {
-        Ok(())
+    fn cleanup(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async { Ok(()) })
     }
 }
 
 struct FailingInitPlugin;
 
-#[async_trait::async_trait]
 impl Plugin for FailingInitPlugin {
     fn name(&self) -> &str {
         "fail-init"
@@ -90,8 +93,8 @@ impl Plugin for FailingInitPlugin {
         None
     }
 
-    async fn initialize(&self) -> Result<(), PluginError> {
-        Err(PluginError::InitError("boom".to_string()))
+    fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async { Err(PluginError::InitError("boom".to_string())) })
     }
 
     fn register_commands(&self, _registry: &CommandRegistry) -> Result<(), PluginError> {
@@ -102,18 +105,20 @@ impl Plugin for FailingInitPlugin {
         Vec::new()
     }
 
-    async fn execute(&self, _args: &[String]) -> Result<String, PluginError> {
-        Ok(String::new())
+    fn execute(
+        &self,
+        _args: &[String],
+    ) -> Pin<Box<dyn Future<Output = Result<String, PluginError>> + Send + '_>> {
+        Box::pin(async { Ok(String::new()) })
     }
 
-    async fn cleanup(&self) -> Result<(), PluginError> {
-        Ok(())
+    fn cleanup(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async { Ok(()) })
     }
 }
 
 struct FailingStartPlugin;
 
-#[async_trait::async_trait]
 impl Plugin for FailingStartPlugin {
     fn name(&self) -> &str {
         "fail-start"
@@ -127,12 +132,12 @@ impl Plugin for FailingStartPlugin {
         None
     }
 
-    async fn initialize(&self) -> Result<(), PluginError> {
-        Ok(())
+    fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async { Ok(()) })
     }
 
-    async fn start(&self) -> Result<(), PluginError> {
-        Err(PluginError::ValidationError("no start".to_string()))
+    fn start(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async { Err(PluginError::ValidationError("no start".to_string())) })
     }
 
     fn register_commands(&self, _registry: &CommandRegistry) -> Result<(), PluginError> {
@@ -143,12 +148,15 @@ impl Plugin for FailingStartPlugin {
         Vec::new()
     }
 
-    async fn execute(&self, _args: &[String]) -> Result<String, PluginError> {
-        Ok(String::new())
+    fn execute(
+        &self,
+        _args: &[String],
+    ) -> Pin<Box<dyn Future<Output = Result<String, PluginError>> + Send + '_>> {
+        Box::pin(async { Ok(String::new()) })
     }
 
-    async fn cleanup(&self) -> Result<(), PluginError> {
-        Ok(())
+    fn cleanup(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async { Ok(()) })
     }
 }
 

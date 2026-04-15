@@ -60,9 +60,9 @@ pub enum AuthError {
         message: String,
     },
 
-    /// Security provider integration errors
-    #[error("Beardog integration error: {message}")]
-    BeardogIntegration {
+    /// Security provider integration errors (capability-discovered provider, not a named primal)
+    #[error("Security provider integration error: {message}")]
+    SecurityProviderIntegration {
         /// Error message describing the provider integration issue
         message: String,
     },
@@ -153,10 +153,16 @@ impl AuthError {
     }
 
     /// Create a security provider integration error
-    pub fn beardog_error(message: impl Into<String>) -> Self {
-        Self::BeardogIntegration {
+    pub fn security_provider_error(message: impl Into<String>) -> Self {
+        Self::SecurityProviderIntegration {
             message: message.into(),
         }
+    }
+
+    /// Deprecated alias for [`AuthError::security_provider_error`].
+    #[deprecated(since = "0.1.0", note = "Use security_provider_error")]
+    pub fn beardog_error(message: impl Into<String>) -> Self {
+        Self::security_provider_error(message)
     }
 
     /// Create an internal error
@@ -240,12 +246,12 @@ mod tests {
     }
 
     #[test]
-    fn beardog_error_construction_and_display() {
-        let err = AuthError::beardog_error("Integration failed");
-        assert!(matches!(err, AuthError::BeardogIntegration { .. }));
+    fn security_provider_error_construction_and_display() {
+        let err = AuthError::security_provider_error("Integration failed");
+        assert!(matches!(err, AuthError::SecurityProviderIntegration { .. }));
         assert_eq!(
             err.to_string(),
-            "Beardog integration error: Integration failed"
+            "Security provider integration error: Integration failed"
         );
     }
 

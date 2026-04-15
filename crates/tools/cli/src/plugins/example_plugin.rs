@@ -2,9 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use crate::commands::registry::CommandRegistry;
-use async_trait::async_trait;
 use clap::{Arg, Command as ClapCommand};
 use squirrel_commands::Command;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use crate::plugins::error::PluginError;
@@ -87,7 +88,6 @@ impl ExamplePlugin {
     }
 }
 
-#[async_trait]
 impl Plugin for ExamplePlugin {
     fn name(&self) -> &str {
         &self.name
@@ -101,16 +101,20 @@ impl Plugin for ExamplePlugin {
         Some(&self.description)
     }
 
-    async fn initialize(&self) -> Result<(), PluginError> {
-        // In a real plugin, we might load configuration, connect to services, etc.
-        tracing::info!("Example plugin initializing...");
-        Ok(())
+    fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async {
+            // In a real plugin, we might load configuration, connect to services, etc.
+            tracing::info!("Example plugin initializing...");
+            Ok(())
+        })
     }
 
-    async fn start(&self) -> Result<(), PluginError> {
-        // In a real plugin, we might start background workers, connect to services, etc.
-        tracing::info!("Example plugin starting...");
-        Ok(())
+    fn start(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async {
+            // In a real plugin, we might start background workers, connect to services, etc.
+            tracing::info!("Example plugin starting...");
+            Ok(())
+        })
     }
 
     fn register_commands(&self, registry: &CommandRegistry) -> Result<(), PluginError> {
@@ -134,36 +138,50 @@ impl Plugin for ExamplePlugin {
         self.commands.clone()
     }
 
-    async fn execute(&self, args: &[String]) -> Result<String, PluginError> {
-        if args.is_empty() {
-            return Ok("Example plugin: No command specified".to_string());
-        }
+    fn execute(
+        &self,
+        args: &[String],
+    ) -> Pin<Box<dyn Future<Output = Result<String, PluginError>> + Send + '_>> {
+        let args = args.to_vec();
+        let name = self.name.clone();
+        let version = self.version.clone();
+        let description = self.description.clone();
+        let state = self.state;
+        Box::pin(async move {
+            if args.is_empty() {
+                return Ok("Example plugin: No command specified".to_string());
+            }
 
-        match args[0].as_str() {
-            "status" => Ok(format!("Example plugin status: {}", self.state)),
-            "info" => Ok(format!(
-                "Example plugin: {} v{}\n{}",
-                self.name,
-                self.version,
-                self.description.as_str()
-            )),
-            _ => Err(PluginError::Unknown(format!(
-                "Unknown plugin command: {}",
-                args[0]
-            ))),
-        }
+            match args[0].as_str() {
+                "status" => Ok(format!("Example plugin status: {state}")),
+                "info" => Ok(format!(
+                    "Example plugin: {} v{}\n{}",
+                    name,
+                    version,
+                    description.as_str()
+                )),
+                _ => Err(PluginError::Unknown(format!(
+                    "Unknown plugin command: {}",
+                    args[0]
+                ))),
+            }
+        })
     }
 
-    async fn stop(&self) -> Result<(), PluginError> {
-        // In a real plugin, we might stop background workers, close connections, etc.
-        tracing::info!("Example plugin stopping...");
-        Ok(())
+    fn stop(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async {
+            // In a real plugin, we might stop background workers, close connections, etc.
+            tracing::info!("Example plugin stopping...");
+            Ok(())
+        })
     }
 
-    async fn cleanup(&self) -> Result<(), PluginError> {
-        // In a real plugin, we might close connections, save state, etc.
-        tracing::info!("Example plugin cleaning up...");
-        Ok(())
+    fn cleanup(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async {
+            // In a real plugin, we might close connections, save state, etc.
+            tracing::info!("Example plugin cleaning up...");
+            Ok(())
+        })
     }
 }
 

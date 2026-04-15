@@ -7,7 +7,7 @@ author: ecoPrimals Contributors
 
 # MCP Implementation Comparison: Our Approach vs mcp-rust-sdk
 
-> **Note (April 2026):** WebSocket transport was removed from Squirrel in v0.1.0-alpha.47 (Tower Atomic pattern — WebSocket provided by Songbird service mesh). WebSocket references below are historical.
+> **Note (April 2026):** WebSocket transport removed per Tower Atomic — mesh provides WebSocket. Native transports: Unix socket (UDS) + TCP with JSON-RPC 2.0 newline-delimited framing. WebSocket references below are historical (upstream SDK or illustrative) unless marked otherwise.
 
 ## Overview
 
@@ -17,7 +17,7 @@ This document compares our Machine Context Protocol (MCP) implementation approac
 
 | Feature | mcp-rust-sdk | Our Implementation | Notes |
 |---------|--------------|-------------------|-------|
-| Transport Abstraction | Trait-based design with WebSocket and stdio | Trait-based design with TCP, WebSocket, and stdio | We've added TCP transport for server-to-server communication |
+| Transport Abstraction | Trait-based design with WebSocket and stdio (upstream) | Trait-based design with TCP, UDS; WebSocket `[removed]` / N/A (Tower Atomic) | TCP + UDS for native Squirrel; WebSocket via mesh when needed |
 | Protocol Layer | Separate transport from protocol logic | Similar separation with MCPProtocol trait | Our approach follows the same clean separation |
 | Message Format | JSON-based with type safety | Similar approach with builder pattern | We've enhanced with additional builder methods |
 | Error Handling | Comprehensive error hierarchy | Enhanced error types with context | We provide more context for debugging |
@@ -75,6 +75,7 @@ impl TransportFactory {
     pub fn create(config: &TransportConfig) -> Box<dyn Transport> {
         match config.transport_type {
             TransportType::Tcp => Box::new(TcpTransport::new(config.tcp_config.clone())),
+            // WebSocket: [removed] / N/A (Tower Atomic) — mesh provides WebSocket
             TransportType::WebSocket => Box::new(WebSocketTransport::new(config.ws_config.clone())),
             TransportType::Stdio => Box::new(StdioTransport::new()),
             // Additional transport types
@@ -121,12 +122,12 @@ pub struct MessageBatch {
 #### mcp-rust-sdk:
 
 ```rust
-// mcp-rust-sdk client usage
+// mcp-rust-sdk client usage (upstream — WebSocket not a native Squirrel transport; see banner note)
 use mcp_rust_sdk::{Client, transport::WebSocketTransport};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create a WebSocket transport
+    // Create a WebSocket transport (upstream SDK example only)
     let transport = WebSocketTransport::new("ws://localhost:8080").await?;
     
     // Create and connect the client

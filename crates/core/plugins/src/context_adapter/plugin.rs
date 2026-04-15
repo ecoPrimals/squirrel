@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
+
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::Value;
 
 use crate::plugin::{Plugin, PluginMetadata};
-use super::{ContextAdapterPlugin, AdapterMetadata};
+use super::{AdapterMetadata, ContextAdapterPlugin};
 
 /// Context Adapter Plugin implementation
 #[derive(Debug)]
@@ -68,75 +70,82 @@ impl ContextAdapterPluginImpl {
     }
 }
 
-#[async_trait]
 impl Plugin for ContextAdapterPluginImpl {
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
     }
 
-    async fn initialize(&self) -> Result<()> {
-        tracing::info!("Initializing Context Adapter Plugin: {}", self.metadata.name);
-        Ok(())
+    fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(async {
+            tracing::info!("Initializing Context Adapter Plugin: {}", self.metadata.name);
+            Ok(())
+        })
     }
 
-    async fn shutdown(&self) -> Result<()> {
-        tracing::info!("Shutting down Context Adapter Plugin: {}", self.metadata.name);
-        Ok(())
+    fn shutdown(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(async {
+            tracing::info!("Shutting down Context Adapter Plugin: {}", self.metadata.name);
+            Ok(())
+        })
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
-#[async_trait]
 impl ContextAdapterPlugin for ContextAdapterPluginImpl {
     fn get_adapters(&self) -> Vec<AdapterMetadata> {
         self.adapters.clone()
     }
 
-    async fn convert(&self, adapter_id: &str, data: Value) -> Result<Value> {
-        if !self.supports_adapter(adapter_id) {
-            return Err(anyhow::anyhow!("Adapter not supported: {}", adapter_id));
-        }
-
-        // Find the adapter
-        let adapter = self.adapters.iter()
-            .find(|a| a.id == adapter_id)
-            .ok_or_else(|| anyhow::anyhow!("Adapter not found: {}", adapter_id))?;
-
-        // For now, we'll just add conversion metadata to the result
-        let result = serde_json::json!({
-            "converted_data": data,
-            "metadata": {
-                "adapter_id": adapter_id,
-                "source_format": adapter.source_format,
-                "target_format": adapter.target_format,
-                "timestamp": chrono::Utc::now().to_rfc3339(),
-                "plugin_id": self.metadata.id.to_string(),
+    fn convert(
+        &self,
+        adapter_id: &str,
+        data: Value,
+    ) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>> {
+        let aid = adapter_id.to_string();
+        Box::pin(async {
+            if !self.supports_adapter(&aid) {
+                return Err(anyhow::anyhow!("Adapter not supported: {}", aid));
             }
-        });
 
-        Ok(result)
+            let adapter = self
+                .adapters
+                .iter()
+                .find(|a| a.id == aid)
+                .ok_or_else(|| anyhow::anyhow!("Adapter not found: {}", aid))?;
+
+            let result = serde_json::json!({
+                "converted_data": data,
+                "metadata": {
+                    "adapter_id": aid,
+                    "source_format": adapter.source_format,
+                    "target_format": adapter.target_format,
+                    "timestamp": chrono::Utc::now().to_rfc3339(),
+                    "plugin_id": self.metadata.id.to_string(),
+                }
+            });
+
+            Ok(result)
+        })
     }
 
     fn validate_format(&self, format: &str, data: &Value) -> Result<bool> {
-        // Basic format validation logic
         match format {
-            "json" => {
-                // For JSON, we just check if it's an object or array
-                Ok(data.is_object() || data.is_array())
-            },
+            "json" => Ok(data.is_object() || data.is_array()),
             "mcp" => {
-                // For MCP format, we check if it has the expected structure
                 if let Value::Object(obj) = data {
                     Ok(obj.contains_key("version") && obj.contains_key("message"))
                 } else {
                     Ok(false)
                 }
-            },
+            }
             _ => Err(anyhow::anyhow!("Unsupported format: {}", format)),
         }
     }
 
     fn check_compatibility(&self, source_format: &str, target_format: &str) -> bool {
-        // Check if we have an adapter that can convert from source to target
         self.adapters.iter().any(|a| {
             a.source_format == source_format && a.target_format == target_format
         })
@@ -159,4 +168,4 @@ pub fn create_custom_context_adapter_plugin(
         plugin = plugin.with_adapter(adapter);
     }
     Arc::new(plugin)
-} 
+}

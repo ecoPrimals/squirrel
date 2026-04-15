@@ -20,12 +20,14 @@ use super::{
 use crate::manager::ContextManager;
 use crate::rules::RuleManager;
 
-/// Context monitoring results for tracking
+/// Snapshot from a context-monitoring tick (session counts and sync health).
 #[derive(Debug, Clone)]
-#[expect(dead_code, reason = "planned feature not yet wired")]
 pub struct ContextMonitoringResults {
+    /// Active context session keys (excluding internal recovery snapshots).
     pub total_contexts: usize,
+    /// Sessions whose state is not yet synchronized (may need intervention).
     pub contexts_needing_intervention: usize,
+    #[allow(dead_code)] // Carried for downstream telemetry correlation
     pub monitoring_timestamp: chrono::DateTime<chrono::Utc>,
 }
 
@@ -132,7 +134,7 @@ impl Default for IntegrationStats {
 
 /// References to integration components
 #[derive(Debug, Clone)]
-#[expect(dead_code, reason = "planned feature not yet wired")]
+#[allow(dead_code)] // Held for wiring as integration phases land
 pub struct IntegrationRefs {
     pub context_manager: Option<Arc<ContextManager>>,
     pub rule_manager: Option<Arc<RuleManager>>,

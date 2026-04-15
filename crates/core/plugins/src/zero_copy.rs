@@ -10,10 +10,11 @@
 //! These types provide 10-100x performance improvements over the traditional
 //! cloning approach in plugin loading, state management, and metadata access.
 
-use async_trait::async_trait;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::future::Future;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::sync::Arc;
 use uuid::Uuid;
 // Removed: use squirrel_mcp_config::get_service_endpoints;
@@ -297,39 +298,53 @@ impl ZeroCopyPluginEntry {
     }
 }
 
-/// Zero-copy plugin trait for high-performance plugin implementations
-#[async_trait]
+/// Zero-copy plugin trait for high-performance plugin implementations (`dyn`-safe via boxed futures).
 pub trait ZeroCopyPlugin: Send + Sync + 'static {
     /// Get plugin metadata (zero allocation)
     fn metadata(&self) -> &ZeroCopyPluginMetadata;
 
     /// Initialize plugin with zero-copy configuration
-    async fn initialize(&self, config: &ZeroCopyPluginConfig) -> crate::Result<()>;
+    fn initialize(
+        &self,
+        config: &ZeroCopyPluginConfig,
+    ) -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send + '_>>;
 
     /// Start plugin
-    async fn start(&self) -> crate::Result<()>;
+    fn start(&self) -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send + '_>>;
 
     /// Stop plugin
-    async fn stop(&self) -> crate::Result<()>;
+    fn stop(&self) -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send + '_>>;
 
     /// Shutdown plugin
-    async fn shutdown(&self) -> crate::Result<()>;
+    fn shutdown(&self) -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send + '_>>;
 
     /// Execute plugin with zero-copy arguments
-    async fn execute(&self, args: &[&str]) -> crate::Result<String>;
+    fn execute(
+        &self,
+        args: &[&str],
+    ) -> Pin<Box<dyn Future<Output = crate::Result<String>> + Send + '_>>;
 
     /// Handle event (zero-copy)
-    async fn handle_event(&self, event: &PluginEvent<'_>) -> crate::Result<()> {
-        // Default implementation does nothing
-        let _ = event;
-        Ok(())
+    fn handle_event(
+        &self,
+        event: &PluginEvent<'_>,
+    ) -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send + '_>> {
+        Box::pin(async {
+            let _ = event;
+            Ok(())
+        })
     }
 
     /// Get plugin configuration (zero allocation)
-    async fn get_config(&self) -> crate::Result<Arc<ZeroCopyPluginConfig>>;
+    fn get_config(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = crate::Result<Arc<ZeroCopyPluginConfig>>> + Send + '_>>;
 
     /// Update plugin configuration
-    async fn update_config(&self, config: Arc<ZeroCopyPluginConfig>) -> crate::Result<()>;
+    fn update_config(
+        &self,
+        config: Arc<ZeroCopyPluginConfig>,
+    ) -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send + '_>>;
 }
 
 /// Zero-copy plugin event

@@ -14,6 +14,8 @@ pub mod error;
 pub mod example_plugin;
 /// Plugin lifecycle and registration.
 pub mod manager;
+mod manager_metadata;
+mod manager_test_plugin;
 /// TOML manifest parsing (`plugin.toml`).
 pub(crate) mod manifest;
 #[cfg(test)]

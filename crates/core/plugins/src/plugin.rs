@@ -6,11 +6,12 @@
 //! This module defines the core plugin trait and related types.
 
 use anyhow::Result;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::any::Any;
 use std::fmt::Debug;
+use std::future::Future;
+use std::pin::Pin;
 use uuid::Uuid;
 
 /// Legacy Plugin metadata - DEPRECATED
@@ -132,12 +133,10 @@ impl Default for PluginStatus {
     }
 }
 
-/// Legacy Plugin trait, will be deprecated in favor of `IPlugin`
+/// Legacy plugin trait (object-safe via boxed futures).
 ///
-/// NOTE: This trait uses `async_trait` because it is used as a trait object (`dyn Plugin`)
-/// throughout the codebase. Native async traits are not compatible with trait objects.
-/// This is a legitimate use case for keeping `async_trait` - see Phase 4 migration notes.
-#[async_trait]
+/// Async methods return `Pin<Box<dyn Future<...>>>` so `dyn Plugin` works without the
+/// `async_trait` crate (native `async fn` in traits is not object-safe).
 pub trait Plugin: Send + Sync {
     /// Get the plugin ID
     fn id(&self) -> Uuid {
@@ -150,10 +149,10 @@ pub trait Plugin: Send + Sync {
     fn metadata(&self) -> &PluginMetadata;
 
     /// Initialize the plugin
-    async fn initialize(&self) -> Result<()>;
+    fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>>;
 
     /// Shutdown the plugin
-    async fn shutdown(&self) -> Result<()>;
+    fn shutdown(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>>;
 
     /// Convert the plugin to Any
     fn as_any(&self) -> &dyn Any;

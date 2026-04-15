@@ -57,7 +57,7 @@ impl<D: ServiceDiscovery> ServiceDiscoveryClient<D> {
     /// let discovery = Arc::new(InMemoryServiceDiscovery::new());
     /// let client = ServiceDiscoveryClient::new(discovery);
     /// ```
-    pub fn new(discovery: Arc<D>) -> Self {
+    pub const fn new(discovery: Arc<D>) -> Self {
         Self { discovery }
     }
 

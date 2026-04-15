@@ -7,7 +7,7 @@ author: ecoPrimals Contributors
 
 # Machine Context Protocol (MCP) Specification
 
-> **Note (April 2026):** WebSocket transport was removed from Squirrel in v0.1.0-alpha.47 (Tower Atomic pattern — WebSocket provided by Songbird service mesh). WebSocket references below are historical.
+> **Note (April 2026):** WebSocket transport removed per Tower Atomic — mesh provides WebSocket. Native transports: Unix socket (UDS) + TCP with JSON-RPC 2.0 newline-delimited framing. WebSocket in diagrams and lists below is historical unless marked otherwise.
 
 ## Overview
 
@@ -40,11 +40,13 @@ The MCP system is structured in layers with clear separation of concerns:
 │           ┌───────────┬─────────────┬───▼──────┐         │
 │           │           │             │          │         │
 │  ┌────────▼───┐ ┌─────▼─────┐ ┌─────▼─────┐ ┌─▼────────┐ │
-│  │    TCP     │ │ WebSocket │ │   stdio   │ │  Custom  │ │
+│  │    TCP     │ │WebSocket¹ │ │   stdio   │ │  Custom  │ │
 │  └────────────┘ └───────────┘ └───────────┘ └──────────┘ │
 │                                                           │
 └───────────────────────────────────────────────────────────┘
 ```
+
+¹ **WebSocket** in this diagram: `[removed]` / N/A (Tower Atomic) — Songbird/Tower mesh exposes WebSocket where needed; Squirrel’s native MCP transports are UDS and TCP (JSON-RPC 2.0 newline-delimited framing).
 
 Each layer is responsible for a specific aspect of the protocol:
 
@@ -86,8 +88,9 @@ The protocol supports several types of messages:
 
 MCP supports multiple transport mechanisms:
 
-- **TCP**: Stream-based networking using TcpStream
-- **WebSocket**: Web-compatible bidirectional communication
+- **TCP**: Stream-based networking using `TcpStream`; JSON-RPC 2.0 newline-delimited framing
+- **Unix domain socket (UDS)**: Native local IPC transport for Squirrel MCP
+- **WebSocket** `[removed]` / N/A (Tower Atomic): *Historical / conceptual.* Web-compatible bidirectional communication — browser-facing WebSocket is provided by the mesh layer, not as a native Squirrel MCP transport
 - **stdio**: Standard input/output for process communication
 - **Custom**: Extensible for additional transport types
 

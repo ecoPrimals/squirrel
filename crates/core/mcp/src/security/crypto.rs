@@ -12,7 +12,6 @@
 use crate::error::{MCPError, Result};
 use blake3::derive_key;
 use ed25519_dalek::{Signature, Signer, SigningKey};
-use rand::RngCore;
 use std::fmt;
 use std::sync::Arc;
 
@@ -39,9 +38,9 @@ impl DefaultCryptoProvider {
     /// Create a new crypto provider with a random Ed25519 signing key.
     #[must_use]
     pub fn new() -> Self {
-        use rand::rngs::OsRng;
-        let mut csprng = OsRng;
-        let signing_key = SigningKey::generate(&mut csprng);
+        let mut secret = [0u8; 32];
+        rand::fill(&mut secret);
+        let signing_key = SigningKey::from_bytes(&secret);
         Self {
             state: Arc::new(CryptoState { signing_key }),
         }
@@ -58,7 +57,7 @@ impl DefaultCryptoProvider {
         );
 
         let mut nonce = [0_u8; 32];
-        rand::rngs::OsRng.fill_bytes(&mut nonce);
+        rand::fill(&mut nonce);
 
         let mut keystream = vec![0_u8; data.len()];
         let mut hasher = blake3::Hasher::new_keyed(&sym_key);
@@ -112,7 +111,7 @@ impl DefaultCryptoProvider {
     /// CSPRNG-backed random bytes (OS RNG).
     pub fn generate_random(&self, size: usize) -> Result<Vec<u8>> {
         let mut buf = vec![0_u8; size];
-        rand::rngs::OsRng.fill_bytes(&mut buf);
+        rand::fill(&mut buf[..]);
         Ok(buf)
     }
 

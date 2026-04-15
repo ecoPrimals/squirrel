@@ -5,27 +5,30 @@ use super::*;
 use crate::error::{RuleActionError, RuleSystemError};
 use crate::models::{ActionResult, RuleAction};
 use serde_json::json;
+use std::future::Future;
+use std::pin::Pin;
 
 /// Mock plugin for testing `ExecutePlugin` action
 #[derive(Debug)]
 struct MockActionPlugin;
 
-#[async_trait::async_trait]
 impl ActionPlugin for MockActionPlugin {
-    async fn execute(
-        &self,
-        _action: &RuleAction,
-        context_id: &str,
-        rule_id: &str,
-    ) -> RuleSystemResult<ActionResult> {
-        Ok(ActionResult {
-            action_id: "mock_action_123".to_string(),
-            rule_id: rule_id.to_string(),
-            context_id: context_id.to_string(),
-            success: true,
-            message: "Mock plugin executed".to_string(),
-            data: Some(json!({"mock": true})),
-            timestamp: Utc::now(),
+    fn execute<'a>(
+        &'a self,
+        _action: &'a RuleAction,
+        context_id: &'a str,
+        rule_id: &'a str,
+    ) -> Pin<Box<dyn Future<Output = RuleSystemResult<ActionResult>> + Send + 'a>> {
+        Box::pin(async move {
+            Ok(ActionResult {
+                action_id: "mock_action_123".to_string(),
+                rule_id: rule_id.to_string(),
+                context_id: context_id.to_string(),
+                success: true,
+                message: "Mock plugin executed".to_string(),
+                data: Some(json!({"mock": true})),
+                timestamp: Utc::now(),
+            })
         })
     }
 

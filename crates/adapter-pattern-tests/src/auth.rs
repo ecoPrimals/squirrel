@@ -3,8 +3,9 @@
 
 //! MCP adapter with authentication and authorization
 
-use async_trait::async_trait;
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::{Arc, RwLock};
 
 use crate::commands::{CommandAdapter, RegistryAdapter};
@@ -429,20 +430,34 @@ impl McpAdapter {
     }
 }
 
-#[async_trait]
 impl CommandAdapter for McpAdapter {
-    async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
-        self.execute_with_auth(command, args, Auth::None).await
+    fn execute(
+        &self,
+        command: &str,
+        args: Vec<String>,
+    ) -> Pin<Box<dyn Future<Output = CommandResult<String>> + Send + '_>> {
+        let this = self.clone();
+        let command = command.to_string();
+        Box::pin(async move { this.execute_with_auth(&command, args, Auth::None).await })
     }
 
-    async fn get_help(&self, command: &str) -> CommandResult<String> {
-        let adapter = self.adapter.read().expect("should succeed");
-        adapter.get_help(command)
+    fn get_help(
+        &self,
+        command: &str,
+    ) -> Pin<Box<dyn Future<Output = CommandResult<String>> + Send + '_>> {
+        let out = self
+            .adapter
+            .read()
+            .expect("should succeed")
+            .get_help(command);
+        Box::pin(async move { out })
     }
 
-    async fn list_commands(&self) -> CommandResult<Vec<String>> {
-        let adapter = self.adapter.read().expect("should succeed");
-        adapter.list_commands()
+    fn list_commands(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = CommandResult<Vec<String>>> + Send + '_>> {
+        let out = self.adapter.read().expect("should succeed").list_commands();
+        Box::pin(async move { out })
     }
 }
 

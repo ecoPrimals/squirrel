@@ -15,7 +15,7 @@ use anyhow::Result;
 use squirrel_cli::commands::registry::CommandRegistry;
 use std::io::{self, Write};
 
-use tracing::info;
+use tracing::{error, info};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -94,7 +94,7 @@ async fn main() -> Result<()> {
                                         println!("Command output: {}", result);
                                     }
                                     Err(e) => {
-                                        eprintln!("Command failed: {}", e);
+                                        error!("Command failed: {}", e);
                                     }
                                 }
                             } else {
@@ -106,7 +106,7 @@ async fn main() -> Result<()> {
                 }
             }
             Err(e) => {
-                eprintln!("Error reading input: {}", e);
+                error!("Error reading input: {}", e);
                 break;
             }
         }

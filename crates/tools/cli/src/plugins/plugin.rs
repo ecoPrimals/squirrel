@@ -5,8 +5,9 @@
 //!
 //! This module defines the core types for the plugin system.
 
-use async_trait::async_trait;
+use std::future::Future;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::sync::Arc;
 
 use crate::commands::registry::CommandRegistry;
@@ -89,7 +90,9 @@ impl PluginItem {
 }
 
 /// Plugin trait defining the interface for CLI plugins
-#[async_trait]
+///
+/// Async methods return boxed futures so `dyn Plugin` is object-safe without the `async_trait`
+/// crate.
 pub trait Plugin: Send + Sync + 'static {
     /// Get the plugin name
     fn name(&self) -> &str;
@@ -110,7 +113,7 @@ pub trait Plugin: Send + Sync + 'static {
     /// # Returns
     ///
     /// `Ok(())` if initialization succeeds, or an error otherwise
-    async fn initialize(&self) -> Result<(), PluginError>;
+    fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>>;
 
     /// Start the plugin
     ///
@@ -122,9 +125,8 @@ pub trait Plugin: Send + Sync + 'static {
     /// # Returns
     ///
     /// `Ok(())` if starting succeeds, or an error otherwise
-    async fn start(&self) -> Result<(), PluginError> {
-        // Default implementation does nothing
-        Ok(())
+    fn start(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async { Ok(()) })
     }
 
     /// Register commands with the command registry
@@ -160,7 +162,10 @@ pub trait Plugin: Send + Sync + 'static {
     /// # Returns
     ///
     /// `Ok(String)` with the result if execution succeeds, or an error otherwise
-    async fn execute(&self, args: &[String]) -> Result<String, PluginError>;
+    fn execute(
+        &self,
+        args: &[String],
+    ) -> Pin<Box<dyn Future<Output = Result<String, PluginError>> + Send + '_>>;
 
     /// Stop the plugin
     ///
@@ -172,9 +177,8 @@ pub trait Plugin: Send + Sync + 'static {
     /// # Returns
     ///
     /// `Ok(())` if stopping succeeds, or an error otherwise
-    async fn stop(&self) -> Result<(), PluginError> {
-        // Default implementation does nothing
-        Ok(())
+    fn stop(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        Box::pin(async { Ok(()) })
     }
 
     /// Clean up plugin resources
@@ -187,7 +191,7 @@ pub trait Plugin: Send + Sync + 'static {
     /// # Returns
     ///
     /// `Ok(())` if cleanup succeeds, or an error otherwise
-    async fn cleanup(&self) -> Result<(), PluginError>;
+    fn cleanup(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>>;
 }
 
 /// A factory for creating plugins

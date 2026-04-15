@@ -5,8 +5,16 @@
 //!
 //! This module provides secure plugin loading with proper validation,
 //! sandboxing, and error handling to prevent security vulnerabilities.
+//!
+//! **Native code execution:** After validation, [`SecurePluginLoader::load_plugin_secure`]
+//! returns [`SecurePluginStub`], which is the **intentional production implementation** for
+//! this CLI tier: native `.so` execution is disabled; integration happens through the command
+//! registry. This is not a test double — it is a deny-by-default execution policy until an
+//! optional sandboxed runtime (for example WebAssembly) exists.
 
+use std::future::Future;
 use std::path::Path;
+use std::pin::Pin;
 use std::sync::Arc;
 use thiserror::Error;
 use tracing::{info, warn};
@@ -301,7 +309,6 @@ impl SecurePluginStub {
     }
 }
 
-#[async_trait::async_trait]
 impl Plugin for SecurePluginStub {
     fn name(&self) -> &str {
         &self.metadata.name
@@ -315,35 +322,47 @@ impl Plugin for SecurePluginStub {
         self.metadata.description.as_deref()
     }
 
-    async fn initialize(&self) -> Result<(), PluginError> {
-        info!("🔒 Secure plugin stub initialized: {}", self.metadata.name);
-        Ok(())
+    fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        let name = self.metadata.name.clone();
+        Box::pin(async move {
+            info!("🔒 Secure plugin stub initialized: {}", name);
+            Ok(())
+        })
     }
 
     fn register_commands(
         &self,
         _registry: &crate::commands::registry::CommandRegistry,
     ) -> Result<(), PluginError> {
-        // Stub implementation - no commands to register
+        // Intentionally empty: validated plugins do not inject native command handlers here;
+        // operators register CLI commands through the shared registry separately.
         Ok(())
     }
 
     fn commands(&self) -> Vec<std::sync::Arc<dyn squirrel_commands::Command>> {
-        // Stub implementation - no commands
+        // No dynamic handlers — matches deny-native-execution policy (see `execute`).
         Vec::new()
     }
 
-    async fn execute(&self, _args: &[String]) -> Result<String, PluginError> {
-        Err(PluginError::SecurityError(format!(
-            "Plugin '{}' is a security sandbox — native execution is disabled. \
-             Register commands via the CLI command registry instead.",
-            self.metadata.name
-        )))
+    fn execute(
+        &self,
+        _args: &[String],
+    ) -> Pin<Box<dyn Future<Output = Result<String, PluginError>> + Send + '_>> {
+        let name = self.metadata.name.clone();
+        Box::pin(async move {
+            Err(PluginError::SecurityError(format!(
+                "Plugin '{name}' is a security sandbox — native execution is disabled. \
+                 Register commands via the CLI command registry instead.",
+            )))
+        })
     }
 
-    async fn cleanup(&self) -> Result<(), PluginError> {
-        info!("🔒 Secure plugin stub cleanup: {}", self.metadata.name);
-        Ok(())
+    fn cleanup(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        let name = self.metadata.name.clone();
+        Box::pin(async move {
+            info!("🔒 Secure plugin stub cleanup: {}", name);
+            Ok(())
+        })
     }
 }
 

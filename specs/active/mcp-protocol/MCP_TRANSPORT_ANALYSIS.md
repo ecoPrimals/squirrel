@@ -7,7 +7,7 @@ author: ecoPrimals Contributors
 
 # MCP Transport Layer and Adapter Analysis
 
-> **Note (April 2026):** WebSocket transport was removed from Squirrel in v0.1.0-alpha.47 (Tower Atomic pattern — WebSocket provided by Songbird service mesh). WebSocket references below are historical.
+> **Note (April 2026):** WebSocket transport removed per Tower Atomic — mesh provides WebSocket. Native transports: Unix socket (UDS) + TCP with JSON-RPC 2.0 newline-delimited framing. WebSocket references below are historical (upstream SDK / prior plans) unless marked otherwise.
 
 ## Overview
 
@@ -20,7 +20,7 @@ This document analyzes our current Machine Context Protocol (MCP) implementation
 Our current transport implementation in `crates/mcp/src/transport/mod.rs` has these characteristics:
 
 1. **TCP-focused**: Our implementation primarily uses TcpListener/TcpStream
-2. **Single transport type**: We don't have modular transport options like WebSocket or stdio
+2. **Single transport type**: We don't have modular transport options like the upstream SDK’s WebSocket/`stdio` split (WebSocket in Squirrel: `[removed]` / N/A Tower Atomic; native: UDS + TCP)
 3. **Ownership challenges**: We're experiencing issues with TcpStream ownership and splitting
 4. **Tightly coupled components**: The transport layer has direct dependencies on security management
 
@@ -59,13 +59,13 @@ The [mcp-rust-sdk](https://github.com/Derek-X-Wang/mcp-rust-sdk) takes a more mo
    }
    ```
 
-2. **Multiple Transport Implementations**: 
-   - WebSocketTransport: For network communication
+2. **Multiple Transport Implementations** (upstream mcp-rust-sdk; not Squirrel’s current native set): 
+   - WebSocketTransport: For network communication — `[removed]` in Squirrel / N/A (Tower Atomic); mesh provides WebSocket
    - StdioTransport: For local process communication
 
 3. **Transport Initialization**:
    ```rust
-   // WebSocket example
+   // WebSocket example (upstream SDK — historical for Squirrel)
    let transport = WebSocketTransport::new("ws://localhost:8080").await?;
    
    // Stdio example
@@ -123,7 +123,7 @@ Based on this analysis, we recommend the following improvements to our MCP imple
 
 2. **Implement multiple transport types**:
    - TcpTransport: Our current implementation, refactored
-   - WebSocketTransport: For web-based applications
+   - WebSocketTransport: For web-based applications — `[removed]` / N/A (Tower Atomic) for native Squirrel; use mesh for browser-facing WebSocket
    - StdioTransport: For command-line tools and testing
 
 3. **Separate connection management from transport logic**:
@@ -249,7 +249,7 @@ Based on this analysis, we recommend the following improvements to our MCP imple
    - Implement basic tests for the abstraction
 
 2. **Phase 2: New Transport Types**
-   - Implement WebSocketTransport
+   - Implement WebSocketTransport — superseded: `[removed]` / N/A (Tower Atomic); mesh covers WebSocket; prioritize UDS + TCP (JSON-RPC NDJSON)
    - Implement StdioTransport
    - Create transport selection factory
 

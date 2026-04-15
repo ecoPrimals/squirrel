@@ -127,9 +127,9 @@ pub struct DatabaseConfig {
 /// Database backend options
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum DatabaseBackend {
-    /// NestGate distributed storage
-    #[serde(rename = "nestgate")]
-    NestGate,
+    /// Content-addressed / durable storage (discover provider by capability at runtime)
+    #[serde(rename = "content_addressed", alias = "nestgate")]
+    ContentAddressed,
 
     /// PostgreSQL database
     #[serde(rename = "postgres")]

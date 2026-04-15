@@ -9,6 +9,7 @@ use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use tracing::warn;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -72,7 +73,7 @@ impl ApiConfig {
             "openai" => self.openai_api_key = Some(key),
             "anthropic" => self.anthropic_api_key = Some(key),
             "gemini" => self.gemini_api_key = Some(key),
-            _ => eprintln!("Warning: Unknown provider {provider}, key not saved"),
+            _ => warn!("Warning: Unknown provider {provider}, key not saved"),
         }
     }
 
@@ -99,6 +100,8 @@ fn validate_key(key: &str) -> anyhow::Result<()> {
 }
 
 fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt::init();
+
     let cli = Cli::parse();
 
     match cli.command {

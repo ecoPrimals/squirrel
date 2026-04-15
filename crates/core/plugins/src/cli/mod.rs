@@ -74,7 +74,6 @@ mod tests {
     use crate::Plugin;
     use crate::Result as PluginResult;
     use crate::plugin::PluginMetadata;
-    use async_trait::async_trait;
     use std::any::Any;
     use std::collections::HashMap;
 
@@ -90,18 +89,23 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl Plugin for TestCliPlugin {
         fn metadata(&self) -> &PluginMetadata {
             &self.metadata
         }
 
-        async fn initialize(&self) -> anyhow::Result<()> {
-            Ok(())
+        fn initialize(
+            &self,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + Send + '_>>
+        {
+            Box::pin(async { Ok(()) })
         }
 
-        async fn shutdown(&self) -> anyhow::Result<()> {
-            Ok(())
+        fn shutdown(
+            &self,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + Send + '_>>
+        {
+            Box::pin(async { Ok(()) })
         }
 
         fn as_any(&self) -> &dyn Any {

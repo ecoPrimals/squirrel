@@ -2,6 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration loader for ecosystem integration
+//!
+//! Service mesh settings use `SERVICE_MESH_*` environment keys (prefixed by the loader’s
+//! `env_prefix`). `SONGBIRD_*` keys are **deprecated legacy fallbacks** for the same values—prefer
+//! the `SERVICE_MESH_*` names so configuration stays capability-oriented rather than primal-named.
 
 use crate::error::ConfigError;
 use crate::traits::{

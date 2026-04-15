@@ -101,8 +101,8 @@ impl ChaosMetrics {
 /// Simulate random failures based on failure rate
 pub fn should_fail(failure_rate: f64) -> bool {
     use rand::Rng;
-    let mut rng = rand::thread_rng();
-    rng.r#gen::<f64>() < failure_rate
+    let mut rng = rand::rng();
+    rng.random::<f64>() < failure_rate
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

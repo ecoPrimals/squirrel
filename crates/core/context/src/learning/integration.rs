@@ -29,11 +29,16 @@ pub use super::integration_types::{
     StateChangePatternAnalysis, analyze_state_change_patterns,
 };
 
-#[expect(unused_imports, reason = "re-export for test and downstream consumers")]
 pub use super::integration_data::{
     ContextMonitoringResults, IntegrationError, IntegrationRefs, IntegrationState,
-    IntegrationStats, IntegrationStatus, LearningIntegrationConfig, TriggerThresholds,
+    IntegrationStats, IntegrationStatus, LearningIntegrationConfig,
 };
+
+#[allow(
+    unused_imports,
+    reason = "public re-export consumed by sibling test modules"
+)]
+pub use super::integration_data::TriggerThresholds;
 
 /// Learning integration layer
 #[derive(Debug)]
@@ -478,7 +483,7 @@ impl LearningIntegration {
 
     /// Clone references for background tasks
     fn clone_refs(&self) -> IntegrationRefs {
-        IntegrationRefs {
+        let refs = IntegrationRefs {
             context_manager: self.context_manager.clone(),
             rule_manager: self.rule_manager.clone(),
             learning_engine: self.learning_engine.clone(),
@@ -487,30 +492,45 @@ impl LearningIntegration {
             policy_network: self.policy_network.clone(),
             learning_metrics: self.learning_metrics.clone(),
             adaptive_rule_system: self.adaptive_rule_system.clone(),
-        }
+        };
+        tracing::trace!(
+            has_rule_manager = refs.rule_manager.is_some(),
+            has_learning_engine = refs.learning_engine.is_some(),
+            has_context_learning_manager = refs.context_learning_manager.is_some(),
+            has_reward_system = refs.reward_system.is_some(),
+            has_policy_network = refs.policy_network.is_some(),
+            "IntegrationRefs snapshot for background tasks"
+        );
+        refs
     }
 
     /// Monitor context changes
     async fn monitor_context_changes(refs: &IntegrationRefs) -> Result<()> {
-        // Monitor context changes and trigger learning if needed
-        if let Some(_context_manager) = &refs.context_manager {
-            debug!("Starting simplified context change monitoring");
-
-            // Use simplified monitoring since specific methods don't exist yet
-            // FUTURE: [API-Enhancement] Implement proper context monitoring when ContextManager API is enhanced
-            // Tracking: Planned for v0.2.0 - ContextManager API enhancement
-
-            // Placeholder for future context monitoring implementation
-            debug!("Context monitoring placeholder - actual implementation pending");
-
-            // Simple monitoring results
-            let _monitoring_results = ContextMonitoringResults {
-                total_contexts: 0,                // Placeholder
-                contexts_needing_intervention: 0, // Placeholder
+        if let Some(context_manager) = &refs.context_manager {
+            let session_keys = context_manager.list_sessions().await;
+            let active_ids: Vec<String> = session_keys
+                .into_iter()
+                .filter(|k| !k.contains("__recovery"))
+                .collect();
+            let total_contexts = active_ids.len();
+            let mut contexts_needing_intervention = 0usize;
+            for id in &active_ids {
+                let state = context_manager.get_context_state(id).await?;
+                if !state.synchronized {
+                    contexts_needing_intervention += 1;
+                }
+            }
+            let monitoring_results = ContextMonitoringResults {
+                total_contexts,
+                contexts_needing_intervention,
                 monitoring_timestamp: chrono::Utc::now(),
             };
-
-            debug!("Context change monitoring completed (simplified version)");
+            debug!(
+                total = monitoring_results.total_contexts,
+                needing_intervention = monitoring_results.contexts_needing_intervention,
+                at = %monitoring_results.monitoring_timestamp,
+                "Context monitoring tick (live session counts from ContextManager store)"
+            );
         } else {
             debug!("No context manager available for monitoring");
         }
