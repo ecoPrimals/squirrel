@@ -1,10 +1,12 @@
 ---
 version: 1.0.0
 last_updated: 2024-06-28
-status: active
+status: historical
 ---
 
 # MCP Integration Guide
+
+> **Note (April 2026):** This is a **gen2-era guide** (June 2024). The current integration surface uses JSON-RPC 2.0 with `domain.verb` methods over Unix sockets. See `crates/core/mcp/README.md` and `specs/active/mcp-protocol/README.md` for current status.
 
 ## Overview
 

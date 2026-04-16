@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,158 passing / 0 failures across 22 workspace members |
+| Tests | 7,160 passing / 0 failures across 22 workspace members |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`, `test-context`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -30,7 +30,7 @@
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
 | cargo deny | `advisories ok, bans ok, licenses ok, sources ok` |
 | Mocks in production | 0 — all production stubs evolved to honest capability-based patterns: `SecurePluginStub` rejects execution (security sandbox, documented); `NoOpPluginManager` returns errors; plugin web API returns 501 (Phase 2); `WebVisualizationServer` logs capability-pending; `UnavailableServiceRegistry` returns empty (honest); learning integration wired to live `ContextManager` data; neural engine evolved from tanh stub to ReLU MLP; federation `dead_code` fields wired to real diagnostics; all test mocks behind `#[cfg(any(test, feature = "testing"))]` |
-| Primal self-knowledge | All hardcoded primal names evolved to capability-based: `BearDog*` → `SecurityProvider*`, `Songbird*` → `Discovery*`/`ServiceMesh*`, `NestGate` → `ContentAddressed`; deprecated type aliases for backward compat; env var chains prefer capability names (`SECURITY_ENDPOINT` → `BEARDOG_ENDPOINT` fallback) |
+| Primal self-knowledge | All hardcoded primal names evolved to capability-based: `BearDog*` → `SecurityProvider*`, `Songbird*` → `Discovery*`/`ServiceMesh*`, `NestGate` → `ContentAddressed`; deprecated type aliases for backward compat; env var chains prefer capability names (`SECURITY_ENDPOINT` → `BEARDOG_ENDPOINT` fallback); `SECURITY_SERVICE_ID` / `SECURITY_PRIMARY_SERVICE_ID` constants replace all `format!("{}-security", primal_names::BEARDOG)` calls |
 | Legacy aliases | Backward-compatible aliases for ecosystem compat; `capabilities.list` canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1 |
 | TODO/FIXME in code | 0 — no TODO/FIXME/HACK markers in committed code; Phase 2 placeholders wired with capability fallback or documented with `#[expect(dead_code, reason)]` |
 | Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
@@ -278,6 +278,17 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 5. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`, `test-context`)
 
 ## Changes Since Last Handoff (April 16, 2026)
+
+### April 16, 2026 session Z (Wire Standard L3 + security service ID evolution)
+
+- **Wire Standard L3 Composable**: `capabilities.list` now includes `description` field on each capability group, drawn from `niche::CAPABILITY_GROUP_DESCRIPTIONS` — 12 domains covered (inference, ai, capabilities, capability, identity, context, system, health, discovery, tool, lifecycle, graph). Internal label updated from "Wire Standard L2" to "Wire Standard L3".
+- **Security service ID constants**: `SECURITY_SERVICE_ID` (`"security-provider"`) and `SECURITY_PRIMARY_SERVICE_ID` (`"security-provider-primary"`) replace all `format!("{}-security", primal_names::BEARDOG)` calls across 10 files. `BEARDOG_SECURITY_SERVICE_ID` preserved as `#[deprecated]` constant for backward compat.
+- **Feature key evolution**: `supports_beardog` → `supports_security_provider` in module info
+- **Error message evolution**: "Beardog endpoint must use HTTP or HTTPS" → "Security provider endpoint must use HTTP or HTTPS"; "Beardog endpoint must be configured when using Beardog authentication" → capability-agnostic message
+- **Config builder evolution**: `beardog_endpoint_optional` deprecated with `#[deprecated(since = "0.2.0")]`; doc comments updated from "Set Beardog endpoint" to "Set security provider endpoint (legacy alias)"
+- **Session prefix evolution**: `beardog_session_` → `security_session_` in `authenticate_universal`
+- **BLAKE3 crypto context strings preserved**: `derive_key` context strings (`"ecoPrimals beardog auth-token v1"`, `"ecoPrimals beardog encrypt v1"`, `"ecoPrimals beardog sign v1"`) are cryptographic constants — documented as do-not-rename
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,160 passed / 0 failures), `deny` ✓
 
 ### April 16, 2026 session X (coverage 86%→90.1%: 144 targeted tests across 15 production modules)
 

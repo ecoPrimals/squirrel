@@ -2,9 +2,8 @@
 
 > **Note (April 2026):** WebSocket transport was removed from Squirrel in v0.1.0-alpha.47 (Tower Atomic pattern — WebSocket provided by Songbird service mesh). WebSocket references below are historical.
 
-**Date**: November 10, 2025  
-**Status**: Active  
-**Related ADR**: [ADR-008](../../docs/adr/ADR-008-configuration-standardization.md)
+**Date**: April 2026 (originally November 2025)  
+**Status**: Active
 
 ---
 

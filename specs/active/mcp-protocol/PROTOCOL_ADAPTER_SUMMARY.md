@@ -1,5 +1,7 @@
 # MCP Protocol Adapter Implementation Summary
 
+> **Note (April 2026):** This is a **gen2-era summary** (August 2024). The protocol adapter layer was refactored into JSON-RPC 2.0 handlers with `domain.verb` semantic dispatch. Retained as historical reference.
+
 ## Overview
 
 The Protocol Adapter component of the Machine Context Protocol (MCP) has been successfully implemented with full support for domain object translation. This document summarizes the implementation details, architecture, and future work items.

@@ -1,21 +1,15 @@
 ---
 version: 1.3.0
 last_updated: 2024-04-20
-status: active
+status: historical
 ---
 
 # Machine Context Protocol (MCP) Specification
 
+> **Note (April 2026):** This document is a **gen2-era specification** (April 2024). The current MCP implementation uses JSON-RPC 2.0 over Unix sockets with `domain.verb` semantic method naming. WebSocket transport was removed (Tower Atomic). See `specs/active/mcp-protocol/README.md` for the current implementation status.
+
 ## Overview
 The Machine Context Protocol (MCP) is a secure, efficient protocol for communication between AI tools and the ecoPrimals system. It provides reliable message delivery, security features, context management capabilities, and thread-safe operations.
-
-> **Note**: This document provides a high-level overview of the MCP. For detailed specifications, please refer to the following documents in the `protocol/` directory:
->
-> - [Core Protocol Specification](protocol/README.md)
-> - [Tool Definition Specification](protocol/tool-definition.md)
-> - [Tool Execution Specification](protocol/tool-execution.md)
-> - [Authentication Specification](protocol/authentication.md)
-> - [Command Registry Integration](protocol/command-integration.md)
 
 ## Core Components
 

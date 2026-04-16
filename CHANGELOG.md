@@ -13,8 +13,10 @@ Pre-alpha history is preserved as fossil record in
 
 ### Summary (April 16, 2026)
 
-**7,158** tests, **~1,037** `.rs` files, **90.1%** region coverage (target met). Deep debt execution across two sessions:
+**7,160** tests, **~1,037** `.rs` files, **90.1%** region coverage (target met). Deep debt execution across four sessions:
 
+- **Wire Standard L3 Composable**: `capabilities.list` upgraded from L2 to L3 with `description` field on all 12 capability groups, drawn from `niche::CAPABILITY_GROUP_DESCRIPTIONS`
+- **Security service ID evolution**: `format!("{}-security", primal_names::BEARDOG)` eliminated — replaced with `SECURITY_SERVICE_ID` / `SECURITY_PRIMARY_SERVICE_ID` constants across 10 files; `supports_beardog` → `supports_security_provider`; error messages, session prefixes, config builders all evolved to capability-agnostic language; BLAKE3 crypto context strings preserved as cryptographic constants
 - **Coverage 86%→90.1%**: 146 targeted tests across 15+ production modules; SDK error tests wired (0%→native); 2 real bugs found (deadlock risk in `set_rule_manager`, silent data loss in `load_from_file`)
 - **Smart refactoring**: 12 production files brought under 800L across sessions W+Y (discovery 945→596, http 866→586, config 856→266, btsp_handshake 855→306, adapter 847→292, security 816→377, ipc_routed_providers 805→373, workflow_manager 831→403, server/mod 840→647, mcp/client 836→605, ecosystem client 824→659, plugins/manager 816→706)
 - **Primal self-knowledge**: BearDog→SecurityProvider (auth types, config, security module), Songbird→Discovery (env chains, monitoring), ToadStool→Compute (env chains), NestGate→ContentAddressed. All hardcoded localhost ports→`get_service_port()` constants

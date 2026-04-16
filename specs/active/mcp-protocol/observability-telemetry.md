@@ -2,7 +2,9 @@
 
 Version: 1.3.0
 Updated: 2025-05-27
-Status: Near Complete (90% Complete)
+Status: Historical (gen2 specification)
+
+> **Note (April 2026):** This is a **gen2-era specification**. Monitoring is now via `tracing` structured logging with optional Prometheus metrics behind the `monitoring` feature gate. See `CURRENT_STATUS.md` for current observability status.
 
 ## Overview
 

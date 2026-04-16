@@ -1,11 +1,13 @@
 ---
 version: 1.0.0
-status: proposed
+status: historical-proposed
 last_updated: 2024-10-01
 author: ecoPrimals Contributors
 ---
 
 # MCP ReflexRouter Specification
+
+> **Note (April 2026):** This is a **gen2-era proposal** (October 2024) that was never implemented. AI routing is handled by `AiRouter` in `crates/main/src/api/ai/router.rs` using capability-based provider discovery. Retained as reference material.
 
 ## Overview
 
