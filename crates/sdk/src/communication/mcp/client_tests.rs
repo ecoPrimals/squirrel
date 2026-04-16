@@ -97,6 +97,11 @@ async fn disconnect_when_already_disconnected_ok() {
 fn classify_message_type_aliases_and_generic() {
     let c = McpClient::new();
     assert_eq!(
+        c.test_classify_message_type("event")
+            .expect("should succeed"),
+        MessageCategory::Notification
+    );
+    assert_eq!(
         c.test_classify_message_type("function_call")
             .expect("should succeed"),
         MessageCategory::ToolInvocation
@@ -151,6 +156,93 @@ fn processing_strategy_covers_all_categories() {
     ];
     for (cat, expected) in pairs {
         assert_eq!(c.test_determine_processing_strategy(&cat), expected);
+    }
+}
+
+// `validate_and_process_payload` / `serialize_response_to_js` use `js_sys::JSON` and only run on wasm32.
+#[cfg(target_arch = "wasm32")]
+mod validate_payload_wasm {
+    use super::*;
+    use serde_json::json;
+    use wasm_bindgen::prelude::JsValue;
+
+    #[test]
+    fn validate_payload_rejects_undefined_stringify_path() {
+        let c = McpClient::new();
+        let err = c
+            .test_validate_and_process_payload("custom", JsValue::undefined())
+            .unwrap_err();
+        let s = format!("{err:?}");
+        assert!(
+            s.contains("Payload") || s.contains("stringify") || s.contains("undefined"),
+            "unexpected error: {s}"
+        );
+    }
+
+    #[test]
+    fn validate_payload_rejects_invalid_json() {
+        let c = McpClient::new();
+        let payload = JsValue::from_str("not json {{{");
+        let err = c
+            .test_validate_and_process_payload("custom", payload)
+            .unwrap_err();
+        let msg = format!("{err:?}");
+        assert!(
+            msg.contains("parse") || msg.contains("Payload"),
+            "expected parse-related error: {msg}"
+        );
+    }
+
+    #[test]
+    fn validate_payload_tool_resource_completion_and_generic() {
+        let c = McpClient::new();
+        let tool = serde_wasm_bindgen::to_value(&json!({"tool": "t", "arguments": {}})).unwrap();
+        let p = c
+            .test_validate_and_process_payload("tool_call", tool)
+            .expect("tool_call");
+        assert_eq!(p.validation_status, "validated_tool_call");
+
+        let res = serde_wasm_bindgen::to_value(&json!({"uri": "x"})).unwrap();
+        let p2 = c
+            .test_validate_and_process_payload("resource_request", res)
+            .expect("resource");
+        assert_eq!(p2.validation_status, "validated_resource_request");
+
+        let comp = serde_wasm_bindgen::to_value(&json!({"prompt": "p"})).unwrap();
+        let p3 = c
+            .test_validate_and_process_payload("completion_request", comp)
+            .expect("completion");
+        assert_eq!(p3.validation_status, "validated_completion_request");
+
+        let generic_payload = serde_wasm_bindgen::to_value(&json!({"a": 1})).unwrap();
+        let p4 = c
+            .test_validate_and_process_payload("anything", generic_payload)
+            .expect("generic");
+        assert_eq!(p4.validation_status, "passed");
+        assert!(
+            p4.processing_hints
+                .iter()
+                .any(|h| h == "generic_processing")
+        );
+    }
+
+    #[test]
+    fn serialize_response_round_trips() {
+        let c = McpClient::new();
+        let resp = MessageResponse {
+            success: true,
+            data: json!({"k": "v"}),
+            message_type: "m".to_string(),
+            timestamp: 0,
+        };
+        let js = c.test_serialize_response_to_js(resp).expect("serialize");
+        let s = js_sys::JSON::stringify(&js)
+            .expect("stringify")
+            .as_string()
+            .expect("as_string");
+        let v: serde_json::Value = serde_json::from_str(&s).expect("json");
+        assert_eq!(v["message_type"], "m");
+        assert_eq!(v["success"], true);
     }
 }
 

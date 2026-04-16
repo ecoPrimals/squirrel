@@ -147,9 +147,6 @@ impl ContextLearningManager {
 
     /// Set rule manager with intelligent learning integration
     pub async fn set_rule_manager(&self, rule_manager: Arc<RuleManager>) {
-        // Store rule manager for enhanced learning-rule integration
-        let current_state = self.state.write().await;
-
         info!("Integrating rule manager with learning system");
 
         // Enhanced learning-rule coordination
@@ -168,14 +165,7 @@ impl ContextLearningManager {
             }
         }
 
-        // Enhanced rule-learning integration logging
         debug!("Rule manager integration completed successfully");
-
-        // Note: Since rule_manager field is not easily mutable in this architecture,
-        // we enhance the integration through coordinated learning state updates
-        // This provides the business value while respecting the existing structure
-
-        drop(current_state);
     }
 
     /// Update learning state with rule manager integration
@@ -478,7 +468,7 @@ impl ContextLearningManager {
     /// Walks the top-level keys and derives a fixed-length feature vector:
     /// version, data-field count, synchronization flag, total key count,
     /// string-field density, and numeric-field density.
-    async fn extract_features(context_state: &Value) -> Result<Vec<f64>> {
+    pub(crate) async fn extract_features(context_state: &Value) -> Result<Vec<f64>> {
         let obj = context_state.as_object();
         let key_count = obj.map_or(0, |o| o.len());
 

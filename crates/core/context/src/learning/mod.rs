@@ -56,6 +56,8 @@ mod engine_tests;
 #[cfg(test)]
 mod experience_tests;
 #[cfg(test)]
+mod integration_coverage_tests;
+#[cfg(test)]
 mod integration_lifecycle_tests;
 #[cfg(test)]
 mod integration_tests;

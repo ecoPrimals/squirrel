@@ -290,6 +290,288 @@ impl AiCapability for UniversalAiAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+    use std::path::Path;
+    use tempfile::tempdir;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    use tokio::net::UnixListener;
+
+    use crate::api::ai::universal::{ChatMessage, MessageRole, UniversalAiRequest};
+
+    fn bind_unix_listener(path: &Path) -> UnixListener {
+        let _ = std::fs::remove_file(path);
+        UnixListener::bind(path).expect("bind unix listener")
+    }
+
+    #[tokio::test]
+    async fn complete_parses_jsonrpc_success_with_text_and_usage() {
+        let dir = tempdir().expect("tempdir");
+        let sock = dir.path().join("ai.sock");
+        let listener = bind_unix_listener(&sock);
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            let mut reader = BufReader::new(stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.expect("read req");
+            let mut stream = reader.into_inner();
+            let body = json!({
+                "jsonrpc": "2.0",
+                "result": {
+                    "text": "completion-out",
+                    "model": "mm",
+                    "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3},
+                    "stop_reason": "length",
+                    "cost_usd": 0.02
+                }
+            });
+            stream
+                .write_all(format!("{}\n", serde_json::to_string(&body).unwrap()).as_bytes())
+                .await
+                .expect("write");
+        });
+
+        let provider = CapabilityProvider {
+            id: "uds".to_string(),
+            capabilities: vec!["ai.complete".to_string()],
+            socket: sock.clone(),
+            metadata: HashMap::new(),
+            discovered_via: "test".to_string(),
+        };
+        let adapter =
+            UniversalAiAdapter::from_capability_provider(provider, "ai.complete".to_string())
+                .await
+                .expect("adapter");
+
+        let mut req = UniversalAiRequest::default();
+        req.prompt = Some("hello".to_string());
+        req.stream = true;
+        req.stop = Some(vec!["</s>".to_string()]);
+
+        let out = adapter.complete(req).await.expect("complete");
+        assert_eq!(out.text, "completion-out");
+        assert_eq!(out.model.as_ref(), "mm");
+        assert!(out.usage.is_some());
+        assert_eq!(out.stop_reason.as_deref(), Some("length"));
+        assert!((out.cost_usd.unwrap() - 0.02).abs() < f64::EPSILON);
+        server.await.ok();
+    }
+
+    #[tokio::test]
+    async fn complete_accepts_content_instead_of_text() {
+        let dir = tempdir().expect("tempdir");
+        let sock = dir.path().join("ai2.sock");
+        let listener = bind_unix_listener(&sock);
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            let mut reader = BufReader::new(stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.ok();
+            let mut stream = reader.into_inner();
+            let body = json!({
+                "jsonrpc": "2.0",
+                "result": {
+                    "content": "from-content",
+                    "model": "m2"
+                }
+            });
+            stream
+                .write_all(format!("{}\n", serde_json::to_string(&body).unwrap()).as_bytes())
+                .await
+                .expect("write");
+        });
+
+        let provider = CapabilityProvider {
+            id: "uds2".to_string(),
+            capabilities: vec!["ai.complete".to_string()],
+            socket: sock,
+            metadata: HashMap::new(),
+            discovered_via: "test".to_string(),
+        };
+        let adapter =
+            UniversalAiAdapter::from_capability_provider(provider, "ai.complete".to_string())
+                .await
+                .expect("adapter");
+
+        let mut req = UniversalAiRequest::default();
+        req.prompt = Some("p".to_string());
+
+        let out = adapter.complete(req).await.expect("complete");
+        assert_eq!(out.text, "from-content");
+        server.await.ok();
+    }
+
+    #[tokio::test]
+    async fn complete_maps_finish_reason_to_stop_reason() {
+        let dir = tempdir().expect("tempdir");
+        let sock = dir.path().join("ai3.sock");
+        let listener = bind_unix_listener(&sock);
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            let mut reader = BufReader::new(stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.ok();
+            let mut stream = reader.into_inner();
+            let body = json!({
+                "jsonrpc": "2.0",
+                "result": {
+                    "text": "t",
+                    "finish_reason": "stop"
+                }
+            });
+            stream
+                .write_all(format!("{}\n", serde_json::to_string(&body).unwrap()).as_bytes())
+                .await
+                .expect("write");
+        });
+
+        let provider = CapabilityProvider {
+            id: "uds3".to_string(),
+            capabilities: vec!["ai.complete".to_string()],
+            socket: sock,
+            metadata: HashMap::new(),
+            discovered_via: "test".to_string(),
+        };
+        let adapter =
+            UniversalAiAdapter::from_capability_provider(provider, "ai.complete".to_string())
+                .await
+                .expect("adapter");
+
+        let mut req = UniversalAiRequest::default();
+        req.prompt = Some("p".to_string());
+
+        let out = adapter.complete(req).await.expect("complete");
+        assert_eq!(out.stop_reason.as_deref(), Some("stop"));
+        server.await.ok();
+    }
+
+    #[tokio::test]
+    async fn complete_errors_when_result_has_no_text_or_content() {
+        let dir = tempdir().expect("tempdir");
+        let sock = dir.path().join("ai4.sock");
+        let listener = bind_unix_listener(&sock);
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            let mut reader = BufReader::new(stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.ok();
+            let mut stream = reader.into_inner();
+            let body = json!({
+                "jsonrpc": "2.0",
+                "result": {"model": "only-model"}
+            });
+            stream
+                .write_all(format!("{}\n", serde_json::to_string(&body).unwrap()).as_bytes())
+                .await
+                .expect("write");
+        });
+
+        let provider = CapabilityProvider {
+            id: "uds4".to_string(),
+            capabilities: vec!["ai.complete".to_string()],
+            socket: sock,
+            metadata: HashMap::new(),
+            discovered_via: "test".to_string(),
+        };
+        let adapter =
+            UniversalAiAdapter::from_capability_provider(provider, "ai.complete".to_string())
+                .await
+                .expect("adapter");
+
+        let mut req = UniversalAiRequest::default();
+        req.prompt = Some("p".to_string());
+
+        let err = adapter.complete(req).await.expect_err("no text");
+        assert!(matches!(err, PrimalError::ParsingError(_)));
+        server.await.ok();
+    }
+
+    #[tokio::test]
+    async fn complete_surfaces_jsonrpc_error_response() {
+        let dir = tempdir().expect("tempdir");
+        let sock = dir.path().join("ai5.sock");
+        let listener = bind_unix_listener(&sock);
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            let mut reader = BufReader::new(stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.ok();
+            let mut stream = reader.into_inner();
+            let body = json!({
+                "jsonrpc": "2.0",
+                "error": {"code": -32000, "message": "provider boom"}
+            });
+            stream
+                .write_all(format!("{}\n", serde_json::to_string(&body).unwrap()).as_bytes())
+                .await
+                .expect("write");
+        });
+
+        let provider = CapabilityProvider {
+            id: "uds5".to_string(),
+            capabilities: vec!["ai.complete".to_string()],
+            socket: sock,
+            metadata: HashMap::new(),
+            discovered_via: "test".to_string(),
+        };
+        let adapter =
+            UniversalAiAdapter::from_capability_provider(provider, "ai.complete".to_string())
+                .await
+                .expect("adapter");
+
+        let mut req = UniversalAiRequest::default();
+        req.prompt = Some("p".to_string());
+
+        let err = adapter.complete(req).await.expect_err("rpc err");
+        assert!(matches!(err, PrimalError::NetworkError(_)));
+        server.await.ok();
+    }
+
+    #[tokio::test]
+    async fn complete_includes_messages_in_params() {
+        let dir = tempdir().expect("tempdir");
+        let sock = dir.path().join("ai6.sock");
+        let listener = bind_unix_listener(&sock);
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            let mut reader = BufReader::new(stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.expect("read");
+            let req: serde_json::Value = serde_json::from_str(line.trim()).expect("json");
+            let params = req.get("params").expect("params");
+            assert!(params.get("messages").is_some());
+            let mut stream = reader.into_inner();
+            let body = json!({
+                "jsonrpc": "2.0",
+                "result": {"text": "ok", "model": "m"}
+            });
+            stream
+                .write_all(format!("{}\n", serde_json::to_string(&body).unwrap()).as_bytes())
+                .await
+                .expect("write");
+        });
+
+        let provider = CapabilityProvider {
+            id: "uds6".to_string(),
+            capabilities: vec!["ai.chat".to_string()],
+            socket: sock,
+            metadata: HashMap::new(),
+            discovered_via: "test".to_string(),
+        };
+        let adapter = UniversalAiAdapter::from_capability_provider(provider, "ai.chat".to_string())
+            .await
+            .expect("adapter");
+
+        let mut req = UniversalAiRequest::default();
+        req.messages = Some(vec![ChatMessage {
+            role: MessageRole::User,
+            content: "u".to_string(),
+            name: None,
+        }]);
+
+        let out = adapter.complete(req).await.expect("complete");
+        assert_eq!(out.text, "ok");
+        server.await.ok();
+    }
 
     #[test]
     fn test_extract_metadata() {

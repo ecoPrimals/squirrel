@@ -783,4 +783,163 @@ mod tests {
         let map = discover_all_capabilities().await.expect("ok");
         let _ = map.len();
     }
+
+    #[tokio::test]
+    async fn probe_socket_missing_result_returns_probe_failed() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sock_path = dir.path().join("nor.sock");
+        let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
+
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            let mut stream = stream;
+            let mut line = String::new();
+            let mut reader = BufReader::new(&mut stream);
+            reader.read_line(&mut line).await.expect("read");
+            let resp = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "not_result": true
+            });
+            let mut out = serde_json::to_string(&resp).expect("json");
+            out.push('\n');
+            stream.write_all(out.as_bytes()).await.expect("write");
+            stream.flush().await.expect("flush");
+        });
+
+        let err = probe_socket(&sock_path).await.unwrap_err();
+        match err {
+            DiscoveryError::ProbeFailed(m) => assert!(m.contains("No result")),
+            _ => panic!("unexpected {err:?}"),
+        }
+    }
+
+    #[test]
+    fn discover_capability_neural_api_happy_path() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let neural_sock = dir.path().join("neural.sock");
+        let provider_sock = dir.path().join("backend.sock");
+        std::fs::File::create(&provider_sock).expect("touch provider");
+
+        let rt = tokio::runtime::Runtime::new().expect("rt");
+        let _enter = rt.enter();
+        let listener = tokio::net::UnixListener::bind(&neural_sock).expect("bind neural");
+        let prov = provider_sock.clone();
+        let server = rt.spawn(async move {
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            let Ok(Ok((stream, _))) =
+                tokio::time::timeout(std::time::Duration::from_secs(2), listener.accept()).await
+            else {
+                return;
+            };
+            let mut stream = stream;
+            let mut line = String::new();
+            let mut reader = BufReader::new(&mut stream);
+            reader.read_line(&mut line).await.expect("read");
+            let req: serde_json::Value = serde_json::from_str(line.trim()).expect("parse req");
+            let id = req
+                .get("id")
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!(0));
+            let unix = format!("unix://{}", prov.display());
+            let resp = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "result": {
+                    "capability": "neural.discovery.test.cap",
+                    "primary_socket": unix
+                }
+            });
+            let mut out = serde_json::to_string(&resp).expect("json");
+            out.push('\n');
+            stream.write_all(out.as_bytes()).await.expect("write");
+            stream.flush().await.expect("flush");
+        });
+
+        temp_env::with_vars(
+            [
+                (
+                    "NEURAL_API_SOCKET",
+                    Some(neural_sock.to_str().expect("utf8")),
+                ),
+                ("CAPABILITY_REGISTRY_SOCKET", None::<&str>),
+                ("SOCKET_SCAN_DIR", Some(dir.path().to_str().expect("utf8"))),
+            ],
+            || {
+                rt.block_on(async {
+                    let p = discover_capability("neural.discovery.test.cap")
+                        .await
+                        .expect("discovered via neural API");
+                    assert_eq!(p.socket, provider_sock);
+                    assert_eq!(p.discovered_via, "neural_api");
+                });
+            },
+        );
+        server.abort();
+    }
+
+    #[test]
+    fn discover_capability_legacy_registry_socket() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let reg_sock = dir.path().join("legacy_reg.sock");
+        let provider_sock = dir.path().join("legacy_prov.sock");
+        std::fs::File::create(&provider_sock).expect("touch");
+
+        let rt = tokio::runtime::Runtime::new().expect("rt");
+        let _enter = rt.enter();
+        let listener = tokio::net::UnixListener::bind(&reg_sock).expect("bind");
+        let prov = provider_sock.clone();
+        let server = rt.spawn(async move {
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            let Ok(Ok((stream, _))) =
+                tokio::time::timeout(std::time::Duration::from_secs(2), listener.accept()).await
+            else {
+                return;
+            };
+            let mut stream = stream;
+            let mut line = String::new();
+            let mut reader = BufReader::new(&mut stream);
+            reader.read_line(&mut line).await.expect("read");
+            let req: serde_json::Value = serde_json::from_str(line.trim()).expect("parse");
+            let id = req
+                .get("id")
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!(0));
+            let unix = format!("unix://{}", prov.display());
+            let resp = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "result": {
+                    "capability": "legacy.registry.cap",
+                    "primary_endpoint": unix
+                }
+            });
+            let mut out = serde_json::to_string(&resp).expect("json");
+            out.push('\n');
+            stream.write_all(out.as_bytes()).await.expect("write");
+            stream.flush().await.expect("flush");
+        });
+
+        temp_env::with_vars(
+            [
+                ("NEURAL_API_SOCKET", None::<&str>),
+                (
+                    "CAPABILITY_REGISTRY_SOCKET",
+                    Some(reg_sock.to_str().expect("utf8")),
+                ),
+                ("SOCKET_SCAN_DIR", Some(dir.path().to_str().expect("utf8"))),
+            ],
+            || {
+                rt.block_on(async {
+                    let p = discover_capability("legacy.registry.cap")
+                        .await
+                        .expect("legacy registry");
+                    assert_eq!(p.socket, provider_sock);
+                    assert_eq!(p.discovered_via, "registry");
+                });
+            },
+        );
+        server.abort();
+    }
 }

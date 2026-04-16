@@ -660,6 +660,31 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_filesystem_read_text_empty_stub() {
+        let fs = FileSystem::new();
+        let text = fs
+            .read_text("notes.txt".to_string())
+            .await
+            .expect("read_text");
+        assert!(text.is_empty());
+    }
+
+    #[test]
+    fn test_path_utils_additional_edge_cases() {
+        assert_eq!(utils::normalize_path("/a/b/../../c"), "/c");
+        assert_eq!(utils::get_file_extension(".hidden"), Some("hidden"));
+        assert_eq!(utils::format_file_size(10 * 1024_u64.pow(4)), "10.0 TB");
+    }
+
+    #[test]
+    fn test_file_permissions_enum_serde() {
+        let p = FilePermissions::None;
+        let s = serde_json::to_string(&p).expect("serde");
+        let back: FilePermissions = serde_json::from_str(&s).expect("de");
+        assert!(matches!(back, FilePermissions::None));
+    }
+
+    #[tokio::test]
     async fn test_filesystem_ops_stub_behavior() {
         let fs = FileSystem::new();
         fs.write_text("out.txt".to_string(), "x".to_string())

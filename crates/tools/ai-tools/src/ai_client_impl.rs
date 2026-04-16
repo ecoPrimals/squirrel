@@ -150,3 +150,60 @@ impl AIClient for AiClientImpl {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::AiClientImpl;
+    use crate::common::capability::TaskType;
+    use crate::common::client::AIClient;
+    use crate::common::clients::mock::MockAIClient;
+    use crate::common::types::ChatRequest;
+    use crate::router::harness::RouterHarnessClient;
+    use futures::StreamExt;
+
+    #[tokio::test]
+    async fn router_harness_impl_delegates_ai_client_methods() {
+        let client = AiClientImpl::RouterHarness(RouterHarnessClient::new("harness-a"));
+        assert_eq!(client.provider_name(), "harness-a");
+        assert_eq!(client.default_model(), "mock-model");
+        assert!(client.is_available().await);
+        let caps = client.get_capabilities("any").await.expect("caps");
+        assert!(caps.supports_task(&TaskType::TextGeneration));
+        let models = client.list_models().await.expect("models");
+        assert!(models.iter().any(|m| m.contains("harness-a")));
+        let resp = client
+            .chat(ChatRequest::new().with_model("mock-model").add_user("hi"))
+            .await
+            .expect("chat");
+        assert_eq!(resp.choices[0].content.as_deref(), Some("ok"));
+        assert!(client.chat_stream(ChatRequest::default()).await.is_err());
+        assert_eq!(client.priority(), 100);
+        client.as_any();
+        let _ = client.capabilities();
+        let _ = client.routing_preferences();
+    }
+
+    #[tokio::test]
+    async fn mock_impl_delegates_ai_client_methods() {
+        let client = AiClientImpl::Mock(MockAIClient::new().with_latency(0));
+        assert_eq!(client.provider_name(), "mock");
+        assert!(client.is_available().await);
+        let caps = client.get_capabilities("x").await.expect("caps");
+        assert!(caps.supports_task(&TaskType::TextGeneration));
+        assert!(!client.list_models().await.expect("lm").is_empty());
+        let chat = client
+            .chat(ChatRequest::new().with_model("default").add_user("hello"))
+            .await
+            .expect("chat");
+        assert!(!chat.choices.is_empty());
+        let mut stream = client
+            .chat_stream(ChatRequest::default())
+            .await
+            .expect("stream");
+        let _ = stream.next().await;
+        assert_eq!(client.priority(), 50);
+        client.as_any();
+        let _ = client.capabilities();
+        let _ = client.routing_preferences();
+    }
+}

@@ -657,6 +657,25 @@ impl McpClient {
     ) -> ProcessingStrategy {
         self.determine_processing_strategy(category)
     }
+
+    /// Exercise payload validation / preprocessing without `send_message` (unit tests).
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    pub(crate) fn test_validate_and_process_payload(
+        &self,
+        message_type: &str,
+        payload: JsValue,
+    ) -> Result<ProcessedPayload, JsValue> {
+        self.validate_and_process_payload(message_type, payload)
+    }
+
+    /// Exercise JSON round-trip used by `send_message` (unit tests).
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    pub(crate) fn test_serialize_response_to_js(
+        &self,
+        response: MessageResponse,
+    ) -> Result<JsValue, JsValue> {
+        self.serialize_response_to_js(response)
+    }
 }
 
 #[cfg(test)]

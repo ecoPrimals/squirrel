@@ -795,4 +795,61 @@ mod tests {
             },
         );
     }
+
+    #[test]
+    fn btsp_error_display_variants() {
+        use std::io;
+        let io_err = BtspError::Io(io::Error::other("eof"));
+        assert!(io_err.to_string().contains("BTSP I/O"));
+
+        let large = BtspError::FrameTooLarge {
+            size: MAX_FRAME_SIZE + 1,
+        };
+        assert!(large.to_string().to_lowercase().contains("large"));
+
+        assert!(BtspError::Timeout.to_string().contains("timed out"));
+        assert!(
+            BtspError::HandshakeFailed("bad".into())
+                .to_string()
+                .contains("handshake")
+        );
+        assert!(
+            BtspError::ProviderUnavailable("x".into())
+                .to_string()
+                .contains("provider")
+        );
+        assert!(
+            BtspError::Protocol("p".into())
+                .to_string()
+                .contains("protocol")
+        );
+    }
+
+    #[tokio::test]
+    async fn read_frame_maps_first_read_io_error() {
+        let mut mock = tokio_test::io::Builder::new()
+            .read_error(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "short",
+            ))
+            .build();
+        let err = read_frame(&mut mock).await.expect_err("expected io err");
+        assert!(matches!(err, BtspError::Io(_)));
+    }
+
+    #[tokio::test]
+    async fn write_frame_maps_second_write_io_error() {
+        let payload = br#"{"a":1}"#;
+        let mut len = [0u8; 4];
+        len.copy_from_slice(&(payload.len() as u32).to_be_bytes());
+        let mut mock = tokio_test::io::Builder::new()
+            .write(&len)
+            .write_error(std::io::Error::new(
+                std::io::ErrorKind::WriteZero,
+                "payload write fail",
+            ))
+            .build();
+        let err = write_frame(&mut mock, payload).await.expect_err("write");
+        assert!(matches!(err, BtspError::Io(_)));
+    }
 }

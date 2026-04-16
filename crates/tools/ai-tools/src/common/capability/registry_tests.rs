@@ -352,6 +352,55 @@ fn test_to_ai_capabilities_model_and_task_type_variants() {
 }
 
 #[test]
+fn test_load_from_file_nested_models_json_merges_into_registry() {
+    let dir = tempfile::tempdir().expect("should succeed");
+    let path = dir.path().join("nested.json");
+    let json = r#"{
+        "models": {
+            "provA": {
+                "model-one": {
+                    "name": "model-one",
+                    "provider_id": "provA",
+                    "version": null,
+                    "model_types": ["LargeLanguageModel"],
+                    "task_types": ["TextGeneration"],
+                    "max_context_size": 1024,
+                    "supports_streaming": false,
+                    "supports_function_calling": false,
+                    "supports_tool_use": false,
+                    "performance": {},
+                    "resources": {},
+                    "cost": {},
+                    "priority": 50,
+                    "handles_sensitive_data": false,
+                    "cost_tier": "Medium",
+                    "api_endpoint": null
+                }
+            }
+        }
+    }"#;
+    std::fs::write(&path, json).expect("should succeed");
+    let mut registry = ModelRegistry::new();
+    registry
+        .load_from_file(&path)
+        .expect("nested json should load into registry");
+    assert!(
+        registry
+            .get_model_capabilities("provA", "model-one")
+            .is_some()
+    );
+}
+
+#[test]
+fn test_load_from_file_invalid_json_errors() {
+    let dir = tempfile::tempdir().expect("should succeed");
+    let path = dir.path().join("bad.json");
+    std::fs::write(&path, "not json {{{").expect("should succeed");
+    let mut registry = ModelRegistry::new();
+    assert!(registry.load_from_file(&path).is_err());
+}
+
+#[test]
 fn test_get_providers_lists_keys() {
     let mut r = ModelRegistry::new();
     r.register_model(ModelCapabilities {

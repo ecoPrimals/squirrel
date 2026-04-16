@@ -334,6 +334,7 @@ impl ModelRegistry {
                     }
                 }
 
+                self.models = registry.models;
                 return Ok(());
             }
         }

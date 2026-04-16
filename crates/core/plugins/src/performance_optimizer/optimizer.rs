@@ -618,4 +618,41 @@ mod tests {
         let registry = crate::zero_copy::ZeroCopyPluginRegistry::new();
         opt.enable_predictive_loading(&registry).await;
     }
+
+    #[tokio::test]
+    async fn get_optimization_suggestions_high_error_rate_and_latency() {
+        let opt = PluginPerformanceOptimizer::new(PerformanceOptimizerConfig::development());
+        for _ in 0..40 {
+            opt.record_runtime_sample(std::time::Duration::from_millis(600), false)
+                .await;
+        }
+        for _ in 0..5 {
+            opt.record_runtime_sample(std::time::Duration::from_millis(10), true)
+                .await;
+        }
+        let suggestions = opt.get_optimization_suggestions().await;
+        let summaries: Vec<&str> = suggestions.iter().map(|s| s.summary.as_str()).collect();
+        assert!(
+            summaries.contains(&"Elevated observed error rate"),
+            "expected error-rate suggestion; got {summaries:?}"
+        );
+        assert!(
+            summaries.contains(&"High average response time"),
+            "expected latency suggestion; got {summaries:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn enable_predictive_loading_runs_with_production_config() {
+        let opt = PluginPerformanceOptimizer::new(PerformanceOptimizerConfig::production());
+        let registry = crate::zero_copy::ZeroCopyPluginRegistry::new();
+        opt.enable_predictive_loading(&registry).await;
+    }
+
+    #[tokio::test]
+    async fn calculate_cache_efficiency_zero_when_no_requests() {
+        let opt = PluginPerformanceOptimizer::new(PerformanceOptimizerConfig::development());
+        let m = opt.get_optimization_metrics().await;
+        assert!((m.cache_efficiency - 0.0).abs() < f64::EPSILON);
+    }
 }

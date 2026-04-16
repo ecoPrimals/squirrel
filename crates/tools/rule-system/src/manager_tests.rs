@@ -9,7 +9,7 @@ mod tests {
     use crate::directory::{RuleDirectoryConfig, RuleDirectoryManager};
     use crate::error::{RuleManagerError, RuleSystemError};
     use crate::evaluator::RuleEvaluator;
-    use crate::manager::RuleManager;
+    use crate::manager::{RuleManager, create_rule_manager, create_rule_manager_with_components};
     use crate::models::{Rule, RuleAction, RuleCondition};
     use crate::parser::{ParserConfig, RuleParser};
     use crate::repository::RuleRepository;
@@ -478,5 +478,163 @@ mod tests {
         manager.initialize().await.expect("init");
         let stats = manager.get_statistics().await.expect("stats");
         assert_eq!(stats.dependency_cache_size, stats.total_rules);
+    }
+
+    #[tokio::test]
+    async fn create_rule_manager_factory_initializes() {
+        let manager = create_rule_manager().expect("factory");
+        manager.initialize().await.expect("init");
+    }
+
+    #[tokio::test]
+    async fn create_rule_manager_with_components_smoke() {
+        let dir_config = RuleDirectoryConfig {
+            root_directory: PathBuf::from("/tmp/test-rules-components"),
+            default_extension: "yaml".to_string(),
+            include_patterns: vec!["*.yaml".to_string(), "*.yml".to_string()],
+            exclude_patterns: vec![],
+            watch_for_changes: false,
+            recursion_depth: 1,
+        };
+        let dir_manager = RuleDirectoryManager::new(dir_config);
+        let parser_config = ParserConfig {
+            validate: true,
+            extract_metadata: true,
+            parse_conditions: true,
+            parse_actions: true,
+        };
+        let parser = RuleParser::new(parser_config);
+        let repository = Arc::new(RuleRepository::new(dir_manager, parser));
+        let evaluator = Arc::new(RuleEvaluator::new());
+        let action_executor = Arc::new(ActionExecutor::new());
+        let manager = create_rule_manager_with_components(repository, evaluator, action_executor);
+        assert!(format!("{manager:?}").contains("RuleManager"));
+    }
+
+    #[tokio::test]
+    async fn update_rule_rejects_self_dependency() {
+        let manager = test_manager();
+        let base = Rule::new("self-loop")
+            .with_name("Self")
+            .with_pattern("ctx.*")
+            .with_condition(RuleCondition::Exists {
+                path: "x".to_string(),
+            });
+        manager.add_rule(base).await.expect("add");
+        let bad = Rule::new("self-loop")
+            .with_name("Self")
+            .with_pattern("ctx.*")
+            .with_dependency("self-loop")
+            .with_condition(RuleCondition::Exists {
+                path: "x".to_string(),
+            });
+        let err = manager.update_rule(bad).await.expect_err("self-dep");
+        assert!(matches!(
+            err,
+            RuleSystemError::ManagerError(RuleManagerError::DependencyError(msg))
+                if msg.contains("Circular")
+        ));
+    }
+
+    #[tokio::test]
+    async fn evaluate_rules_skips_rules_whose_dependencies_are_inactive() {
+        let manager = test_manager();
+        let parent = Rule::new("dep-parent")
+            .with_name("Parent")
+            .with_pattern("ctx*")
+            .with_condition(RuleCondition::Exists {
+                path: "ok".to_string(),
+            });
+        let child = Rule::new("dep-child")
+            .with_name("Child")
+            .with_pattern("ctx*")
+            .with_dependency("dep-parent")
+            .with_condition(RuleCondition::Exists {
+                path: "ok".to_string(),
+            });
+        manager.add_rule(parent).await.expect("parent");
+        manager.add_rule(child).await.expect("child");
+
+        let ctx = json!({"ok": true});
+        let results = manager.evaluate_rules("ctx-1", ctx).await.expect("eval");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].rule_id, "dep-parent");
+    }
+
+    #[tokio::test]
+    async fn evaluate_rules_runs_dependent_rule_after_parent_is_active() {
+        let manager = test_manager();
+        let parent = Rule::new("dep-parent-2")
+            .with_name("Parent")
+            .with_pattern("ctx*")
+            .with_condition(RuleCondition::Exists {
+                path: "ok".to_string(),
+            });
+        let child = Rule::new("dep-child-2")
+            .with_name("Child")
+            .with_pattern("ctx*")
+            .with_dependency("dep-parent-2")
+            .with_condition(RuleCondition::Exists {
+                path: "ok".to_string(),
+            });
+        manager.add_rule(parent).await.expect("parent");
+        manager.add_rule(child).await.expect("child");
+        manager
+            .activate_rule("dep-parent-2")
+            .await
+            .expect("activate");
+
+        let ctx = json!({"ok": true});
+        let results = manager.evaluate_rules("ctx-2", ctx).await.expect("eval");
+        let ids: Vec<_> = results.iter().map(|r| r.rule_id.as_str()).collect();
+        assert!(ids.contains(&"dep-parent-2"));
+        assert!(ids.contains(&"dep-child-2"));
+    }
+
+    #[tokio::test]
+    async fn remove_rule_after_dependent_removed_clears_active_cache_entry() {
+        let manager = test_manager();
+        let base = Rule::new("base-only")
+            .with_pattern("ctx.*")
+            .with_condition(RuleCondition::Exists {
+                path: "z".to_string(),
+            })
+            .with_action(RuleAction::ModifyContext {
+                path: "o".to_string(),
+                value: json!(true),
+            });
+        let dep = Rule::new("dep-only")
+            .with_pattern("ctx.*")
+            .with_dependency("base-only")
+            .with_condition(RuleCondition::Exists {
+                path: "z".to_string(),
+            });
+        manager.add_rule(base).await.expect("base");
+        manager.add_rule(dep).await.expect("dep");
+        manager.activate_rule("base-only").await.expect("act");
+        manager.remove_rule("dep-only").await.expect("rm dep");
+        manager.remove_rule("base-only").await.expect("rm base");
+        assert!(!manager.is_rule_active("base-only").await);
+    }
+
+    #[tokio::test]
+    async fn duplicate_dependency_ids_are_visited_once() {
+        let manager = test_manager();
+        let shared = Rule::new("shared-dep")
+            .with_pattern("ctx.*")
+            .with_condition(RuleCondition::Exists {
+                path: "q".to_string(),
+            });
+        let r = Rule::new("dup-deps")
+            .with_pattern("ctx.*")
+            .with_dependency("shared-dep")
+            .with_dependency("shared-dep")
+            .with_condition(RuleCondition::Exists {
+                path: "q".to_string(),
+            });
+        manager.add_rule(shared).await.expect("shared");
+        manager.add_rule(r).await.expect("dup");
+        let all = manager.get_all_rules().await.expect("all");
+        assert_eq!(all.len(), 2);
     }
 }

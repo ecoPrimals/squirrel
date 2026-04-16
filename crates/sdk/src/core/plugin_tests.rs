@@ -229,3 +229,131 @@ fn wasm_plugin_trait_stats_capabilities_and_events_no_js() {
     assert!(caps.commands.is_empty());
     assert!(WasmPlugin::handle_event(&p, wasm_bindgen::JsValue::NULL).is_ok());
 }
+
+#[test]
+fn plugin_command_result_error_with_metadata() {
+    let r = PluginCommandResult::error("oops".to_string()).with_metadata("{\"k\":1}".to_string());
+    assert!(!r.success);
+    assert_eq!(r.metadata, "{\"k\":1}");
+}
+
+#[test]
+fn permission_and_command_info_serde_roundtrip() {
+    let p = Permission::FileSystemRead("/tmp/a".to_string());
+    let s = serde_json::to_string(&p).expect("serde");
+    let back: Permission = serde_json::from_str(&s).expect("de");
+    assert!(matches!(back, Permission::FileSystemRead(_)));
+
+    let cmd = CommandInfo {
+        name: "c".to_string(),
+        description: "d".to_string(),
+        category: None,
+        parameters: None,
+    };
+    let v = serde_json::to_value(&cmd).expect("v");
+    let cmd2: CommandInfo = serde_json::from_value(v).expect("cmd2");
+    assert_eq!(cmd2.name, "c");
+}
+
+#[test]
+fn plugin_info_and_status_serde_roundtrip() {
+    let info = PluginInfo {
+        id: "id".to_string(),
+        name: "n".to_string(),
+        version: "1.0.0".to_string(),
+        state: PluginStatus::Error("e".to_string()),
+        config: PluginConfig::default(),
+        stats: PluginStats::default(),
+        capabilities: vec!["net".to_string()],
+        description: "desc".to_string(),
+        author: "a".to_string(),
+        license: "MIT".to_string(),
+        repository: Some("https://r".to_string()),
+        keywords: vec!["k".to_string()],
+        metadata: serde_json::json!({"x": 1}),
+    };
+    let json = serde_json::to_string(&info).expect("serde");
+    let back: PluginInfo = serde_json::from_str(&json).expect("de");
+    assert!(matches!(back.state, PluginStatus::Error(_)));
+    assert_eq!(back.capabilities.len(), 1);
+}
+
+#[test]
+fn baseplugin_add_capability_and_update_stats() {
+    let mut p = BasePlugin::new("p".to_string(), "0.1.0".to_string());
+    p.add_capability("alpha".to_string());
+    p.add_capability("alpha".to_string());
+    assert!(p.has_capability("alpha"));
+    assert!(!p.has_capability("beta"));
+    p.update_stats(100, false);
+    p.update_stats(50, true);
+    let s = WasmPlugin::get_stats(&p);
+    assert_eq!(s.commands_executed, 2);
+    assert_eq!(s.error_count, 1);
+    assert_eq!(s.total_execution_time, 150);
+}
+
+#[cfg(target_arch = "wasm32")]
+mod wasm_plugin_js {
+    use super::*;
+
+    #[test]
+    fn wasm_plugin_handle_command_default_message() {
+        let p = BasePlugin::new("p".to_string(), "1.0.0".to_string());
+        let out = WasmPlugin::handle_command(&p, "x", wasm_bindgen::JsValue::NULL).expect("ok");
+        let s = out.as_string().expect("string");
+        assert!(s.contains("not implemented"));
+        assert!(s.contains("x"));
+    }
+
+    #[test]
+    fn wasm_plugin_start_before_init_errors() {
+        let mut p = BasePlugin::new("p".to_string(), "1.0.0".to_string());
+        let e = WasmPlugin::start(&mut p).unwrap_err();
+        let s = e.as_string().expect("msg");
+        assert!(s.contains("initialized"));
+    }
+
+    #[test]
+    fn wasm_plugin_pause_resume_errors_when_wrong_state() {
+        let mut p = BasePlugin::new("p".to_string(), "1.0.0".to_string());
+        assert!(WasmPlugin::pause(&mut p).is_err());
+        assert!(WasmPlugin::resume(&mut p).is_err());
+    }
+
+    #[test]
+    fn wasm_plugin_initialize_validate_and_lifecycle() {
+        let mut p = BasePlugin::new("p".to_string(), "1.0.0".to_string());
+        assert_eq!(WasmPlugin::get_status(&p), PluginStatus::Uninitialized);
+        assert!(!WasmPlugin::is_initialized(&p));
+
+        let cfg = serde_wasm_bindgen::to_value(&PluginConfig::default()).expect("cfg");
+        WasmPlugin::initialize(&mut p, cfg).expect("init");
+        assert!(WasmPlugin::is_initialized(&p));
+        assert_eq!(WasmPlugin::get_status(&p), PluginStatus::Active);
+
+        assert!(WasmPlugin::start(&mut p).is_ok());
+        assert!(WasmPlugin::pause(&mut p).is_ok());
+        assert_eq!(WasmPlugin::get_status(&p), PluginStatus::Paused);
+        assert!(WasmPlugin::resume(&mut p).is_ok());
+        assert_eq!(WasmPlugin::get_status(&p), PluginStatus::Active);
+
+        assert!(WasmPlugin::stop(&mut p).is_ok());
+        assert_eq!(WasmPlugin::get_status(&p), PluginStatus::Stopped);
+
+        let mut p2 = BasePlugin::new("q".to_string(), "1.0.0".to_string());
+        let mut bad = PluginConfig::default();
+        bad.metadata.name.clear();
+        let js = serde_wasm_bindgen::to_value(&bad).expect("bad cfg");
+        assert!(WasmPlugin::initialize(&mut p2, js).is_err());
+    }
+
+    #[test]
+    fn wasm_plugin_shutdown_moves_to_stopped() {
+        let mut p = BasePlugin::new("p".to_string(), "1.0.0".to_string());
+        let cfg = serde_wasm_bindgen::to_value(&PluginConfig::default()).expect("cfg");
+        WasmPlugin::initialize(&mut p, cfg).expect("init");
+        assert!(WasmPlugin::shutdown(&mut p).is_ok());
+        assert_eq!(WasmPlugin::get_status(&p), PluginStatus::Stopped);
+    }
+}

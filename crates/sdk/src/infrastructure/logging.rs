@@ -600,4 +600,142 @@ mod tests {
         assert_eq!(logger.entries.len(), 1);
         assert_eq!(logger.entries[0].message, "Warning message");
     }
+
+    #[test]
+    fn log_level_as_str_and_display() {
+        assert_eq!(LogLevel::Trace.as_str(), "TRACE");
+        assert_eq!(format!("{}", LogLevel::Error), "ERROR");
+    }
+
+    #[test]
+    fn serializable_logger_config_json_roundtrip() {
+        let c = SerializableLoggerConfig {
+            min_level: LogLevel::Debug,
+            include_location: true,
+            max_entries: 42,
+            send_to_host: false,
+        };
+        let s = serde_json::to_string(&c).expect("serde");
+        let back: SerializableLoggerConfig = serde_json::from_str(&s).expect("de");
+        assert_eq!(back.max_entries, 42);
+        assert_eq!(back.min_level, LogLevel::Debug);
+    }
+
+    #[test]
+    fn logger_max_entries_trims_oldest() {
+        let mut logger = Logger::new("trim".to_string());
+        logger.config.max_entries = 2;
+        logger.info("one");
+        logger.info("two");
+        logger.info("three");
+        assert_eq!(logger.get_entry_count(), 2);
+        assert_eq!(logger.entries.front().expect("front").message, "two");
+    }
+
+    #[test]
+    fn logger_clear_and_min_level_accessors() {
+        let mut logger = Logger::new("acc".to_string());
+        logger.info("x");
+        assert_eq!(logger.get_entry_count(), 1);
+        logger.clear_entries();
+        assert_eq!(logger.get_entry_count(), 0);
+        logger.set_min_level(LogLevel::Error);
+        assert_eq!(logger.get_min_level(), LogLevel::Error);
+    }
+
+    #[test]
+    fn logger_trace_warn_error_and_metadata_path() {
+        let mut logger = Logger::new("lvl".to_string());
+        logger.config.min_level = LogLevel::Trace;
+        logger.trace("t");
+        logger.warn("w");
+        logger.error("e");
+        let mut meta = HashMap::new();
+        meta.insert("k".to_string(), serde_json::json!(1));
+        logger.log_with_metadata(LogLevel::Debug, "d", Some(meta));
+        assert_eq!(logger.get_entry_count(), 4);
+        assert!(logger.entries[3].metadata.contains_key("k"));
+    }
+
+    #[test]
+    fn scoped_logger_adds_sorted_context_prefix() {
+        Logger::with_global(|g| {
+            g.clear_entries();
+            g.config.min_level = LogLevel::Info;
+        });
+        let mut ctx = HashMap::new();
+        ctx.insert("zebra".to_string(), serde_json::json!(1));
+        ctx.insert("alpha".to_string(), serde_json::json!(2));
+        let base = Logger::new("scoped-base".to_string());
+        let scoped = base.with_context(ctx);
+        scoped.log(LogLevel::Info, "hello");
+        Logger::with_global(|g| {
+            assert_eq!(g.get_entry_count(), 1);
+            assert!(g.entries[0].message.contains("alpha="));
+            assert!(g.entries[0].message.contains("zebra="));
+            assert!(g.entries[0].message.contains("hello"));
+        });
+    }
+
+    #[test]
+    fn scoped_logger_new_uses_empty_plugin_id_branch() {
+        Logger::with_global(|g| {
+            g.clear_entries();
+            g.config.min_level = LogLevel::Info;
+            g.plugin_id = "global-plugin".to_string();
+        });
+        let scoped = ScopedLogger::new();
+        scoped.log(LogLevel::Warn, "plain");
+        Logger::with_global(|g| {
+            assert_eq!(g.get_entry_count(), 1);
+            assert_eq!(g.entries[0].message, "plain");
+            assert_eq!(g.entries[0].plugin_id, "global-plugin");
+        });
+    }
+
+    #[test]
+    fn logger_current_constructor() {
+        let _ = Logger::current();
+    }
+
+    #[test]
+    fn log_entry_serde_roundtrip() {
+        let mut meta = HashMap::new();
+        meta.insert("m".to_string(), serde_json::json!(true));
+        let e = LogEntry {
+            level: LogLevel::Info,
+            message: "msg".to_string(),
+            plugin_id: "p".to_string(),
+            timestamp: "t".to_string(),
+            metadata: meta,
+            file: Some("f.rs".to_string()),
+            line: Some(10),
+            module: Some("mod".to_string()),
+        };
+        let json = serde_json::to_string(&e).expect("serde");
+        let back: LogEntry = serde_json::from_str(&json).expect("de");
+        assert_eq!(back.message, "msg");
+        assert_eq!(back.line, Some(10));
+    }
+
+    #[test]
+    fn log_debug_macro_native_tracing_path() {
+        crate::log_debug!("sdk test {}", 42);
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    #[test]
+    fn logger_configure_from_js_value() {
+        let mut logger = Logger::new("cfg".to_string());
+        let c = SerializableLoggerConfig {
+            min_level: LogLevel::Warn,
+            include_location: false,
+            max_entries: 5,
+            send_to_host: false,
+        };
+        let js = serde_wasm_bindgen::to_value(&c).expect("js");
+        logger.configure(js).expect("configure");
+        assert_eq!(logger.get_min_level(), LogLevel::Warn);
+        assert_eq!(logger.config.max_entries, 5);
+    }
 }

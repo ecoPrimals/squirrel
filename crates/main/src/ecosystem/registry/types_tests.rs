@@ -238,6 +238,8 @@ fn service_status_all_variants_serde() {
 
 #[test]
 fn intern_registry_string_additional_branches() {
+    use universal_constants::capabilities;
+
     assert_eq!(
         intern_registry_string("ai_coordination").as_ref(),
         "ai_coordination"
@@ -245,6 +247,29 @@ fn intern_registry_string_additional_branches() {
     assert_eq!(intern_registry_string("network").as_ref(), "network");
     assert_eq!(intern_registry_string("songbird").as_ref(), "songbird");
     assert_eq!(intern_registry_string("nestgate").as_ref(), "nestgate");
+    assert_eq!(
+        intern_registry_string(capabilities::SELF_PRIMAL_NAME).as_ref(),
+        "squirrel"
+    );
+    assert_eq!(
+        intern_registry_string(capabilities::SERVICE_MESH_CAPABILITY).as_ref(),
+        capabilities::SERVICE_MESH_CAPABILITY
+    );
+    assert_eq!(
+        intern_registry_string(capabilities::STORAGE_CAPABILITY).as_ref(),
+        capabilities::STORAGE_CAPABILITY
+    );
+    assert_eq!(
+        intern_registry_string(capabilities::SECURITY_CAPABILITY).as_ref(),
+        capabilities::SECURITY_CAPABILITY
+    );
+    assert_eq!(
+        intern_registry_string(capabilities::ECOSYSTEM_CAPABILITY).as_ref(),
+        capabilities::ECOSYSTEM_CAPABILITY
+    );
+    assert_eq!(intern_registry_string("toadstool").as_ref(), "toadstool");
+    assert_eq!(intern_registry_string("beardog").as_ref(), "beardog");
+    assert_eq!(intern_registry_string("biomeos").as_ref(), "biomeos");
 }
 
 #[test]

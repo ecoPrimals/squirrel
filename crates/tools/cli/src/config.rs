@@ -556,6 +556,7 @@ impl Default for ConfigManager {
 mod tests {
     use super::*;
     use anyhow::Result;
+    use std::path::PathBuf;
     use tempfile::tempdir;
 
     #[test]
@@ -773,5 +774,83 @@ mod tests {
         let err =
             CliConfig::load_from_file("/nonexistent/path/that/does/not/exist.toml").unwrap_err();
         assert!(matches!(err, ConfigError::ReadError(_)));
+    }
+
+    #[test]
+    fn config_error_display_includes_context() {
+        let read =
+            ConfigError::ReadError(std::io::Error::new(std::io::ErrorKind::NotFound, "missing"));
+        assert!(read.to_string().contains("read"));
+        let parse = ConfigError::ParseError(toml::from_str::<CliConfig>("[").unwrap_err());
+        assert!(parse.to_string().contains("parse"));
+        let path = ConfigError::PathError("bad port".to_string());
+        assert!(path.to_string().contains("bad port"));
+        let key = ConfigError::KeyNotFound("k".to_string());
+        assert!(key.to_string().contains('k'));
+    }
+
+    #[test]
+    fn merge_skips_zero_mcp_port_and_empty_strings() {
+        let mut base = CliConfig {
+            mcp_port: 9001,
+            mcp_host: "10.0.0.1".to_string(),
+            output_format: "yaml".to_string(),
+            ..Default::default()
+        };
+        let other = CliConfig {
+            mcp_port: 0,
+            mcp_host: String::new(),
+            output_format: String::new(),
+            log_level: String::new(),
+            ..Default::default()
+        };
+        base.merge(other);
+        assert_eq!(base.mcp_port, 9001);
+        assert_eq!(base.mcp_host, "10.0.0.1");
+        assert_eq!(base.output_format, "yaml");
+    }
+
+    #[test]
+    fn get_and_set_quiet_roundtrip() -> Result<()> {
+        let mut c = CliConfig::default();
+        c.set("quiet", "true".to_string())?;
+        assert_eq!(c.get("quiet")?, "true");
+        c.set("quiet", "false".to_string())?;
+        assert_eq!(c.get("quiet")?, "false");
+        Ok(())
+    }
+
+    #[test]
+    fn save_to_file_creates_parent_directories() -> Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("nested").join("cfg.toml");
+        let cfg = CliConfig::default();
+        cfg.save_to_file(&path)?;
+        assert!(path.exists());
+        Ok(())
+    }
+
+    #[test]
+    fn config_manager_load_with_missing_explicit_path_merges_env() {
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_LOG_LEVEL", Some("trace")),
+                ("SQUIRREL_MCP_PORT", Some("9003")),
+            ],
+            || {
+                let mgr = ConfigManager::load(Some(PathBuf::from("/no/such/squirrel.toml")))
+                    .expect("load");
+                assert_eq!(mgr.config().log_level, "trace");
+                assert_eq!(mgr.config().mcp_port, 9003);
+            },
+        );
+    }
+
+    #[test]
+    fn config_manager_config_path_and_mut() {
+        let mut mgr = ConfigManager::new();
+        assert!(mgr.config_path().is_none());
+        mgr.config_mut().verbose = true;
+        assert!(mgr.config().verbose);
     }
 }

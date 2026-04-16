@@ -7,6 +7,7 @@ use crate::HealthStatus;
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 fn base_metric() -> Metric {
     Metric {
@@ -239,6 +240,92 @@ async fn add_remove_get_providers_and_status() {
     assert_eq!(st.provider_count, 1);
     assert!(!st.fallback_active);
     assert_eq!(st.providers[0].name, "p2");
+}
+
+#[test]
+fn monitoring_service_provider_ipc_healthy_then_degraded_when_socket_removed() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let runtime_dir = dir.path();
+    let biomeos = runtime_dir.join("biomeos");
+    std::fs::create_dir_all(&biomeos).expect("mkdir");
+    let sock_path = biomeos.join("monitoring.sock");
+
+    let rt = tokio::runtime::Runtime::new().expect("rt");
+    let _enter = rt.enter();
+    let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
+
+    let server = rt.spawn(async move {
+        for _ in 0..16 {
+            let Ok(Ok((mut stream, _))) =
+                tokio::time::timeout(std::time::Duration::from_millis(500), listener.accept())
+                    .await
+            else {
+                break;
+            };
+            let mut buf = Vec::new();
+            if stream.read_to_end(&mut buf).await.is_err() {
+                continue;
+            }
+            let Ok(req) = serde_json::from_slice::<serde_json::Value>(&buf) else {
+                continue;
+            };
+            let id = req
+                .get("id")
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!(0));
+            let resp = serde_json::json!({ "jsonrpc": "2.0", "id": id, "result": {} });
+            let mut out = serde_json::to_vec(&resp).expect("serialize response");
+            out.push(b'\n');
+            let _ = stream.write_all(&out).await;
+            let _ = stream.shutdown().await;
+        }
+    });
+
+    temp_env::with_var(
+        "XDG_RUNTIME_DIR",
+        Some(runtime_dir.to_str().expect("utf8 path")),
+        || {
+            rt.block_on(async {
+                let p = MonitoringServiceProvider::new(MonitoringServiceConfig {
+                    endpoint: "e".into(),
+                    service_name: "n".into(),
+                    auth_token: None,
+                    batch_size: 1,
+                    flush_interval: std::time::Duration::from_millis(1),
+                })
+                .expect("new with local monitoring.sock");
+
+                assert_eq!(
+                    p.provider_health().await.expect("health"),
+                    HealthStatus::Healthy
+                );
+
+                p.record_event(MonitoringEvent::Custom {
+                    event_type: "t".into(),
+                    data: serde_json::json!({}),
+                    timestamp: Utc::now(),
+                })
+                .await
+                .expect("record while socket up");
+
+                std::fs::remove_file(&sock_path).ok();
+                server.abort();
+
+                p.record_event(MonitoringEvent::Custom {
+                    event_type: "t2".into(),
+                    data: serde_json::json!({}),
+                    timestamp: Utc::now(),
+                })
+                .await
+                .expect("record after socket removed");
+
+                assert_eq!(
+                    p.provider_health().await.expect("health after fail"),
+                    HealthStatus::Degraded
+                );
+            });
+        },
+    );
 }
 
 #[tokio::test]
@@ -488,6 +575,27 @@ fn time_frame_and_capability_serde() {
     let json = serde_json::to_string(&cap).expect("should succeed");
     let capb: MonitoringCapability = serde_json::from_str(&json).expect("should succeed");
     assert!(matches!(capb, MonitoringCapability::Custom(s) if s == "x"));
+}
+
+#[tokio::test]
+async fn monitoring_provider_impl_test_ok_and_failing_query_methods() {
+    let ok = MonitoringProviderImpl::TestOk(TestOkProvider("q"));
+    assert!(ok.query_health("c").await.expect("qh").is_none());
+    assert!(
+        ok.query_metrics("c", TimeFrame::LastHour)
+            .await
+            .expect("qm")
+            .is_empty()
+    );
+
+    let bad = MonitoringProviderImpl::TestFailing(TestFailingProvider);
+    assert!(bad.query_health("c").await.expect("qh").is_none());
+    assert!(
+        bad.query_metrics("c", TimeFrame::LastHour)
+            .await
+            .expect("qm")
+            .is_empty()
+    );
 }
 
 #[tokio::test]

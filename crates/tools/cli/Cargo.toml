@@ -49,6 +49,7 @@ squirrel-commands = { path = "../../services/commands", version = "0.1.0" }
 assert_cmd = "2.0"
 predicates = "3.0"
 tempfile.workspace = true
+temp-env = "0.3"
 portpicker = "0.1.1"
 criterion.workspace = true
 

@@ -43,12 +43,14 @@
 )]
 
 use crate::api::ai::adapters::test_mocks::{
-    MockFailingImageAdapter, MockFallbackImageAdapter, MockImageOnlyAdapter, MockTextAdapter,
+    ConstraintRouterMockAdapter, MockFailingImageAdapter, MockFallbackImageAdapter,
+    MockImageOnlyAdapter, MockTextAdapter,
 };
-use crate::api::ai::adapters::{AiProvider, AiProviderAdapter, QualityTier};
+use crate::api::ai::adapters::{AiProvider, AiProviderAdapter, QualityTier, RemoteProviderConfig};
 use crate::api::ai::constraints::RoutingConstraint;
 use crate::api::ai::dignity::{DignityCheckRequest, DignityEvaluator};
 use crate::api::ai::router::AiRouter;
+use crate::api::ai::selector::QualityTier as SelectorQualityTier;
 use crate::api::ai::types::{
     GeneratedImage, ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest,
     TextGenerationResponse,
@@ -362,4 +364,60 @@ async fn generate_text_constraint_require_provider_still_routes_after_fallback()
         .await
         .expect("should succeed");
     assert_eq!(out.provider_id, "mock-text");
+}
+
+#[tokio::test]
+async fn generate_image_fails_with_no_fallback_when_only_failing_image_provider() {
+    let router = AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockFailingImage(
+        MockFailingImageAdapter { id: "only-fail" },
+    ))]);
+    let req = ImageGenerationRequest {
+        prompt: "x".to_string(),
+        negative_prompt: None,
+        size: "128x128".to_string(),
+        n: 1,
+        quality_preference: None,
+        constraints: vec![],
+        params: std::collections::HashMap::new(),
+    };
+    let err = router.generate_image(req, None).await.unwrap_err();
+    let msg = err.to_string();
+    assert!(
+        msg.contains("fallback") || msg.contains("primary") || msg.contains("failed"),
+        "{msg}"
+    );
+}
+
+#[tokio::test]
+async fn register_remote_provider_increments_provider_count() {
+    let router = AiRouter::default();
+    assert_eq!(router.provider_count().await, 0);
+    router
+        .register_remote_provider(RemoteProviderConfig {
+            provider_id: "remote-1".to_string(),
+            socket_path: None,
+            models: vec![],
+            supports_streaming: false,
+            max_context_size: 0,
+        })
+        .await;
+    assert_eq!(router.provider_count().await, 1);
+}
+
+#[tokio::test]
+async fn get_text_generation_providers_maps_quality_tier() {
+    let router = AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::ConstraintRouter(
+        ConstraintRouterMockAdapter {
+            id: "tiered",
+            is_local: true,
+            cost: Some(0.0),
+            latency: 1,
+            quality: QualityTier::Premium,
+            text: true,
+            image: false,
+        },
+    ))]);
+    let infos = router.get_text_generation_providers().await.expect("infos");
+    assert_eq!(infos.len(), 1);
+    assert_eq!(infos[0].quality_tier, SelectorQualityTier::Premium);
 }

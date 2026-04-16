@@ -523,6 +523,112 @@ mod tests {
     use super::*;
     use universal_constants::network::{DEFAULT_LOCALHOST, get_service_port, http_url};
 
+    /// Run discovery env-var tests on the blocking pool so nested `Runtime::new()` is not nested
+    /// inside the lib test harness async runtime.
+    async fn with_endpoint_env<F>(key: &'static str, value: &'static str, f: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        tokio::task::spawn_blocking(move || {
+            temp_env::with_var(key, Some(value), f);
+        })
+        .await
+        .expect("spawn_blocking");
+    }
+
+    #[tokio::test]
+    async fn awaken_with_config_succeeds() {
+        let mut cfg = AdapterConfig::default();
+        cfg.discovery_cache_ttl_secs = 0;
+        cfg.max_retries = 2;
+        let adapter = UniversalAdapterV2::awaken_with_config(cfg)
+            .await
+            .expect("awaken with config");
+        assert!(!adapter.identity().identity().name.is_empty());
+    }
+
+    #[tokio::test]
+    async fn protocol_negotiation_prefers_tarpc() {
+        with_endpoint_env("TARPC_CAP_ENDPOINT", "tarpc://127.0.0.1:5999", || {
+            let rt = tokio::runtime::Runtime::new().expect("rt");
+            rt.block_on(async {
+                let adapter = UniversalAdapterV2::awaken().await.expect("awaken");
+                let client = adapter
+                    .connect_capability("tarpc_cap")
+                    .await
+                    .expect("connect");
+                assert_eq!(client.protocol(), Protocol::Tarpc);
+            });
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn protocol_negotiation_https_endpoint() {
+        with_endpoint_env("HTTPS_CAP_ENDPOINT", "https://127.0.0.1:8443/", || {
+            let rt = tokio::runtime::Runtime::new().expect("rt");
+            rt.block_on(async {
+                let adapter = UniversalAdapterV2::awaken().await.expect("awaken");
+                let client = adapter
+                    .connect_capability("https_cap")
+                    .await
+                    .expect("connect");
+                assert_eq!(client.protocol(), Protocol::Https);
+            });
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn connect_capability_fails_when_no_protocol_matches() {
+        with_endpoint_env("NOMATCH_ENDPOINT", "ftp://127.0.0.1:21/", || {
+            let rt = tokio::runtime::Runtime::new().expect("rt");
+            rt.block_on(async {
+                let adapter = UniversalAdapterV2::awaken().await.expect("awaken");
+                let Err(err) = adapter.connect_capability("nomatch").await else {
+                    panic!("expected negotiation failure");
+                };
+                let s = format!("{err:?}");
+                assert!(
+                    s.contains("protocol") || s.contains("MechanismFailed"),
+                    "unexpected err: {s}"
+                );
+            });
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn execute_capability_on_http_endpoint_is_not_supported() {
+        with_endpoint_env("HTTPONLY_ENDPOINT", "http://127.0.0.1:9/", || {
+            let rt = tokio::runtime::Runtime::new().expect("rt");
+            rt.block_on(async {
+                let adapter = UniversalAdapterV2::awaken().await.expect("awaken");
+                let client = adapter
+                    .connect_capability("httponly")
+                    .await
+                    .expect("connect http");
+                let res: Result<serde_json::Value, _> =
+                    client.execute_capability(serde_json::json!({})).await;
+                assert!(res.is_err());
+            });
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn clear_pool_does_not_panic_after_connect() {
+        with_endpoint_env("CLEARPOOL_ENDPOINT", "http://127.0.0.1:9/", || {
+            let rt = tokio::runtime::Runtime::new().expect("rt");
+            rt.block_on(async {
+                let adapter = UniversalAdapterV2::awaken().await.expect("awaken");
+                let _ = adapter.connect_capability("clearpool").await;
+                adapter.clear_pool().await;
+            });
+        })
+        .await;
+    }
+
     #[tokio::test]
     async fn test_awaken_infant_primal() {
         let adapter = UniversalAdapterV2::awaken().await.expect("should succeed");

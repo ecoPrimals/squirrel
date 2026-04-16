@@ -8,6 +8,7 @@ use super::manager::{
 };
 use super::metrics::LearningStats;
 use crate::learning::test_helpers;
+use serde_json::json;
 use std::sync::Arc;
 
 // ============================================================================
@@ -807,6 +808,61 @@ async fn test_manager_set_rule_manager() {
 
     let rule_manager = Arc::new(crate::rules::RuleManager::new("./rules"));
     manager.set_rule_manager(rule_manager).await;
+}
+
+#[tokio::test]
+async fn test_manager_set_rule_manager_with_session_updates_rules_applied() {
+    let system_config = Arc::new(test_helpers::create_test_learning_config());
+    let manager = ContextLearningManager::new(system_config)
+        .await
+        .expect("Failed to create manager");
+
+    manager.initialize().await.expect("Failed to initialize");
+    manager.start().await.expect("Failed to start");
+
+    let before = manager.get_learning_stats().await.rules_applied;
+    let rule_manager = Arc::new(crate::rules::RuleManager::new("./rules"));
+    manager.set_rule_manager(rule_manager).await;
+    let after = manager.get_learning_stats().await.rules_applied;
+    assert_eq!(after, before + 1);
+}
+
+#[tokio::test]
+async fn test_manager_end_episode_unknown_id_is_ok() {
+    let system_config = Arc::new(test_helpers::create_test_learning_config());
+    let manager = ContextLearningManager::new(system_config)
+        .await
+        .expect("Failed to create manager");
+
+    manager.initialize().await.expect("Failed to initialize");
+    manager
+        .end_episode("nonexistent-episode-id", false)
+        .await
+        .expect("end unknown episode should not error");
+}
+
+#[tokio::test]
+async fn test_extract_features_dense_object_and_empty() {
+    let rich = json!({
+        "version": 2u64,
+        "data": { "a": 1, "b": "s", "c": true },
+        "synchronized": true,
+        "extra": "x",
+        "n": 3.5
+    });
+    let v = ContextLearningManager::extract_features(&rich)
+        .await
+        .expect("features");
+    assert_eq!(v.len(), 6);
+    assert!((v[0] - 2.0).abs() < f64::EPSILON);
+    assert!((v[1] - 3.0).abs() < f64::EPSILON);
+    assert!((v[2] - 1.0).abs() < f64::EPSILON);
+
+    let empty = json!({});
+    let v0 = ContextLearningManager::extract_features(&empty)
+        .await
+        .expect("empty");
+    assert!(v0.iter().all(|x| x.abs() < f64::EPSILON));
 }
 
 #[tokio::test]

@@ -718,3 +718,18 @@ impl LearningIntegration {
         Ok(status)
     }
 }
+
+#[cfg(test)]
+impl LearningIntegration {
+    pub(crate) async fn test_monitor_context_changes(&self) -> Result<()> {
+        Self::monitor_context_changes(&self.clone_refs()).await
+    }
+
+    pub(crate) async fn test_monitor_rule_performance(&self) -> Result<()> {
+        Self::monitor_rule_performance(&self.clone_refs()).await
+    }
+
+    pub(crate) async fn test_synchronize_learning(&self) -> Result<()> {
+        Self::synchronize_learning(&self.clone_refs()).await
+    }
+}

@@ -6,9 +6,13 @@ use super::*;
 use crate::api::ai::adapters::AiProvider;
 use crate::api::ai::adapters::test_mocks::JsonRpcMockTextAdapter;
 use crate::api::ai::router::AiRouter;
+use crate::niche::PRIMAL_ID;
 use crate::rpc::jsonrpc_types::normalize_method;
+use anyhow::Context;
 use serde_json::{Value, json};
 use std::sync::Arc;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use universal_patterns::transport::UniversalTransport;
 
 #[test]
 fn normalize_method_strips_squirrel_prefix() {
@@ -643,4 +647,187 @@ async fn handler_error_increments_metrics_errors() {
         .expect("should succeed");
     let after = server.metrics.read().await.errors;
     assert_eq!(after, before + 1);
+}
+
+#[test]
+fn server_new_sets_socket_path_and_service_name() {
+    let s = JsonRpcServer::new("/tmp/jsonrpc-cfg.sock".to_string());
+    assert_eq!(s.socket_path, "/tmp/jsonrpc-cfg.sock");
+    assert_eq!(s.service_name, PRIMAL_ID);
+}
+
+#[tokio::test]
+async fn test_handle_jsonrpc_line_matches_handle_request_or_batch() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-alias.sock".to_string());
+    let line = r#"{"jsonrpc":"2.0","method":"system.ping","id":1}"#;
+    let a = server
+        .test_handle_jsonrpc_line(line)
+        .await
+        .expect("hidden api");
+    let b = server
+        .handle_request_or_batch(line)
+        .await
+        .expect("batch path");
+    let mut va: Value = serde_json::from_str(&a).expect("json a");
+    let mut vb: Value = serde_json::from_str(&b).expect("json b");
+    // system.ping embeds a fresh timestamp per call; compare everything else.
+    if let Some(r) = va.pointer_mut("/result/timestamp") {
+        *r = Value::Null;
+    }
+    if let Some(r) = vb.pointer_mut("/result/timestamp") {
+        *r = Value::Null;
+    }
+    assert_eq!(va, vb);
+}
+
+#[tokio::test]
+async fn single_request_scalar_not_object() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-scalar.sock".to_string());
+    let raw = server
+        .handle_request_or_batch("42")
+        .await
+        .expect("response");
+    let v: Value = serde_json::from_str(&raw).expect("json");
+    assert_eq!(
+        v.pointer("/error/code")
+            .and_then(Value::as_i64)
+            .map(|c| c as i32),
+        Some(error_codes::INVALID_REQUEST)
+    );
+}
+
+#[tokio::test]
+async fn method_field_not_string_invalid_request() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-method-type.sock".to_string());
+    let raw = server
+        .handle_request_or_batch(r#"{"jsonrpc":"2.0","method":99,"id":1}"#)
+        .await
+        .expect("response");
+    let v: Value = serde_json::from_str(&raw).expect("json");
+    assert_eq!(
+        v.pointer("/error/code")
+            .and_then(Value::as_i64)
+            .map(|c| c as i32),
+        Some(error_codes::INVALID_REQUEST)
+    );
+}
+
+#[tokio::test]
+async fn notification_wrong_jsonrpc_version_returns_no_response() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-notify-ver.sock".to_string());
+    let out = server
+        .handle_request_or_batch(r#"{"jsonrpc":"1.0","method":"system.ping"}"#)
+        .await;
+    assert!(out.is_none());
+}
+
+/// TCP loopback pair: server uses [`UniversalTransport::Tcp`], client uses raw [`tokio::net::TcpStream`].
+async fn tcp_server_transport() -> (
+    tokio::task::JoinHandle<anyhow::Result<()>>,
+    tokio::net::TcpStream,
+) {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    let addr = listener.local_addr().expect("addr");
+    let server = Arc::new(JsonRpcServer::new("/tmp/jsonrpc-tcp.sock".to_string()));
+    let jh = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.context("accept")?;
+        server
+            .handle_universal_connection(UniversalTransport::Tcp(stream))
+            .await
+    });
+    let client = tokio::net::TcpStream::connect(addr).await.expect("connect");
+    (jh, client)
+}
+
+#[tokio::test]
+async fn universal_connection_eof_before_first_line_ok() {
+    let (jh, client) = tcp_server_transport().await;
+    drop(client);
+    let res = jh.await.expect("join");
+    assert!(res.is_ok(), "{res:?}");
+}
+
+#[tokio::test]
+async fn universal_connection_jsonrpc_line_roundtrip() {
+    let (jh, mut client) = tcp_server_transport().await;
+    client
+        .write_all(br#"{"jsonrpc":"2.0","method":"system.ping","id":1}"#)
+        .await
+        .expect("write");
+    client.write_all(b"\n").await.expect("newline");
+    client.flush().await.expect("flush");
+    let mut reader = BufReader::new(&mut client);
+    let mut line = String::new();
+    reader.read_line(&mut line).await.expect("readline");
+    let v: Value = serde_json::from_str(line.trim()).expect("json");
+    assert_eq!(
+        v.pointer("/result/pong").and_then(Value::as_bool),
+        Some(true)
+    );
+    let client = reader.into_inner();
+    client.shutdown().await.expect("shutdown");
+    let _ = jh.await;
+}
+
+#[tokio::test]
+async fn universal_connection_protocol_negotiation_jsonrpc_then_ping() {
+    let (jh, mut client) = tcp_server_transport().await;
+    client
+        .write_all(b"PROTOCOLS: jsonrpc\n")
+        .await
+        .expect("protocols");
+    client
+        .write_all(br#"{"jsonrpc":"2.0","method":"system.ping","id":1}"#)
+        .await
+        .expect("rpc");
+    client.write_all(b"\n").await.expect("newline");
+    client.flush().await.expect("flush");
+    let mut reader = BufReader::new(&mut client);
+    let mut line = String::new();
+    reader.read_line(&mut line).await.expect("proto line");
+    assert!(
+        line.starts_with("PROTOCOL:"),
+        "expected PROTOCOL response, got {line:?}"
+    );
+    line.clear();
+    reader.read_line(&mut line).await.expect("json line");
+    let v: Value = serde_json::from_str(line.trim()).expect("json");
+    assert_eq!(
+        v.pointer("/result/pong").and_then(Value::as_bool),
+        Some(true)
+    );
+    let client = reader.into_inner();
+    client.shutdown().await.expect("shutdown");
+    let _ = jh.await;
+}
+
+#[tokio::test]
+async fn universal_connection_invalid_protocol_request_falls_back_to_jsonrpc() {
+    let (jh, mut client) = tcp_server_transport().await;
+    client
+        .write_all(b"PROTOCOLS: not-a-real-protocol-list\n")
+        .await
+        .expect("bad proto");
+    client
+        .write_all(br#"{"jsonrpc":"2.0","method":"system.ping","id":1}"#)
+        .await
+        .expect("rpc");
+    client.write_all(b"\n").await.expect("newline");
+    client.flush().await.expect("flush");
+    let mut reader = BufReader::new(&mut client);
+    let mut line = String::new();
+    reader.read_line(&mut line).await.expect("fallback proto");
+    assert!(line.starts_with("PROTOCOL:"));
+    line.clear();
+    reader.read_line(&mut line).await.expect("json");
+    let v: Value = serde_json::from_str(line.trim()).expect("json");
+    assert_eq!(
+        v.pointer("/result/pong").and_then(Value::as_bool),
+        Some(true)
+    );
+    let client = reader.into_inner();
+    client.shutdown().await.expect("shutdown");
+    let _ = jh.await;
 }

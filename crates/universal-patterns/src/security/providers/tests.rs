@@ -8,7 +8,7 @@
 use super::*;
 use crate::config::AuthMethod;
 use crate::security::context::SecurityContext;
-use crate::traits::{Principal, PrincipalType};
+use crate::traits::{Credentials, Principal, PrincipalType};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -784,6 +784,174 @@ async fn test_beardog_provider_initialize() {
     let result = provider.initialize(new_config).await;
 
     assert!(result.is_ok(), "Should initialize successfully");
+}
+
+#[tokio::test]
+async fn beardog_integration_factory_delegates_to_new() {
+    let config = SecurityServiceConfig::default();
+    let p = BeardogIntegration::new(config)
+        .await
+        .expect("integration new");
+    assert!(p.get_service_info().service_id.contains("beardog"));
+}
+
+#[tokio::test]
+async fn beardog_universal_trait_authenticate_variants_cover_branches() {
+    let config = SecurityServiceConfig {
+        service_id: "other-security".to_string(),
+        ..Default::default()
+    };
+    let provider = BeardogSecurityProvider::new(config)
+        .await
+        .expect("provider");
+    assert!(matches!(
+        provider.get_service_info().trust_level,
+        TrustLevel::Medium
+    ));
+
+    let _ = crate::security::traits::UniversalSecurityProvider::authenticate(
+        &provider,
+        &Credentials::Password {
+            username: "u".to_string(),
+            password: "p".to_string(),
+        },
+    )
+    .await
+    .expect("password");
+    let _ = crate::security::traits::UniversalSecurityProvider::authenticate(
+        &provider,
+        &Credentials::ApiKey {
+            key: "k".to_string(),
+            service_id: "api-svc".to_string(),
+        },
+    )
+    .await
+    .expect("api key");
+    let _ = crate::security::traits::UniversalSecurityProvider::authenticate(
+        &provider,
+        &Credentials::Bearer {
+            token: "tokentokentoken".to_string(),
+        },
+    )
+    .await
+    .expect("bearer");
+    let _ = crate::security::traits::UniversalSecurityProvider::authenticate(
+        &provider,
+        &Credentials::Token {
+            token: "tokentokentoken".to_string(),
+        },
+    )
+    .await
+    .expect("jwt");
+    let _ = crate::security::traits::UniversalSecurityProvider::authenticate(
+        &provider,
+        &Credentials::ServiceAccount {
+            service_id: "sa".to_string(),
+            api_key: "k".to_string(),
+        },
+    )
+    .await
+    .expect("svc acct");
+    let _ = crate::security::traits::UniversalSecurityProvider::authenticate(
+        &provider,
+        &Credentials::Bootstrap {
+            service_id: "boot".to_string(),
+        },
+    )
+    .await
+    .expect("bootstrap");
+    let _ = crate::security::traits::UniversalSecurityProvider::authenticate(
+        &provider,
+        &Credentials::Test {
+            service_id: "t".to_string(),
+        },
+    )
+    .await
+    .expect("test cred");
+    let _ = crate::security::traits::UniversalSecurityProvider::authenticate(
+        &provider,
+        &Credentials::Custom(HashMap::new()),
+    )
+    .await
+    .expect("custom -> anonymous branch");
+}
+
+#[tokio::test]
+async fn beardog_universal_authorize_encrypt_sign_verify_audit_health() {
+    let config = SecurityServiceConfig {
+        service_id: "svc-1".to_string(),
+        ..Default::default()
+    };
+    let provider = BeardogSecurityProvider::new(config)
+        .await
+        .expect("provider");
+
+    let mut principal = Principal {
+        id: "p1".to_string(),
+        name: "P".to_string(),
+        principal_type: PrincipalType::User,
+        roles: vec![],
+        permissions: vec!["read".to_string()],
+        metadata: HashMap::new(),
+    };
+    assert!(
+        crate::security::traits::UniversalSecurityProvider::authorize(
+            &provider, &principal, "read", "r1"
+        )
+        .await
+        .expect("authorize")
+    );
+    assert!(
+        !crate::security::traits::UniversalSecurityProvider::authorize(
+            &provider, &principal, "delete", "r1"
+        )
+        .await
+        .expect("deny")
+    );
+    principal.permissions = vec!["*".to_string()];
+    assert!(
+        crate::security::traits::UniversalSecurityProvider::authorize(
+            &provider, &principal, "any", "r"
+        )
+        .await
+        .expect("star")
+    );
+
+    let plain = b"hello world";
+    let enc = crate::security::traits::UniversalSecurityProvider::encrypt(&provider, plain)
+        .await
+        .expect("enc");
+    let dec = crate::security::traits::UniversalSecurityProvider::decrypt(&provider, &enc)
+        .await
+        .expect("dec");
+    assert_eq!(dec, plain);
+
+    let sig = crate::security::traits::UniversalSecurityProvider::sign(&provider, plain)
+        .await
+        .expect("sign");
+    assert!(
+        crate::security::traits::UniversalSecurityProvider::verify(&provider, plain, &sig)
+            .await
+            .expect("verify ok")
+    );
+    assert!(
+        !crate::security::traits::UniversalSecurityProvider::verify(&provider, plain, &[0u8])
+            .await
+            .expect("verify bad")
+    );
+
+    crate::security::traits::UniversalSecurityProvider::audit_log(
+        &provider,
+        "op",
+        &create_test_security_context(),
+    )
+    .await
+    .expect("audit");
+
+    let h = crate::security::traits::UniversalSecurityProvider::health_check(&provider)
+        .await
+        .expect("health trait");
+    assert!(h.is_healthy());
 }
 
 // ============================================================================

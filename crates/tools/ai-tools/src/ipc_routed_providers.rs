@@ -708,4 +708,98 @@ mod tests {
             .await;
         assert!(matches!(res, Err(Error::UnsupportedProvider(_))));
     }
+
+    #[tokio::test]
+    async fn get_capabilities_sets_chat_and_context_window() {
+        let mock = Arc::new(MockNeuralHttp::new());
+        let client = IpcRoutedVendorClient::new_for_test(mock, "k", VendorKind::OpenAI);
+        let caps = client.get_capabilities("any").await.expect("capabilities");
+        assert!(caps.max_context_size >= 128_000);
+        assert!(caps.supported_model_types.contains(&ModelType::ChatModel));
+    }
+
+    #[tokio::test]
+    async fn is_available_is_true() {
+        let mock = Arc::new(MockNeuralHttp::new());
+        let client = IpcRoutedVendorClient::new_for_test(mock, "k", VendorKind::Gemini);
+        assert!(client.is_available().await);
+    }
+
+    #[test]
+    fn as_any_returns_ipc_client() {
+        let mock = Arc::new(MockNeuralHttp::new());
+        let client = IpcRoutedVendorClient::new_for_test(mock, "k", VendorKind::OpenAI);
+        assert!(
+            client
+                .as_any()
+                .downcast_ref::<IpcRoutedVendorClient<MockNeuralHttp>>()
+                .is_some()
+        );
+    }
+
+    #[tokio::test]
+    async fn list_models_openai_invalid_json_errors() {
+        let mock = Arc::new(MockNeuralHttp::new());
+        mock.push_get("not-json").await;
+        let client = IpcRoutedVendorClient::new_for_test(mock, "k", VendorKind::OpenAI);
+        let err = client.list_models().await.expect_err("parse error");
+        assert!(matches!(err, Error::Parse(_)));
+    }
+
+    #[tokio::test]
+    async fn list_models_openai_empty_data_array() {
+        let mock = Arc::new(MockNeuralHttp::new());
+        mock.push_get(r#"{"data":[]}"#).await;
+        let client = IpcRoutedVendorClient::new_for_test(mock, "k", VendorKind::OpenAI);
+        let models = client.list_models().await.expect("ok");
+        assert!(models.is_empty());
+    }
+
+    #[test]
+    fn parse_openai_defaults_when_fields_missing() {
+        let body = r#"{"choices":[{"message":{}}]}"#;
+        let r = parse_openai_chat_response(body).expect("ok");
+        assert_eq!(r.id, "openai-ipc");
+        assert_eq!(r.model, "unknown");
+        assert!(r.usage.is_none());
+    }
+
+    #[test]
+    fn parse_anthropic_without_text_block_leaves_content_none() {
+        let body = r#"{"id":"x","model":"m","content":[{"type":"image"}],"usage":null}"#;
+        let r = parse_anthropic_chat_response(body).expect("ok");
+        assert!(r.choices[0].content.is_none());
+    }
+
+    #[test]
+    fn parse_gemini_empty_candidates() {
+        let r = parse_gemini_chat_response("{}", "m").expect("ok");
+        assert_eq!(r.choices[0].content.as_deref(), Some(""));
+    }
+
+    #[tokio::test]
+    async fn mock_neural_http_errors_when_queue_empty() {
+        let mock = Arc::new(MockNeuralHttp::new());
+        let err = mock
+            .post_json("u", vec![], "")
+            .await
+            .expect_err("empty queue");
+        assert!(err.to_string().contains("no post_json"));
+    }
+
+    #[tokio::test]
+    async fn chat_openai_http_error_maps_to_provider_error() {
+        let mock = Arc::new(MockNeuralHttp::new());
+        let client = IpcRoutedVendorClient::new_for_test(mock, "k", VendorKind::OpenAI);
+        let err = client
+            .chat(ChatRequest {
+                model: None,
+                messages: vec![msg(MessageRole::User, "hi")],
+                parameters: None,
+                tools: None,
+            })
+            .await
+            .expect_err("http");
+        assert!(matches!(err, Error::Provider(_)));
+    }
 }

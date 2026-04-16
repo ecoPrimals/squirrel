@@ -17,6 +17,13 @@ use universal_constants::primal_names;
 /// **TRUE PRIMAL**: Discovery uses capability names (storage, compute, security, etc.).
 /// Legacy primal names below are ONLY for display/fallback identifiers when deserializing
 /// external data - NOT for discovery routing. Actual discovery is capability-based.
+#[cfg_attr(
+    not(test),
+    allow(
+        dead_code,
+        reason = "Warm-up table for tests; reserved for future shared interning"
+    )
+)]
 static REGISTRY_STRINGS: LazyLock<HashMap<&'static str, Arc<str>>> = LazyLock::new(|| {
     let mut map = HashMap::new();
     use universal_constants::capabilities;
@@ -121,5 +128,21 @@ pub fn intern_registry_string(s: &str) -> Arc<str> {
         "error" => Arc::from("error"),
         "network" => Arc::from("network"),
         _ => Arc::from(s), // Allocate for uncommon strings
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::REGISTRY_STRINGS;
+
+    /// Covers initialization of the static registry map (used for interning metadata in discovery).
+    #[test]
+    fn registry_string_table_initializes_and_contains_core_keys() {
+        assert!(
+            REGISTRY_STRINGS.len() >= 10,
+            "expected predefined registry strings to be populated"
+        );
+        assert!(REGISTRY_STRINGS.contains_key("version"));
+        assert!(REGISTRY_STRINGS.contains_key("discover"));
     }
 }

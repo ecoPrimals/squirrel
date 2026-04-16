@@ -6,6 +6,7 @@
 
 use super::shutdown::*;
 use crate::shutdown::test_handlers::{FailingShutdownHandler, MockShutdownHandler};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -340,4 +341,129 @@ async fn test_coordinate_shutdown_graceful() {
     let result = coord_handle.await.expect("should succeed");
     assert!(result.is_ok());
     assert!(manager.is_shutdown_complete().await);
+}
+
+#[tokio::test]
+async fn test_coordinate_shutdown_immediate() {
+    let manager = Arc::new(ShutdownManager::new());
+    let handler = Arc::new(MockShutdownHandler::new("c1"));
+    manager
+        .register_handler(
+            "c1".to_string(),
+            RegisteredShutdownHandler::TestMock(handler.clone()),
+        )
+        .await;
+
+    let manager_clone = Arc::clone(&manager);
+    let coord_handle = tokio::spawn(async move { manager_clone.coordinate_shutdown().await });
+
+    manager
+        .test_send_shutdown_signal(ShutdownSignal::Immediate)
+        .await
+        .expect("should succeed");
+
+    let result = coord_handle.await.expect("should succeed");
+    assert!(result.is_ok());
+    assert!(manager.is_shutdown_complete().await);
+}
+
+#[tokio::test]
+async fn test_coordinate_shutdown_timeout_signal_errors() {
+    let manager = Arc::new(ShutdownManager::new());
+    let manager_clone = Arc::clone(&manager);
+    let coord_handle = tokio::spawn(async move { manager_clone.coordinate_shutdown().await });
+
+    manager
+        .test_send_shutdown_signal(ShutdownSignal::Timeout(ShutdownPhase::DrainRequests))
+        .await
+        .expect("should succeed");
+
+    let result = coord_handle.await.expect("should succeed");
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_coordinate_shutdown_second_call_errors_after_first_completes() {
+    let manager = Arc::new(ShutdownManager::new());
+    let m2 = Arc::clone(&manager);
+    let coord = tokio::spawn(async move { m2.coordinate_shutdown().await });
+
+    manager.request_shutdown().await.expect("should succeed");
+    assert!(coord.await.expect("join").is_ok());
+
+    let second = manager.coordinate_shutdown().await;
+    assert!(second.is_err());
+}
+
+#[tokio::test]
+async fn test_graceful_shutdown_fails_when_handler_returns_error() {
+    let manager = Arc::new(ShutdownManager::new());
+    manager
+        .register_handler(
+            "bad".to_string(),
+            RegisteredShutdownHandler::TestFailing(Arc::new(FailingShutdownHandler::new("bad"))),
+        )
+        .await;
+
+    let manager_clone = Arc::clone(&manager);
+    let coord = tokio::spawn(async move { manager_clone.coordinate_shutdown().await });
+
+    manager.request_shutdown().await.expect("should succeed");
+    let result = coord.await.expect("join");
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_graceful_shutdown_phase_times_out() {
+    let mut overrides = HashMap::new();
+    overrides.insert(ShutdownPhase::StopAccepting, Duration::from_millis(1));
+    let manager = Arc::new(ShutdownManager::new_with_phase_overrides(overrides));
+    let slow = Arc::new(MockShutdownHandler::with_delay(
+        "slow",
+        Duration::from_millis(200),
+    ));
+    manager
+        .register_handler(
+            "slow".to_string(),
+            RegisteredShutdownHandler::TestMock(slow),
+        )
+        .await;
+
+    let manager_clone = Arc::clone(&manager);
+    let coord = tokio::spawn(async move { manager_clone.coordinate_shutdown().await });
+
+    manager.request_shutdown().await.expect("should succeed");
+    let result = coord.await.expect("join");
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_immediate_shutdown_tolerates_failing_handler() {
+    let manager = Arc::new(ShutdownManager::new());
+    manager
+        .register_handler(
+            "bad".to_string(),
+            RegisteredShutdownHandler::TestFailing(Arc::new(FailingShutdownHandler::new("bad"))),
+        )
+        .await;
+
+    let manager_clone = Arc::clone(&manager);
+    let coord = tokio::spawn(async move { manager_clone.coordinate_shutdown().await });
+
+    manager
+        .test_send_shutdown_signal(ShutdownSignal::Immediate)
+        .await
+        .expect("should succeed");
+
+    let result = coord.await.expect("join");
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn test_registered_shutdown_handler_test_mock_dispatch() {
+    let h = Arc::new(MockShutdownHandler::new("x"));
+    let reg = RegisteredShutdownHandler::TestMock(h.clone());
+    assert_eq!(reg.component_name(), "x");
+    assert!(reg.shutdown(ShutdownPhase::StopAccepting).await.is_ok());
+    assert!(h.is_shutdown_complete().await);
 }

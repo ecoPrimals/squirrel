@@ -512,4 +512,31 @@ mod tests {
         let b = bincode::serialize(&ls).expect("should succeed");
         let _: LifecycleStatusResult = bincode::deserialize(&b).expect("should succeed");
     }
+
+    #[tokio::test]
+    async fn from_negotiated_transport_ping_errors_when_server_closes_immediately() {
+        use universal_patterns::transport::UniversalTransport;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind");
+        let addr = listener.local_addr().expect("addr");
+        tokio::spawn(async move {
+            let (_stream, _) = listener.accept().await.expect("accept");
+        });
+        let tcp = tokio::net::TcpStream::connect(addr).await.expect("connect");
+        let client =
+            SquirrelClient::from_negotiated_transport("drop-svc", UniversalTransport::Tcp(tcp))
+                .await
+                .expect("client construct");
+        let err = client.system_ping().await.expect_err("ping should fail");
+        let msg = format!("{err:#}");
+        assert!(
+            msg.contains("Ping")
+                || msg.contains("ping")
+                || msg.contains("closed")
+                || msg.contains("connection"),
+            "unexpected: {msg}"
+        );
+    }
 }

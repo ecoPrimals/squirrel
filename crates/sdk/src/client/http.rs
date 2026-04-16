@@ -788,4 +788,79 @@ mod tests {
         let back: HttpResponse = serde_json::from_str(&s).expect("should succeed");
         assert_eq!(r.status, back.status);
     }
+
+    #[test]
+    fn test_http_request_serde_full_fields() {
+        let mut headers = HashMap::new();
+        headers.insert("X-Test".to_string(), "1".to_string());
+        let req = HttpRequest {
+            url: "https://api.example/x".to_string(),
+            method: HttpMethod::Patch,
+            headers,
+            body: Some("{}".to_string()),
+            timeout_ms: Some(1234),
+            follow_redirects: false,
+        };
+        let json = serde_json::to_string(&req).expect("serde");
+        let back: HttpRequest = serde_json::from_str(&json).expect("de");
+        assert!(!back.follow_redirects);
+        assert_eq!(back.method, HttpMethod::Patch);
+        assert_eq!(back.timeout_ms, Some(1234));
+    }
+
+    #[test]
+    fn test_http_response_get_header_missing() {
+        let r = HttpResponse {
+            status: 200,
+            status_text: "OK".to_string(),
+            headers: HashMap::new(),
+            body: String::new(),
+            ok: true,
+            url: String::new(),
+        };
+        assert!(r.get_header("None").is_none());
+    }
+
+    #[test]
+    fn test_request_builder_json_propagates_serialization_error() {
+        struct FailSer;
+        impl Serialize for FailSer {
+            fn serialize<S: Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
+                Err(serde::ser::Error::custom("fail"))
+            }
+        }
+
+        let client = HttpClient::new();
+        match client
+            .request_builder("https://example.com".to_string(), HttpMethod::Post)
+            .json(&FailSer)
+        {
+            Err(e) => assert!(matches!(e, PluginError::SerializationError { .. })),
+            Ok(_) => panic!("expected serialization error"),
+        }
+    }
+
+    // `HttpClient::request` uses web-sys / fetch; wasm-bindgen imports are unavailable on native test targets.
+    #[cfg(target_arch = "wasm32")]
+    #[tokio::test]
+    async fn http_client_request_fails_without_browser_window() {
+        let client = HttpClient::new();
+        let req = HttpRequest::new("https://example.com/".to_string(), HttpMethod::Get);
+        let err = client
+            .request(req)
+            .await
+            .expect_err("expected failure without window");
+        match err {
+            PluginError::InternalError { message } => {
+                assert!(
+                    message.contains("window")
+                        || message.contains("header")
+                        || message.contains("request"),
+                    "unexpected: {message}"
+                );
+            }
+            PluginError::NetworkError { .. } => {}
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
 }

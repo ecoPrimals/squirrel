@@ -525,6 +525,119 @@ mod tests {
         assert!(validate_environment("production").is_ok());
         assert!(validate_environment("invalid-env").is_err());
     }
+
+    #[test]
+    fn merge_configs_empty_is_error() {
+        let err = ConfigUtils::merge_configs(vec![]).expect_err("empty merge");
+        assert!(matches!(err, ConfigError::Invalid(msg) if msg.contains("No configurations")));
+    }
+
+    #[test]
+    fn config_factory_variants_set_name_and_type() {
+        let d = ConfigFactory::docker("dock");
+        assert_eq!(d.info.name, "dock");
+        assert_eq!(d.network.bind_address, "0.0.0.0");
+
+        let k = ConfigFactory::kubernetes("kube");
+        assert_eq!(k.info.name, "kube");
+        assert_eq!(k.environment.name, "kubernetes");
+
+        let hp = ConfigFactory::high_performance("hp");
+        assert_eq!(hp.info.name, "hp");
+
+        let sec = ConfigFactory::secure("sec");
+        assert_eq!(sec.info.name, "sec");
+
+        let min = ConfigFactory::minimal("min");
+        assert_eq!(min.info.name, "min");
+    }
+
+    #[test]
+    fn universal_for_environment_unknown_matches_default_universal() {
+        let cfg = ConfigFactory::universal_for_environment("staging");
+        let def = UniversalPrimalConfig::default();
+        assert_eq!(
+            cfg.multi_instance.max_instances_per_user,
+            def.multi_instance.max_instances_per_user
+        );
+        assert_eq!(cfg.auto_discovery_enabled, def.auto_discovery_enabled);
+    }
+
+    #[test]
+    fn validate_detailed_port_zero_warns() {
+        let mut c = ConfigFactory::development("p0");
+        c.network.port = 0;
+        let warnings = ConfigUtils::validate_detailed(&c).expect("ok");
+        assert!(warnings.iter().any(|w| w.contains("random port")));
+    }
+
+    #[test]
+    fn validate_detailed_production_auth_and_tls_warnings() {
+        let mut c = ConfigFactory::production("prod");
+        c.security.auth_method = AuthMethod::None;
+        let err = ConfigUtils::validate_detailed(&c).expect_err("prod no auth");
+        assert!(err.iter().any(|e| e.contains("No authentication")));
+
+        let mut c2 = ConfigFactory::production("prod2");
+        c2.network.tls = None;
+        c2.security.encryption.enable_inter_primal = false;
+        let w = ConfigUtils::validate_detailed(&c2).expect("warnings");
+        assert!(w.iter().any(|x| x.contains("TLS")));
+        assert!(w.iter().any(|x| x.contains("encryption")));
+    }
+
+    #[test]
+    fn validate_detailed_auth_without_endpoint_errors() {
+        let mut c = ConfigFactory::development("dev");
+        c.security.auth_method = AuthMethod::Beardog {
+            service_id: "svc".to_string(),
+        };
+        c.security.security_endpoint = None;
+        let err = ConfigUtils::validate_detailed(&c).expect_err("endpoint");
+        assert!(err.iter().any(|e| e.contains("security endpoint")));
+    }
+
+    #[test]
+    fn generate_template_covers_environments() {
+        for env in [
+            "development",
+            "production",
+            "testing",
+            "docker",
+            "kubernetes",
+            "custom",
+        ] {
+            let yaml = ConfigUtils::generate_template("tpl-name", env).expect("tpl");
+            assert!(yaml.contains("tpl-name"));
+        }
+    }
+
+    #[test]
+    fn find_config_file_sees_primal_yaml_in_cwd() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("primal.yaml");
+        std::fs::write(&path, "x: 1").expect("write");
+        let prev = std::env::current_dir().expect("cwd");
+        std::env::set_current_dir(dir.path()).expect("chdir");
+        let found = ConfigUtils::find_config_file();
+        std::env::set_current_dir(&prev).expect("restore");
+        let ok = found
+            .as_ref()
+            .is_some_and(|p| p.file_name().and_then(|n| n.to_str()) == Some("primal.yaml"));
+        assert!(ok, "expected ./primal.yaml when present: {found:?}");
+    }
+
+    #[test]
+    fn validation_helpers_file_and_dir_checks() {
+        use validation_helpers::*;
+        let dir = tempfile::tempdir().expect("d");
+        let file = dir.path().join("f.txt");
+        std::fs::write(&file, "hi").expect("w");
+        assert!(validate_file_exists(&file).is_ok());
+        assert!(validate_file_exists(&dir.path().join("nope.txt")).is_err());
+        assert!(validate_dir_exists(dir.path()).is_ok());
+        assert!(validate_dir_exists(&file).is_err());
+    }
 }
 
 #[cfg(test)]

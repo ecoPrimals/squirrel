@@ -670,6 +670,34 @@ impl ShutdownManager {
     }
 }
 
+#[cfg(test)]
+impl ShutdownManager {
+    /// Construct a manager with the same defaults as [`Self::new`], then apply phase timeout overrides.
+    #[must_use]
+    pub fn new_with_phase_overrides(mut overrides: HashMap<ShutdownPhase, Duration>) -> Self {
+        let mut s = Self::new();
+        for (phase, duration) in overrides.drain() {
+            s.phase_timeouts.insert(phase, duration);
+        }
+        s
+    }
+
+    /// Send an arbitrary [`ShutdownSignal`] on the coordination channel (unit tests only).
+    pub async fn test_send_shutdown_signal(
+        &self,
+        signal: ShutdownSignal,
+    ) -> Result<(), PrimalError> {
+        let Some(ref tx) = self.shutdown_tx else {
+            return Err(PrimalError::Internal(
+                "Shutdown sender not available".to_string(),
+            ));
+        };
+        tx.send(signal)
+            .await
+            .map_err(|e| PrimalError::Internal(format!("Failed to send shutdown signal: {e}")))
+    }
+}
+
 impl Default for ShutdownManager {
     fn default() -> Self {
         Self::new()

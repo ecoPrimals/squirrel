@@ -375,13 +375,17 @@ impl Default for SecurePluginLoader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+    use tempfile::tempdir;
 
     #[test]
     fn test_secure_plugin_loader_new() {
-        let loader = SecurePluginLoader::new();
-        assert!(loader.verify_signatures);
-        assert_eq!(loader.max_plugin_size, 50 * 1024 * 1024);
-        assert_eq!(loader.allowed_directories.len(), 2);
+        temp_env::with_var_unset("SQUIRREL_PLUGIN_DIRS", || {
+            let loader = SecurePluginLoader::new();
+            assert!(loader.verify_signatures);
+            assert_eq!(loader.max_plugin_size, 50 * 1024 * 1024);
+            assert_eq!(loader.allowed_directories.len(), 2);
+        });
     }
 
     #[test]
@@ -549,5 +553,264 @@ mod tests {
         };
         let stub = SecurePluginStub::new(metadata);
         assert!(stub.commands().is_empty());
+    }
+
+    #[test]
+    fn validate_plugin_rejects_path_outside_allowed_dirs() {
+        let dir = tempdir().expect("tempdir");
+        let outside =
+            std::env::temp_dir().join(format!("squirrel-plugin-outside-{}.so", std::process::id()));
+        std::fs::write(&outside, b"x").expect("write outside plugin");
+        temp_env::with_var(
+            "SQUIRREL_PLUGIN_DIRS",
+            Some(dir.path().to_str().expect("utf8")),
+            || {
+                let loader = SecurePluginLoader::new();
+                let meta = PluginMetadata {
+                    name: "x".to_string(),
+                    version: "1".to_string(),
+                    description: None,
+                    author: None,
+                    homepage: None,
+                    capabilities: vec![],
+                };
+                let err = loader
+                    .validate_plugin(&outside, &meta)
+                    .expect_err("outside allowed dirs");
+                assert!(matches!(err, PluginSecurityError::LoadingDenied(_)));
+            },
+        );
+        let _ = std::fs::remove_file(&outside);
+    }
+
+    #[test]
+    fn validate_plugin_checksum_and_signature_happy_path() {
+        let dir = tempdir().expect("tempdir");
+        let plugin_path = dir.path().join("p.so");
+        std::fs::write(&plugin_path, b"plugin-bytes").expect("write plugin");
+        let hash = blake3::hash(b"plugin-bytes").to_hex().to_string();
+        let mut sig = std::fs::File::create(plugin_path.with_extension("sig")).expect("sig");
+        writeln!(sig, "{}", hash.to_ascii_uppercase()).expect("write sig");
+
+        temp_env::with_var(
+            "SQUIRREL_PLUGIN_DIRS",
+            Some(dir.path().to_str().expect("utf8")),
+            || {
+                let loader = SecurePluginLoader::new();
+                let meta = PluginMetadata {
+                    name: "plug".to_string(),
+                    version: "0.1.0".to_string(),
+                    description: None,
+                    author: None,
+                    homepage: None,
+                    capabilities: vec![],
+                };
+                let v = loader.validate_plugin(&plugin_path, &meta).expect("valid");
+                assert!(v.signature_valid);
+                assert!(v.is_valid);
+                assert_eq!(v.checksum, hash);
+            },
+        );
+    }
+
+    #[test]
+    fn validate_plugin_missing_signature_marks_invalid() {
+        let dir = tempdir().expect("tempdir");
+        let plugin_path = dir.path().join("n.so");
+        std::fs::write(&plugin_path, b"x").expect("write");
+
+        temp_env::with_var(
+            "SQUIRREL_PLUGIN_DIRS",
+            Some(dir.path().to_str().expect("utf8")),
+            || {
+                let loader = SecurePluginLoader::new();
+                let meta = PluginMetadata {
+                    name: "n".to_string(),
+                    version: "1".to_string(),
+                    description: None,
+                    author: None,
+                    homepage: None,
+                    capabilities: vec![],
+                };
+                let v = loader
+                    .validate_plugin(&plugin_path, &meta)
+                    .expect("validate");
+                assert!(!v.signature_valid);
+                assert!(!v.is_valid);
+            },
+        );
+    }
+
+    #[test]
+    fn validate_plugin_signature_mismatch() {
+        let dir = tempdir().expect("tempdir");
+        let plugin_path = dir.path().join("m.so");
+        std::fs::write(&plugin_path, b"data").expect("write");
+        std::fs::write(
+            plugin_path.with_extension("sig"),
+            "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+        )
+        .expect("sig");
+
+        temp_env::with_var(
+            "SQUIRREL_PLUGIN_DIRS",
+            Some(dir.path().to_str().expect("utf8")),
+            || {
+                let loader = SecurePluginLoader::new();
+                let meta = PluginMetadata {
+                    name: "m".to_string(),
+                    version: "1".to_string(),
+                    description: None,
+                    author: None,
+                    homepage: None,
+                    capabilities: vec![],
+                };
+                let v = loader
+                    .validate_plugin(&plugin_path, &meta)
+                    .expect("validate");
+                assert!(!v.signature_valid);
+            },
+        );
+    }
+
+    #[test]
+    fn validate_plugin_short_signature_file_rejected() {
+        let dir = tempdir().expect("tempdir");
+        let plugin_path = dir.path().join("short.so");
+        std::fs::write(&plugin_path, b"z").expect("write");
+        let real = blake3::hash(b"z").to_hex().to_string();
+        std::fs::write(
+            plugin_path.with_extension("sig"),
+            &real[..real.len().saturating_sub(4)],
+        )
+        .expect("sig");
+
+        temp_env::with_var(
+            "SQUIRREL_PLUGIN_DIRS",
+            Some(dir.path().to_str().expect("utf8")),
+            || {
+                let loader = SecurePluginLoader::new();
+                let meta = PluginMetadata {
+                    name: "s".to_string(),
+                    version: "1".to_string(),
+                    description: None,
+                    author: None,
+                    homepage: None,
+                    capabilities: vec![],
+                };
+                let v = loader
+                    .validate_plugin(&plugin_path, &meta)
+                    .expect("validate");
+                assert!(!v.signature_valid);
+            },
+        );
+    }
+
+    #[test]
+    fn load_plugin_secure_fails_when_validation_not_valid() {
+        let dir = tempdir().expect("tempdir");
+        let plugin_path = dir.path().join("bad.so");
+        std::fs::write(&plugin_path, b"q").expect("write");
+
+        temp_env::with_var(
+            "SQUIRREL_PLUGIN_DIRS",
+            Some(dir.path().to_str().expect("utf8")),
+            || {
+                let loader = SecurePluginLoader::new();
+                let meta = PluginMetadata {
+                    name: "bad".to_string(),
+                    version: "1".to_string(),
+                    description: None,
+                    author: None,
+                    homepage: None,
+                    capabilities: vec![],
+                };
+                let Err(err) = loader.load_plugin_secure(&plugin_path, &meta) else {
+                    panic!("expected validation failure without signature");
+                };
+                assert!(matches!(err, PluginSecurityError::ValidationFailed(_)));
+            },
+        );
+    }
+
+    #[test]
+    fn load_plugin_secure_returns_stub_when_valid() {
+        let dir = tempdir().expect("tempdir");
+        let plugin_path = dir.path().join("ok.so");
+        std::fs::write(&plugin_path, b"ok-bytes").expect("write");
+        let h = blake3::hash(b"ok-bytes").to_hex().to_string();
+        std::fs::write(plugin_path.with_extension("sig"), format!("{h}\n")).expect("sig");
+
+        temp_env::with_var(
+            "SQUIRREL_PLUGIN_DIRS",
+            Some(dir.path().to_str().expect("utf8")),
+            || {
+                let loader = SecurePluginLoader::new();
+                let meta = PluginMetadata {
+                    name: "okp".to_string(),
+                    version: "2".to_string(),
+                    description: Some("d".to_string()),
+                    author: None,
+                    homepage: None,
+                    capabilities: vec![],
+                };
+                let plug = loader
+                    .load_plugin_secure(&plugin_path, &meta)
+                    .expect("stub");
+                assert_eq!(plug.name(), "okp");
+            },
+        );
+    }
+
+    #[tokio::test]
+    async fn secure_plugin_stub_register_commands_ok() {
+        let metadata = PluginMetadata {
+            name: "reg".to_string(),
+            version: "1.0.0".to_string(),
+            description: None,
+            author: None,
+            homepage: None,
+            capabilities: vec![],
+        };
+        let stub = SecurePluginStub::new(metadata);
+        let reg = crate::commands::registry::CommandRegistry::new();
+        assert!(stub.register_commands(&reg).is_ok());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_plugin_world_writable_adds_warning() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempdir().expect("tempdir");
+        let plugin_path = dir.path().join("ww.so");
+        std::fs::write(&plugin_path, b"w").expect("write");
+        let h = blake3::hash(b"w").to_hex().to_string();
+        std::fs::write(plugin_path.with_extension("sig"), &h).expect("sig");
+        let mut perms = std::fs::metadata(&plugin_path).expect("meta").permissions();
+        perms.set_mode(0o666);
+        std::fs::set_permissions(&plugin_path, perms).expect("chmod");
+
+        temp_env::with_var(
+            "SQUIRREL_PLUGIN_DIRS",
+            Some(dir.path().to_str().expect("utf8")),
+            || {
+                let loader = SecurePluginLoader::new();
+                let meta = PluginMetadata {
+                    name: "ww".to_string(),
+                    version: "1".to_string(),
+                    description: None,
+                    author: None,
+                    homepage: None,
+                    capabilities: vec![],
+                };
+                let v = loader
+                    .validate_plugin(&plugin_path, &meta)
+                    .expect("validate");
+                assert!(v.signature_valid);
+                assert!(!v.warnings.is_empty());
+                assert!(!v.is_valid);
+            },
+        );
     }
 }
