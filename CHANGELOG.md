@@ -11,9 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
-### Summary (April 15, 2026)
+### Summary (April 16, 2026)
 
-Documentation and metrics sync: **7,012** tests, **~1,025** `.rs` files, **async-trait** eliminated in Squirrel code (**0** `#[async_trait]` annotations), **blake3** pinned to pure Rust via `features = ["pure"]`, capability-based naming for self-knowledge (e.g. SecurityProvider / Discovery / ContentAddressed patterns), and coverage figures reconciled to **86.0%** line coverage (`cargo-llvm-cov`). Production file-size policy reflected as **800 lines** (tests may exceed).
+**7,158** tests, **~1,037** `.rs` files, **90.1%** region coverage (target met). Deep debt execution across two sessions:
+
+- **Coverage 86%→90.1%**: 146 targeted tests across 15+ production modules; SDK error tests wired (0%→native); 2 real bugs found (deadlock risk in `set_rule_manager`, silent data loss in `load_from_file`)
+- **Smart refactoring**: 12 production files brought under 800L across sessions W+Y (discovery 945→596, http 866→586, config 856→266, btsp_handshake 855→306, adapter 847→292, security 816→377, ipc_routed_providers 805→373, workflow_manager 831→403, server/mod 840→647, mcp/client 836→605, ecosystem client 824→659, plugins/manager 816→706)
+- **Primal self-knowledge**: BearDog→SecurityProvider (auth types, config, security module), Songbird→Discovery (env chains, monitoring), ToadStool→Compute (env chains), NestGate→ContentAddressed. All hardcoded localhost ports→`get_service_port()` constants
+- **Dependency evolution**: `nvml-wrapper` removed (GPU is ToadStool), `nix`→`rustix` (pure Rust syscalls), `async-trait` eliminated (228→0), `blake3` pure + content-addressed plugin IDs, `rand` 0.8→0.9
+- **Mock evolution**: Discovery UUIDs→BLAKE3 content-addressed, WASM FS→capability-absent docs, SecurePluginStub→security policy docs
 
 ## [0.1.0-alpha.52] - 2026-04-14
 

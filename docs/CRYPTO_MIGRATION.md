@@ -2,7 +2,7 @@
 # Crypto Migration Guide
 
 **Status**: Complete — pure-Rust default build current as of April 2026 (workspace v0.1.0)
-**Last Updated**: April 15, 2026
+**Last Updated**: April 16, 2026
 
 ## Summary
 
@@ -47,6 +47,8 @@ provider via `crypto.signing` capability discovery over Unix socket IPC.
 5. `libloading` → removed (secure plugin stub)
 6. `flate2` C backend → `miniz_oxide` pure Rust backend
 7. `sysinfo` → pure Rust `/proc` parsing (`sys_info` module)
+8. `nix` → `rustix` (pure Rust Linux syscalls, no libc FFI)
+9. `nvml-wrapper` → removed (GPU monitoring delegated to compute capability provider)
 
 ## Verification
 
