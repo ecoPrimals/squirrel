@@ -76,15 +76,15 @@ impl JsonRpcServer {
         })
     }
 
-    /// Handle `capabilities.list` — Wire Standard L1/L2 compliant.
+    /// Handle `capabilities.list` — Wire Standard **L3** (Composable).
     ///
-    /// Response envelope per CAPABILITY_WIRE_STANDARD v1.0:
+    /// Response envelope per `CAPABILITY_WIRE_STANDARD` v1.0:
     /// - `methods`: flat string array of all callable JSON-RPC methods (primary routing signal)
-    /// - `provided_capabilities`: structured grouping for L3 composability
+    /// - `provided_capabilities`: structured grouping with descriptions for L3 composability
     /// - `consumed_capabilities`: cross-primal dependencies for composition validation
-    /// - `cost_estimates` / `operation_dependencies`: AI planner metadata (L3)
+    /// - `cost_estimates` / `operation_dependencies`: AI planner metadata
     pub(crate) async fn handle_capability_list(&self) -> Result<Value, JsonRpcError> {
-        debug!("capabilities.list request (Wire Standard L2)");
+        debug!("capabilities.list request (Wire Standard L3)");
 
         let methods: Vec<&str> = niche::CAPABILITIES.to_vec();
 
@@ -103,10 +103,15 @@ impl JsonRpcServer {
                     .filter(|m| m.starts_with(domain) && m.contains('.'))
                     .copied()
                     .collect();
+                let description = niche::CAPABILITY_GROUP_DESCRIPTIONS
+                    .iter()
+                    .find(|(d, _)| *d == domain)
+                    .map_or(domain, |(_, desc)| desc);
                 serde_json::json!({
                     "type": domain,
                     "methods": domain_methods,
                     "version": niche::PRIMAL_VERSION,
+                    "description": description,
                 })
             })
             .collect();
@@ -165,6 +170,50 @@ impl JsonRpcServer {
 mod direct_tests {
     use crate::rpc::JsonRpcServer;
     use serde_json::json;
+
+    #[tokio::test]
+    async fn capabilities_list_is_wire_standard_l3() {
+        let server = JsonRpcServer::new("/tmp/cap-l3-test.sock".to_string());
+        let v = server
+            .handle_capability_list()
+            .await
+            .expect("should succeed");
+
+        assert!(v.get("primal").is_some(), "L2: primal field required");
+        assert!(v.get("version").is_some(), "L2: version field required");
+        let methods = v.get("methods").and_then(|m| m.as_array());
+        assert!(methods.is_some(), "L2: methods array required");
+        assert!(
+            !methods.expect("checked").is_empty(),
+            "methods must not be empty"
+        );
+
+        let provided = v
+            .get("provided_capabilities")
+            .and_then(|p| p.as_array())
+            .expect("L3: provided_capabilities required");
+        assert!(!provided.is_empty());
+        for group in provided {
+            assert!(group.get("type").is_some(), "L3: type required per group");
+            assert!(
+                group.get("methods").is_some(),
+                "L3: methods required per group"
+            );
+            assert!(
+                group.get("description").is_some(),
+                "L3: description enriches composability"
+            );
+        }
+
+        assert!(
+            v.get("consumed_capabilities").is_some(),
+            "L3: consumed_capabilities required"
+        );
+        assert!(
+            v.get("cost_estimates").is_some(),
+            "L3: cost_estimates required"
+        );
+    }
 
     #[tokio::test]
     async fn announce_with_primal_socket_and_tools_counts_tools() {

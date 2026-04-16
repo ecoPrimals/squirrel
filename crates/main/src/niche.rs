@@ -351,6 +351,60 @@ pub const fn required_dependency_count() -> usize {
     count
 }
 
+/// Capability group descriptions for L3 composable wire responses.
+///
+/// Maps domain prefix → human-readable description for `provided_capabilities`.
+pub const CAPABILITY_GROUP_DESCRIPTIONS: &[(&str, &str)] = &[
+    (
+        "inference",
+        "AI model inference: completion, embedding, model registry, provider management",
+    ),
+    (
+        "ai",
+        "AI query routing: vendor-agnostic text generation, chat, provider listing (backward-compat aliases)",
+    ),
+    (
+        "capabilities",
+        "Self-advertisement: capability listing per Wire Standard v1.0",
+    ),
+    (
+        "capability",
+        "Peer capability management: announce and discover remote primal tools",
+    ),
+    (
+        "health",
+        "Health probes: liveness, readiness, and detailed health checks",
+    ),
+    (
+        "system",
+        "System introspection: health, status, metrics, ping (backward-compat aliases)",
+    ),
+    (
+        "identity",
+        "Primal identity: self-knowledge per Wire Standard v1.0",
+    ),
+    (
+        "discovery",
+        "Runtime peer discovery: list connected primals and their capabilities",
+    ),
+    (
+        "tool",
+        "MCP tool execution: invoke and list registered tools from MCP servers",
+    ),
+    (
+        "context",
+        "Context management: create, update, and summarize AI conversation contexts",
+    ),
+    (
+        "lifecycle",
+        "biomeOS lifecycle: register with orchestrator, report status",
+    ),
+    (
+        "graph",
+        "Deploy graph: parse and validate TOML deployment compositions",
+    ),
+];
+
 /// Feature gates that expand primal capabilities.
 pub const FEATURE_GATES: &[(&str, &str)] = &[
     (
@@ -401,6 +455,24 @@ mod tests {
     fn required_dependency_count_is_correct() {
         let manual = DEPENDENCIES.iter().filter(|(_, req, _)| *req).count();
         assert_eq!(required_dependency_count(), manual);
+    }
+
+    #[test]
+    fn capability_group_descriptions_cover_all_domains() {
+        let domains: std::collections::BTreeSet<&str> = CAPABILITIES
+            .iter()
+            .filter_map(|c| c.split('.').next())
+            .collect();
+        let described: std::collections::BTreeSet<&str> = CAPABILITY_GROUP_DESCRIPTIONS
+            .iter()
+            .map(|(d, _)| *d)
+            .collect();
+        for domain in &domains {
+            assert!(
+                described.contains(domain),
+                "domain {domain} missing from CAPABILITY_GROUP_DESCRIPTIONS"
+            );
+        }
     }
 
     #[test]
