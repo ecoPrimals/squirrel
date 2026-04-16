@@ -16,7 +16,7 @@ use crate::traits::{AuthResult, Credentials, Principal};
 use super::context::{SecurityContext, SecurityHealth};
 use super::errors::SecurityError;
 use super::providers::{
-    BeardogSecurityProvider, LocalSecurityProvider, UniversalSecurityProviderBox,
+    LocalSecurityProvider, SecurityProviderIntegration, UniversalSecurityProviderBox,
 };
 use super::traits::UniversalSecurityProvider;
 
@@ -98,8 +98,8 @@ impl UniversalSecurityClient {
         };
 
         // Create primary security provider
-        let primary_provider = BeardogSecurityProvider::new(service_config.clone()).await?;
-        let primary = Arc::new(UniversalSecurityProviderBox::Beardog(Arc::new(
+        let primary_provider = SecurityProviderIntegration::new(service_config.clone()).await?;
+        let primary = Arc::new(UniversalSecurityProviderBox::SecurityProvider(Arc::new(
             primary_provider,
         )));
 
@@ -391,7 +391,7 @@ mod tests {
     #[tokio::test]
     async fn test_client_creation() {
         let mut config = test_security_config();
-        config.auth_method = AuthMethod::Beardog {
+        config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
         // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT [legacy] or SECURITY_SERVICE_PORT)
@@ -410,7 +410,7 @@ mod tests {
     #[tokio::test]
     async fn test_fallback_configuration() {
         let mut config = test_security_config();
-        config.auth_method = AuthMethod::Beardog {
+        config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
         // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT [legacy] or SECURITY_SERVICE_PORT)
@@ -431,7 +431,7 @@ mod tests {
     #[tokio::test]
     async fn test_client_with_custom_providers() {
         let mut config = test_security_config();
-        config.auth_method = AuthMethod::Beardog {
+        config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
         // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT [legacy] or SECURITY_SERVICE_PORT)
@@ -463,7 +463,7 @@ mod tests {
     #[tokio::test]
     async fn test_authentication_with_fallback() {
         let mut config = test_security_config();
-        config.auth_method = AuthMethod::Beardog {
+        config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
         // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT [legacy] or SECURITY_SERVICE_PORT)
@@ -492,7 +492,7 @@ mod tests {
     #[tokio::test]
     async fn test_provider_health_check() {
         let mut config = test_security_config();
-        config.auth_method = AuthMethod::Beardog {
+        config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
         // Use port 1 (reserved, will always fail to connect)

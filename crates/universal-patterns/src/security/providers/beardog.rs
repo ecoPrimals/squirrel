@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Beardog-backed universal security provider and integration helpers.
+//! Security-provider integration (capability-based; legacy primal id via [`primal_names::BEARDOG`]).
 
 use chrono::Utc;
 use std::collections::HashMap;
@@ -16,10 +16,10 @@ use super::types::{
 };
 use crate::config::AuthMethod;
 
-/// Beardog security provider (integration with the Beardog primal).
+/// Security provider integration (capability-based discovery).
 ///
-/// Uses capability-based discovery; communicates via Unix socket IPC when the
-/// Beardog primal is available, falling back to local cryptographic operations
+/// Uses capability-based discovery; communicates via Unix socket IPC when a
+/// security provider is available, falling back to local cryptographic operations
 /// using `blake3` when no IPC endpoint is discovered.
 ///
 /// ## Security Model
@@ -29,29 +29,33 @@ use crate::config::AuthMethod;
 ///   so callers can distinguish local auth from IPC-backed auth.
 /// - **`encrypt`/`decrypt`/`sign`/`verify`** use `blake3` keyed primitives.
 /// - **`authorize`** performs local permission-set checks (no round-trip).
-pub struct BeardogSecurityProvider {
+pub struct SecurityProviderIntegration {
     config: SecurityServiceConfig,
 }
 
-impl BeardogSecurityProvider {
-    /// Create a new Beardog security provider.
+impl SecurityProviderIntegration {
+    /// Create a new security provider integration.
     ///
-    /// Discovery of the Beardog IPC endpoint happens lazily at call time;
+    /// Discovery of the security IPC endpoint happens lazily at call time;
     /// construction is infallible beyond config validation.
     pub async fn new(config: SecurityServiceConfig) -> Result<Self, SecurityError> {
         tracing::info!(
             service_id = %config.service_id,
-            "BeardogSecurityProvider created (IPC discovery at call time)"
+            "SecurityProviderIntegration created (IPC discovery at call time)"
         );
         Ok(Self { config })
     }
 }
 
-impl UniversalSecurityService for BeardogSecurityProvider {
+/// Deprecated alias for [`SecurityProviderIntegration`].
+#[deprecated(since = "0.2.0", note = "use SecurityProviderIntegration")]
+pub type BeardogSecurityProvider = SecurityProviderIntegration;
+
+impl UniversalSecurityService for SecurityProviderIntegration {
     fn get_capabilities(&self) -> Vec<SecurityCapability> {
         vec![
             SecurityCapability::Authentication {
-                methods: vec![AuthMethod::Beardog {
+                methods: vec![AuthMethod::SecurityProvider {
                     // Capability-based alias; primal id: [`primal_names::BEARDOG`]
                     service_id: format!("{}-primary", primal_names::BEARDOG),
                 }],
@@ -86,7 +90,7 @@ impl UniversalSecurityService for BeardogSecurityProvider {
 
         SecurityServiceInfo {
             service_id: format!("{}-security", primal_names::BEARDOG),
-            name: "Beardog Security Service".to_string(),
+            name: "Security Provider Service".to_string(),
             version: "1.0.0".to_string(),
             description: "Enterprise security service with comprehensive capabilities".to_string(),
             capabilities: self.get_capabilities(),
@@ -107,18 +111,21 @@ impl UniversalSecurityService for BeardogSecurityProvider {
         tracing::debug!(
             request_id = %request.request_id,
             operation = ?request.operation,
-            "Beardog handling security request via local dispatch"
+            "Security provider handling security request via local dispatch"
         );
         Ok(SecurityResponse::success(
             request.request_id,
-            format!("Beardog {:?} completed (local)", request.operation),
+            format!(
+                "Security provider {:?} completed (local)",
+                request.operation
+            ),
         ))
     }
 
     async fn health_check(&self) -> Result<SecurityHealth, SecurityError> {
         Ok(SecurityHealth {
             status: HealthStatus::Healthy,
-            message: "Beardog security service operational".to_string(),
+            message: "Security provider service operational".to_string(),
             last_check: Utc::now(),
             metrics: HashMap::new(),
         })
@@ -127,31 +134,35 @@ impl UniversalSecurityService for BeardogSecurityProvider {
     async fn initialize(&mut self, config: SecurityServiceConfig) -> Result<(), SecurityError> {
         tracing::info!(
             service_id = %config.service_id,
-            "BeardogSecurityProvider re-initialized"
+            "SecurityProviderIntegration re-initialized"
         );
         self.config = config;
         Ok(())
     }
 }
 
-/// Factory namespace for constructing [`BeardogSecurityProvider`] instances.
-pub struct BeardogIntegration;
+/// Factory namespace for constructing [`SecurityProviderIntegration`] instances.
+pub struct SecurityProviderFactory;
 
-impl BeardogIntegration {
-    /// Create a [`BeardogSecurityProvider`] with the given config.
+impl SecurityProviderFactory {
+    /// Create a [`SecurityProviderIntegration`] with the given config.
     #[expect(
         clippy::new_ret_no_self,
         reason = "Factory pattern; returns trait object"
     )]
     pub async fn new(
         config: SecurityServiceConfig,
-    ) -> Result<BeardogSecurityProvider, SecurityError> {
-        BeardogSecurityProvider::new(config).await
+    ) -> Result<SecurityProviderIntegration, SecurityError> {
+        SecurityProviderIntegration::new(config).await
     }
 }
 
-// Implement the traits::UniversalSecurityProvider for BeardogSecurityProvider
-impl crate::security::traits::UniversalSecurityProvider for BeardogSecurityProvider {
+/// Deprecated alias for [`SecurityProviderFactory`].
+#[deprecated(since = "0.2.0", note = "use SecurityProviderFactory")]
+pub type BeardogIntegration = SecurityProviderFactory;
+
+// Implement the traits::UniversalSecurityProvider for SecurityProviderIntegration
+impl crate::security::traits::UniversalSecurityProvider for SecurityProviderIntegration {
     async fn authenticate(
         &self,
         credentials: &crate::traits::Credentials,
@@ -236,7 +247,7 @@ impl crate::security::traits::UniversalSecurityProvider for BeardogSecurityProvi
             principal_id = %principal.id,
             action,
             resource,
-            "Beardog authorize: capability-based check"
+            "Security provider authorize: capability-based check"
         );
         let allowed = principal
             .permissions

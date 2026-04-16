@@ -19,7 +19,7 @@ use super::types::{
     Metric, MonitoringCapability, MonitoringEvent, MonitoringProvider, PerformanceMetrics,
     TimeFrame,
 };
-use universal_constants::primal_names;
+use universal_constants::capabilities;
 
 /// Monitoring service provider that delegates to whichever ecosystem service exposes
 /// `monitoring.*` capabilities (capability-first — we never hardcode a primal name for routing).
@@ -89,8 +89,8 @@ impl MonitoringServiceProvider {
 
 impl MonitoringProvider for MonitoringServiceProvider {
     fn provider_name(&self) -> &'static str {
-        // Returns the name of the backing provider for logging; this is NOT used for dispatch
-        primal_names::SONGBIRD
+        // Capability label for logging — not used for dispatch (IPC uses `discover("monitoring")`).
+        capabilities::SERVICE_MESH_CAPABILITY
     }
 
     fn provider_version(&self) -> &'static str {
@@ -166,7 +166,7 @@ impl MonitoringProvider for MonitoringServiceProvider {
 
 /// Concrete monitoring backends registered with [`super::MonitoringService`].
 pub enum MonitoringProviderImpl {
-    /// IPC / capability-discovered monitoring service (e.g. Songbird).
+    /// IPC / capability-discovered monitoring service (e.g. service-mesh / discovery provider).
     MonitoringService(MonitoringServiceProvider),
     /// Test double: always succeeds.
     #[cfg(test)]

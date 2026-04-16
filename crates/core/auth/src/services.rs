@@ -7,8 +7,8 @@
 //! implementation using the discovered security provider.
 
 use super::providers::{
-    AuthProvider, AuthRequest, BeardogPermission, BeardogSession, ComplianceMonitor,
-    EncryptionService, UserInfo,
+    AuthProvider, AuthRequest, ComplianceMonitor, EncryptionService, SecurityProviderPermission,
+    SecurityProviderSession, UserInfo,
 };
 use super::types::{
     AuditEvent, AuthContext, AuthError, ComplianceCheck, LoginRequest, LoginResponse, Permission,
@@ -134,7 +134,7 @@ impl BeardogSecurityClient {
         let expires_at =
             Utc::now() + chrono::Duration::seconds(self.config.timeout.as_secs() as i64);
 
-        let beardog_session = BeardogSession {
+        let provider_session = SecurityProviderSession {
             id: session_id,
             user_id: user.id,
             username: user.username.clone(),
@@ -144,7 +144,7 @@ impl BeardogSecurityClient {
         };
 
         self.auth_provider
-            .create_session(&beardog_session)
+            .create_session(&provider_session)
             .await
             .map_err(|e| AuthError::BeardogError(e.to_string()))?;
 
@@ -360,14 +360,14 @@ impl AuthenticationService for BeardogSecurityClient {
         user_id: &Uuid,
         permission: &Permission,
     ) -> Result<bool, AuthError> {
-        let beardog_permission = BeardogPermission {
+        let provider_permission = SecurityProviderPermission {
             resource: permission.resource.clone(),
             action: permission.action.clone(),
             scope: permission.scope.clone(),
         };
 
         self.auth_provider
-            .has_permission(user_id, &beardog_permission)
+            .has_permission(user_id, &provider_permission)
             .await
             .map_err(|e| AuthError::BeardogError(e.to_string()))
     }
@@ -573,7 +573,7 @@ mod tests {
             username: "test_user".to_string(),
             email: "test@example.com".to_string(),
             roles: vec!["user".to_string()],
-            permissions: vec![BeardogPermission {
+            permissions: vec![SecurityProviderPermission {
                 resource: "mcp".to_string(),
                 action: "read".to_string(),
                 scope: None,

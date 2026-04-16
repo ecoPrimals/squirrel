@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 //!
-//! Pure Rust system info (no C deps). Uses /proc on Linux, defaults elsewhere.
-//! ecoBin v3.0: no infrastructure C (e.g. /proc + nix instead of sysinfo).
+//! Pure Rust system info. Uses `/proc` on Linux; elsewhere uses [`rustix`] (no `nix`).
+//! ecoBin v3.0: no infrastructure C (e.g. `/proc` + rustix instead of sysinfo).
 
 use std::io;
 
@@ -128,10 +128,9 @@ pub fn uptime_seconds() -> Result<u64, io::Error> {
     Ok(0)
 }
 
-/// Hostname: `HOSTNAME` env var → `/proc/sys/kernel/hostname` (Linux) → `gethostname(2)`.
+/// Hostname: `HOSTNAME` env var → `/proc/sys/kernel/hostname` (Linux) → `uname().nodename`.
 ///
-/// Pure-Rust on Linux (no `nix` required). Falls back to `nix::unistd::gethostname`
-/// on other Unix platforms.
+/// Pure-Rust on Linux (`/proc`). On other Unix platforms, uses [`rustix::system::uname`].
 ///
 /// # Errors
 ///
@@ -153,10 +152,11 @@ pub fn hostname() -> Result<String, io::Error> {
     }
     #[cfg(all(unix, not(target_os = "linux")))]
     {
-        let name = nix::unistd::gethostname().map_err(io::Error::from)?;
-        let s = name.to_string_lossy().to_string();
-        if !s.is_empty() {
-            return Ok(s);
+        if let Ok(u) = rustix::system::uname() {
+            let s = u.nodename().to_string_lossy().into_owned();
+            if !s.is_empty() {
+                return Ok(s);
+            }
         }
     }
     Err(io::Error::new(
@@ -167,8 +167,7 @@ pub fn hostname() -> Result<String, io::Error> {
 
 /// Current user ID (UID). Pure-Rust on Linux via `/proc/self/status`.
 ///
-/// Falls back to `nix::unistd::getuid()` on other Unix platforms or if
-/// `/proc` is unavailable.
+/// Falls back to [`rustix::process::getuid`] on other Unix platforms or if `/proc` is unavailable.
 #[cfg(unix)]
 #[must_use]
 pub fn current_uid() -> u32 {
@@ -184,11 +183,11 @@ pub fn current_uid() -> u32 {
                 }
             }
         }
-        nix::unistd::getuid().as_raw()
+        rustix::process::getuid().as_raw()
     }
     #[cfg(not(target_os = "linux"))]
     {
-        nix::unistd::getuid().as_raw()
+        rustix::process::getuid().as_raw()
     }
 }
 

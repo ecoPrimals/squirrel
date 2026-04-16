@@ -54,7 +54,8 @@ pub struct LocalGpuCapabilities {
 
 /// Detect GPUs on THIS instance
 ///
-/// Uses NVML for NVIDIA GPUs, `ROCm` for AMD GPUs, and system detection for others.
+/// Uses `nvidia-smi` / PCI probes for NVIDIA, `ROCm` for AMD, and system detection for others.
+/// Low-level NVML-style metrics are owned by the ToadStool compute primal, not Squirrel.
 /// Supports heterogeneous hardware with multiple vendors.
 ///
 /// # Primal Self-Knowledge
@@ -123,93 +124,13 @@ pub async fn detect_local_gpus() -> Result<Option<LocalGpuCapabilities>, PrimalE
     }))
 }
 
-/// Detect NVIDIA GPUs using NVML
+/// Detect NVIDIA GPUs via `nvidia-smi` (no in-process NVML; see ToadStool for NVML-grade metrics).
 async fn detect_nvidia_gpus() -> Result<Option<LocalGpuCapabilities>, PrimalError> {
-    // Try to use nvml crate if available
-    #[cfg(feature = "nvml")]
-    {
-        use nvml_wrapper::Nvml;
-
-        match Nvml::init() {
-            Ok(nvml) => {
-                let device_count: u32 = nvml.device_count().unwrap_or(0);
-                if device_count == 0 {
-                    return Ok(None);
-                }
-
-                let mut gpus = Vec::new();
-                let mut total_vram = 0u64;
-
-                for i in 0..device_count {
-                    if let Ok(device) = nvml.device_by_index(i)
-                        && let Ok(name) = device.name()
-                        && let Ok(memory_info) = device.memory_info()
-                    {
-                        let vram_total_gb = (memory_info.total / (1024 * 1024 * 1024)) as u32;
-                        let vram_free_gb = (memory_info.free / (1024 * 1024 * 1024)) as u32;
-
-                        total_vram += u64::from(vram_total_gb);
-
-                        // Get additional GPU info for performance prediction
-                        let compute_capability = device
-                            .cuda_compute_capability()
-                            .ok()
-                            .map(|cc| format!("{}.{}", cc.major, cc.minor));
-
-                        let architecture = compute_capability
-                            .as_ref()
-                            .and_then(|cc| architecture_from_compute_capability(cc));
-
-                        let power_draw = device.power_usage().ok().map(|p| p / 1000); // Convert mW to W
-
-                        let memory_bandwidth = device.memory_info().ok().and_then(|_| {
-                            // Estimate bandwidth from model if not directly available
-                            estimate_bandwidth(&name)
-                        });
-
-                        // Estimate performance based on GPU model and architecture
-                        let estimated_tokens_per_sec =
-                            estimate_performance(&name, architecture.as_deref());
-
-                        let efficiency = estimated_tokens_per_sec
-                            .zip(power_draw)
-                            .map(|(tokens, watts)| tokens / watts as f32);
-
-                        gpus.push(GpuInfo {
-                            model: name,
-                            vram_total_gb,
-                            vram_available_gb: vram_free_gb,
-                            index: i,
-                            vendor: "NVIDIA".to_string(),
-                            compute_capability,
-                            architecture,
-                            memory_bandwidth_gb_s: memory_bandwidth,
-                            estimated_tokens_per_sec,
-                            power_draw_watts: power_draw,
-                            efficiency_tokens_per_watt: efficiency,
-                        });
-                    }
-                }
-
-                if !gpus.is_empty() {
-                    return Ok(Some(LocalGpuCapabilities {
-                        gpus,
-                        total_vram_gb: total_vram as u32,
-                        ai_acceleration: true,
-                    }));
-                }
-            }
-            Err(e) => {
-                debug!("NVML init failed: {:?}", e);
-            }
-        }
-    }
-
-    // Fallback: Try to detect via system calls
     detect_nvidia_fallback().await
 }
 
 /// Map compute capability to architecture name
+#[cfg(test)]
 fn architecture_from_compute_capability(cc: &str) -> Option<String> {
     let major: u32 = cc.split('.').next()?.parse().ok()?;
 

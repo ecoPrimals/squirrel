@@ -279,13 +279,26 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
+    use universal_constants::builders::localhost_http;
+    use universal_constants::network::get_service_port;
+
+    fn localhost_ws_url() -> String {
+        localhost_http(get_service_port("websocket"))
+    }
+
+    fn peer_addr_websocket() -> std::net::SocketAddr {
+        format!("127.0.0.1:{}", get_service_port("websocket"))
+            .parse()
+            .expect("should succeed")
+    }
+
     fn make_node_info() -> NodeInfo {
         NodeInfo {
             id: Uuid::new_v4(),
             name: "test-node".to_string(),
             version: "1.0.0".to_string(),
             capabilities: vec!["test".to_string()],
-            endpoints: vec!["http://localhost:8080".to_string()],
+            endpoints: vec![localhost_ws_url()],
             metadata: HashMap::new(),
         }
     }
@@ -321,7 +334,7 @@ mod tests {
 
         let peer_info = PeerInfo {
             id: Uuid::new_v4(),
-            address: "127.0.0.1:8080".parse().expect("should succeed"),
+            address: peer_addr_websocket(),
             last_seen: Utc::now(),
             status: PeerStatus::Connected,
             latency: Some(Duration::from_millis(50)),
@@ -497,7 +510,7 @@ mod tests {
         network
             .add_peer(PeerInfo {
                 id: Uuid::new_v4(),
-                address: "127.0.0.1:8080".parse().expect("should succeed"),
+                address: peer_addr_websocket(),
                 last_seen: Utc::now(),
                 status: PeerStatus::Connected,
                 latency: None,
@@ -517,12 +530,13 @@ mod tests {
         let network = Arc::new(make_network());
 
         let mut handles = vec![];
+        let base = get_service_port("websocket");
         for i in 0..10 {
             let net = Arc::clone(&network);
             handles.push(tokio::spawn(async move {
                 let peer_info = PeerInfo {
                     id: Uuid::new_v4(),
-                    address: format!("127.0.0.1:{}", 8080 + i)
+                    address: format!("127.0.0.1:{}", base + i)
                         .parse()
                         .expect("should succeed"),
                     last_seen: Utc::now(),

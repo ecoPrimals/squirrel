@@ -34,25 +34,30 @@ impl DefaultEndpoints {
         }
     }
 
-    /// Get service mesh endpoint from environment or default (capability-based)
+    /// Get service mesh / discovery HTTP endpoint from environment or default (capability-based)
     ///
-    /// Multi-tier resolution (primal-agnostic first, legacy fallback):
-    /// 0. Unix socket at `$XDG_RUNTIME_DIR/biomeos/songbird.sock` (Tower Atomic — preferred)
-    /// 1. `SERVICE_MESH_ENDPOINT` (full endpoint)
-    /// 2. `SONGBIRD_ENDPOINT` (legacy alias — deprecated)
-    /// 3. `SERVICE_MESH_PORT` / `SONGBIRD_PORT` (port override)
-    /// 4. Default: `universal_constants::network::get_service_port("discovery")`
+    /// Multi-tier resolution (canonical discovery names first, legacy primal names last):
+    /// 1. `DISCOVERY_ENDPOINT` (full URL — preferred)
+    /// 2. `SERVICE_MESH_ENDPOINT` (service-mesh coordination URL)
+    /// 3. `SONGBIRD_ENDPOINT` (deprecated legacy alias)
+    /// 4. Port: `DISCOVERY_PORT`, then `SERVICE_MESH_PORT`, then `SONGBIRD_PORT`
+    /// 5. Default: <code>[get_service_port](universal_constants::network::get_service_port)("discovery")</code>
+    ///
+    /// For IPC-first discovery, set `DISCOVERY_SOCKET` (or deprecated `SONGBIRD_SOCKET`); paths are
+    /// resolved via [`get_socket_path`](universal_constants::network::get_socket_path) for service `"discovery"`.
     #[must_use]
     pub fn service_mesh_endpoint() -> String {
-        env::var("SERVICE_MESH_ENDPOINT")
+        env::var("DISCOVERY_ENDPOINT")
+            .or_else(|_| env::var("SERVICE_MESH_ENDPOINT"))
             .or_else(|_| {
-                // Legacy env var — prefer SERVICE_MESH_ENDPOINT
+                // Legacy — prefer DISCOVERY_ENDPOINT / SERVICE_MESH_ENDPOINT
                 env::var("SONGBIRD_ENDPOINT")
             })
             .unwrap_or_else(|_| {
-                let port = env::var("SERVICE_MESH_PORT")
+                let port = env::var("DISCOVERY_PORT")
+                    .or_else(|_| env::var("SERVICE_MESH_PORT"))
                     .or_else(|_| {
-                        // Legacy env var — prefer SERVICE_MESH_PORT
+                        // Legacy — prefer DISCOVERY_PORT / SERVICE_MESH_PORT
                         env::var("SONGBIRD_PORT")
                     })
                     .ok()
@@ -296,6 +301,8 @@ mod tests {
 
     const ENDPOINT_ENV_VARS: &[&str] = &[
         "DEV_BIND_ADDRESS",
+        "DISCOVERY_ENDPOINT",
+        "DISCOVERY_PORT",
         "SERVICE_MESH_ENDPOINT",
         "SERVICE_MESH_PORT",
         "SONGBIRD_ENDPOINT",
@@ -311,7 +318,6 @@ mod tests {
         "SECURITY_SERVICE_ENDPOINT",
         "SECURITY_AUTH_SERVICE_ENDPOINT",
         "SECURITY_AUTHENTICATION_PORT",
-        "DISCOVERY_ENDPOINT",
         "REGISTRATION_ENDPOINT",
     ];
 
@@ -328,6 +334,13 @@ mod tests {
                 DefaultEndpoints::service_mesh_endpoint(),
                 "http://localhost:8500"
             );
+
+            temp_env::with_var("DISCOVERY_ENDPOINT", Some("http://discovery:9001"), || {
+                assert_eq!(
+                    DefaultEndpoints::service_mesh_endpoint(),
+                    "http://discovery:9001"
+                );
+            });
 
             temp_env::with_var("SERVICE_MESH_ENDPOINT", Some("http://mesh:9000"), || {
                 assert_eq!(

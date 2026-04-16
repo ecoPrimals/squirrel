@@ -141,15 +141,15 @@ impl DefaultEndpoints {
     /// `SONGBIRD_ENDPOINT` / `SONGBIRD_PORT` are **deprecated legacy** fallbacks (same semantics).
     ///
     /// Multi-tier resolution:
-    /// 1. `SERVICE_MESH_ENDPOINT` (service-mesh coordination URL)
-    /// 2. `DISCOVERY_ENDPOINT` (ecosystem discovery URL)
+    /// 1. `DISCOVERY_ENDPOINT` (ecosystem discovery URL — preferred)
+    /// 2. `SERVICE_MESH_ENDPOINT` (service-mesh coordination URL)
     /// 3. `SONGBIRD_ENDPOINT` (deprecated legacy full URL)
-    /// 4. Port: `SERVICE_MESH_PORT`, then `DISCOVERY_PORT`, then `SONGBIRD_PORT`, then
+    /// 4. Port: `DISCOVERY_PORT`, then `SERVICE_MESH_PORT`, then `SONGBIRD_PORT`, then
     ///    [`ports::service_mesh`] via `config_helpers::get_port`
     #[must_use]
     pub fn service_mesh_endpoint() -> String {
-        env::var("SERVICE_MESH_ENDPOINT")
-            .or_else(|_| env::var("DISCOVERY_ENDPOINT"))
+        env::var("DISCOVERY_ENDPOINT")
+            .or_else(|_| env::var("SERVICE_MESH_ENDPOINT"))
             .or_else(|_| env::var("SONGBIRD_ENDPOINT"))
             .unwrap_or_else(|_| {
                 let host = config_helpers::get_host("SERVICE_MESH_HOST", "localhost");
@@ -168,13 +168,15 @@ impl DefaultEndpoints {
     /// Get compute capability endpoint from environment or default
     ///
     /// Multi-tier resolution:
-    /// 1. `COMPUTE_ENDPOINT` (primary, capability-based)
-    /// 2. `TOADSTOOL_ENDPOINT` (legacy backward compat)
-    /// 3. `COMPUTE_HOST` / `COMPUTE_PORT` or `TOADSTOOL_PORT` (port override)
-    /// 4. Fallback: [`ports::compute_service`]
+    /// 1. `COMPUTE_SERVICE_ENDPOINT` (primary, capability-based — matches ecosystem-api)
+    /// 2. `COMPUTE_ENDPOINT` (short form)
+    /// 3. `TOADSTOOL_ENDPOINT` (legacy backward compat)
+    /// 4. `COMPUTE_HOST` / `COMPUTE_PORT` or `TOADSTOOL_PORT` (port override)
+    /// 5. Fallback: [`ports::compute_service`]
     #[must_use]
     pub fn compute_endpoint() -> String {
-        env::var("COMPUTE_ENDPOINT")
+        env::var("COMPUTE_SERVICE_ENDPOINT")
+            .or_else(|_| env::var("COMPUTE_ENDPOINT"))
             .or_else(|_| env::var("TOADSTOOL_ENDPOINT"))
             .unwrap_or_else(|_| {
                 let host = config_helpers::get_host("COMPUTE_HOST", "localhost");
@@ -247,14 +249,15 @@ Security Services (Capability-Based Discovery):
 - SECURITY_COMPLIANCE_PORT: Compliance service port (env-driven)
 
 ecoPrimals Services (capability-domain env vars, not primal identity):
-- SERVICE_MESH_ENDPOINT: Ecosystem registry / service mesh (primary URL)
-- DISCOVERY_ENDPOINT: Ecosystem discovery URL (preferred over legacy names)
+- DISCOVERY_ENDPOINT: Ecosystem discovery URL (canonical; preferred over legacy names)
+- SERVICE_MESH_ENDPOINT: Service mesh coordination URL
 - SONGBIRD_ENDPOINT: Deprecated legacy alias for discovery/mesh URL
-- SERVICE_MESH_PORT: Port override for mesh coordination
 - DISCOVERY_PORT: Preferred port override for discovery
+- SERVICE_MESH_PORT: Port override for mesh coordination
 - SONGBIRD_PORT: Deprecated legacy port override (same role as DISCOVERY_PORT)
-- COMPUTE_ENDPOINT: Compute capability endpoint (primary)
-- TOADSTOOL_ENDPOINT: Compute (legacy alias)
+- COMPUTE_SERVICE_ENDPOINT: Compute capability endpoint (canonical full URL)
+- COMPUTE_ENDPOINT: Compute capability endpoint (short alias)
+- TOADSTOOL_ENDPOINT: Compute (deprecated legacy alias)
 - COMPUTE_HOST / COMPUTE_PORT: Compute host/port (primary)
 - TOADSTOOL_PORT: Compute port (legacy fallback)
 
@@ -401,6 +404,19 @@ mod tests {
         temp_env::with_var("COMPUTE_ENDPOINT", Some("http://toad:2"), || {
             assert_eq!(DefaultEndpoints::compute_endpoint(), "http://toad:2");
         });
+    }
+
+    #[test]
+    fn compute_endpoint_prefers_compute_service_endpoint() {
+        temp_env::with_vars(
+            [
+                ("COMPUTE_SERVICE_ENDPOINT", Some("http://compute:3")),
+                ("COMPUTE_ENDPOINT", Some("http://ignored:9")),
+            ],
+            || {
+                assert_eq!(DefaultEndpoints::compute_endpoint(), "http://compute:3");
+            },
+        );
     }
 
     #[test]

@@ -360,7 +360,6 @@ pub const FEATURE_GATES: &[(&str, &str)] = &[
     ("marketplace", "Plugin marketplace integration"),
     ("monitoring", "Prometheus-compatible metrics export"),
     ("ecosystem", "Full ecosystem manager with federation"),
-    ("nvml", "NVIDIA GPU detection via NVML"),
 ];
 
 #[cfg(test)]

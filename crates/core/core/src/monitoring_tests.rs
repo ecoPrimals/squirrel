@@ -106,7 +106,11 @@ async fn initialize_with_monitoring_service_config_adds_provider() {
     let svc = MonitoringService::new(cfg);
     svc.initialize().expect("init");
     let names = svc.get_providers();
-    assert!(names.iter().any(|n| n == "songbird"));
+    assert!(
+        names
+            .iter()
+            .any(|n| n == universal_constants::capabilities::SERVICE_MESH_CAPABILITY)
+    );
 }
 
 #[tokio::test]
@@ -141,7 +145,11 @@ async fn initialize_provider_configs_monitoring_service_branch() {
     };
     let svc = MonitoringService::new(cfg);
     svc.initialize().expect("init");
-    assert!(svc.get_providers().iter().any(|n| n == "songbird"));
+    assert!(
+        svc.get_providers()
+            .iter()
+            .any(|n| n == universal_constants::capabilities::SERVICE_MESH_CAPABILITY)
+    );
 }
 
 #[tokio::test]
@@ -338,7 +346,10 @@ async fn monitoring_service_provider_trait_methods() {
         flush_interval: std::time::Duration::from_secs(2),
     })
     .expect("new");
-    assert_eq!(p.provider_name(), "songbird");
+    assert_eq!(
+        p.provider_name(),
+        universal_constants::capabilities::SERVICE_MESH_CAPABILITY
+    );
     assert_eq!(p.provider_version(), "1.0.0");
     p.record_event(MonitoringEvent::PrimalDiscovered {
         primal_id: "i".into(),

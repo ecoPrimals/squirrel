@@ -68,7 +68,11 @@ pub use errors::SecurityError;
 pub use traits::{SecurityProvider, UniversalSecurityProvider};
 
 // Public re-exports - Provider implementations
-pub use providers::{BeardogIntegration, BeardogSecurityProvider, LocalSecurityProvider};
+#[allow(deprecated)]
+pub use providers::{
+    BeardogIntegration, BeardogSecurityProvider, LocalSecurityProvider, SecurityProviderFactory,
+    SecurityProviderIntegration,
+};
 
 // Public re-exports - Zero-copy types for high performance
 pub use zero_copy::{
@@ -124,11 +128,11 @@ pub async fn create_default_client() -> Result<UniversalSecurityClient, Security
     UniversalSecurityClient::new(config).await
 }
 
-/// Create a new universal security client with Beardog configuration.
+/// Create a new universal security client with security-provider configuration.
 ///
-/// [`crate::config::AuthMethod::Beardog`] and related config fields are capability-based
+/// [`crate::config::AuthMethod::SecurityProvider`] and related config fields are capability-based
 /// aliases for the cryptographic identity primal ([`primal_names::BEARDOG`]).
-pub async fn create_beardog_client(
+pub async fn create_security_provider_client(
     endpoint: url::Url,
     service_id: String,
     enable_fallback: bool,
@@ -139,14 +143,14 @@ pub async fn create_beardog_client(
     };
 
     let config = SecurityConfig {
-        auth_method: AuthMethod::Beardog { service_id },
+        auth_method: AuthMethod::SecurityProvider { service_id },
         security_endpoint: Some(endpoint),
-        credential_storage: CredentialStorage::Beardog,
+        credential_storage: CredentialStorage::SecurityProvider,
         encryption: EncryptionConfig {
             enable_inter_primal: true,
             enable_at_rest: true,
             algorithm: EncryptionAlgorithm::Aes256Gcm,
-            key_management: KeyManagement::Beardog,
+            key_management: KeyManagement::SecurityProvider,
         },
         audit_logging: true,
         fallback: SecurityFallback {
@@ -157,6 +161,16 @@ pub async fn create_beardog_client(
     };
 
     UniversalSecurityClient::new(config).await
+}
+
+/// Deprecated entry point for [`create_security_provider_client`].
+#[deprecated(since = "0.2.0", note = "use create_security_provider_client")]
+pub async fn create_beardog_client(
+    endpoint: url::Url,
+    service_id: String,
+    enable_fallback: bool,
+) -> Result<UniversalSecurityClient, SecurityError> {
+    create_security_provider_client(endpoint, service_id, enable_fallback).await
 }
 
 /// Create a new local security provider

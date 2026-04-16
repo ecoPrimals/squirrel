@@ -511,6 +511,9 @@ pub struct ServiceInfo {
 mod tests {
     use super::*;
 
+    use universal_constants::builders::localhost_http;
+    use universal_constants::network::get_service_port;
+
     // Mock implementation for testing
     struct MockAuthService;
 
@@ -627,7 +630,7 @@ mod tests {
         let reg = ServiceRegistration {
             name: "ai-service".to_string(),
             capabilities: vec!["ai.inference".to_string(), "ai.embedding".to_string()],
-            endpoint: "http://localhost:8080".to_string(),
+            endpoint: localhost_http(get_service_port("websocket")),
             metadata: {
                 let mut m = std::collections::HashMap::new();
                 m.insert("version".to_string(), "1.0.0".to_string());
@@ -645,7 +648,7 @@ mod tests {
             id: "svc-123".to_string(),
             name: "ai-inference".to_string(),
             capabilities: vec!["ai.query".to_string()],
-            endpoint: "http://localhost:9090".to_string(),
+            endpoint: localhost_http(get_service_port("metrics")),
             healthy: true,
         };
         let json = serde_json::to_string(&info).expect("should succeed");

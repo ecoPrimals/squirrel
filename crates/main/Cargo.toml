@@ -89,9 +89,6 @@ metrics-exporter-prometheus = { workspace = true, optional = true }
 # Benchmarking (optional)
 criterion = { workspace = true, optional = true }
 
-# GPU detection (optional — production delegates to ToadStool)
-nvml-wrapper = { workspace = true, optional = true }
-
 # gRPC REMOVED - NOT ecoPrimals standard!
 # ecoPrimals uses JSON-RPC + tarpc (full Rust ecosystem)
 # tonic REMOVED - gRPC is NOT our protocol
@@ -119,8 +116,8 @@ optimizations = []                               # Performance optimizations
 ## Prefer capability-based discovery with UniversalAiAdapter + LOCAL_AI_ENDPOINT.
 ## See crates/main/src/api/ai/adapters/mod.rs for migration guidance.
 deprecated-adapters = []
-nvml = ["dep:nvml-wrapper"]                        # NVIDIA NVML GPU detection
-gpu-detection = []                                # GPU detection via NVML/ROCm/nvidia-smi (ToadStool compute primal)
+# GPU probing (nvidia-smi / rocm-smi / lspci) — deep NVML metrics belong to ToadStool compute primal.
+gpu-detection = []
 
 [dev-dependencies]
 tokio-test = "0.4"

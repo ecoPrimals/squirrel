@@ -120,20 +120,35 @@ impl ConfigBuilder {
         self
     }
 
-    /// Set Beardog endpoint
-    pub fn beardog_endpoint<S: Into<String>>(mut self, endpoint: S) -> Result<Self, ConfigError> {
+    /// Set security provider HTTP(S) endpoint
+    pub fn security_provider_endpoint<S: Into<String>>(
+        mut self,
+        endpoint: S,
+    ) -> Result<Self, ConfigError> {
         let url = Url::parse(&endpoint.into())?;
         self.config.security.security_endpoint = Some(url);
         Ok(self)
     }
 
-    /// Enable Beardog authentication
-    pub fn beardog_auth<S: Into<String>>(mut self, service_id: S) -> Self {
-        self.config.security.auth_method = AuthMethod::Beardog {
+    /// Enable security-provider authentication
+    pub fn security_provider_auth<S: Into<String>>(mut self, service_id: S) -> Self {
+        self.config.security.auth_method = AuthMethod::SecurityProvider {
             service_id: service_id.into(),
         };
-        self.config.security.credential_storage = CredentialStorage::Beardog;
+        self.config.security.credential_storage = CredentialStorage::SecurityProvider;
         self
+    }
+
+    /// Set Beardog endpoint
+    #[deprecated(since = "0.2.0", note = "use security_provider_endpoint")]
+    pub fn beardog_endpoint<S: Into<String>>(self, endpoint: S) -> Result<Self, ConfigError> {
+        self.security_provider_endpoint(endpoint)
+    }
+
+    /// Enable Beardog authentication
+    #[deprecated(since = "0.2.0", note = "use security_provider_auth")]
+    pub fn beardog_auth<S: Into<String>>(self, service_id: S) -> Self {
+        self.security_provider_auth(service_id)
     }
 
     /// Enable token authentication
@@ -533,7 +548,7 @@ mod tests {
         let config = ConfigBuilder::new()
             .name("beardog-test")
             .version("1.0.0")
-            .beardog_endpoint("https://security.example.com")
+            .security_provider_endpoint("https://security.example.com")
             .expect("valid URL")
             .build()
             .expect("build");
@@ -543,7 +558,7 @@ mod tests {
 
     #[test]
     fn test_builder_beardog_endpoint_invalid_url() {
-        let result = ConfigBuilder::new().beardog_endpoint("not-a-url");
+        let result = ConfigBuilder::new().security_provider_endpoint("not-a-url");
         assert!(result.is_err());
     }
 
@@ -579,15 +594,15 @@ mod tests {
     #[test]
     fn test_builder_auth_methods() {
         let config = ConfigBuilder::new()
-            .beardog_auth("my-service")
+            .security_provider_auth("my-service")
             .build_unchecked();
         assert!(matches!(
             config.security.auth_method,
-            AuthMethod::Beardog { .. }
+            AuthMethod::SecurityProvider { .. }
         ));
         assert!(matches!(
             config.security.credential_storage,
-            CredentialStorage::Beardog
+            CredentialStorage::SecurityProvider
         ));
 
         let config = ConfigBuilder::new()

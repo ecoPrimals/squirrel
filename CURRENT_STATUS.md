@@ -10,21 +10,21 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,156 passing / 0 failures across 22 workspace members |
+| Tests | 7,158 passing / 0 failures across 22 workspace members |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`, `test-context`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
 | Unsafe Code | 0 in production — `unsafe_code = "forbid"` in workspace `[lints.rust]` (all 22 crates) |
-| Pure Rust | 100% default features (zero C deps, zero non-Rust crypto); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed; `ed25519-dalek` feature-gated behind `local-crypto`; `flate2` → pure Rust `miniz_oxide` backend; `blake3` → `features = ["pure"]` (no SIMD assembly); `pprof`, `openai`, `libloading` removed; `rand` upgraded 0.8→0.9.4 (RUSTSEC-2026-0097); `ring`/`reqwest`/`zstd-sys` only resolve under `--all-features` (not in default/ecoBin build) |
+| Pure Rust | 100% default features (zero C deps, zero non-Rust crypto); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed; `ed25519-dalek` feature-gated behind `local-crypto`; `flate2` → pure Rust `miniz_oxide` backend; `blake3` → `features = ["pure"]` (no SIMD assembly); `pprof`, `openai`, `libloading`, `nvml-wrapper` removed; `nix` → `rustix` (pure Rust syscalls); `rand` upgraded 0.8→0.9.4 (RUSTSEC-2026-0097); `ring`/`reqwest`/`zstd-sys` only resolve under `--all-features` (not in default/ecoBin build) |
 | ecoBin | Compliant v3.0 — 3.5 MB static-pie musl binary, stripped, BLAKE3 checksummed, zero host paths (`--remap-path-prefix`), zero dynamic deps; `deny.toml` bans 14 C-dep crates + `tokio-tungstenite` (Tower Atomic) + `reqwest` (Tower Atomic); pure Rust `sys_info` via `/proc` parsing |
 | Coverage | **90.1%** region coverage / 89.6% line coverage via `cargo-llvm-cov` (**target met**); remaining uncovered: binary entry points, demo bins, WASM-only SDK paths, live IPC server loops |
 | `.unwrap()` in code | 0 — workspace-wide elimination; all Results use `?` or `.expect("invariant")` |
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors + `anyhow::Result` (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`, `anyhow::Error`) |
 | Crates | 22 workspace members |
-| Files >800 lines (prod) | 0 — all production `.rs` files under 800 lines; max production file ~798L (`btsp_handshake.rs`); test files up to 965L (expected). Smart-refactored: `workflow_manager.rs` (831→403), `server/mod.rs` (840→647), `mcp/client.rs` (836→605), `ecosystem client.rs` (824→659), `plugins/manager.rs` (816→706); types extracted to sibling modules |
+| Files >800 lines (prod) | 0 — all production `.rs` files under 800 lines; max production file ~798L (`security/orchestrator/mod.rs`); test files up to 1,099L (expected). Smart-refactored: `discovery.rs` (945→596), `http.rs` (866→586), `config.rs` (856→266), `btsp_handshake.rs` (855→306), `adapter.rs` (847→292), `security.rs` (816→377), `ipc_routed_providers.rs` (805→373), plus prior round: `workflow_manager.rs` (831→403), `server/mod.rs` (840→647), `mcp/client.rs` (836→605), `ecosystem client.rs` (824→659), `plugins/manager.rs` (816→706) |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
@@ -285,6 +285,14 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 - **SDK error tests wired**: `sdk/infrastructure/error/tests.rs` was 0% (334 missed) because tests used `#[wasm_bindgen_test]` only — fixed with dual `#[test]` + `#[wasm_bindgen_test]` macro
 - **Production bugs found via tests**: `set_rule_manager` held `RwLock::write()` across `await` (deadlock risk) — fixed; `load_from_file` nested JSON branch didn't update `self.models` — fixed
 - **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓ (0 warnings), `test` ✓ (7,156 passed / 0 failures), `deny` ✓
+
+### April 16, 2026 session Y (deep debt: file refactoring, primal self-knowledge, dep evolution, mock cleanup)
+
+- **Smart refactoring — 7 production files under 800L**: `discovery.rs` (945→596, tests extracted), `http.rs` (866→586, HTTP types extracted to `http_types.rs`), `config.rs` (856→266, types+tests extracted), `btsp_handshake.rs` (855→306, wire protocol+tests to submodule), `adapter.rs` (847→292, tests extracted), `security.rs` (816→377, tests extracted), `ipc_routed_providers.rs` (805→373, parsers+mocks+tests extracted)
+- **Primal self-knowledge deepening**: `BeardogAuthContext`/`Permission`/`Session` → `SecurityProvider*` with deprecated aliases; `AuthMethod::Beardog` → `SecurityProvider` with serde aliases; `BeardogSecurityProvider` → `SecurityProviderIntegration`; `create_beardog_client` → `create_security_provider_client`; config builder `beardog_*` → `security_provider_*`; `SONGBIRD_SOCKET_NAME` deprecated for `DISCOVERY_SOCKET_NAME`; monitoring provider uses `SERVICE_MESH_CAPABILITY` instead of `SONGBIRD`; env chains: `DISCOVERY_*` → `SONGBIRD_*`, `COMPUTE_*` → `TOADSTOOL_*`; hardcoded `localhost:8080/9090` → `get_service_port()` constants
+- **Dependency evolution**: `nvml-wrapper` removed (GPU is ToadStool's job); `nix` → `rustix` (pure Rust syscalls); `zstd` documented as optional C exception behind `compression` feature
+- **Mock evolution**: Plugin discovery UUIDs → deterministic BLAKE3 content-addressed IDs; WASM FS stubs documented as capability-absent design; `SecurePluginStub` documented as security policy
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,158 passed / 0 failures), `deny` ✓
 
 ### April 15, 2026 session W (deep debt: primal self-knowledge, smart refactoring, mock evolution, dependency purity)
 

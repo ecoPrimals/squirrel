@@ -82,7 +82,8 @@ semver = "1.0"
 # More common dependencies
 rand = "0.9"
 base64 = "0.22"
-nix = { version = "0.27", features = ["user"] }
+# POSIX helpers without `nix` (libc FFI): rustix uses linux-raw / scoped backends.
+rustix = { version = "1.1", default-features = false, features = ["std", "process", "system"] }
 
 # Storage and additional dependencies
 tracing-subscriber = "0.3"
@@ -123,7 +124,6 @@ bincode = "1.3"
 toml = "0.8"
 dirs = "5.0"
 metrics-exporter-prometheus = "0.12"
-nvml-wrapper = "0.10"
 
 # HTTP / AI client (optional; ai-tools + mcp)
 tokio-stream = { version = "0.1", features = ["sync"] }
@@ -136,6 +136,7 @@ tower-http = { version = "0.5", features = ["cors", "trace"] }
 serde_bytes = "0.11"
 futures-util = "0.3"
 # tokio-tungstenite: REMOVED — Tower Atomic pattern; WebSocket provided by Songbird service mesh via IPC
+# zstd: C libzstd via zstd-safe — not in default build; only `squirrel-mcp` with `compression` feature.
 zstd = "0.12"
 flate2 = { version = "1.0", default-features = false, features = ["rust_backend"] }
 lz4_flex = "0.13"

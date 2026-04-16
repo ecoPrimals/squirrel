@@ -114,6 +114,7 @@ pub struct McpAiToolsConfig {
 impl Default for McpAiToolsConfig {
     fn default() -> Self {
         let default_ollama_endpoint = std::env::var("OLLAMA_ENDPOINT")
+            .or_else(|_| std::env::var("COMPUTE_ENDPOINT"))
             .or_else(|_| std::env::var("TOADSTOOL_ENDPOINT"))
             .unwrap_or_else(|_| universal_constants::deployment::endpoints::ollama());
 

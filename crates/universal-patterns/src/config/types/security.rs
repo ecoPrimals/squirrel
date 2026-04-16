@@ -60,9 +60,10 @@ pub enum AuthMethod {
         /// Path to the private key file
         key_file: PathBuf,
     },
-    /// Beardog-managed authentication
-    Beardog {
-        /// Service ID for Beardog authentication
+    /// Security-provider-managed authentication (capability-based)
+    #[serde(rename = "security_provider", alias = "Beardog", alias = "beardog")]
+    SecurityProvider {
+        /// Service ID for security-provider authentication
         service_id: String,
     },
 }
@@ -77,8 +78,9 @@ pub enum CredentialStorage {
         /// Path to the credential storage file
         path: PathBuf,
     },
-    /// Beardog-managed storage
-    Beardog,
+    /// Security-provider-managed storage
+    #[serde(rename = "security_provider", alias = "Beardog", alias = "beardog")]
+    SecurityProvider,
 }
 
 /// Encryption configuration
@@ -114,8 +116,9 @@ pub enum KeyManagement {
         /// Path to the key file
         path: PathBuf,
     },
-    /// Beardog-managed keys
-    Beardog,
+    /// Security-provider-managed keys
+    #[serde(rename = "security_provider", alias = "Beardog", alias = "beardog")]
+    SecurityProvider,
     /// Environment variable
     Environment {
         /// Name of the environment variable containing the key

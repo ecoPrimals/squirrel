@@ -179,23 +179,26 @@ fn load_configuration() -> SquirrelConfig {
             .unwrap_or_else(|_| "false".to_string())
             .parse()
             .unwrap_or(false),
-        monitoring_service_config: std::env::var("SERVICE_MESH_ENDPOINT")
-            .or_else(|_| std::env::var("DISCOVERY_ENDPOINT"))
+        monitoring_service_config: std::env::var("DISCOVERY_ENDPOINT")
+            .or_else(|_| std::env::var("SERVICE_MESH_ENDPOINT"))
             .or_else(|_| std::env::var("SONGBIRD_ENDPOINT"))
             .ok()
             .map(|endpoint| MonitoringServiceConfig {
                 endpoint,
                 service_name: "squirrel-mcp".to_string(),
                 auth_token: std::env::var("MONITORING_AUTH_TOKEN")
+                    .or_else(|_| std::env::var("DISCOVERY_AUTH_TOKEN"))
                     .or_else(|_| std::env::var("SONGBIRD_AUTH_TOKEN"))
                     .ok(),
                 batch_size: std::env::var("MONITORING_BATCH_SIZE")
+                    .or_else(|_| std::env::var("DISCOVERY_BATCH_SIZE"))
                     .or_else(|_| std::env::var("SONGBIRD_BATCH_SIZE"))
                     .unwrap_or_else(|_| "100".to_string())
                     .parse()
                     .unwrap_or(100),
                 flush_interval: std::time::Duration::from_secs(
                     std::env::var("MONITORING_FLUSH_INTERVAL")
+                        .or_else(|_| std::env::var("DISCOVERY_FLUSH_INTERVAL"))
                         .or_else(|_| std::env::var("SONGBIRD_FLUSH_INTERVAL"))
                         .unwrap_or_else(|_| "30".to_string())
                         .parse()

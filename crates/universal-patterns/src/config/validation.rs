@@ -262,7 +262,7 @@ impl ConfigValidator {
                     )));
                 }
             }
-            AuthMethod::Beardog { service_id } => {
+            AuthMethod::SecurityProvider { service_id } => {
                 if service_id.is_empty() {
                     return Err(ConfigError::Invalid(
                         "Service ID cannot be empty".to_string(),
@@ -289,7 +289,7 @@ impl ConfigValidator {
                     )));
                 }
             }
-            CredentialStorage::Beardog => {
+            CredentialStorage::SecurityProvider => {
                 // No validation needed for Beardog storage
             }
         }
@@ -316,7 +316,7 @@ impl ConfigValidator {
                     )));
                 }
             }
-            KeyManagement::Beardog => {
+            KeyManagement::SecurityProvider => {
                 // No validation needed for Beardog key management
             }
             KeyManagement::Environment { var_name } => {
@@ -546,8 +546,10 @@ impl ConfigValidator {
         }
 
         // If Beardog authentication is used, validate that Beardog endpoint is configured
-        if matches!(config.security.auth_method, AuthMethod::Beardog { .. })
-            && config.security.security_endpoint.is_none()
+        if matches!(
+            config.security.auth_method,
+            AuthMethod::SecurityProvider { .. }
+        ) && config.security.security_endpoint.is_none()
         {
             return Err(ConfigError::Invalid(
                 "Beardog endpoint must be configured when using Beardog authentication".to_string(),

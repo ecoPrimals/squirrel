@@ -39,6 +39,16 @@ use uuid::Uuid;
 use crate::PluginError;
 use crate::plugin::{Plugin, PluginMetadata};
 
+/// Deterministic dependency id: first 128 bits of BLAKE3(plugin dependency name).
+#[cfg(any(test, feature = "testing"))]
+#[must_use]
+fn dependency_id_from_name(name: &str) -> Uuid {
+    let hash = blake3::hash(name.as_bytes());
+    let mut bytes = [0u8; 16];
+    bytes.copy_from_slice(&hash.as_bytes()[..16]);
+    Uuid::from_bytes(bytes)
+}
+
 /// Plugin manifest format
 #[cfg_attr(
     not(test),
@@ -94,12 +104,9 @@ impl PluginManifest {
             metadata = metadata.with_capability(capability);
         }
 
-        // Add dependencies - in a real implementation, we'd resolve
-        // names to UUIDs, but for now we'll just create dummy UUIDs
-        for _ in &self.dependencies {
-            // Create a random UUID for demonstration
-            let dependency_id = Uuid::new_v4();
-            metadata = metadata.with_dependency(dependency_id);
+        // Dependency names → stable ids (content-addressed) for reproducible resolution/tests.
+        for dep_name in &self.dependencies {
+            metadata = metadata.with_dependency(dependency_id_from_name(dep_name));
         }
 
         metadata
@@ -391,6 +398,27 @@ mod tests {
         let metadata = manifest.to_metadata();
         assert_eq!(metadata.name, "meta-test");
         assert_eq!(metadata.version, "1.0.0");
+    }
+
+    #[test]
+    fn test_dependency_ids_are_content_addressed() {
+        let json = r#"{
+            "name": "p",
+            "version": "1.0.0",
+            "description": "d",
+            "author": "a",
+            "entry_point": "",
+            "plugin_type": "native",
+            "dependencies": ["alpha", "beta"],
+            "capabilities": []
+        }"#;
+        let m1: PluginManifest = serde_json::from_str(json).expect("should succeed");
+        let m2: PluginManifest = serde_json::from_str(json).expect("should succeed");
+        let a = m1.to_metadata();
+        let b = m2.to_metadata();
+        assert_eq!(a.dependencies, b.dependencies);
+        assert_eq!(a.dependencies.len(), 2);
+        assert_ne!(a.dependencies[0], a.dependencies[1]);
     }
 
     #[tokio::test]

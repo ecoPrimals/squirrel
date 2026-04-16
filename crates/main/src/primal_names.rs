@@ -30,11 +30,12 @@ pub use universal_constants::primal_names::{
 /// Standard biomeOS socket subdirectory under XDG_RUNTIME_DIR.
 pub const BIOMEOS_SOCKET_DIR: &str = "biomeos";
 
-/// Default discovery service socket filename.
+/// Canonical default discovery (service mesh) socket filename.
 pub const DISCOVERY_SOCKET_NAME: &str = "discovery-default.sock";
 
-/// Deprecated: use [`DISCOVERY_SOCKET_NAME`] for capability-based discovery.
-pub const SONGBIRD_SOCKET_NAME: &str = "songbird-default.sock";
+/// Deprecated: use [`DISCOVERY_SOCKET_NAME`].
+#[deprecated(note = "use DISCOVERY_SOCKET_NAME")]
+pub const SONGBIRD_SOCKET_NAME: &str = DISCOVERY_SOCKET_NAME;
 
 /// Default biomeOS socket filename.
 pub const BIOMEOS_SOCKET_NAME: &str = "biomeos.sock";
@@ -96,7 +97,6 @@ mod tests {
     fn socket_names_end_with_sock() {
         for name in [
             DISCOVERY_SOCKET_NAME,
-            SONGBIRD_SOCKET_NAME,
             BIOMEOS_SOCKET_NAME,
             NEURAL_API_SOCKET_NAME,
         ] {

@@ -236,6 +236,9 @@ pub struct QueuedMessage {
 mod tests {
     use super::*;
 
+    use universal_constants::builders::localhost_http;
+    use universal_constants::network::get_service_port;
+
     #[test]
     fn test_network_config_default() {
         let config = NetworkConfig::default();
@@ -270,7 +273,7 @@ mod tests {
             name: "test-node".to_string(),
             version: "1.0.0".to_string(),
             capabilities: vec!["sync".to_string()],
-            endpoints: vec!["http://localhost:8080".to_string()],
+            endpoints: vec![localhost_http(get_service_port("websocket"))],
             metadata: std::collections::HashMap::new(),
         };
         assert_eq!(info.name, "test-node");

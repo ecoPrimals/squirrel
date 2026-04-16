@@ -41,6 +41,19 @@ mod tests {
     use std::collections::HashMap;
     use uuid::Uuid;
 
+    use universal_constants::builders::localhost_http;
+    use universal_constants::network::get_service_port;
+
+    fn localhost_ws_url() -> String {
+        localhost_http(get_service_port("websocket"))
+    }
+
+    fn peer_addr_websocket() -> std::net::SocketAddr {
+        format!("127.0.0.1:{}", get_service_port("websocket"))
+            .parse()
+            .expect("should succeed")
+    }
+
     #[tokio::test]
     async fn test_network_creation() {
         let config = NetworkConfig::default();
@@ -49,7 +62,7 @@ mod tests {
             name: "test-node".to_string(),
             version: "1.0.0".to_string(),
             capabilities: vec!["test".to_string()],
-            endpoints: vec!["http://localhost:8080".to_string()],
+            endpoints: vec![localhost_ws_url()],
             metadata: HashMap::new(),
         };
 
@@ -67,7 +80,7 @@ mod tests {
             name: "test-node".to_string(),
             version: "1.0.0".to_string(),
             capabilities: vec!["test".to_string()],
-            endpoints: vec!["http://localhost:8080".to_string()],
+            endpoints: vec![localhost_ws_url()],
             metadata: HashMap::new(),
         };
 
@@ -75,7 +88,7 @@ mod tests {
 
         let peer_info = PeerInfo {
             id: Uuid::new_v4(),
-            address: "127.0.0.1:8080".parse().expect("should succeed"),
+            address: peer_addr_websocket(),
             status: PeerStatus::Connected,
             last_seen: chrono::Utc::now(),
             latency: None,
@@ -101,7 +114,7 @@ mod tests {
             name: "test-node".to_string(),
             version: "1.0.0".to_string(),
             capabilities: vec!["test".to_string()],
-            endpoints: vec!["http://localhost:8080".to_string()],
+            endpoints: vec![localhost_ws_url()],
             metadata: HashMap::new(),
         };
 
@@ -109,7 +122,7 @@ mod tests {
 
         let peer_info = PeerInfo {
             id: Uuid::new_v4(),
-            address: "127.0.0.1:8080".parse().expect("should succeed"),
+            address: peer_addr_websocket(),
             status: PeerStatus::Connected,
             last_seen: chrono::Utc::now(),
             latency: None,
@@ -138,7 +151,7 @@ mod tests {
             name: "test-node".to_string(),
             version: "1.0.0".to_string(),
             capabilities: vec!["test".to_string()],
-            endpoints: vec!["http://localhost:8080".to_string()],
+            endpoints: vec![localhost_ws_url()],
             metadata: HashMap::new(),
         };
 

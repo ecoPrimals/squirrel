@@ -96,7 +96,7 @@ mod tests {
     // ACTUAL TESTS
     // ============================================================================
 
-    /// Test the Beardog integration creation
+    /// Test the security provider factory / integration creation
     #[tokio::test]
     async fn test_beardog_integration_creation() {
         let endpoint = Url::parse("http://localhost:8443").expect("Failed to parse test URL");
@@ -108,11 +108,11 @@ mod tests {
             auth_config: None,
         };
 
-        let _integration = BeardogIntegration::new(config)
+        let _integration = SecurityProviderFactory::new(config)
             .await
-            .expect("Failed to create BeardogIntegration");
+            .expect("Failed to create SecurityProviderIntegration via factory");
 
-        // BeardogIntegration::new returns BeardogSecurityProvider, not BeardogIntegration
+        // SecurityProviderFactory::new returns SecurityProviderIntegration, not the factory struct
         // Test passes if creation succeeds without panic
     }
 
@@ -376,7 +376,7 @@ mod tests {
     async fn test_universal_client_creation() {
         let endpoint = Url::parse("http://localhost:8443").expect("Failed to parse test URL");
         let mut config = test_security_config_with_endpoint(endpoint);
-        config.auth_method = AuthMethod::Beardog {
+        config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
         config.audit_logging = true;
@@ -390,7 +390,7 @@ mod tests {
     async fn test_client_fallback_configuration() {
         let endpoint = Url::parse("http://localhost:8443").expect("Failed to parse test URL");
         let mut config = test_security_config_with_endpoint(endpoint);
-        config.auth_method = AuthMethod::Beardog {
+        config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
         config.audit_logging = true;
@@ -406,7 +406,7 @@ mod tests {
     async fn test_client_authentication_with_fallback() {
         let endpoint = Url::parse("http://localhost:8443").expect("Failed to parse test URL");
         let mut config = test_security_config_with_endpoint(endpoint);
-        config.auth_method = AuthMethod::Beardog {
+        config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
         config.fallback.fallback_timeout = 1; // Short timeout to trigger fallback
@@ -432,7 +432,7 @@ mod tests {
     async fn test_client_provider_health_check() {
         let endpoint = Url::parse("http://localhost:8443").expect("Failed to parse test URL");
         let mut config = test_security_config_with_endpoint(endpoint);
-        config.auth_method = AuthMethod::Beardog {
+        config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
 
@@ -580,17 +580,17 @@ mod tests {
     async fn test_beardog_provider_creation() {
         let endpoint = Url::parse("http://localhost:8443").expect("Failed to parse test URL");
         let mut config = test_security_config_with_endpoint(endpoint);
-        config.auth_method = AuthMethod::Beardog {
+        config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
         config.fallback.enable_local_fallback = false;
         let service_config = to_service_config(&config);
 
-        let _provider = BeardogSecurityProvider::new(service_config)
+        let _provider = SecurityProviderIntegration::new(service_config)
             .await
-            .expect("Failed to create BeardogSecurityProvider");
+            .expect("Failed to create SecurityProviderIntegration");
 
-        // Note: BeardogSecurityProvider doesn't have service_id() method
+        // Note: SecurityProviderIntegration doesn't have service_id() method
         // Test passes if provider creation succeeds without panic
     }
 
@@ -599,7 +599,7 @@ mod tests {
     async fn test_client_with_custom_providers() {
         let endpoint = Url::parse("http://localhost:8443").expect("Failed to parse test URL");
         let mut config = test_security_config_with_endpoint(endpoint);
-        config.auth_method = AuthMethod::Beardog {
+        config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
         config.fallback.enable_local_fallback = false;

@@ -34,23 +34,35 @@ pub struct AuthProvider {
 
 /// Security provider authentication context (internal)
 #[derive(Debug, Clone)]
-pub struct BeardogAuthContext {
+pub struct SecurityProviderAuthContext {
     pub user_id: Uuid,
     pub username: String,
-    pub permissions: Vec<BeardogPermission>,
+    pub permissions: Vec<SecurityProviderPermission>,
     pub session_id: Uuid,
     pub expires_at: DateTime<Utc>,
     pub issued_at: DateTime<Utc>,
     pub roles: Vec<String>,
 }
 
+#[deprecated(since = "0.2.0", note = "use SecurityProviderAuthContext")]
+pub type BearDogAuthContext = SecurityProviderAuthContext;
+
+#[deprecated(since = "0.2.0", note = "use SecurityProviderAuthContext")]
+pub type BeardogAuthContext = SecurityProviderAuthContext;
+
 /// Security provider permission structure (internal)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BeardogPermission {
+pub struct SecurityProviderPermission {
     pub resource: String,
     pub action: String,
     pub scope: Option<String>,
 }
+
+#[deprecated(since = "0.2.0", note = "use SecurityProviderPermission")]
+pub type BearDogPermission = SecurityProviderPermission;
+
+#[deprecated(since = "0.2.0", note = "use SecurityProviderPermission")]
+pub type BeardogPermission = SecurityProviderPermission;
 
 /// Authentication request
 #[derive(Debug, Clone)]
@@ -62,7 +74,7 @@ pub struct AuthRequest {
 
 /// Session information from security provider
 #[derive(Debug, Clone)]
-pub struct BeardogSession {
+pub struct SecurityProviderSession {
     pub id: Uuid,
     pub user_id: Uuid,
     pub username: String,
@@ -71,6 +83,12 @@ pub struct BeardogSession {
     pub created_at: DateTime<Utc>,
 }
 
+#[deprecated(since = "0.2.0", note = "use SecurityProviderSession")]
+pub type BearDogSession = SecurityProviderSession;
+
+#[deprecated(since = "0.2.0", note = "use SecurityProviderSession")]
+pub type BeardogSession = SecurityProviderSession;
+
 /// User information from security provider
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserInfo {
@@ -78,7 +96,7 @@ pub struct UserInfo {
     pub username: String,
     pub email: String,
     pub roles: Vec<String>,
-    pub permissions: Vec<BeardogPermission>,
+    pub permissions: Vec<SecurityProviderPermission>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub last_login: Option<DateTime<Utc>>,
@@ -184,7 +202,7 @@ impl AuthProvider {
     }
 
     /// Get user permissions
-    pub async fn get_permissions(&self, user_id: &Uuid) -> Result<Vec<BeardogPermission>> {
+    pub async fn get_permissions(&self, user_id: &Uuid) -> Result<Vec<SecurityProviderPermission>> {
         let response = self
             .client
             .get(&format!(
@@ -210,7 +228,7 @@ impl AuthProvider {
 
         Ok(permissions
             .into_iter()
-            .map(|p| BeardogPermission {
+            .map(|p| SecurityProviderPermission {
                 resource: p.resource,
                 action: p.action,
                 scope: p.scope,
@@ -219,7 +237,7 @@ impl AuthProvider {
     }
 
     /// Create a session
-    pub async fn create_session(&self, session: &BeardogSession) -> Result<()> {
+    pub async fn create_session(&self, session: &SecurityProviderSession) -> Result<()> {
         let request = SessionCreateRequest {
             id: session.id.to_string(),
             user_id: session.user_id.to_string(),
@@ -250,7 +268,7 @@ impl AuthProvider {
     }
 
     /// Authenticate user credentials
-    pub async fn authenticate(&self, request: &AuthRequest) -> Result<BeardogAuthContext> {
+    pub async fn authenticate(&self, request: &AuthRequest) -> Result<SecurityProviderAuthContext> {
         let auth_request = AuthApiRequest {
             username: request.username.clone(),
             password: request.password.clone(),
@@ -296,14 +314,14 @@ impl AuthProvider {
         let permissions = auth_response
             .permissions
             .into_iter()
-            .map(|p| BeardogPermission {
+            .map(|p| SecurityProviderPermission {
                 resource: p.resource,
                 action: p.action,
                 scope: p.scope,
             })
             .collect();
 
-        Ok(BeardogAuthContext {
+        Ok(SecurityProviderAuthContext {
             user_id,
             username: auth_response.username,
             permissions,
@@ -394,7 +412,7 @@ impl AuthProvider {
     pub async fn has_permission(
         &self,
         user_id: &Uuid,
-        permission: &BeardogPermission,
+        permission: &SecurityProviderPermission,
     ) -> Result<bool> {
         let request = serde_json::json!({
             "resource": permission.resource,
@@ -698,19 +716,19 @@ impl ComplianceMonitor {
 }
 
 /// Utility functions for converting between provider-internal and public types
-impl From<BeardogPermission> for Permission {
-    fn from(beardog_perm: BeardogPermission) -> Self {
+impl From<SecurityProviderPermission> for Permission {
+    fn from(provider_perm: SecurityProviderPermission) -> Self {
         Permission {
-            resource: beardog_perm.resource,
-            action: beardog_perm.action,
-            scope: beardog_perm.scope,
+            resource: provider_perm.resource,
+            action: provider_perm.action,
+            scope: provider_perm.scope,
         }
     }
 }
 
-impl From<Permission> for BeardogPermission {
+impl From<Permission> for SecurityProviderPermission {
     fn from(permission: Permission) -> Self {
-        BeardogPermission {
+        SecurityProviderPermission {
             resource: permission.resource,
             action: permission.action,
             scope: permission.scope,
@@ -724,21 +742,21 @@ mod tests {
 
     #[test]
     fn test_permission_conversion() {
-        let beardog_perm = BeardogPermission {
+        let provider_perm = SecurityProviderPermission {
             resource: "mcp".to_string(),
             action: "read".to_string(),
             scope: Some("scope1".to_string()),
         };
 
-        let permission: Permission = beardog_perm.clone().into();
-        assert_eq!(permission.resource, beardog_perm.resource);
-        assert_eq!(permission.action, beardog_perm.action);
-        assert_eq!(permission.scope, beardog_perm.scope);
+        let permission: Permission = provider_perm.clone().into();
+        assert_eq!(permission.resource, provider_perm.resource);
+        assert_eq!(permission.action, provider_perm.action);
+        assert_eq!(permission.scope, provider_perm.scope);
 
-        let converted_back: BeardogPermission = permission.into();
-        assert_eq!(converted_back.resource, beardog_perm.resource);
-        assert_eq!(converted_back.action, beardog_perm.action);
-        assert_eq!(converted_back.scope, beardog_perm.scope);
+        let converted_back: SecurityProviderPermission = permission.into();
+        assert_eq!(converted_back.resource, provider_perm.resource);
+        assert_eq!(converted_back.action, provider_perm.action);
+        assert_eq!(converted_back.scope, provider_perm.scope);
     }
 
     #[test]
@@ -761,7 +779,7 @@ mod tests {
         let expires_at = Utc::now() + chrono::Duration::hours(1);
         let created_at = Utc::now();
 
-        let session = BeardogSession {
+        let session = SecurityProviderSession {
             id: session_id,
             user_id,
             username: "test_user".to_string(),

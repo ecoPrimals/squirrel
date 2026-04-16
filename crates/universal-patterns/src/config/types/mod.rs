@@ -419,7 +419,7 @@ mod tests {
             cert_file: PathBuf::from("/cert"),
             key_file: PathBuf::from("/key"),
         };
-        let beardog = AuthMethod::Beardog {
+        let beardog = AuthMethod::SecurityProvider {
             service_id: "service-123".to_string(),
         };
 
@@ -434,7 +434,7 @@ mod tests {
         }
 
         match beardog {
-            AuthMethod::Beardog { .. } => {}
+            AuthMethod::SecurityProvider { .. } => {}
             _ => unreachable!("Expected Beardog variant"),
         }
     }
@@ -460,8 +460,8 @@ mod tests {
             path: PathBuf::from("/tmp/creds"),
         };
         assert!(matches!(
-            CredentialStorage::Beardog,
-            CredentialStorage::Beardog
+            CredentialStorage::SecurityProvider,
+            CredentialStorage::SecurityProvider
         ));
 
         let memory_json = serde_json::to_string(&memory).expect("should succeed");
@@ -488,7 +488,7 @@ mod tests {
         let file = KeyManagement::File {
             path: PathBuf::from("/tmp/key"),
         };
-        let beardog = KeyManagement::Beardog;
+        let beardog = KeyManagement::SecurityProvider;
         let env = KeyManagement::Environment {
             var_name: "MY_KEY".to_string(),
         };

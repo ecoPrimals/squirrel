@@ -482,7 +482,7 @@ fn test_validate_beardog_auth_requires_endpoint() {
         .name("test-primal")
         .version("1.0.0")
         .build_unchecked();
-    config.security.auth_method = AuthMethod::Beardog {
+    config.security.auth_method = AuthMethod::SecurityProvider {
         service_id: "svc".to_string(),
     };
     config.security.security_endpoint = None;

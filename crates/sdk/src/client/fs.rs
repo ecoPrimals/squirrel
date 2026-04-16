@@ -1,10 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! File system functionality for plugins
+//! File system surface for WASM plugin code.
 //!
-//! This module provides secure file system operations for WASM plugins,
-//! with sandbox security and permission checking.
+//! On `wasm32`, there is **no host filesystem** unless the embedder injects one. The
+//! [`FileSystem`] methods here are therefore **intentional capability-absent behavior**:
+//! reads return empty data, `exists` is false, listings are empty, and writes are no-ops until
+//! a host bridges real I/O (for example via `fs.exists` / path capabilities). This is **not** a
+//! test mock — it is the honest contract when no filesystem capability is wired.
+//!
+//! Design note: full WASM filesystem access requires **host capability injection** (imported
+//! functions or message-passing to the primal that owns storage). Native builds that compile this
+//! module for tests exercise the same stubs so behavior stays consistent across targets.
+//!
+//! The rest of this module defines shared types ([`FileMetadata`], [`FileContent`], path helpers)
+//! used once a host-backed implementation is connected.
 
 use crate::error::{PluginError, PluginResult};
 use crate::plugin::Permission;

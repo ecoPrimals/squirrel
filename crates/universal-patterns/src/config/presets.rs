@@ -316,7 +316,7 @@ impl ConfigPresets {
             },
             LogOutput::Syslog,
         ];
-        config.security.auth_method = AuthMethod::Beardog {
+        config.security.auth_method = AuthMethod::SecurityProvider {
             service_id: "primal-production".to_string(),
         };
         config.security.security_endpoint =
@@ -367,7 +367,7 @@ impl ConfigPresets {
             cert_file: PathBuf::from("/etc/ssl/certs/client.crt"),
             key_file: PathBuf::from("/etc/ssl/private/client.key"),
         };
-        config.security.credential_storage = CredentialStorage::Beardog;
+        config.security.credential_storage = CredentialStorage::SecurityProvider;
         config.security.encryption.enable_inter_primal = true;
         config.security.encryption.enable_at_rest = true;
         config.security.fallback.enable_local_fallback = false;
@@ -534,7 +534,7 @@ mod tests {
         ));
         assert!(matches!(
             config.security.credential_storage,
-            CredentialStorage::Beardog
+            CredentialStorage::SecurityProvider
         ));
         assert!(!config.security.fallback.enable_local_fallback);
     }

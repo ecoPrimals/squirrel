@@ -589,7 +589,7 @@ mod tests {
     #[test]
     fn validate_detailed_auth_without_endpoint_errors() {
         let mut c = ConfigFactory::development("dev");
-        c.security.auth_method = AuthMethod::Beardog {
+        c.security.auth_method = AuthMethod::SecurityProvider {
             service_id: "svc".to_string(),
         };
         c.security.security_endpoint = None;
