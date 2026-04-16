@@ -48,8 +48,6 @@
 //! }
 //! ```
 
-use universal_constants::primal_names;
-
 // Internal modules
 mod client;
 mod context;
@@ -131,7 +129,7 @@ pub async fn create_default_client() -> Result<UniversalSecurityClient, Security
 /// Create a new universal security client with security-provider configuration.
 ///
 /// [`crate::config::AuthMethod::SecurityProvider`] and related config fields are capability-based
-/// aliases for the cryptographic identity primal ([`primal_names::BEARDOG`]).
+/// aliases for the cryptographic identity primal (`beardog`).
 pub async fn create_security_provider_client(
     endpoint: url::Url,
     service_id: String,
@@ -218,10 +216,7 @@ pub fn get_module_info() -> std::collections::HashMap<String, String> {
         "description".to_string(),
         "Security integration module for universal patterns".to_string(),
     );
-    info.insert(
-        format!("supports_{}", primal_names::BEARDOG),
-        "true".to_string(),
-    );
+    info.insert("supports_security_provider".to_string(), "true".to_string());
     info.insert("supports_local_fallback".to_string(), "true".to_string());
     info.insert("supports_audit_logging".to_string(), "true".to_string());
     info.insert("supports_health_monitoring".to_string(), "true".to_string());
@@ -250,7 +245,7 @@ mod module_tests {
         assert!(info.contains_key("version"));
         assert!(info.contains_key("name"));
         assert!(info.contains_key("description"));
-        assert!(info.contains_key("supports_beardog"));
+        assert!(info.contains_key("supports_security_provider"));
         assert!(info.contains_key("supports_local_fallback"));
         assert!(info.contains_key("supports_audit_logging"));
         assert!(info.contains_key("supports_health_monitoring"));
@@ -268,7 +263,8 @@ mod module_tests {
             "Universal Security Module"
         );
         assert_eq!(
-            info.get("supports_beardog").expect("should succeed"),
+            info.get("supports_security_provider")
+                .expect("should succeed"),
             "true"
         );
         assert_eq!(info.get("thread_safe").expect("should succeed"), "true");

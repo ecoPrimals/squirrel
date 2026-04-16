@@ -16,6 +16,16 @@ use super::types::{
 };
 use crate::config::AuthMethod;
 
+/// Capability-based service identifier for the security provider.
+pub const SECURITY_SERVICE_ID: &str = "security-provider";
+
+/// Capability-based primary instance identifier.
+pub const SECURITY_PRIMARY_SERVICE_ID: &str = "security-provider-primary";
+
+/// Legacy wire identifier (deprecated — prefer [`SECURITY_SERVICE_ID`]).
+#[deprecated(since = "0.2.0", note = "use SECURITY_SERVICE_ID")]
+pub const BEARDOG_SECURITY_SERVICE_ID: &str = "beardog-security";
+
 /// Security provider integration (capability-based discovery).
 ///
 /// Uses capability-based discovery; communicates via Unix socket IPC when a
@@ -56,8 +66,7 @@ impl UniversalSecurityService for SecurityProviderIntegration {
         vec![
             SecurityCapability::Authentication {
                 methods: vec![AuthMethod::SecurityProvider {
-                    // Capability-based alias; primal id: [`primal_names::BEARDOG`]
-                    service_id: format!("{}-primary", primal_names::BEARDOG),
+                    service_id: SECURITY_PRIMARY_SERVICE_ID.to_string(),
                 }],
                 multi_factor: true,
                 session_management: true,
@@ -81,15 +90,17 @@ impl UniversalSecurityService for SecurityProviderIntegration {
     }
 
     fn get_service_info(&self) -> SecurityServiceInfo {
-        let trust_level = if self.config.service_id == format!("{}-security", primal_names::BEARDOG)
-        {
+        #[allow(deprecated)]
+        let is_primary = self.config.service_id == SECURITY_SERVICE_ID
+            || self.config.service_id == BEARDOG_SECURITY_SERVICE_ID;
+        let trust_level = if is_primary {
             TrustLevel::High
         } else {
             TrustLevel::Medium
         };
 
         SecurityServiceInfo {
-            service_id: format!("{}-security", primal_names::BEARDOG),
+            service_id: SECURITY_SERVICE_ID.to_string(),
             name: "Security Provider Service".to_string(),
             version: "1.0.0".to_string(),
             description: "Enterprise security service with comprehensive capabilities".to_string(),
@@ -192,14 +203,13 @@ impl crate::security::traits::UniversalSecurityProvider for SecurityProviderInte
             operation: SecurityOperation::Authenticate,
             parameters,
             context,
-            requester: format!("{}-provider", primal_names::BEARDOG),
+            requester: SECURITY_PRIMARY_SERVICE_ID.to_string(),
             timestamp: chrono::Utc::now(),
             priority: Priority::Normal,
         };
 
         let _response = self.handle_security_request(request).await?;
 
-        // Extract a principal identifier from the credential variant.
         let principal_id = match credentials {
             crate::traits::Credentials::Password { username, .. } => username.clone(),
             crate::traits::Credentials::ApiKey { service_id, .. } => service_id.clone(),
@@ -214,6 +224,7 @@ impl crate::security::traits::UniversalSecurityProvider for SecurityProviderInte
             crate::traits::Credentials::Test { service_id } => service_id.clone(),
             _ => "anonymous".to_string(),
         };
+        // Context string is a cryptographic constant — do NOT rename without migration.
         let token_bytes = blake3::derive_key(
             &format!("ecoPrimals {} auth-token v1", primal_names::BEARDOG),
             principal_id.as_bytes(),
@@ -257,6 +268,7 @@ impl crate::security::traits::UniversalSecurityProvider for SecurityProviderInte
     }
 
     async fn encrypt(&self, data: &[u8]) -> Result<Vec<u8>, SecurityError> {
+        // Context string is a cryptographic constant — do NOT rename without migration.
         let key = blake3::derive_key(
             &format!("ecoPrimals {} encrypt v1", primal_names::BEARDOG),
             self.config.service_id.as_bytes(),
@@ -278,6 +290,7 @@ impl crate::security::traits::UniversalSecurityProvider for SecurityProviderInte
     }
 
     async fn sign(&self, data: &[u8]) -> Result<Vec<u8>, SecurityError> {
+        // Context string is a cryptographic constant — do NOT rename without migration.
         let key = blake3::derive_key(
             &format!("ecoPrimals {} sign v1", primal_names::BEARDOG),
             self.config.service_id.as_bytes(),
@@ -310,7 +323,7 @@ impl crate::security::traits::UniversalSecurityProvider for SecurityProviderInte
             operation: SecurityOperation::AuditLog,
             parameters,
             context: context.clone(),
-            requester: format!("{}-provider", primal_names::BEARDOG),
+            requester: SECURITY_PRIMARY_SERVICE_ID.to_string(),
             timestamp: chrono::Utc::now(),
             priority: Priority::Normal,
         };

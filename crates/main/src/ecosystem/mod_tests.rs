@@ -422,5 +422,5 @@ async fn test_ecosystem_manager_authenticate_universal() {
     let result = manager.authenticate_universal(credentials).await;
     assert!(result.is_ok());
     let session_id = result.expect("should succeed");
-    assert!(session_id.starts_with("beardog_session_"));
+    assert!(session_id.starts_with("security_session_"));
 }

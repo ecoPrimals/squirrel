@@ -311,7 +311,7 @@ mod tests {
             .authenticate_universal(creds)
             .await
             .expect("should succeed");
-        assert!(sid.starts_with("beardog_session_"));
+        assert!(sid.starts_with("security_session_"));
     }
 
     #[tokio::test]
@@ -451,7 +451,7 @@ mod tests {
             .authenticate_universal(creds)
             .await
             .expect("should succeed");
-        assert!(sid.starts_with("beardog_session_"));
+        assert!(sid.starts_with("security_session_"));
     }
 
     #[tokio::test]

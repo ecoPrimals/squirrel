@@ -704,8 +704,9 @@ async fn test_beardog_provider_get_capabilities() {
 
 #[tokio::test]
 async fn test_beardog_provider_get_service_info() {
+    #[allow(deprecated)]
     let config = SecurityServiceConfig {
-        service_id: "beardog-security".to_string(),
+        service_id: BEARDOG_SECURITY_SERVICE_ID.to_string(),
         ..Default::default()
     };
     let provider = SecurityProviderIntegration::new(config)
@@ -714,7 +715,7 @@ async fn test_beardog_provider_get_service_info() {
 
     let info = provider.get_service_info();
 
-    assert_eq!(info.service_id, "beardog-security");
+    assert_eq!(info.service_id, SECURITY_SERVICE_ID);
     assert_eq!(info.name, "Security Provider Service");
     assert_eq!(info.version, "1.0.0");
     assert!(matches!(info.trust_level, TrustLevel::High));
@@ -794,7 +795,7 @@ async fn beardog_integration_factory_delegates_to_new() {
     let p = SecurityProviderFactory::new(config)
         .await
         .expect("integration new");
-    assert!(p.get_service_info().service_id.contains("beardog"));
+    assert_eq!(p.get_service_info().service_id, SECURITY_SERVICE_ID);
 }
 
 #[tokio::test]
@@ -1048,13 +1049,11 @@ async fn test_multi_provider_registry() {
 
 #[tokio::test]
 async fn test_end_to_end_security_workflow() {
-    // Create registry
     let mut registry = UniversalSecurityRegistry::new();
 
-    // Register beardog provider
     let config = SecurityServiceConfig {
-        service_id: "beardog-primary".to_string(),
-        endpoint: Some("https://beardog.local".to_string()),
+        service_id: SECURITY_SERVICE_ID.to_string(),
+        endpoint: Some("https://security.local".to_string()),
         ..Default::default()
     };
     let provider = SecurityProviderIntegration::new(config)
@@ -1062,17 +1061,16 @@ async fn test_end_to_end_security_workflow() {
         .expect("test: operation should succeed");
     registry
         .register_service(
-            "beardog-primary".to_string(),
+            SECURITY_SERVICE_ID.to_string(),
             box_security_provider_service(provider),
         )
         .await
         .expect("test: operation should succeed");
 
-    // Find service by capability
     let requirements = vec![
         SecurityCapability::Authentication {
             methods: vec![AuthMethod::SecurityProvider {
-                service_id: "beardog-primary".to_string(),
+                service_id: SECURITY_PRIMARY_SERVICE_ID.to_string(),
             }],
             multi_factor: true,
             session_management: true,

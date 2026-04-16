@@ -21,12 +21,11 @@ mod tests;
 
 #[allow(deprecated)]
 pub use beardog::{
-    BeardogIntegration, BeardogSecurityProvider, SecurityProviderFactory,
+    BeardogIntegration, BeardogSecurityProvider, SECURITY_SERVICE_ID, SecurityProviderFactory,
     SecurityProviderIntegration,
 };
 pub use boxed::UniversalSecurityProviderBox;
 pub use local::LocalSecurityProvider;
-// Used by `providers/tests.rs` and external callers; not referenced from non-test lib code.
 #[cfg_attr(
     not(test),
     expect(
@@ -35,4 +34,13 @@ pub use local::LocalSecurityProvider;
     )
 )]
 pub use registry::{UniversalSecurityRegistry, capabilities_match, register_security_service};
+#[cfg_attr(
+    not(test),
+    expect(
+        unused_imports,
+        reason = "Test-only re-exports for providers/tests.rs"
+    )
+)]
+#[allow(deprecated)]
+pub use beardog::{BEARDOG_SECURITY_SERVICE_ID, SECURITY_PRIMARY_SERVICE_ID};
 pub use types::*;

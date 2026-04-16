@@ -139,13 +139,13 @@ impl ConfigBuilder {
         self
     }
 
-    /// Set Beardog endpoint
+    /// Set security provider endpoint (legacy alias).
     #[deprecated(since = "0.2.0", note = "use security_provider_endpoint")]
     pub fn beardog_endpoint<S: Into<String>>(self, endpoint: S) -> Result<Self, ConfigError> {
         self.security_provider_endpoint(endpoint)
     }
 
-    /// Enable Beardog authentication
+    /// Enable security provider authentication (legacy alias).
     #[deprecated(since = "0.2.0", note = "use security_provider_auth")]
     pub fn beardog_auth<S: Into<String>>(self, service_id: S) -> Self {
         self.security_provider_auth(service_id)
@@ -214,7 +214,8 @@ impl ConfigBuilder {
         self
     }
 
-    /// Set Beardog endpoint (optional)
+    /// Set security provider endpoint (optional, legacy alias).
+    #[deprecated(since = "0.2.0", note = "use security_provider_endpoint")]
     pub fn beardog_endpoint_optional(mut self, endpoint: Option<String>) -> Self {
         if let Some(endpoint_str) = endpoint
             && let Ok(url) = Url::parse(&endpoint_str)
@@ -563,6 +564,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_builder_beardog_endpoint_optional_valid() {
         let config = ConfigBuilder::new()
             .name("opt-test")
@@ -574,6 +576,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_builder_beardog_endpoint_optional_invalid_ignored() {
         let config = ConfigBuilder::new()
             .beardog_endpoint_optional(Some("not-a-url".into()))
@@ -583,6 +586,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_builder_beardog_endpoint_optional_none() {
         let config = ConfigBuilder::new()
             .beardog_endpoint_optional(None)

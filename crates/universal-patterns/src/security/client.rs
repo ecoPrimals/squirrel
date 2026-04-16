@@ -8,9 +8,8 @@
 
 use std::sync::Arc;
 
-use universal_constants::primal_names;
-
 use crate::config::SecurityConfig;
+use crate::security::providers::SECURITY_SERVICE_ID;
 use crate::traits::{AuthResult, Credentials, Principal};
 
 use super::context::{SecurityContext, SecurityHealth};
@@ -90,7 +89,7 @@ impl UniversalSecurityClient {
 
         // Convert SecurityConfig to SecurityServiceConfig for providers
         let service_config = SecurityServiceConfig {
-            service_id: format!("{}-security", primal_names::BEARDOG),
+            service_id: SECURITY_SERVICE_ID.to_string(),
             endpoint: config.security_endpoint.as_ref().map(|url| url.to_string()),
             timeout_seconds: Some(30),
             max_retries: Some(3),
@@ -394,10 +393,11 @@ mod tests {
         config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
-        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT [legacy] or SECURITY_SERVICE_PORT)
-        let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
-            universal_constants::deployment::endpoints::security_service_base()
-        });
+        let endpoint_str = std::env::var("SECURITY_ENDPOINT")
+            .or_else(|_| std::env::var("BEARDOG_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                universal_constants::deployment::endpoints::security_service_base()
+            });
         config.security_endpoint =
             Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
         config.fallback.enable_local_fallback = true;
@@ -413,10 +413,11 @@ mod tests {
         config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
-        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT [legacy] or SECURITY_SERVICE_PORT)
-        let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
-            universal_constants::deployment::endpoints::security_service_base()
-        });
+        let endpoint_str = std::env::var("SECURITY_ENDPOINT")
+            .or_else(|_| std::env::var("BEARDOG_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                universal_constants::deployment::endpoints::security_service_base()
+            });
         config.security_endpoint =
             Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
         config.fallback.enable_local_fallback = true;
@@ -434,10 +435,11 @@ mod tests {
         config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
-        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT [legacy] or SECURITY_SERVICE_PORT)
-        let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
-            universal_constants::deployment::endpoints::security_service_base()
-        });
+        let endpoint_str = std::env::var("SECURITY_ENDPOINT")
+            .or_else(|_| std::env::var("BEARDOG_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                universal_constants::deployment::endpoints::security_service_base()
+            });
         config.security_endpoint =
             Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
         config.fallback.enable_local_fallback = false;
@@ -466,10 +468,11 @@ mod tests {
         config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
-        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT [legacy] or SECURITY_SERVICE_PORT)
-        let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
-            universal_constants::deployment::endpoints::security_service_base()
-        });
+        let endpoint_str = std::env::var("SECURITY_ENDPOINT")
+            .or_else(|_| std::env::var("BEARDOG_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                universal_constants::deployment::endpoints::security_service_base()
+            });
         config.security_endpoint =
             Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
         config.fallback.enable_local_fallback = true;

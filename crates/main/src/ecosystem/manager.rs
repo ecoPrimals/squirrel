@@ -512,12 +512,8 @@ impl EcosystemManager {
             .or_else(|| credentials.get("username"))
             .cloned()
             .unwrap_or_else(|| "anonymous".to_string());
-        let session_id = format!(
-            "{}_session_{}",
-            universal_constants::primal_names::BEARDOG,
-            uuid::Uuid::new_v4()
-        );
-        tracing::info!("✅ BearDog authentication coordination complete");
+        let session_id = format!("security_session_{}", uuid::Uuid::new_v4());
+        tracing::info!("security provider authentication coordination complete");
         Ok(session_id)
     }
 
