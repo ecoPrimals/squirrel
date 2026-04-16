@@ -66,7 +66,10 @@ pub use errors::SecurityError;
 pub use traits::{SecurityProvider, UniversalSecurityProvider};
 
 // Public re-exports - Provider implementations
-#[allow(deprecated)]
+#[expect(
+    deprecated,
+    reason = "legacy Beardog* names re-exported for backward compatibility"
+)]
 pub use providers::{
     BeardogIntegration, BeardogSecurityProvider, LocalSecurityProvider, SecurityProviderFactory,
     SecurityProviderIntegration,

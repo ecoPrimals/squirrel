@@ -90,7 +90,10 @@ impl UniversalSecurityService for SecurityProviderIntegration {
     }
 
     fn get_service_info(&self) -> SecurityServiceInfo {
-        #[allow(deprecated)]
+        #[expect(
+            deprecated,
+            reason = "BEARDOG_SECURITY_SERVICE_ID compared for legacy service_id migration"
+        )]
         let is_primary = self.config.service_id == SECURITY_SERVICE_ID
             || self.config.service_id == BEARDOG_SECURITY_SERVICE_ID;
         let trust_level = if is_primary {

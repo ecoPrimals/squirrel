@@ -236,7 +236,6 @@ pub struct NeuralNetwork {
     pub biases: Vec<Vec<f64>>,
 
     /// Label for logging / future activation variants (`relu` used in [`Self::forward_scores`]).
-    #[allow(dead_code)] // Reserved for alternate activations; forward path uses ReLU
     pub activation: String,
 }
 

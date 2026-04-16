@@ -23,9 +23,15 @@ mod tests;
     not(test),
     expect(unused_imports, reason = "Test-only re-exports for providers/tests.rs")
 )]
-#[allow(deprecated)]
+#[expect(
+    deprecated,
+    reason = "legacy wire id constants re-exported for backward compatibility"
+)]
 pub use beardog::{BEARDOG_SECURITY_SERVICE_ID, SECURITY_PRIMARY_SERVICE_ID};
-#[allow(deprecated)]
+#[expect(
+    deprecated,
+    reason = "legacy type and factory aliases re-exported for backward compatibility"
+)]
 pub use beardog::{
     BeardogIntegration, BeardogSecurityProvider, SECURITY_SERVICE_ID, SecurityProviderFactory,
     SecurityProviderIntegration,

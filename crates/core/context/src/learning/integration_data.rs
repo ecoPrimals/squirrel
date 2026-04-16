@@ -27,7 +27,6 @@ pub struct ContextMonitoringResults {
     pub total_contexts: usize,
     /// Sessions whose state is not yet synchronized (may need intervention).
     pub contexts_needing_intervention: usize,
-    #[allow(dead_code)] // Carried for downstream telemetry correlation
     pub monitoring_timestamp: chrono::DateTime<chrono::Utc>,
 }
 
@@ -134,7 +133,6 @@ impl Default for IntegrationStats {
 
 /// References to integration components
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Held for wiring as integration phases land
 pub struct IntegrationRefs {
     pub context_manager: Option<Arc<ContextManager>>,
     pub rule_manager: Option<Arc<RuleManager>>,

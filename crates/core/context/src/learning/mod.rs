@@ -43,6 +43,7 @@ mod manager_types;
 mod metrics;
 mod policy;
 mod reward;
+mod reward_types;
 
 #[cfg(test)]
 mod test_helpers;
@@ -86,7 +87,14 @@ pub use integration::{LearningIntegration, LearningIntegrationConfig};
 pub use manager::{ContextLearningManager, ContextLearningManagerConfig};
 pub use metrics::{LearningMetrics, LearningPerformance, LearningStats};
 pub use policy::{PolicyAction, PolicyNetwork, PolicyState};
-pub use reward::{RewardBackend, RewardCalculator, RewardMetrics, RewardSystem};
+pub use reward::{
+    PerformanceRewardCalculator, RewardBackend, RewardCalculator, RewardSystem,
+    RuleEfficiencyRewardCalculator, SuccessRewardCalculator, SynchronizationRewardCalculator,
+};
+pub use reward_types::{
+    ErrorInfo, ErrorSeverity, PerformanceMetrics, PerformanceThresholds, RewardBreakdown,
+    RewardContext, RewardEntry, RewardMetrics, RuleResults,
+};
 
 /// Learning system configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

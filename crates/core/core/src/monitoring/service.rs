@@ -6,7 +6,7 @@
 use crate::{Error, HealthStatus, Result};
 use chrono::Utc;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use super::config::{MonitoringConfig, MonitoringServiceConfig};
 use super::fallback::FallbackLogger;
@@ -19,7 +19,7 @@ use super::types::{
 /// Main monitoring service that delegates to available providers
 #[derive(Clone)]
 pub struct MonitoringService {
-    providers: Arc<parking_lot::RwLock<Vec<Arc<MonitoringProviderImpl>>>>,
+    providers: Arc<RwLock<Vec<Arc<MonitoringProviderImpl>>>>,
     fallback_logger: Arc<FallbackLogger>,
     config: MonitoringConfig,
 }
@@ -31,7 +31,7 @@ impl MonitoringService {
         let fallback_logger = Arc::new(FallbackLogger::new(config.fallback_config.clone()));
 
         Self {
-            providers: Arc::new(parking_lot::RwLock::new(Vec::new())),
+            providers: Arc::new(RwLock::new(Vec::new())),
             fallback_logger,
             config,
         }
@@ -80,7 +80,11 @@ impl MonitoringService {
             }
         }
 
-        let provider_count = self.providers.read().len();
+        let provider_count = self
+            .providers
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .len();
 
         if provider_count == 0 {
             if self.config.require_provider {
@@ -101,13 +105,17 @@ impl MonitoringService {
 
     /// Add a monitoring provider
     pub fn add_provider(&self, provider: Arc<MonitoringProviderImpl>) {
-        self.providers.write().push(provider);
+        self.providers
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(provider);
     }
 
     /// Remove a monitoring provider
     pub fn remove_provider(&self, provider_name: &str) {
         self.providers
             .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .retain(|p| p.provider_name() != provider_name);
     }
 
@@ -117,7 +125,11 @@ impl MonitoringService {
     ///
     /// Returns [`Error`] if recording fails for all providers and fallback handling fails.
     pub async fn record_event(&self, event: MonitoringEvent) -> Result<()> {
-        let providers = self.providers.read().clone();
+        let providers = self
+            .providers
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
 
         if providers.is_empty() {
             self.fallback_logger.log_event(&event);
@@ -144,7 +156,11 @@ impl MonitoringService {
     ///
     /// Returns [`Error`] if recording fails for all providers and fallback handling fails.
     pub async fn record_metric(&self, metric: Metric) -> Result<()> {
-        let providers = self.providers.read().clone();
+        let providers = self
+            .providers
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
 
         if providers.is_empty() {
             self.fallback_logger.log_metric(&metric);
@@ -171,7 +187,11 @@ impl MonitoringService {
     ///
     /// Returns [`Error`] if recording fails for all providers and fallback handling fails.
     pub async fn record_health(&self, component: &str, health: HealthStatus) -> Result<()> {
-        let providers = self.providers.read().clone();
+        let providers = self
+            .providers
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
 
         if providers.is_empty() {
             self.fallback_logger.log_health(component, &health);
@@ -202,7 +222,13 @@ impl MonitoringService {
         component: &str,
         metrics: PerformanceMetrics,
     ) -> Result<()> {
-        let providers: Vec<_> = self.providers.read().iter().map(Arc::clone).collect();
+        let providers: Vec<_> = self
+            .providers
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .iter()
+            .map(Arc::clone)
+            .collect();
 
         if providers.is_empty() {
             self.fallback_logger.log_performance(component, &metrics);
@@ -231,6 +257,7 @@ impl MonitoringService {
     pub fn get_providers(&self) -> Vec<String> {
         self.providers
             .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .iter()
             .map(|p| p.provider_name().to_string())
             .collect()
@@ -238,7 +265,13 @@ impl MonitoringService {
 
     /// Get monitoring service status
     pub async fn get_status(&self) -> MonitoringStatus {
-        let providers: Vec<_> = self.providers.read().iter().map(Arc::clone).collect();
+        let providers: Vec<_> = self
+            .providers
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .iter()
+            .map(Arc::clone)
+            .collect();
         let mut provider_statuses = Vec::new();
 
         for provider in &providers {

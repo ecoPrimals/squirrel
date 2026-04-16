@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use dashmap::DashMap;
-use parking_lot::RwLock;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
+use super::service_types::{FederationState, capability_unavailable_federation};
 use super::types::{FederationConfig, FederationStats, ScalingPolicy};
 use crate::{
     Error, FederationLoadBalancer, FederationStatus, FederationTopology, InstanceStatus,
@@ -15,22 +15,6 @@ use crate::{
 use universal_constants::limits::DEFAULT_MAX_CONNECTIONS;
 use universal_constants::network::{DEFAULT_SQUIRREL_SERVER_PORT, get_service_port};
 use universal_constants::safe_cast::{f64_to_u64_clamped, usize_to_u32_saturating};
-
-/// Local federation code path requires a capability that must be discovered on another primal via IPC.
-fn capability_unavailable_federation(capability: &str, operation: &str) -> Error {
-    let hint = format!(
-        "This primal does not embed `{capability}`. Discover a peer that advertises it through the IPC capability registry (e.g. HTTP delegation to a network primal, often via `http.client`). Operation: {operation}"
-    );
-    tracing::warn!(
-        capability = %capability,
-        operation = %operation,
-        "Federation: capability not satisfied locally; use IPC discovery to find a provider"
-    );
-    Error::CapabilityUnavailable {
-        capability: capability.to_string(),
-        hint,
-    }
-}
 
 /// Federation service for managing distributed Squirrel MCP instances
 #[derive(Clone)]
@@ -49,16 +33,6 @@ pub struct FederationService {
     shutdown_notify: Arc<tokio::sync::Notify>,
     load_metrics: Arc<LoadMetrics>,
     scaling_policy: Arc<ScalingPolicy>,
-}
-
-#[derive(Debug)]
-struct FederationState {
-    status: RwLock<FederationStatus>,
-    federation_id: Arc<str>,
-    leader_node: RwLock<Option<Arc<str>>>,
-    last_scale_event: RwLock<Option<DateTime<Utc>>>,
-    total_capacity: RwLock<u32>,
-    current_utilization: RwLock<f64>,
 }
 
 impl FederationService {
@@ -136,7 +110,11 @@ impl FederationService {
             self.initialize_federation()?;
         } else {
             tracing::info!("Federation disabled, operating in standalone mode");
-            *self.state.status.write() = FederationStatus::Active;
+            *self
+                .state
+                .status
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = FederationStatus::Active;
         }
 
         // Start background tasks
@@ -148,7 +126,11 @@ impl FederationService {
 
     /// Initialize federation
     fn initialize_federation(&self) -> Result<()> {
-        *self.state.status.write() = FederationStatus::Forming;
+        *self
+            .state
+            .status
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = FederationStatus::Forming;
 
         // Try to discover existing federation nodes
         self.discover_federation_nodes();
@@ -156,8 +138,17 @@ impl FederationService {
         // Determine if we should be the leader or join existing federation
         if self.instances.is_empty() {
             // No other nodes found, we become the leader
-            *self.state.leader_node.write() = Some(Arc::from(self.config.node_id.as_str()));
-            *self.state.status.write() = FederationStatus::Active;
+            *self
+                .state
+                .leader_node
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                Some(Arc::from(self.config.node_id.as_str()));
+            *self
+                .state
+                .status
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = FederationStatus::Active;
             tracing::info!("No existing federation found, becoming leader node");
         } else {
             // Join existing federation
@@ -426,7 +417,11 @@ impl FederationService {
         let current_instances = usize_to_u32_saturating(self.instances.len());
 
         // Check cooldown periods
-        let last_scale_snapshot = *self.state.last_scale_event.read();
+        let last_scale_snapshot = *self
+            .state
+            .last_scale_event
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(last_scale) = last_scale_snapshot {
             let time_since_last_scale = Utc::now() - last_scale;
             if time_since_last_scale < self.scaling_policy.scale_up_cooldown {
@@ -501,7 +496,11 @@ impl FederationService {
             }
         }
 
-        *self.state.last_scale_event.write() = Some(Utc::now());
+        *self
+            .state
+            .last_scale_event
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(Utc::now());
         Ok(())
     }
 
@@ -530,7 +529,11 @@ impl FederationService {
             }
         }
 
-        *self.state.last_scale_event.write() = Some(Utc::now());
+        *self
+            .state
+            .last_scale_event
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(Utc::now());
     }
 
     /// Stop a specific instance
@@ -632,7 +635,10 @@ impl FederationService {
     /// **Phase 2**: Uses metrics from peers and `FederationTopology` to rebalance
     /// or reconfigure routing; no-op until mesh telemetry is available.
     fn optimize_topology(&self) {
-        let topology = *self.federation_topology.read();
+        let topology = *self
+            .federation_topology
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         tracing::trace!(
             ?topology,
             "optimize_topology: deferred to Phase 2 (topology-aware routing)"
@@ -689,7 +695,11 @@ impl FederationService {
 
     /// Write the current utilization gauge.
     pub(super) fn set_current_utilization(&self, value: f64) {
-        *self.state.current_utilization.write() = value;
+        *self
+            .state
+            .current_utilization
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = value;
     }
 
     /// Get federation statistics
@@ -699,15 +709,28 @@ impl FederationService {
         FederationStats {
             node_id: self.config.node_id.clone(),
             federation_id: (*self.state.federation_id).to_string(),
-            status: *self.state.status.read(),
+            status: *self
+                .state
+                .status
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
             local_instances: instance_count,
             federation_nodes: instance_count,
-            total_capacity: *self.state.total_capacity.read(),
-            current_utilization: *self.state.current_utilization.read(),
+            total_capacity: *self
+                .state
+                .total_capacity
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+            current_utilization: *self
+                .state
+                .current_utilization
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
             is_leader: self
                 .state
                 .leader_node
                 .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .as_deref()
                 .is_some_and(|leader| leader == self.config.node_id),
         }
@@ -748,7 +771,11 @@ impl FederationService {
     /// Leave the federation
     fn leave_federation(&self) {
         // Implementation would properly leave the federation
-        *self.state.status.write() = FederationStatus::Inactive;
+        *self
+            .state
+            .status
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = FederationStatus::Inactive;
     }
 }
 

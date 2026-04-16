@@ -704,7 +704,10 @@ async fn test_beardog_provider_get_capabilities() {
 
 #[tokio::test]
 async fn test_beardog_provider_get_service_info() {
-    #[allow(deprecated)]
+    #[expect(
+        deprecated,
+        reason = "test uses BEARDOG_SECURITY_SERVICE_ID legacy wire id"
+    )]
     let config = SecurityServiceConfig {
         service_id: BEARDOG_SECURITY_SERVICE_ID.to_string(),
         ..Default::default()

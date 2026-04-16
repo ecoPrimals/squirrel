@@ -2,9 +2,8 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Rule evaluator for evaluating rules against context
-use parking_lot;
 use regex::Regex;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tracing::warn;
 
 use serde_json::Value;
@@ -16,7 +15,7 @@ use super::models::{Rule, RuleCondition};
 #[derive(Debug)]
 pub struct RuleEvaluator {
     /// Regular expression cache
-    regex_cache: parking_lot::Mutex<std::collections::HashMap<String, Regex>>,
+    regex_cache: Mutex<std::collections::HashMap<String, Regex>>,
 }
 
 impl Default for RuleEvaluator {
@@ -29,7 +28,7 @@ impl RuleEvaluator {
     /// Create a new rule evaluator
     pub fn new() -> Self {
         Self {
-            regex_cache: parking_lot::Mutex::new(std::collections::HashMap::new()),
+            regex_cache: Mutex::new(std::collections::HashMap::new()),
         }
     }
 
@@ -154,7 +153,10 @@ impl RuleEvaluator {
     /// Match a string value against a pattern
     fn match_pattern(&self, value: &str, pattern: &str) -> Result<bool> {
         let regex = {
-            let mut cache = self.regex_cache.lock();
+            let mut cache = self
+                .regex_cache
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
 
             if !cache.contains_key(pattern) {
                 let regex = Regex::new(pattern).map_err(|e| {

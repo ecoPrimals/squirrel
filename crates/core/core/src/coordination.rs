@@ -6,9 +6,9 @@
 //! Used to broadcast phase changes (for example to monitoring or federation subsystems) when this
 //! primal moves between initialization, ready, degraded, and shutdown states.
 
-use parking_lot::RwLock;
 use std::fmt;
 use std::sync::Arc;
+use std::sync::RwLock;
 
 use crate::{Error, Result};
 
@@ -73,12 +73,18 @@ impl CoordinationService {
     /// Current lifecycle phase.
     #[must_use]
     pub fn current_phase(&self) -> PrimalLifecyclePhase {
-        *self.phase.read()
+        *self
+            .phase
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// Registers an observer. Observers are invoked in registration order.
     pub fn add_observer(&self, observer: Arc<dyn LifecycleObserver>) {
-        self.observers.write().push(observer);
+        self.observers
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(observer);
     }
 
     /// Attempts a validated transition. On success, notifies all observers.
@@ -87,7 +93,10 @@ impl CoordinationService {
     ///
     /// Returns [`Error::Coordination`] when `next` is not reachable from the current phase.
     pub fn transition_to(&self, next: PrimalLifecyclePhase) -> Result<()> {
-        let mut guard = self.phase.write();
+        let mut guard = self
+            .phase
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let previous = *guard;
         if previous == next {
             self.notify(previous, next);
@@ -107,7 +116,10 @@ impl CoordinationService {
     /// Force-set phase without validation (for example test hooks). Prefer [`Self::transition_to`]
     /// in production paths.
     pub fn set_phase_unchecked(&self, next: PrimalLifecyclePhase) {
-        let mut guard = self.phase.write();
+        let mut guard = self
+            .phase
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let previous = *guard;
         *guard = next;
         drop(guard);
@@ -115,7 +127,10 @@ impl CoordinationService {
     }
 
     fn notify(&self, previous: PrimalLifecyclePhase, current: PrimalLifecyclePhase) {
-        let observers = self.observers.read();
+        let observers = self
+            .observers
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         for o in observers.iter() {
             o.on_phase_changed(previous, current);
         }

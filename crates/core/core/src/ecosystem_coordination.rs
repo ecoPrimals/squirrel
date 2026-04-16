@@ -89,7 +89,11 @@ impl PrimalCoordinator for EcosystemService {
 
         // Update stats
         {
-            let mut stats = self.state.coordination_stats.write();
+            let mut stats = self
+                .state
+                .coordination_stats
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             stats.primals_discovered = count;
         }
 
@@ -103,7 +107,11 @@ impl PrimalCoordinator for EcosystemService {
 
         // Update coordination stats
         {
-            let mut stats = self.state.coordination_stats.write();
+            let mut stats = self
+                .state
+                .coordination_stats
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             stats.tasks_coordinated += 1;
             stats.last_coordination = Some(Utc::now());
         }
@@ -134,7 +142,11 @@ impl PrimalCoordinator for EcosystemService {
             Err(e) => {
                 // Update failure stats
                 {
-                    let mut stats = self.state.coordination_stats.write();
+                    let mut stats = self
+                        .state
+                        .coordination_stats
+                        .write()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
                     stats.coordination_failures += 1;
                 }
 

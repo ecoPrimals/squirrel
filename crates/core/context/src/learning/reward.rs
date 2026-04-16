@@ -7,19 +7,17 @@
 //! It calculates rewards based on context management outcomes, rule effectiveness,
 //! and overall system performance to guide reinforcement learning.
 
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, info};
 use uuid::Uuid;
 
-use super::{
-    LearningSystemConfig,
-    engine::{RLAction, RLState},
-};
+use super::LearningSystemConfig;
 use crate::error::Result;
+
+pub use super::reward_types::*;
 
 /// Reward system for calculating learning rewards
 #[derive(Debug)]
@@ -53,200 +51,6 @@ pub trait RewardCalculator: Send + Sync + std::fmt::Debug {
     fn weight(&self) -> f64;
 }
 
-/// Reward context information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RewardContext {
-    /// Action that was taken
-    pub action: RLAction,
-
-    /// Previous context state
-    pub previous_state: RLState,
-
-    /// Current context state
-    pub current_state: RLState,
-
-    /// Context performance metrics
-    pub performance_metrics: PerformanceMetrics,
-
-    /// Rule evaluation results
-    pub rule_results: Option<RuleResults>,
-
-    /// Error information
-    pub error_info: Option<ErrorInfo>,
-
-    /// Timestamp
-    pub timestamp: DateTime<Utc>,
-}
-
-/// Performance metrics for reward calculation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PerformanceMetrics {
-    /// Context synchronization status
-    pub sync_status: bool,
-
-    /// Context state version
-    pub version: u64,
-
-    /// Number of active contexts
-    pub active_contexts: usize,
-
-    /// Memory usage
-    pub memory_usage: f64,
-
-    /// Processing time
-    pub processing_time: f64,
-
-    /// Success rate
-    pub success_rate: f64,
-
-    /// Error rate
-    pub error_rate: f64,
-
-    /// Throughput
-    pub throughput: f64,
-}
-
-/// Rule evaluation results
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RuleResults {
-    /// Number of rules applied
-    pub rules_applied: usize,
-
-    /// Number of successful rule applications
-    pub successful_applications: usize,
-
-    /// Rule efficiency score
-    pub efficiency_score: f64,
-
-    /// Rules that failed
-    pub failed_rules: Vec<String>,
-
-    /// Rule execution time
-    pub execution_time: f64,
-}
-
-/// Error information for penalty calculation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ErrorInfo {
-    /// Error type
-    pub error_type: String,
-
-    /// Error severity
-    pub severity: ErrorSeverity,
-
-    /// Error message
-    pub message: String,
-
-    /// Recovery possible
-    pub recoverable: bool,
-
-    /// Impact on system
-    pub impact: f64,
-}
-
-/// Error severity levels
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ErrorSeverity {
-    /// Low severity
-    Low,
-    /// Medium severity
-    Medium,
-    /// High severity
-    High,
-    /// Critical severity
-    Critical,
-}
-
-/// Reward entry for tracking
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RewardEntry {
-    /// Entry ID
-    pub id: String,
-
-    /// Context ID
-    pub context_id: String,
-
-    /// Action ID
-    pub action_id: String,
-
-    /// Calculated reward
-    pub reward: f64,
-
-    /// Reward breakdown
-    pub breakdown: RewardBreakdown,
-
-    /// Timestamp
-    pub timestamp: DateTime<Utc>,
-}
-
-/// Reward breakdown by component
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RewardBreakdown {
-    /// Base reward
-    pub base_reward: f64,
-
-    /// Performance bonus
-    pub performance_bonus: f64,
-
-    /// Efficiency bonus
-    pub efficiency_bonus: f64,
-
-    /// Synchronization bonus
-    pub sync_bonus: f64,
-
-    /// Error penalty
-    pub error_penalty: f64,
-
-    /// Time penalty
-    pub time_penalty: f64,
-
-    /// Final reward
-    pub final_reward: f64,
-}
-
-/// Reward metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RewardMetrics {
-    /// Total rewards calculated
-    pub total_rewards: usize,
-
-    /// Average reward
-    pub average_reward: f64,
-
-    /// Maximum reward
-    pub max_reward: f64,
-
-    /// Minimum reward
-    pub min_reward: f64,
-
-    /// Positive rewards
-    pub positive_rewards: usize,
-
-    /// Negative rewards
-    pub negative_rewards: usize,
-
-    /// Reward variance
-    pub reward_variance: f64,
-
-    /// Last calculation time
-    pub last_calculation: DateTime<Utc>,
-}
-
-impl Default for RewardMetrics {
-    fn default() -> Self {
-        Self {
-            total_rewards: 0,
-            average_reward: 0.0,
-            max_reward: f64::NEG_INFINITY,
-            min_reward: f64::INFINITY,
-            positive_rewards: 0,
-            negative_rewards: 0,
-            reward_variance: 0.0,
-            last_calculation: Utc::now(),
-        }
-    }
-}
-
 /// Success reward calculator
 #[derive(Debug)]
 pub struct SuccessRewardCalculator {
@@ -264,6 +68,7 @@ pub struct SuccessRewardCalculator {
 }
 
 impl SuccessRewardCalculator {
+    /// Creates a success/failure reward calculator with the given values.
     pub fn new(success_reward: f64, failure_penalty: f64) -> Self {
         Self {
             name: "success".to_string(),
@@ -307,34 +112,8 @@ pub struct PerformanceRewardCalculator {
     thresholds: PerformanceThresholds,
 }
 
-/// Performance thresholds for reward calculation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PerformanceThresholds {
-    /// Minimum success rate for bonus
-    pub min_success_rate: f64,
-
-    /// Maximum processing time for bonus
-    pub max_processing_time: f64,
-
-    /// Minimum throughput for bonus
-    pub min_throughput: f64,
-
-    /// Maximum error rate for bonus
-    pub max_error_rate: f64,
-}
-
-impl Default for PerformanceThresholds {
-    fn default() -> Self {
-        Self {
-            min_success_rate: 0.8,
-            max_processing_time: 1.0,
-            min_throughput: 10.0,
-            max_error_rate: 0.1,
-        }
-    }
-}
-
 impl PerformanceRewardCalculator {
+    /// Creates a performance calculator using the given thresholds.
     pub fn new(thresholds: PerformanceThresholds) -> Self {
         Self {
             name: "performance".to_string(),
@@ -395,6 +174,7 @@ pub struct RuleEfficiencyRewardCalculator {
 }
 
 impl RuleEfficiencyRewardCalculator {
+    /// Creates a rule-efficiency calculator with the given bonus multiplier.
     pub fn new(efficiency_bonus: f64) -> Self {
         Self {
             name: "rule_efficiency".to_string(),
@@ -445,6 +225,7 @@ pub struct SynchronizationRewardCalculator {
 }
 
 impl SynchronizationRewardCalculator {
+    /// Creates a synchronization calculator with the given bonus when sync succeeds.
     pub fn new(sync_bonus: f64) -> Self {
         Self {
             name: "synchronization".to_string(),

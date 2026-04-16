@@ -71,7 +71,6 @@ async-recursion = "1.0"
 bytes = { version = "1.5", features = ["serde"] }
 regex = "1.10"
 serde_yaml_ng = "0.10"
-parking_lot = "0.12"
 dashmap = "5.5"
 semver = "1.0"
 

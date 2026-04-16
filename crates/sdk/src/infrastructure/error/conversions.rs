@@ -291,10 +291,6 @@ impl From<anyhow::Error> for PluginError {
 }
 
 #[cfg(test)]
-#[expect(
-    clippy::expect_used,
-    reason = "Tests use expect on mutex guards and Result paths"
-)]
 mod tests {
     use super::*;
     use crate::infrastructure::error::context::ErrorContext;
@@ -613,7 +609,7 @@ mod tests {
     fn test_from_poison_errors() {
         let m = std::sync::Mutex::new(());
         let _ = std::panic::catch_unwind(|| {
-            let _g = m.lock().expect("lock poisoned");
+            let _g = m.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             std::panic::resume_unwind(Box::new("intentional mutex poison for test"));
         });
         let err: PluginError = m.lock().unwrap_err().into();
@@ -621,7 +617,9 @@ mod tests {
 
         let rw = std::sync::RwLock::new(());
         let _ = std::panic::catch_unwind(|| {
-            let _g = rw.write().expect("lock poisoned");
+            let _g = rw
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             std::panic::resume_unwind(Box::new("intentional rwlock poison for test"));
         });
         let err_r: PluginError = rw.read().unwrap_err().into();

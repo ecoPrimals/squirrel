@@ -8,6 +8,7 @@
 
 mod service;
 mod service_swarm;
+mod service_types;
 mod types;
 
 pub use service::FederationService;

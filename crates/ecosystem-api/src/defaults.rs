@@ -71,14 +71,16 @@ impl DefaultEndpoints {
     ///
     /// Multi-tier resolution (primal-agnostic first, legacy fallback):
     /// 1. `COMPUTE_SERVICE_ENDPOINT` (full endpoint — preferred)
-    /// 2. `TOADSTOOL_ENDPOINT` (legacy alias — deprecated)
-    /// 3. `COMPUTE_PORT` / `TOADSTOOL_PORT` (port override)
-    /// 4. Default: `universal_constants::network::get_service_port("http")`
+    /// 2. `COMPUTE_ENDPOINT` (capability-based full URL)
+    /// 3. `TOADSTOOL_ENDPOINT` (legacy alias — deprecated)
+    /// 4. `COMPUTE_PORT` / `TOADSTOOL_PORT` (port override)
+    /// 5. Default: `universal_constants::network::get_service_port("http")`
     #[must_use]
     pub fn compute_endpoint() -> String {
         env::var("COMPUTE_SERVICE_ENDPOINT")
+            .or_else(|_| env::var("COMPUTE_ENDPOINT"))
             .or_else(|_| {
-                // Legacy env var — prefer COMPUTE_SERVICE_ENDPOINT
+                // Legacy env var — prefer COMPUTE_SERVICE_ENDPOINT / COMPUTE_ENDPOINT
                 env::var("TOADSTOOL_ENDPOINT")
             })
             .unwrap_or_else(|_| {
@@ -308,6 +310,7 @@ mod tests {
         "SONGBIRD_ENDPOINT",
         "SONGBIRD_PORT",
         "COMPUTE_SERVICE_ENDPOINT",
+        "COMPUTE_ENDPOINT",
         "COMPUTE_SERVICE_PORT",
         "TOADSTOOL_ENDPOINT",
         "TOADSTOOL_PORT",

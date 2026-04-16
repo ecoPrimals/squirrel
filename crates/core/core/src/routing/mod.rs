@@ -51,8 +51,8 @@ pub use context::{
 
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
-use parking_lot::RwLock;
 use std::sync::Arc;
+use std::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
 use crate::{
@@ -247,7 +247,11 @@ impl McpRoutingService {
 
         // Increment active tasks
         {
-            let mut active_tasks = self.state.active_tasks.write();
+            let mut active_tasks = self
+                .state
+                .active_tasks
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             *active_tasks += 1;
         }
 
@@ -258,25 +262,41 @@ impl McpRoutingService {
         let duration = start_time.elapsed();
         match result {
             Ok(_) => {
-                let mut completed_tasks = self.state.completed_tasks.write();
+                let mut completed_tasks = self
+                    .state
+                    .completed_tasks
+                    .write()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
                 *completed_tasks += 1;
             }
             Err(e) => {
                 error!("Task {} failed: {}", task_id, e);
-                let mut failed_tasks = self.state.failed_tasks.write();
+                let mut failed_tasks = self
+                    .state
+                    .failed_tasks
+                    .write()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
                 *failed_tasks += 1;
             }
         }
 
         // Update response time
         {
-            let mut avg_response_time = self.state.average_response_time.write();
+            let mut avg_response_time = self
+                .state
+                .average_response_time
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             *avg_response_time = (*avg_response_time).mul_add(0.9, duration.as_secs_f64() * 0.1);
         }
 
         // Decrement active tasks
         {
-            let mut active_tasks = self.state.active_tasks.write();
+            let mut active_tasks = self
+                .state
+                .active_tasks
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             *active_tasks = active_tasks.saturating_sub(1);
         }
 
@@ -342,7 +362,11 @@ impl McpRoutingService {
 
         loop {
             // Check if scaling is needed
-            let active_tasks = *self.state.active_tasks.read();
+            let active_tasks = *self
+                .state
+                .active_tasks
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             let max_tasks = self.config.max_concurrent_tasks as u64;
 
             if active_tasks > (max_tasks * 80 / 100) {
@@ -352,7 +376,11 @@ impl McpRoutingService {
                 );
 
                 // Update last scale event
-                let mut last_scale_event = self.state.last_scale_event.write();
+                let mut last_scale_event = self
+                    .state
+                    .last_scale_event
+                    .write()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
                 *last_scale_event = Some(Utc::now());
             }
 
@@ -396,10 +424,22 @@ impl McpRoutingService {
         let state = &self.state;
         RoutingStats {
             node_id: state.node_id.clone(),
-            active_tasks: *state.active_tasks.read(),
-            completed_tasks: *state.completed_tasks.read(),
-            failed_tasks: *state.failed_tasks.read(),
-            average_response_time: *state.average_response_time.read(),
+            active_tasks: *state
+                .active_tasks
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+            completed_tasks: *state
+                .completed_tasks
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+            failed_tasks: *state
+                .failed_tasks
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+            average_response_time: *state
+                .average_response_time
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
             registered_agents: u32::try_from(self.agent_registry.get_all_agents().len())
                 .unwrap_or(u32::MAX),
             queued_tasks: self.task_queue.len() as u64,

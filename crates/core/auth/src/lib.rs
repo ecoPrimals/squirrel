@@ -117,7 +117,7 @@ pub use security_provider_client::{SecurityProviderClient, SecurityProviderClien
 
 // Primal-named aliases: still public for migration; deprecation applies to downstream callers.
 #[cfg(feature = "delegated-jwt")]
-#[allow(
+#[expect(
     deprecated,
     reason = "Intentional re-export of deprecated type aliases for backward compatibility"
 )]
@@ -141,7 +141,7 @@ pub mod deprecated_primal_named_auth {
 }
 
 #[cfg(feature = "delegated-jwt")]
-#[allow(
+#[expect(
     deprecated,
     reason = "Crate-root re-exports of deprecated aliases for downstream migration"
 )]

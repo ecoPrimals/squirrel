@@ -10,9 +10,13 @@
 //! ## Migration Path
 //!
 //! ```rust,ignore
-//! // ❌ OLD (deprecated)
+//! // ❌ OLD (deprecated type alias)
 //! use ecosystem_api::client::SongbirdClient;
 //! let client = SongbirdClient::new("http://localhost:9090", None, Default::default())?;
+//!
+//! // ✅ Preferred concrete client name
+//! use ecosystem_api::client::ServiceMeshClient;
+//! let client = ServiceMeshClient::new("http://localhost:9090", None, Default::default())?;
 //!
 //! // ✅ NEW (capability-based)
 //! use squirrel::universal_adapter_v2::UniversalAdapterV2;
@@ -25,7 +29,8 @@ use crate::client_types::{
     ServiceRegistrationResponse, ServiceResponse,
 };
 use crate::error::{EcosystemError, UniversalError, UniversalResult};
-use crate::traits::{RetryConfig, ServiceInfo, ServiceMeshClient, ServiceQuery};
+use crate::traits::{RetryConfig, ServiceInfo, ServiceQuery};
+use crate::traits::ServiceMeshClient as ServiceMeshClientTrait;
 use crate::types::{EcosystemServiceRegistration, HealthStatus, PrimalType, ServiceMeshStatus};
 use reqwest::{Client, RequestBuilder};
 // Removed unused serde imports
@@ -33,17 +38,10 @@ use std::collections::HashMap;
 use std::time::Duration;
 use tokio::time::sleep;
 
-/// Songbird service mesh client
+/// HTTP client for the ecosystem service mesh (registration, discovery, health).
 ///
-/// **DEPRECATED**: Use `UniversalAdapterV2` for capability-based discovery instead.
-///
-/// This client hardcodes the assumption that Songbird is the service mesh provider.
-/// In the new architecture, service mesh is discovered dynamically at runtime.
-#[deprecated(
-    since = "0.2.0",
-    note = "Use UniversalAdapterV2::connect_capability(\"service_mesh\") instead"
-)]
-pub struct SongbirdClient {
+/// Prefer capability discovery via the workspace `UniversalAdapterV2` instead of hardcoded mesh URLs in new code.
+pub struct ServiceMeshClient {
     client: Client,
     base_url: String,
     auth_token: Option<String>,
@@ -51,13 +49,15 @@ pub struct SongbirdClient {
     timeout: Duration,
 }
 
-// Backward compatibility: kept for deserialization of legacy data / existing consumers
-#[expect(
-    deprecated,
-    reason = "backward compat: SongbirdClient for legacy consumers"
+/// Deprecated alias for [`ServiceMeshClient`] (legacy “Songbird” naming).
+#[deprecated(
+    since = "0.2.0",
+    note = "Renamed to ServiceMeshClient; use UniversalAdapterV2::connect_capability(\"service_mesh\") for discovery"
 )]
-impl SongbirdClient {
-    /// Create a new Songbird client.
+pub type SongbirdClient = ServiceMeshClient;
+
+impl ServiceMeshClient {
+    /// Create a new service mesh HTTP client.
     ///
     /// # Errors
     ///
@@ -177,12 +177,7 @@ impl SongbirdClient {
     }
 }
 
-// Backward compatibility: kept for deserialization of legacy data / existing consumers
-#[expect(
-    deprecated,
-    reason = "backward compat: SongbirdClient ServiceMeshClient impl"
-)]
-impl ServiceMeshClient for SongbirdClient {
+impl ServiceMeshClientTrait for ServiceMeshClient {
     async fn register_service(
         &self,
         _endpoint: &str,
@@ -324,26 +319,26 @@ impl ServiceMeshClientFactory {
         base_url: String,
         auth_token: Option<String>,
         retry_config: RetryConfig,
-    ) -> Result<impl ServiceMeshClient, EcosystemError> {
-        SongbirdClient::new(base_url, auth_token, retry_config)
+    ) -> Result<impl ServiceMeshClientTrait, EcosystemError> {
+        ServiceMeshClient::new(base_url, auth_token, retry_config)
     }
 
     /// Create a mock client for testing.
     #[cfg(test)]
     #[must_use]
-    pub fn create_mock_client() -> impl ServiceMeshClient {
+    pub fn create_mock_client() -> impl ServiceMeshClientTrait {
         MockServiceMeshClient::new()
     }
 }
 
 /// Health monitor for tracking service health
-pub struct HealthMonitor<C: ServiceMeshClient + Send + Sync> {
+pub struct HealthMonitor<C: ServiceMeshClientTrait + Send + Sync> {
     client: C,
     service_id: String,
     interval: Duration,
 }
 
-impl<C: ServiceMeshClient + Send + Sync> HealthMonitor<C> {
+impl<C: ServiceMeshClientTrait + Send + Sync> HealthMonitor<C> {
     /// Create a new health monitor
     #[must_use]
     pub const fn new(client: C, service_id: String, interval: Duration) -> Self {
@@ -394,11 +389,11 @@ impl<C: ServiceMeshClient + Send + Sync> HealthMonitor<C> {
 }
 
 /// Service discovery helper
-pub struct ServiceDiscovery<C: ServiceMeshClient + Send + Sync> {
+pub struct ServiceDiscovery<C: ServiceMeshClientTrait + Send + Sync> {
     client: C,
 }
 
-impl<C: ServiceMeshClient + Send + Sync> ServiceDiscovery<C> {
+impl<C: ServiceMeshClientTrait + Send + Sync> ServiceDiscovery<C> {
     /// Create a new service discovery helper
     #[must_use]
     pub const fn new(client: C) -> Self {
@@ -524,7 +519,7 @@ mod tests {
 #[cfg(test)]
 mod discovery_health_tests {
     use super::*;
-    use crate::traits::{ServiceInfo, ServiceMeshClient};
+    use crate::traits::{ServiceInfo, ServiceMeshClient as ServiceMeshClientTrait};
     use crate::types::{HealthStatus, PrimalType};
     use std::collections::HashMap;
     use std::time::Duration;
@@ -643,7 +638,7 @@ mod discovery_health_tests {
             sample_service("beat", PrimalType::Squirrel, &[]),
         )
         .await;
-        ServiceMeshClient::heartbeat(&mock, "beat")
+        ServiceMeshClientTrait::heartbeat(&mock, "beat")
             .await
             .expect("should succeed");
         let all = mock.get_all_services().await;

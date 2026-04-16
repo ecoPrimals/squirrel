@@ -8,9 +8,9 @@
 
 use crate::{AgentSpec, Error, Result};
 use chrono::{DateTime, Utc};
-use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::RwLock;
 use tracing::{info, warn};
 
 /// Health status of a registered agent
@@ -105,7 +105,12 @@ impl RegisteredAgent {
     /// Get current load as a percentage of max capacity
     #[must_use]
     pub fn load_percentage(&self) -> f64 {
-        let current_load = f64::from(*self.current_load.read());
+        let current_load = f64::from(
+            *self
+                .current_load
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        );
         let max_capacity = f64::from(self.max_concurrent_tasks);
         if max_capacity > 0.0 {
             (current_load / max_capacity) * 100.0
@@ -117,8 +122,14 @@ impl RegisteredAgent {
     /// Check if the agent is available for new tasks
     #[must_use]
     pub fn is_available(&self) -> bool {
-        let health_status = self.health_status.read();
-        let current_load = *self.current_load.read();
+        let health_status = self
+            .health_status
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let current_load = *self
+            .current_load
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         matches!(
             *health_status,
@@ -129,19 +140,28 @@ impl RegisteredAgent {
     /// Check if the agent is healthy
     #[must_use]
     pub fn is_healthy(&self) -> bool {
-        let health_status = self.health_status.read();
+        let health_status = self
+            .health_status
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         matches!(*health_status, AgentHealthStatus::Healthy)
     }
 
     /// Increment current load
     pub fn increment_load(&self) {
-        let mut current_load = self.current_load.write();
+        let mut current_load = self
+            .current_load
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         *current_load += 1;
     }
 
     /// Decrement current load
     pub fn decrement_load(&self) {
-        let mut current_load = self.current_load.write();
+        let mut current_load = self
+            .current_load
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if *current_load > 0 {
             *current_load -= 1;
         }
@@ -149,27 +169,39 @@ impl RegisteredAgent {
 
     /// Update average response time
     pub fn update_response_time(&self, response_time_ms: f64) {
-        let mut avg_response_time = self.average_response_time.write();
+        let mut avg_response_time = self
+            .average_response_time
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Simple moving average with weight 0.1 for new values
         *avg_response_time = (*avg_response_time).mul_add(0.9, response_time_ms * 0.1);
     }
 
     /// Update health status
     pub fn update_health_status(&self, status: AgentHealthStatus) {
-        let mut health_status = self.health_status.write();
+        let mut health_status = self
+            .health_status
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         *health_status = status;
     }
 
     /// Update last seen timestamp
     pub fn update_last_seen(&self) {
-        let mut last_seen = self.last_seen.write();
+        let mut last_seen = self
+            .last_seen
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         *last_seen = Utc::now();
     }
 
     /// Get time since last seen
     #[must_use]
     pub fn time_since_last_seen(&self) -> chrono::Duration {
-        let last_seen = *self.last_seen.read();
+        let last_seen = *self
+            .last_seen
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         Utc::now() - last_seen
     }
 
@@ -181,11 +213,24 @@ impl RegisteredAgent {
             endpoint: self.endpoint.clone(),
             capabilities: self.capabilities.clone(),
             max_concurrent_tasks: self.max_concurrent_tasks,
-            current_load: *self.current_load.read(),
+            current_load: *self
+                .current_load
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
             load_percentage: self.load_percentage(),
-            average_response_time: *self.average_response_time.read(),
-            health_status: self.health_status.read().clone(),
-            last_seen: *self.last_seen.read(),
+            average_response_time: *self
+                .average_response_time
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+            health_status: self
+                .health_status
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clone(),
+            last_seen: *self
+                .last_seen
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
             time_since_last_seen: self.time_since_last_seen(),
             is_available: self.is_available(),
         }
@@ -240,7 +285,10 @@ impl AgentRegistry {
         let capability_count = agent.capabilities.len();
 
         {
-            let mut agents = self.agents.write();
+            let mut agents = self
+                .agents
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             agents.insert(agent_id.clone(), agent);
         }
 
@@ -257,7 +305,10 @@ impl AgentRegistry {
     ///
     /// Returns [`Error`] if the agent is not found.
     pub fn unregister_agent(&self, agent_id: &str) -> Result<()> {
-        let mut agents = self.agents.write();
+        let mut agents = self
+            .agents
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if agents.remove(agent_id).is_some() {
             info!("Unregistered agent '{}'", agent_id);
             Ok(())
@@ -269,14 +320,20 @@ impl AgentRegistry {
     /// Get an agent by ID
     #[must_use]
     pub fn get_agent(&self, agent_id: &str) -> Option<RegisteredAgent> {
-        let agents = self.agents.read();
+        let agents = self
+            .agents
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         agents.get(agent_id).cloned()
     }
 
     /// Get all registered agents
     #[must_use]
     pub fn get_all_agents(&self) -> Vec<RegisteredAgent> {
-        let agents = self.agents.read();
+        let agents = self
+            .agents
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         agents.values().cloned().collect()
     }
 
@@ -286,7 +343,10 @@ impl AgentRegistry {
         &self,
         required_capabilities: &[String],
     ) -> Vec<RegisteredAgent> {
-        let agents = self.agents.read();
+        let agents = self
+            .agents
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         agents
             .values()
             .filter(|agent| agent.has_all_capabilities(required_capabilities))
@@ -297,7 +357,10 @@ impl AgentRegistry {
     /// Get available agents (healthy and not at capacity)
     #[must_use]
     pub fn get_available_agents(&self) -> Vec<RegisteredAgent> {
-        let agents = self.agents.read();
+        let agents = self
+            .agents
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         agents
             .values()
             .filter(|agent| agent.is_available())
@@ -308,7 +371,10 @@ impl AgentRegistry {
     /// Get healthy agents
     #[must_use]
     pub fn get_healthy_agents(&self) -> Vec<RegisteredAgent> {
-        let agents = self.agents.read();
+        let agents = self
+            .agents
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         agents
             .values()
             .filter(|agent| agent.is_healthy())
@@ -323,7 +389,10 @@ impl AgentRegistry {
     /// Returns [`Error`] if the agent is not found.
     pub fn update_agent_health(&self, agent_id: &str, status: AgentHealthStatus) -> Result<()> {
         let agent = {
-            let agents = self.agents.read();
+            let agents = self
+                .agents
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             agents.get(agent_id).cloned()
         };
         agent.map_or_else(
@@ -343,7 +412,10 @@ impl AgentRegistry {
     /// Returns [`Error`] if the agent is not found.
     pub fn update_agent_response_time(&self, agent_id: &str, response_time_ms: f64) -> Result<()> {
         let agent = {
-            let agents = self.agents.read();
+            let agents = self
+                .agents
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             agents.get(agent_id).cloned()
         };
         agent.map_or_else(
@@ -363,7 +435,10 @@ impl AgentRegistry {
     /// Returns [`Error`] if the agent is not found.
     pub fn increment_agent_load(&self, agent_id: &str) -> Result<()> {
         let agent = {
-            let agents = self.agents.read();
+            let agents = self
+                .agents
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             agents.get(agent_id).cloned()
         };
         agent.map_or_else(
@@ -382,7 +457,10 @@ impl AgentRegistry {
     /// Returns [`Error`] if the agent is not found.
     pub fn decrement_agent_load(&self, agent_id: &str) -> Result<()> {
         let agent = {
-            let agents = self.agents.read();
+            let agents = self
+                .agents
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             agents.get(agent_id).cloned()
         };
         agent.map_or_else(
@@ -397,7 +475,10 @@ impl AgentRegistry {
     /// Get agent summaries
     pub fn get_agent_summaries(&self) -> Vec<AgentSummary> {
         let agents: Vec<RegisteredAgent> = {
-            let guard = self.agents.read();
+            let guard = self
+                .agents
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             guard.values().cloned().collect()
         };
         agents.iter().map(RegisteredAgent::get_summary).collect()
@@ -407,14 +488,24 @@ impl AgentRegistry {
     #[must_use]
     pub fn get_statistics(&self) -> AgentRegistryStats {
         let agents: Vec<RegisteredAgent> = {
-            let guard = self.agents.read();
+            let guard = self
+                .agents
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             guard.values().cloned().collect()
         };
         let total_agents = agents.len();
         let healthy_agents = agents.iter().filter(|a| a.is_healthy()).count();
         let available_agents = agents.iter().filter(|a| a.is_available()).count();
         let total_capacity = agents.iter().map(|a| a.max_concurrent_tasks).sum::<u32>();
-        let current_load = agents.iter().map(|a| *a.current_load.read()).sum::<u32>();
+        let current_load = agents
+            .iter()
+            .map(|a| {
+                *a.current_load
+                    .read()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+            })
+            .sum::<u32>();
 
         AgentRegistryStats {
             total_agents,
@@ -434,11 +525,17 @@ impl AgentRegistry {
     pub fn cleanup_stale_agents(&self, max_age: chrono::Duration) -> Vec<String> {
         let cutoff_time = Utc::now() - max_age;
         let stale_ids: Vec<String> = {
-            let agents = self.agents.read();
+            let agents = self
+                .agents
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             agents
                 .iter()
                 .filter_map(|(id, agent)| {
-                    let last_seen = *agent.last_seen.read();
+                    let last_seen = *agent
+                        .last_seen
+                        .read()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
                     (last_seen < cutoff_time).then_some(id.clone())
                 })
                 .collect()
@@ -446,7 +543,10 @@ impl AgentRegistry {
 
         let mut removed_agents = Vec::new();
         {
-            let mut agents = self.agents.write();
+            let mut agents = self
+                .agents
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             for id in stale_ids {
                 if agents.remove(&id).is_some() {
                     removed_agents.push(id);
@@ -592,16 +692,34 @@ mod tests {
         assert!(agent.is_available());
         assert!(agent.is_healthy());
         agent.increment_load();
-        assert_eq!(*agent.current_load.read(), 1);
+        assert_eq!(
+            *agent
+                .current_load
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+            1
+        );
         assert!(agent.load_percentage() > 0.0);
         agent.update_response_time(100.0);
-        assert!(*agent.average_response_time.read() > 0.0);
+        assert!(
+            *agent
+                .average_response_time
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                > 0.0
+        );
         agent.update_health_status(AgentHealthStatus::Unhealthy);
         assert!(!agent.is_healthy());
         assert!(!agent.is_available());
         agent.decrement_load();
         agent.decrement_load();
-        assert_eq!(*agent.current_load.read(), 0);
+        assert_eq!(
+            *agent
+                .current_load
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+            0
+        );
         let s = agent.get_summary();
         assert_eq!(s.id, "ag-1");
         assert!(!s.is_available);

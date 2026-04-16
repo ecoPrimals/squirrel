@@ -34,9 +34,12 @@ pub use super::integration_data::{
     IntegrationStats, IntegrationStatus, LearningIntegrationConfig,
 };
 
-#[allow(
-    unused_imports,
-    reason = "public re-export consumed by sibling test modules"
+#[cfg_attr(
+    not(test),
+    expect(
+        unused_imports,
+        reason = "public re-export consumed by sibling test modules"
+    )
 )]
 pub use super::integration_data::TriggerThresholds;
 

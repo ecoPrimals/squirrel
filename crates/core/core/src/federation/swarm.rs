@@ -76,7 +76,7 @@ impl SwarmManager for FederationService {
 
         // Calculate load balancing decision
         let current_utilization = self.calculate_overall_utilization();
-        *self.state.current_utilization.write() = current_utilization;
+        *self.state.current_utilization.write().unwrap_or_else(std::sync::PoisonError::into_inner) = current_utilization;
 
         // Determine load balancing action
         let _action = if current_utilization > 0.8 {

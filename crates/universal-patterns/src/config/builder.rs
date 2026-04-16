@@ -564,7 +564,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
+    #[expect(
+        deprecated,
+        reason = "tests exercise beardog_endpoint_optional legacy alias"
+    )]
     fn test_builder_beardog_endpoint_optional_valid() {
         let config = ConfigBuilder::new()
             .name("opt-test")
@@ -576,7 +579,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
+    #[expect(
+        deprecated,
+        reason = "tests exercise beardog_endpoint_optional legacy alias"
+    )]
     fn test_builder_beardog_endpoint_optional_invalid_ignored() {
         let config = ConfigBuilder::new()
             .beardog_endpoint_optional(Some("not-a-url".into()))
@@ -586,7 +592,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
+    #[expect(
+        deprecated,
+        reason = "tests exercise beardog_endpoint_optional legacy alias"
+    )]
     fn test_builder_beardog_endpoint_optional_none() {
         let config = ConfigBuilder::new()
             .beardog_endpoint_optional(None)

@@ -114,9 +114,9 @@ impl Default for UniversalPrimalConfig {
             timeouts: TimeoutConfig::default(),
             monitoring: MonitoringConfig::default(),
             squirrel: None,
-            beardog: None,
-            nestgate: None,
-            toadstool: None,
+            security_provider: None,
+            content_storage: None,
+            compute_provider: None,
         }
     }
 }

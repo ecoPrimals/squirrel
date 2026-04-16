@@ -10,9 +10,9 @@ use super::agent::RegisteredAgent;
 use super::config::LoadBalancingStrategy;
 use crate::{Error, Result};
 use chrono::{DateTime, Utc};
-use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::RwLock;
 use tokio::sync::Semaphore;
 use tracing::{debug, info};
 
@@ -99,7 +99,10 @@ impl LoadBalancer {
             return Err(Error::NoAgentAvailable);
         }
         let index = {
-            let mut counter = self.round_robin_counter.write();
+            let mut counter = self
+                .round_robin_counter
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             let index = *counter % agents.len();
             *counter = (*counter + 1) % agents.len();
             index
@@ -113,7 +116,10 @@ impl LoadBalancer {
         let mut min_load = u32::MAX;
 
         for agent in agents {
-            let current_load = *agent.current_load.read();
+            let current_load = *agent
+                .current_load
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             if current_load < min_load {
                 min_load = current_load;
                 best_agent = Some(agent);
@@ -125,7 +131,11 @@ impl LoadBalancer {
 
     /// Select agent using weighted round-robin
     fn select_weighted_round_robin(&self, agents: &[RegisteredAgent]) -> Result<RegisteredAgent> {
-        let weights_snapshot: HashMap<String, f64> = self.weights.read().clone();
+        let weights_snapshot: HashMap<String, f64> = self
+            .weights
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
         let mut total_weight = 0.0;
         let mut weighted_agents = Vec::new();
 
@@ -152,7 +162,10 @@ impl LoadBalancer {
             .max(1);
 
         let target = {
-            let mut counter = self.round_robin_counter.write();
+            let mut counter = self
+                .round_robin_counter
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             let c_mod = *counter % step_mod;
             #[expect(
                 clippy::cast_precision_loss,
@@ -180,7 +193,10 @@ impl LoadBalancer {
         let mut min_response_time = f64::MAX;
 
         for agent in agents {
-            let avg_response_time = *agent.average_response_time.read();
+            let avg_response_time = *agent
+                .average_response_time
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             if avg_response_time < min_response_time {
                 min_response_time = avg_response_time;
                 best_agent = Some(agent);
@@ -210,7 +226,11 @@ impl LoadBalancer {
 
     /// Select agent using adaptive strategy
     fn select_adaptive(&self, agents: &[RegisteredAgent]) -> Result<RegisteredAgent> {
-        let performance_history = self.performance_history.read().clone();
+        let performance_history = self
+            .performance_history
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
         let mut best_agent: Option<&RegisteredAgent> = None;
         let mut best_score = f64::MIN;
 
@@ -230,8 +250,16 @@ impl LoadBalancer {
         agent: &RegisteredAgent,
         performance_history: &HashMap<String, Vec<PerformanceMetric>>,
     ) -> f64 {
-        let current_load = f64::from(*agent.current_load.read());
-        let avg_response_time = *agent.average_response_time.read();
+        let current_load = f64::from(
+            *agent
+                .current_load
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        );
+        let avg_response_time = *agent
+            .average_response_time
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let max_capacity = f64::from(agent.max_concurrent_tasks);
 
         // Base score from capacity utilization (higher available capacity = better)
@@ -284,7 +312,10 @@ impl LoadBalancer {
         reason = "Single write lock holds the hot path for push, retention, and trimming"
     )]
     pub fn update_performance_metrics(&self, agent_id: &str, metric: PerformanceMetric) {
-        let mut performance_history = self.performance_history.write();
+        let mut performance_history = self
+            .performance_history
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let agent_metrics = performance_history.entry(agent_id.to_string()).or_default();
 
         agent_metrics.push(metric);
@@ -300,18 +331,27 @@ impl LoadBalancer {
 
     /// Set weight for an agent (used in weighted round-robin)
     pub fn set_agent_weight(&self, agent_id: &str, weight: f64) {
-        let mut weights = self.weights.write();
+        let mut weights = self
+            .weights
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         weights.insert(agent_id.to_string(), weight);
     }
 
     /// Get current weights for all agents
     pub fn get_agent_weights(&self) -> HashMap<String, f64> {
-        self.weights.read().clone()
+        self.weights
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
     }
 
     /// Get performance history for an agent
     pub fn get_agent_performance_history(&self, agent_id: &str) -> Vec<PerformanceMetric> {
-        let performance_history = self.performance_history.read();
+        let performance_history = self
+            .performance_history
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         performance_history
             .get(agent_id)
             .cloned()
@@ -321,7 +361,10 @@ impl LoadBalancer {
     /// Get performance statistics for an agent
     pub fn get_agent_performance_stats(&self, agent_id: &str) -> Option<AgentPerformanceStats> {
         let metrics = {
-            let performance_history = self.performance_history.read();
+            let performance_history = self
+                .performance_history
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             performance_history.get(agent_id).cloned()
         }?;
 
@@ -382,13 +425,19 @@ impl LoadBalancer {
 
     /// Clear performance history for an agent
     pub fn clear_agent_performance_history(&self, agent_id: &str) {
-        let mut performance_history = self.performance_history.write();
+        let mut performance_history = self
+            .performance_history
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         performance_history.remove(agent_id);
     }
 
     /// Clear all performance history
     pub fn clear_all_performance_history(&self) {
-        let mut performance_history = self.performance_history.write();
+        let mut performance_history = self
+            .performance_history
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         performance_history.clear();
     }
 }
@@ -486,8 +535,13 @@ mod tests {
         let lb = LoadBalancer::new(LoadBalancingStrategy::LeastConnections, 2);
         let low = agent_with_spec("low", vec![]);
         let high = agent_with_spec("high", vec![]);
-        *high.current_load.write() = 9;
-        *low.current_load.write() = 1;
+        *high
+            .current_load
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = 9;
+        *low.current_load
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = 1;
 
         let picked = lb.select_agent(&[high, low]).expect("pick");
         assert_eq!(picked.id, "low");
@@ -518,8 +572,14 @@ mod tests {
         let lb = LoadBalancer::new(LoadBalancingStrategy::ResponseTimeBased, 2);
         let fast = agent_with_spec("fast", vec![]);
         let slow = agent_with_spec("slow", vec![]);
-        *fast.average_response_time.write() = 10.0;
-        *slow.average_response_time.write() = 500.0;
+        *fast
+            .average_response_time
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = 10.0;
+        *slow
+            .average_response_time
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = 500.0;
 
         let picked = lb.select_agent(&[slow, fast]).expect("pick");
         assert_eq!(picked.id, "fast");
@@ -543,8 +603,14 @@ mod tests {
         let lb = LoadBalancer::new(LoadBalancingStrategy::Adaptive, 2);
         let idle = agent_with_spec("idle", vec![]);
         let busy = agent_with_spec("busy", vec![]);
-        *idle.current_load.write() = 0;
-        *busy.current_load.write() = 8;
+        *idle
+            .current_load
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = 0;
+        *busy
+            .current_load
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = 8;
 
         let picked = lb.select_agent(&[busy, idle]).expect("pick");
         assert_eq!(picked.id, "idle");

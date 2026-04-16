@@ -281,12 +281,15 @@ pub struct UniversalPrimalConfig {
 
     /// Legacy configuration for backward compatibility
     pub squirrel: Option<PrimalConfig>,
-    /// Legacy Beardog configuration
-    pub beardog: Option<PrimalConfig>,
-    /// Legacy Nestgate configuration
-    pub nestgate: Option<PrimalConfig>,
-    /// Legacy Toadstool configuration
-    pub toadstool: Option<PrimalConfig>,
+    /// Security provider configuration (deserialize `"beardog"` for legacy configs)
+    #[serde(alias = "beardog")]
+    pub security_provider: Option<PrimalConfig>,
+    /// Content storage configuration (deserialize `"nestgate"` for legacy configs)
+    #[serde(alias = "nestgate")]
+    pub content_storage: Option<PrimalConfig>,
+    /// Compute provider configuration (deserialize `"toadstool"` for legacy configs)
+    #[serde(alias = "toadstool")]
+    pub compute_provider: Option<PrimalConfig>,
 }
 
 /// Multi-instance management configuration

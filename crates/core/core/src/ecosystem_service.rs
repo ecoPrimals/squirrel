@@ -5,9 +5,9 @@
 
 use chrono::Utc;
 use dashmap::DashMap;
-use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::RwLock;
 use tokio::sync::Notify;
 
 use super::ecosystem_state::{CoordinationStats, EcosystemState, ServiceStatus, metric_u64_as_f64};
@@ -79,18 +79,30 @@ impl EcosystemService {
             .await;
 
         // Update status to starting
-        *self.state.status.write() = ServiceStatus::Starting;
+        *self
+            .state
+            .status
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = ServiceStatus::Starting;
 
         if !self.config.enabled {
             tracing::info!("Ecosystem coordination disabled, operating in standalone mode");
-            *self.state.status.write() = ServiceStatus::Standalone;
+            *self
+                .state
+                .status
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = ServiceStatus::Standalone;
             return Ok(());
         }
 
         match self.config.mode {
             EcosystemMode::Standalone => {
                 tracing::info!("Operating in standalone mode");
-                *self.state.status.write() = ServiceStatus::Standalone;
+                *self
+                    .state
+                    .status
+                    .write()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner) = ServiceStatus::Standalone;
             }
             EcosystemMode::Sovereign => {
                 tracing::info!(
@@ -113,20 +125,33 @@ impl EcosystemService {
 
     /// Start sovereign mode - autonomous operation with optional coordination
     async fn start_sovereign_mode(&self) -> Result<()> {
-        *self.state.status.write() = ServiceStatus::Discovering;
+        *self
+            .state
+            .status
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = ServiceStatus::Discovering;
 
         // Attempt to discover and register with ecosystem
         match self.discover_and_register().await {
             Ok(()) => {
                 tracing::info!("Successfully connected to ecosystem");
-                *self.state.status.write() = ServiceStatus::Coordinating;
+                *self
+                    .state
+                    .status
+                    .write()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                    ServiceStatus::Coordinating;
             }
             Err(e) => {
                 tracing::warn!(
                     "Failed to connect to ecosystem, operating standalone: {}",
                     e
                 );
-                *self.state.status.write() = ServiceStatus::Standalone;
+                *self
+                    .state
+                    .status
+                    .write()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner) = ServiceStatus::Standalone;
                 // This is not an error in sovereign mode - we can operate alone
             }
         }
@@ -136,12 +161,20 @@ impl EcosystemService {
 
     /// Start coordinated mode - requires ecosystem coordination
     async fn start_coordinated_mode(&self) -> Result<()> {
-        *self.state.status.write() = ServiceStatus::Discovering;
+        *self
+            .state
+            .status
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = ServiceStatus::Discovering;
 
         // Must successfully connect to ecosystem
         self.discover_and_register().await?;
 
-        *self.state.status.write() = ServiceStatus::Coordinating;
+        *self
+            .state
+            .status
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = ServiceStatus::Coordinating;
         tracing::info!("Successfully connected to ecosystem in coordinated mode");
 
         Ok(())
@@ -190,7 +223,7 @@ impl EcosystemService {
 
                     // Record performance metrics
                     let performance_metrics = {
-                        let stats = self.state.coordination_stats.read();
+                        let stats = self.state.coordination_stats.read().unwrap_or_else(std::sync::PoisonError::into_inner);
                         let error_rate = if stats.tasks_coordinated > 0 {
                             metric_u64_as_f64(stats.coordination_failures)
                                 / metric_u64_as_f64(stats.tasks_coordinated)
@@ -221,7 +254,7 @@ impl EcosystemService {
                     let _ = self.monitoring.record_performance("ecosystem", performance_metrics).await;
 
                     // Update last health check time
-                    *self.state.last_health_check.write() = Utc::now();
+                    *self.state.last_health_check.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Utc::now();
                 }
                 () = self.shutdown_notify.notified() => {
                     tracing::info!("Monitoring loop shutting down");
@@ -308,7 +341,11 @@ impl EcosystemService {
     /// Get current service status
     #[must_use]
     pub fn get_status(&self) -> ServiceStatus {
-        self.state.status.read().clone()
+        self.state
+            .status
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
     }
 
     /// Get discovered primals
@@ -333,7 +370,11 @@ impl EcosystemService {
         tracing::info!("Shutting down ecosystem service");
 
         // Update status
-        *self.state.status.write() = ServiceStatus::Stopping;
+        *self
+            .state
+            .status
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = ServiceStatus::Stopping;
 
         // Unregister from ecosystem
         Self::unregister_from_ecosystem();

@@ -4,7 +4,7 @@
 //! Runtime state for [`super::ecosystem_service::EcosystemService`]: lifecycle status and coordination counters.
 
 use chrono::{DateTime, Utc};
-use parking_lot::RwLock;
+use std::sync::RwLock;
 
 /// Converts counters to `f64` for monitoring; loss beyond `f64` mantissa is acceptable for KPIs.
 #[expect(
