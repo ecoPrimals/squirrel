@@ -12,8 +12,7 @@ categories = ["development-tools"]
 [features]
 default = ["delegated-jwt"]  # Production: delegate to BearDog (TRUE ecoBin!)
 delegated-jwt = []           # Use BearDog for JWT validation (Pure Rust!)
-local-jwt = ["dep:jsonwebtoken"]  # Dev/testing: local JWT (brings ring)
-http-auth = ["dep:reqwest"]  # HTTP-based auth (brings reqwest → ring)
+## local-jwt and http-auth removed (stadial gate: ring/reqwest lockfile ghosts eliminated)
 # Integration tests disabled - API has changed, tests need rewrite
 integration-tests = []
 
@@ -30,22 +29,9 @@ tracing = "0.1"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 
-# JWT: Feature-gated for TRUE ecoBin
-# - Production (delegated-jwt): Uses BearDog via Unix socket (Pure Rust!)
-# - Dev/testing (local-jwt): Local JWT validation (brings ring C dep)
-jsonwebtoken = { version = "9.3", optional = true }
-
 base64 = "0.22"
 rand.workspace = true
 zeroize = { version = "1.7", features = ["zeroize_derive"] }
-# HTTP client (OPTIONAL - for HTTP-based auth)
-# Production uses Unix sockets!
-#
-# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.12 → rustls 0.23 (pluggable crypto).
-# Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + custom crypto provider.
-# See docs/CRYPTO_MIGRATION.md.
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
-
 [dev-dependencies]
 tokio-test = "0.4"
 temp-env = "0.3"

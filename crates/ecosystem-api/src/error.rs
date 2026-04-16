@@ -423,35 +423,6 @@ impl From<ResourceError> for UniversalError {
     }
 }
 
-// Feature-gated reqwest::Error conversions (only available with http-client feature)
-#[cfg(feature = "http-client")]
-impl From<reqwest::Error> for UniversalError {
-    fn from(err: reqwest::Error) -> Self {
-        Self::Network(err.to_string())
-    }
-}
-
-#[cfg(feature = "http-client")]
-impl From<reqwest::Error> for EcosystemError {
-    fn from(err: reqwest::Error) -> Self {
-        Self::Network(err.to_string())
-    }
-}
-
-#[cfg(feature = "http-client")]
-impl From<reqwest::Error> for ServiceMeshError {
-    fn from(err: reqwest::Error) -> Self {
-        Self::Network(err.to_string())
-    }
-}
-
-#[cfg(feature = "http-client")]
-impl From<reqwest::Error> for HealthError {
-    fn from(err: reqwest::Error) -> Self {
-        Self::Network(err.to_string())
-    }
-}
-
 impl From<serde_json::Error> for UniversalError {
     fn from(err: serde_json::Error) -> Self {
         Self::Serialization(err.to_string())

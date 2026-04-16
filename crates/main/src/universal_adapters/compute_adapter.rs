@@ -10,20 +10,21 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, error, info};
 
-use super::registry::ServiceInfo;
+use super::registry::{InMemoryServiceRegistry, ServiceInfo};
 use super::{ServiceCapability, ServiceMatcher, UniversalRequest, UniversalServiceRegistry};
 use crate::error::PrimalError;
 
 /// Universal Compute Adapter - works with any compute primal
 pub struct UniversalComputeAdapter {
-    registry: Arc<dyn UniversalServiceRegistry>,
+    registry: Arc<InMemoryServiceRegistry>,
     matcher: ServiceMatcher,
     preferred_compute_service: Option<ServiceInfo>,
 }
 
 impl UniversalComputeAdapter {
     /// Create a new universal compute adapter
-    pub fn new(registry: Arc<dyn UniversalServiceRegistry>) -> Self {
+    #[must_use]
+    pub fn new(registry: Arc<InMemoryServiceRegistry>) -> Self {
         let matcher = ServiceMatcher::new(registry.clone());
 
         Self {
@@ -408,7 +409,7 @@ fn compute_service_endpoints() -> Vec<super::ServiceEndpoint> {
 }
 
 pub async fn register_compute_service(
-    registry: Arc<dyn UniversalServiceRegistry>,
+    registry: Arc<InMemoryServiceRegistry>,
 ) -> Result<(), PrimalError> {
     info!("Registering compute provider with universal registry");
 
@@ -562,7 +563,7 @@ mod tests {
         }
     }
 
-    async fn registry_with_compute() -> Arc<dyn UniversalServiceRegistry> {
+    async fn registry_with_compute() -> Arc<InMemoryServiceRegistry> {
         let reg = Arc::new(InMemoryServiceRegistry::new());
         reg.register_service(test_compute_registration())
             .await

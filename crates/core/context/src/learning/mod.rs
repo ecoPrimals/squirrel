@@ -86,7 +86,7 @@ pub use integration::{LearningIntegration, LearningIntegrationConfig};
 pub use manager::{ContextLearningManager, ContextLearningManagerConfig};
 pub use metrics::{LearningMetrics, LearningPerformance, LearningStats};
 pub use policy::{PolicyAction, PolicyNetwork, PolicyState};
-pub use reward::{RewardCalculator, RewardMetrics, RewardSystem};
+pub use reward::{RewardBackend, RewardCalculator, RewardMetrics, RewardSystem};
 
 /// Learning system configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

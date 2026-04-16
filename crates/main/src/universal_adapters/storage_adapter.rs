@@ -10,20 +10,21 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, error, info};
 
-use super::registry::ServiceInfo;
+use super::registry::{InMemoryServiceRegistry, ServiceInfo};
 use super::{ServiceCapability, ServiceMatcher, UniversalRequest, UniversalServiceRegistry};
 use crate::error::PrimalError;
 
 /// Universal Storage Adapter - works with any storage primal
 pub struct UniversalStorageAdapter {
-    registry: Arc<dyn UniversalServiceRegistry>,
+    registry: Arc<InMemoryServiceRegistry>,
     matcher: ServiceMatcher,
     preferred_storage_service: Option<ServiceInfo>,
 }
 
 impl UniversalStorageAdapter {
     /// Create a new universal storage adapter
-    pub fn new(registry: Arc<dyn UniversalServiceRegistry>) -> Self {
+    #[must_use]
+    pub fn new(registry: Arc<InMemoryServiceRegistry>) -> Self {
         let matcher = ServiceMatcher::new(registry.clone());
 
         Self {
@@ -335,7 +336,7 @@ impl UniversalStorageAdapter {
 /// Capability-based: any primal providing the `storage.*` capability set
 /// can be registered here — the caller discovers the provider at runtime.
 pub async fn register_storage_service(
-    registry: Arc<dyn UniversalServiceRegistry>,
+    registry: Arc<InMemoryServiceRegistry>,
 ) -> Result<(), PrimalError> {
     info!("Registering storage provider with universal registry");
 
@@ -489,7 +490,7 @@ mod tests {
         }
     }
 
-    async fn registry_with_storage() -> Arc<dyn UniversalServiceRegistry> {
+    async fn registry_with_storage() -> Arc<InMemoryServiceRegistry> {
         let reg = Arc::new(InMemoryServiceRegistry::new());
         reg.register_service(test_storage_registration())
             .await

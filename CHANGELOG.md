@@ -13,7 +13,7 @@ Pre-alpha history is preserved as fossil record in
 
 ### Summary (April 16, 2026)
 
-**7,160** tests, **~1,037** `.rs` files, **90.1%** region coverage (target met). Deep debt execution across four sessions:
+**7,160** tests, **~1,037** `.rs` files, **90.1%** region coverage (target met). Deep debt execution across five sessions:
 
 - **Wire Standard L3 Composable**: `capabilities.list` upgraded from L2 to L3 with `description` field on all 12 capability groups, drawn from `niche::CAPABILITY_GROUP_DESCRIPTIONS`
 - **Security service ID evolution**: `format!("{}-security", primal_names::BEARDOG)` eliminated — replaced with `SECURITY_SERVICE_ID` / `SECURITY_PRIMARY_SERVICE_ID` constants across 10 files; `supports_beardog` → `supports_security_provider`; error messages, session prefixes, config builders all evolved to capability-agnostic language; BLAKE3 crypto context strings preserved as cryptographic constants
@@ -22,6 +22,8 @@ Pre-alpha history is preserved as fossil record in
 - **Primal self-knowledge**: BearDog→SecurityProvider (auth types, config, security module), Songbird→Discovery (env chains, monitoring), ToadStool→Compute (env chains), NestGate→ContentAddressed. All hardcoded localhost ports→`get_service_port()` constants
 - **Dependency evolution**: `nvml-wrapper` removed (GPU is ToadStool), `nix`→`rustix` (pure Rust syscalls), `async-trait` eliminated (228→0), `blake3` pure + content-addressed plugin IDs, `rand` 0.8→0.9
 - **Mock evolution**: Discovery UUIDs→BLAKE3 content-addressed, WASM FS→capability-absent docs, SecurePluginStub→security policy docs
+- **Stadial gate: lockfile ghost elimination**: `ring`, `reqwest`, `jsonwebtoken`, `rustls`, `hyper-rustls`, `tokio-rustls` and ~25 transitive deps **ELIMINATED** from Cargo.lock. All 10 `reqwest` optional deps removed across crates (Tower Atomic). `local-jwt` feature removed (JWT delegated to BearDog). Dead `#[cfg(feature = "...")]` code cleaned from 6 crates
+- **Stadial gate: dyn audit**: 740→704 dyn usages audited and classified. 9 finite-implementor traits converted to enum dispatch or concrete types (`UniversalServiceRegistry`→`InMemoryServiceRegistry`, `FrameCodec`→`DefaultFrameCodec`, `JournalPersistence`→`JournalBackend`, `PluginStateManager`→`StateManagerBackend`, `RewardCalculator`→`RewardBackend`, `ComputeProvider`→`ComputeBackend`, `Experience`→`RLExperience`, `ServiceRegistryProvider`→`ServiceRegistryBackend`). Remaining ~350 dyn usages are unbounded-implementor plugin system traits (justified)
 
 ## [0.1.0-alpha.52] - 2026-04-14
 

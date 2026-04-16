@@ -31,7 +31,7 @@ mod adapter_integration_tests;
 mod mod_tests;
 
 // Re-export the universal types
-pub use registry::{ServiceMatcher, UniversalServiceRegistry};
+pub use registry::{InMemoryServiceRegistry, ServiceMatcher, UniversalServiceRegistry};
 
 /// Universal Service Registration - All services must implement this pattern
 #[derive(Debug, Clone, Serialize, Deserialize)]

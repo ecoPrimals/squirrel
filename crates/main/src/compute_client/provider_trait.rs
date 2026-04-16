@@ -141,7 +141,7 @@ pub struct WorkloadExecutionResult {
 /// 4. Support heterogeneous workload types
 #[expect(
     async_fn_in_trait,
-    reason = "Native async compute surface; use `ComputeProviderImpl` enum instead of dyn"
+    reason = "Native async compute surface; use `ComputeBackend` enum instead of dyn"
 )]
 pub trait ComputeProvider: Send + Sync {
     /// Provider name (for logging/debugging)
@@ -230,7 +230,7 @@ pub trait ComputeProvider: Send + Sync {
 /// let compute = auto_detect_compute_provider().await?;
 /// println!("Using compute: {}", compute.provider_name());
 /// ```
-pub async fn auto_detect_compute_provider() -> ComputeResult<Box<ComputeProviderImpl>> {
+pub async fn auto_detect_compute_provider() -> ComputeResult<Box<ComputeBackend>> {
     use tracing::{debug, info};
 
     // 1. Explicit provider type from environment
@@ -255,11 +255,9 @@ pub async fn auto_detect_compute_provider() -> ComputeResult<Box<ComputeProvider
 /// Returns a [`LocalProcessProvider`] for local dev/test execution.
 /// All other provider types are delegated via `compute.execute` capability
 /// discovery — Squirrel never embeds vendor-specific orchestrators.
-async fn create_compute_from_type(provider_type: &str) -> ComputeResult<Box<ComputeProviderImpl>> {
+async fn create_compute_from_type(provider_type: &str) -> ComputeResult<Box<ComputeBackend>> {
     match provider_type.to_lowercase().as_str() {
-        "local" => Ok(Box::new(ComputeProviderImpl::Local(
-            LocalProcessProvider::new(),
-        ))),
+        "local" => Ok(Box::new(ComputeBackend::Local(LocalProcessProvider::new()))),
         other => {
             tracing::info!(
                 provider = other,
@@ -274,12 +272,12 @@ async fn create_compute_from_type(provider_type: &str) -> ComputeResult<Box<Comp
 }
 
 /// Embedded compute backends (enum dispatch instead of `dyn ComputeProvider`).
-pub enum ComputeProviderImpl {
+pub enum ComputeBackend {
     /// Local in-process stub used for development.
     Local(LocalProcessProvider),
 }
 
-impl ComputeProvider for ComputeProviderImpl {
+impl ComputeProvider for ComputeBackend {
     fn provider_name(&self) -> &str {
         match self {
             Self::Local(p) => p.provider_name(),

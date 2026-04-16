@@ -12,7 +12,7 @@ use crate::errors::{PluginError, Result};
 use crate::metrics::{PluginManagerMetrics, PluginManagerStatus};
 use crate::plugin::PluginMetadata;
 use crate::registry::PluginRegistry;
-use crate::state::{MemoryStateManager, PluginStateManager};
+use crate::state::{MemoryStateManager, StateManagerBackend};
 use crate::traits::PluginManagerTrait;
 use crate::types::PluginStatus;
 use std::collections::HashMap;
@@ -39,7 +39,7 @@ pub struct DefaultPluginManager {
     dependency_resolver: Arc<RwLock<DependencyResolver>>,
     /// State manager for plugin state persistence (reserved for state persistence system)
     #[expect(dead_code, reason = "Phase 2 placeholder — state persistence system")]
-    state_manager: Arc<dyn PluginStateManager>,
+    state_manager: Arc<StateManagerBackend>,
     /// Discovery service for plugin loading (reserved for plugin discovery system)
     #[expect(dead_code, reason = "Phase 2 placeholder — plugin discovery system")]
     discovery: Arc<DefaultPluginDiscovery>,
@@ -56,7 +56,7 @@ impl DefaultPluginManager {
             statuses: RwLock::new(HashMap::new()),
             name_to_id: RwLock::new(HashMap::new()),
             dependency_resolver: Arc::new(RwLock::new(DependencyResolver::new())),
-            state_manager: Arc::new(MemoryStateManager::new()) as Arc<dyn PluginStateManager>,
+            state_manager: Arc::new(StateManagerBackend::Memory(MemoryStateManager::new())),
             discovery: Arc::new(DefaultPluginDiscovery::new()),
             metrics: Arc::new(RwLock::new(PluginManagerMetrics::new())),
         }

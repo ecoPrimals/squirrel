@@ -77,7 +77,7 @@ pub use plugin::Plugin;
 pub use plugin_v2::PluginV2;
 pub use registry::PluginRegistry;
 pub use squirrel_interfaces::plugins::PluginMetadata;
-pub use state::{FileStateManager, MemoryStateManager, PluginStateManager};
+pub use state::{FileStateManager, MemoryStateManager, PluginStateManager, StateManagerBackend};
 pub use traits::PluginManagerTrait;
 pub use types::{PluginConfig, PluginStatus}; // Add PluginConfig export
 pub use unified_manager::{

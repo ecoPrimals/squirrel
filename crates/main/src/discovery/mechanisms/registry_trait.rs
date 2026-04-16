@@ -18,7 +18,7 @@
 //! let services = consul.query_services().await?;
 //!
 //! // ✅ GOOD: Agnostic trait
-//! let registry: Box<dyn ServiceRegistryProvider> = detect_registry().await?;
+//! let registry = auto_detect_registry().await?;
 //! let services = registry.discover_by_capability("ai").await?;
 //! ```
 //!
@@ -113,6 +113,93 @@ pub trait ServiceRegistryProvider: Send + Sync {
     }
 }
 
+/// Placeholder registry implementation (vendor backends are discovered at runtime; see infant primal pattern).
+#[derive(Debug)]
+pub struct UnavailableServiceRegistry;
+
+impl ServiceRegistryProvider for UnavailableServiceRegistry {
+    fn provider_name(&self) -> &'static str {
+        "unavailable"
+    }
+
+    async fn discover_by_capability(
+        &self,
+        _capability: &str,
+    ) -> DiscoveryResult<Vec<DiscoveredService>> {
+        Ok(vec![])
+    }
+
+    async fn discover_all(&self) -> DiscoveryResult<Vec<DiscoveredService>> {
+        Ok(vec![])
+    }
+
+    async fn register_service(&self, _service: DiscoveredService) -> DiscoveryResult<()> {
+        Ok(())
+    }
+
+    async fn deregister_service(&self, _service_id: &str) -> DiscoveryResult<()> {
+        Ok(())
+    }
+
+    async fn health_check(&self) -> bool {
+        false
+    }
+}
+
+/// Finite service registry backends (enum dispatch instead of `Box<dyn ServiceRegistryProvider>`).
+#[derive(Debug)]
+pub enum ServiceRegistryBackend {
+    /// Placeholder registry when no vendor backend is embedded at compile time.
+    Unavailable(UnavailableServiceRegistry),
+}
+
+impl ServiceRegistryProvider for ServiceRegistryBackend {
+    fn provider_name(&self) -> &str {
+        match self {
+            Self::Unavailable(r) => r.provider_name(),
+        }
+    }
+
+    async fn discover_by_capability(
+        &self,
+        capability: &str,
+    ) -> DiscoveryResult<Vec<DiscoveredService>> {
+        match self {
+            Self::Unavailable(r) => r.discover_by_capability(capability).await,
+        }
+    }
+
+    async fn discover_all(&self) -> DiscoveryResult<Vec<DiscoveredService>> {
+        match self {
+            Self::Unavailable(r) => r.discover_all().await,
+        }
+    }
+
+    async fn register_service(&self, service: DiscoveredService) -> DiscoveryResult<()> {
+        match self {
+            Self::Unavailable(r) => r.register_service(service).await,
+        }
+    }
+
+    async fn deregister_service(&self, service_id: &str) -> DiscoveryResult<()> {
+        match self {
+            Self::Unavailable(r) => r.deregister_service(service_id).await,
+        }
+    }
+
+    async fn health_check(&self) -> bool {
+        match self {
+            Self::Unavailable(r) => r.health_check().await,
+        }
+    }
+
+    fn metadata(&self) -> HashMap<String, String> {
+        match self {
+            Self::Unavailable(r) => r.metadata(),
+        }
+    }
+}
+
 /// Auto-detect service registry provider
 ///
 /// Attempts to detect and create an appropriate service registry provider
@@ -132,7 +219,7 @@ pub trait ServiceRegistryProvider: Send + Sync {
 /// let registry = auto_detect_registry().await?;
 /// println!("Using registry: {}", registry.provider_name());
 /// ```
-pub async fn auto_detect_registry() -> DiscoveryResult<Box<UnavailableServiceRegistry>> {
+pub async fn auto_detect_registry() -> DiscoveryResult<ServiceRegistryBackend> {
     use tracing::{debug, info};
 
     // 1. Check environment variable
@@ -159,9 +246,7 @@ pub async fn auto_detect_registry() -> DiscoveryResult<Box<UnavailableServiceReg
 }
 
 /// Create registry provider from type string
-async fn create_registry_from_type(
-    registry_type: &str,
-) -> DiscoveryResult<Box<UnavailableServiceRegistry>> {
+async fn create_registry_from_type(registry_type: &str) -> DiscoveryResult<ServiceRegistryBackend> {
     match registry_type.to_lowercase().as_str() {
         "kubernetes" | "k8s" => {
             // TRUE PRIMAL PRINCIPLE: No hardcoded external service integrations
@@ -196,38 +281,6 @@ async fn create_registry_from_type(
         unknown => Err(DiscoveryError::NotSupported(format!(
             "Unknown registry type: {unknown}"
         ))),
-    }
-}
-
-/// Placeholder registry implementation (vendor backends are discovered at runtime; see infant primal pattern).
-pub struct UnavailableServiceRegistry;
-
-impl ServiceRegistryProvider for UnavailableServiceRegistry {
-    fn provider_name(&self) -> &'static str {
-        "unavailable"
-    }
-
-    async fn discover_by_capability(
-        &self,
-        _capability: &str,
-    ) -> DiscoveryResult<Vec<DiscoveredService>> {
-        Ok(vec![])
-    }
-
-    async fn discover_all(&self) -> DiscoveryResult<Vec<DiscoveredService>> {
-        Ok(vec![])
-    }
-
-    async fn register_service(&self, _service: DiscoveredService) -> DiscoveryResult<()> {
-        Ok(())
-    }
-
-    async fn deregister_service(&self, _service_id: &str) -> DiscoveryResult<()> {
-        Ok(())
-    }
-
-    async fn health_check(&self) -> bool {
-        false
     }
 }
 

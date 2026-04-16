@@ -65,7 +65,7 @@ use std::sync::Arc;
 #[tokio::test]
 async fn test_compute_adapter_creation() {
     // Arrange: Create registry (dependency injection - no hardcoding)
-    let registry = Arc::new(InMemoryServiceRegistry::new()) as Arc<dyn UniversalServiceRegistry>;
+    let registry = Arc::new(InMemoryServiceRegistry::new());
 
     // Act: Create compute adapter with injected registry
     let _adapter = UniversalComputeAdapter::new(registry);
@@ -77,7 +77,7 @@ async fn test_compute_adapter_creation() {
 #[tokio::test]
 async fn test_storage_adapter_creation() {
     // Arrange: Create registry
-    let registry = Arc::new(InMemoryServiceRegistry::new()) as Arc<dyn UniversalServiceRegistry>;
+    let registry = Arc::new(InMemoryServiceRegistry::new());
 
     // Act: Create storage adapter
     let _adapter = UniversalStorageAdapter::new(registry);
@@ -88,7 +88,7 @@ async fn test_storage_adapter_creation() {
 #[tokio::test]
 async fn test_security_adapter_creation() {
     // Arrange: Create registry
-    let registry = Arc::new(InMemoryServiceRegistry::new()) as Arc<dyn UniversalServiceRegistry>;
+    let registry = Arc::new(InMemoryServiceRegistry::new());
 
     // Act: Create security adapter
     let _adapter = UniversalSecurityAdapter::new(registry);
@@ -103,7 +103,7 @@ async fn test_security_adapter_creation() {
 #[tokio::test]
 async fn test_multi_adapter_shared_registry() {
     // Arrange: Single registry shared across all adapters (modern pattern)
-    let registry = Arc::new(InMemoryServiceRegistry::new()) as Arc<dyn UniversalServiceRegistry>;
+    let registry = Arc::new(InMemoryServiceRegistry::new());
 
     // Act: Create all adapters with same registry
     let _compute = UniversalComputeAdapter::new(Arc::clone(&registry));
@@ -122,7 +122,7 @@ async fn test_multi_adapter_shared_registry() {
 #[tokio::test]
 async fn test_concurrent_adapter_access() {
     // Arrange: Shared adapter (Arc for zero-copy sharing)
-    let registry = Arc::new(InMemoryServiceRegistry::new()) as Arc<dyn UniversalServiceRegistry>;
+    let registry = Arc::new(InMemoryServiceRegistry::new());
     let adapter = Arc::new(UniversalComputeAdapter::new(registry));
 
     // Act: Spawn 50 concurrent tasks (stress test)
@@ -146,7 +146,7 @@ async fn test_concurrent_adapter_access() {
 #[tokio::test]
 async fn test_arc_reference_counting() {
     // Arrange: Create adapter
-    let registry = Arc::new(InMemoryServiceRegistry::new()) as Arc<dyn UniversalServiceRegistry>;
+    let registry = Arc::new(InMemoryServiceRegistry::new());
     let adapter = Arc::new(UniversalStorageAdapter::new(registry));
 
     // Act: Create references
@@ -202,7 +202,7 @@ async fn test_context_security_levels() {
 #[tokio::test]
 async fn test_adapter_raii_cleanup() {
     // Arrange: Create registry
-    let registry = Arc::new(InMemoryServiceRegistry::new()) as Arc<dyn UniversalServiceRegistry>;
+    let registry = Arc::new(InMemoryServiceRegistry::new());
     let initial_count = Arc::strong_count(&registry);
 
     // Act: Create and drop adapter in scope

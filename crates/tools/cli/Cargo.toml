@@ -37,11 +37,6 @@ universal-constants = { path = "../../universal-constants", version = "0.1.0" }
 # HTTP client (OPTIONAL - for HTTP CLI commands)
 # Production uses Unix sockets!
 #
-# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.12 → rustls 0.23 (pluggable crypto).
-# Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + custom crypto provider.
-# See docs/CRYPTO_MIGRATION.md.
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
-
 # Plugin system dependencies  
 squirrel-commands = { path = "../../services/commands", version = "0.1.0" }
 
@@ -57,6 +52,5 @@ criterion.workspace = true
 # Production default: Pure Rust!
 default = ["commands"]
 commands = []
-# HTTP CLI commands (brings reqwest → ring)
-http-commands = ["dep:reqwest"]
+## http-commands removed (stadial gate: reqwest lockfile ghost eliminated)
 testing = []

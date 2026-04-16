@@ -18,4 +18,6 @@ mod tests;
 pub use command_journal::CommandJournal;
 pub use entry::{JournalEntry, JournalEntryState, RecoveryReport};
 pub use error::{JournalError, JournalResult};
-pub use persistence::{FileJournalPersistence, InMemoryJournalPersistence, JournalPersistence};
+pub use persistence::{
+    FileJournalPersistence, InMemoryJournalPersistence, JournalBackend, JournalPersistence,
+};

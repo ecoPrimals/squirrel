@@ -10,20 +10,21 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, error, info};
 
-use super::registry::ServiceInfo;
+use super::registry::{InMemoryServiceRegistry, ServiceInfo};
 use super::{ServiceCapability, ServiceMatcher, UniversalRequest, UniversalServiceRegistry};
 use crate::error::PrimalError;
 
 /// Universal Orchestration Adapter - works with any orchestration primal
 pub struct UniversalOrchestrationAdapter {
-    registry: Arc<dyn UniversalServiceRegistry>,
+    registry: Arc<InMemoryServiceRegistry>,
     matcher: ServiceMatcher,
     preferred_orchestration_service: Option<ServiceInfo>,
 }
 
 impl UniversalOrchestrationAdapter {
     /// Create a new universal orchestration adapter
-    pub fn new(registry: Arc<dyn UniversalServiceRegistry>) -> Self {
+    #[must_use]
+    pub fn new(registry: Arc<InMemoryServiceRegistry>) -> Self {
         let matcher = ServiceMatcher::new(registry.clone());
 
         Self {
@@ -349,7 +350,7 @@ impl UniversalOrchestrationAdapter {
 ///
 /// The service is discovered by capability ("orchestration"), not by primal name.
 pub async fn register_orchestration_service(
-    registry: Arc<dyn UniversalServiceRegistry>,
+    registry: Arc<InMemoryServiceRegistry>,
 ) -> Result<(), PrimalError> {
     info!("🎼 Registering orchestration service with universal registry");
 
@@ -501,7 +502,7 @@ mod tests {
         }
     }
 
-    async fn registry_with_orchestration() -> Arc<dyn UniversalServiceRegistry> {
+    async fn registry_with_orchestration() -> Arc<InMemoryServiceRegistry> {
         let reg = Arc::new(InMemoryServiceRegistry::new());
         reg.register_service(test_orchestration_registration())
             .await

@@ -523,7 +523,7 @@ async fn test_reward_system_custom_calculator() {
     let system = RewardSystem::new(config).await.expect("create");
     let calc = SuccessRewardCalculator::new(5.0, -2.0);
     system
-        .add_calculator("custom".to_string(), Box::new(calc))
+        .add_calculator("custom".to_string(), RewardBackend::Success(calc))
         .await
         .expect("add");
     system.remove_calculator("custom").await.expect("remove");

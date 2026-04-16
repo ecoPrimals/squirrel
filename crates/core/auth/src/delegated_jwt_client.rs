@@ -28,7 +28,6 @@ use uuid::Uuid;
 /// # TRUE PRIMAL Architecture
 ///
 /// - **Production**: Uses discovered crypto capability (Pure Rust!)
-/// - **Dev/Testing**: Falls back to local JWT (feature-gated)
 /// - **Zero hardcoded primal names!**
 ///
 /// # Example
@@ -42,9 +41,6 @@ use uuid::Uuid;
 pub struct DelegatedJwtClient {
     #[cfg(feature = "delegated-jwt")]
     capability_service: CapabilityJwtService,
-
-    #[cfg(all(feature = "local-jwt", not(feature = "delegated-jwt")))]
-    _local_service: crate::jwt::JwtTokenManager,
 }
 
 impl DelegatedJwtClient {
@@ -54,10 +50,6 @@ impl DelegatedJwtClient {
     ///
     /// Uses capability-based crypto discovery. Socket path should come from
     /// runtime capability discovery, NOT hardcoded!
-    ///
-    /// # Dev Mode (local-jwt feature)
-    ///
-    /// Uses local JWT with HMAC-SHA256 (brings `ring` dependency).
     ///
     /// # Errors
     ///
@@ -206,64 +198,6 @@ impl DelegatedJwtClient {
         authorization_header: &'a str,
     ) -> AuthResult<&'a str> {
         self.capability_service
-            .extract_token_from_header(authorization_header)
-    }
-
-    // Local JWT methods (dev/testing only, disabled when delegated-jwt is active)
-
-    /// Create new delegated JWT client (local mode)
-    #[cfg(all(feature = "local-jwt", not(feature = "delegated-jwt")))]
-    pub fn new_local(secret: &[u8]) -> AuthResult<Self> {
-        info!("⚠️ Using local JWT (dev mode, brings ring dependency)");
-
-        let local_service = crate::jwt::JwtTokenManager::new(secret);
-
-        Ok(Self {
-            _local_service: local_service,
-        })
-    }
-
-    #[cfg(all(feature = "local-jwt", not(feature = "delegated-jwt")))]
-    pub async fn create_token(
-        &self,
-        user_id: Uuid,
-        username: String,
-        roles: Vec<String>,
-        session_id: Uuid,
-        expires_at: DateTime<Utc>,
-    ) -> AuthResult<String> {
-        debug!("Creating JWT token via local service (dev mode)");
-
-        let claims = crate::jwt::JwtClaims::new(user_id, username, roles, session_id, expires_at);
-
-        self._local_service.create_token(&claims)
-    }
-
-    #[cfg(all(feature = "local-jwt", not(feature = "delegated-jwt")))]
-    pub async fn verify_token(&self, token: &str) -> AuthResult<JwtClaims> {
-        debug!("Verifying JWT token via local service (dev mode)");
-
-        let local_claims = self._local_service.verify_token(token)?;
-        Ok(JwtClaims {
-            sub: local_claims.sub,
-            username: local_claims.username,
-            roles: local_claims.roles,
-            session_id: local_claims.session_id,
-            iat: local_claims.iat,
-            exp: local_claims.exp,
-            nbf: local_claims.nbf,
-            iss: local_claims.iss,
-            aud: local_claims.aud,
-            jti: local_claims.jti,
-        })
-    }
-
-    #[cfg(all(feature = "local-jwt", not(feature = "delegated-jwt")))]
-    pub fn extract_token_from_header<'a>(
-        &self,
-        authorization_header: &'a str,
-    ) -> AuthResult<&'a str> {
-        self._local_service
             .extract_token_from_header(authorization_header)
     }
 }

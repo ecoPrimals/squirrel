@@ -330,57 +330,6 @@ pub mod dispatch {
     }
 }
 
-/// Client factory functions for easy instantiation.
-///
-/// Each vendor client delegates HTTP via the ecosystem IPC proxy
-/// (`neural_api.proxy_http`) — no direct `reqwest`/`ring` dependency.
-pub mod clients {
-    #[cfg(any(feature = "openai", feature = "anthropic", feature = "gemini"))]
-    use std::sync::Arc;
-
-    #[cfg(any(feature = "openai", feature = "anthropic", feature = "gemini"))]
-    use crate::{AiClientImpl, Result, ipc_routed_providers};
-
-    /// Create an OpenAI-compatible client routed through the ecosystem IPC HTTP proxy.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the IPC-routed vendor client fails to initialize.
-    #[cfg(feature = "openai")]
-    pub fn openai(api_key: impl Into<String>) -> Result<Arc<AiClientImpl>> {
-        ipc_routed_providers::IpcRoutedVendorClient::try_new(
-            api_key,
-            ipc_routed_providers::VendorKind::OpenAI,
-        )
-    }
-
-    /// Anthropic Messages API routed through the ecosystem IPC HTTP proxy.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the IPC-routed vendor client fails to initialize.
-    #[cfg(feature = "anthropic")]
-    pub fn anthropic(api_key: impl Into<String>) -> Result<Arc<AiClientImpl>> {
-        ipc_routed_providers::IpcRoutedVendorClient::try_new(
-            api_key,
-            ipc_routed_providers::VendorKind::Anthropic,
-        )
-    }
-
-    /// Google Gemini `generateContent` routed through the ecosystem IPC HTTP proxy.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the IPC-routed vendor client fails to initialize.
-    #[cfg(feature = "gemini")]
-    pub fn gemini(api_key: impl Into<String>) -> Result<Arc<AiClientImpl>> {
-        ipc_routed_providers::IpcRoutedVendorClient::try_new(
-            api_key,
-            ipc_routed_providers::VendorKind::Gemini,
-        )
-    }
-}
-
 /// Convenience functions for common workflows
 pub mod workflows {
     use super::{ChatRequest, Result};

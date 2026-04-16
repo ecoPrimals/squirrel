@@ -25,12 +25,6 @@ chrono = { version = "0.4", features = ["serde"] }
 # HTTP and networking
 # Production uses capability_http (delegates to Songbird via Unix sockets)
 # reqwest is optional, only for marketplace feature
-#
-# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.12 → rustls 0.23 (pluggable crypto).
-# Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + rustls::crypto::aws_lc_rs
-# or rustls-rustcrypto (alpha, 100% Rust). See docs/CRYPTO_MIGRATION.md.
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
-
 # Logging and tracing
 tracing = { version = "0.1", features = ["log"] }
 
@@ -57,9 +51,8 @@ web = []
 mcp-interfaces = []
 mcp = ["mcp-interfaces"]
 cli = []
-marketplace = ["dep:reqwest"]
-repository-server = ["marketplace"]
-standard = ["core", "web", "mcp-interfaces", "marketplace", "repository-server"] 
+## marketplace/repository-server features removed (stadial gate: reqwest lockfile ghost eliminated)
+standard = ["core", "web", "mcp-interfaces"]
 
 [lints]
 workspace = true

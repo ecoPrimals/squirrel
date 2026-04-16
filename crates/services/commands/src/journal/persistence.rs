@@ -155,6 +155,37 @@ impl JournalPersistence for InMemoryJournalPersistence {
     }
 }
 
+/// Journal storage backend (enum dispatch instead of `Box<dyn JournalPersistence>`).
+pub enum JournalBackend {
+    /// On-disk JSON journal file.
+    File(FileJournalPersistence),
+    /// In-memory journal (tests and ephemeral use).
+    InMemory(InMemoryJournalPersistence),
+}
+
+impl JournalPersistence for JournalBackend {
+    fn save_entry(&self, entry: &JournalEntry) -> JournalResult<()> {
+        match self {
+            Self::File(p) => p.save_entry(entry),
+            Self::InMemory(p) => p.save_entry(entry),
+        }
+    }
+
+    fn load_entries(&self) -> JournalResult<Vec<JournalEntry>> {
+        match self {
+            Self::File(p) => p.load_entries(),
+            Self::InMemory(p) => p.load_entries(),
+        }
+    }
+
+    fn delete_entry(&self, id: &str) -> JournalResult<()> {
+        match self {
+            Self::File(p) => p.delete_entry(id),
+            Self::InMemory(p) => p.delete_entry(id),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

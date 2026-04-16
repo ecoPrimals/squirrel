@@ -162,7 +162,7 @@ async fn test_add_custom_calculator() {
         .await
         .expect("Should create system");
 
-    let calculator = Box::new(SuccessRewardCalculator::new(5.0, -2.0));
+    let calculator = RewardBackend::Success(SuccessRewardCalculator::new(5.0, -2.0));
     system
         .add_calculator("custom".to_string(), calculator)
         .await
@@ -176,7 +176,7 @@ async fn test_remove_calculator() {
         .await
         .expect("Should create system");
 
-    let calculator = Box::new(SuccessRewardCalculator::new(5.0, -2.0));
+    let calculator = RewardBackend::Success(SuccessRewardCalculator::new(5.0, -2.0));
     system
         .add_calculator("custom".to_string(), calculator)
         .await

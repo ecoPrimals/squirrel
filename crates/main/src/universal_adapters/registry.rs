@@ -18,7 +18,7 @@ use crate::error::PrimalError;
 
 /// Universal Service Registry trait for capability-based discovery
 ///
-/// Async methods return boxed futures so `dyn UniversalServiceRegistry` is object-safe without
+/// Async methods return boxed futures so implementations remain object-safe without
 /// the `async_trait` crate.
 pub trait UniversalServiceRegistry: Send + Sync {
     /// Register a service with its capabilities
@@ -490,12 +490,13 @@ impl InMemoryServiceRegistry {
 
 /// Service matcher for intelligent service selection
 pub struct ServiceMatcher {
-    registry: Arc<dyn UniversalServiceRegistry>,
+    registry: Arc<InMemoryServiceRegistry>,
 }
 
 impl ServiceMatcher {
     /// Creates a new service matcher with the given registry.
-    pub fn new(registry: Arc<dyn UniversalServiceRegistry>) -> Self {
+    #[must_use]
+    pub const fn new(registry: Arc<InMemoryServiceRegistry>) -> Self {
         Self { registry }
     }
 

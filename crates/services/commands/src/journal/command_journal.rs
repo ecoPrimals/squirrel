@@ -13,7 +13,7 @@ use crate::{Command, CommandResult};
 
 use super::entry::{JournalEntry, JournalEntryState, RecoveryReport};
 use super::error::{JournalError, JournalResult};
-use super::persistence::{FileJournalPersistence, JournalPersistence};
+use super::persistence::{FileJournalPersistence, JournalBackend, JournalPersistence};
 
 /// Maximum number of journal entries to keep in memory by default
 const DEFAULT_MAX_ENTRIES: usize = 1000;
@@ -24,7 +24,7 @@ pub struct CommandJournal {
     entries: Arc<RwLock<VecDeque<JournalEntry>>>,
 
     /// Journal persistence
-    persistence: Arc<dyn JournalPersistence>,
+    persistence: Arc<JournalBackend>,
 
     /// Maximum number of entries to keep in memory
     max_entries: usize,
@@ -32,7 +32,7 @@ pub struct CommandJournal {
 
 impl CommandJournal {
     /// Creates a new command journal with persistence
-    pub fn new(persistence: Arc<dyn JournalPersistence>, max_entries: usize) -> Self {
+    pub fn new(persistence: Arc<JournalBackend>, max_entries: usize) -> Self {
         let journal = Self {
             entries: Arc::new(RwLock::new(VecDeque::with_capacity(max_entries))),
             persistence,
@@ -49,7 +49,7 @@ impl CommandJournal {
 
     /// Creates a new command journal with file persistence
     pub fn with_file<P: AsRef<Path>>(file_path: P, max_entries: usize) -> Self {
-        let persistence = Arc::new(FileJournalPersistence::new(file_path));
+        let persistence = Arc::new(JournalBackend::File(FileJournalPersistence::new(file_path)));
         Self::new(persistence, max_entries)
     }
 
@@ -290,7 +290,7 @@ impl CommandJournal {
 
 impl Default for CommandJournal {
     fn default() -> Self {
-        let persistence = Arc::new(FileJournalPersistence::default());
+        let persistence = Arc::new(JournalBackend::File(FileJournalPersistence::default()));
         Self::new(persistence, DEFAULT_MAX_ENTRIES)
     }
 }

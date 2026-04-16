@@ -187,6 +187,48 @@ impl PluginStateManager for FileStateManager {
     }
 }
 
+/// Plugin state storage backend (enum dispatch instead of `Box<dyn PluginStateManager>`).
+#[derive(Debug)]
+pub enum StateManagerBackend {
+    /// In-memory state only.
+    Memory(MemoryStateManager),
+    /// Persistent JSON files under a base directory.
+    File(FileStateManager),
+}
+
+impl PluginStateManager for StateManagerBackend {
+    fn get_state<'a>(
+        &'a self,
+        plugin_id: &'a Uuid,
+    ) -> Pin<Box<dyn Future<Output = Result<Option<Value>>> + Send + 'a>> {
+        match self {
+            Self::Memory(m) => m.get_state(plugin_id),
+            Self::File(f) => f.get_state(plugin_id),
+        }
+    }
+
+    fn set_state<'a>(
+        &'a self,
+        plugin_id: &'a Uuid,
+        state: Value,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+        match self {
+            Self::Memory(m) => m.set_state(plugin_id, state),
+            Self::File(f) => f.set_state(plugin_id, state),
+        }
+    }
+
+    fn remove_state<'a>(
+        &'a self,
+        plugin_id: &'a Uuid,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+        match self {
+            Self::Memory(m) => m.remove_state(plugin_id),
+            Self::File(f) => f.remove_state(plugin_id),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -10,20 +10,21 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, error, info};
 
-use super::registry::ServiceInfo;
+use super::registry::{InMemoryServiceRegistry, ServiceInfo};
 use super::{ServiceCapability, ServiceMatcher, UniversalRequest, UniversalServiceRegistry};
 use crate::error::PrimalError;
 
 /// Universal Security Adapter - works with any security primal
 pub struct UniversalSecurityAdapter {
-    registry: Arc<dyn UniversalServiceRegistry>,
+    registry: Arc<InMemoryServiceRegistry>,
     matcher: ServiceMatcher,
     preferred_security_service: Option<ServiceInfo>,
 }
 
 impl UniversalSecurityAdapter {
     /// Create a new universal security adapter
-    pub fn new(registry: Arc<dyn UniversalServiceRegistry>) -> Self {
+    #[must_use]
+    pub fn new(registry: Arc<InMemoryServiceRegistry>) -> Self {
         let matcher = ServiceMatcher::new(registry.clone());
 
         Self {
@@ -242,7 +243,7 @@ impl UniversalSecurityAdapter {
 /// Capability-based: any primal providing the `security.*` capability set
 /// can be registered here — the caller discovers the provider at runtime.
 pub async fn register_security_provider(
-    registry: Arc<dyn UniversalServiceRegistry>,
+    registry: Arc<InMemoryServiceRegistry>,
 ) -> Result<(), PrimalError> {
     info!("Registering security provider with universal registry");
 
@@ -392,7 +393,7 @@ mod tests {
         }
     }
 
-    async fn registry_with_security() -> Arc<dyn UniversalServiceRegistry> {
+    async fn registry_with_security() -> Arc<InMemoryServiceRegistry> {
         let reg = Arc::new(InMemoryServiceRegistry::new());
         reg.register_service(test_security_registration())
             .await

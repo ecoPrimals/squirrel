@@ -29,7 +29,7 @@ pub struct RewardSystem {
     config: Arc<LearningSystemConfig>,
 
     /// Reward calculators
-    calculators: Arc<RwLock<HashMap<String, Box<dyn RewardCalculator>>>>,
+    calculators: Arc<RwLock<HashMap<String, RewardBackend>>>,
 
     /// Reward history
     reward_history: Arc<RwLock<Vec<RewardEntry>>>,
@@ -474,6 +474,58 @@ impl RewardCalculator for SynchronizationRewardCalculator {
     }
 }
 
+/// Reward calculation backend (enum dispatch instead of `Box<dyn RewardCalculator>`).
+pub enum RewardBackend {
+    /// Success / failure based reward.
+    Success(SuccessRewardCalculator),
+    /// Performance-threshold based reward.
+    Performance(PerformanceRewardCalculator),
+    /// Rule efficiency reward.
+    RuleEfficiency(RuleEfficiencyRewardCalculator),
+    /// Synchronization reward.
+    Synchronization(SynchronizationRewardCalculator),
+}
+
+impl std::fmt::Debug for RewardBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Success(c) => f.debug_tuple("Success").field(c).finish(),
+            Self::Performance(c) => f.debug_tuple("Performance").field(c).finish(),
+            Self::RuleEfficiency(c) => f.debug_tuple("RuleEfficiency").field(c).finish(),
+            Self::Synchronization(c) => f.debug_tuple("Synchronization").field(c).finish(),
+        }
+    }
+}
+
+impl RewardCalculator for RewardBackend {
+    fn calculate_reward(&self, context: &RewardContext) -> Result<f64> {
+        match self {
+            Self::Success(c) => c.calculate_reward(context),
+            Self::Performance(c) => c.calculate_reward(context),
+            Self::RuleEfficiency(c) => c.calculate_reward(context),
+            Self::Synchronization(c) => c.calculate_reward(context),
+        }
+    }
+
+    fn name(&self) -> &str {
+        match self {
+            Self::Success(c) => c.name(),
+            Self::Performance(c) => c.name(),
+            Self::RuleEfficiency(c) => c.name(),
+            Self::Synchronization(c) => c.name(),
+        }
+    }
+
+    fn weight(&self) -> f64 {
+        match self {
+            Self::Success(c) => c.weight(),
+            Self::Performance(c) => c.weight(),
+            Self::RuleEfficiency(c) => c.weight(),
+            Self::Synchronization(c) => c.weight(),
+        }
+    }
+}
+
 impl RewardSystem {
     /// Create a new reward system
     pub async fn new(config: Arc<LearningSystemConfig>) -> Result<Self> {
@@ -497,20 +549,32 @@ impl RewardSystem {
 
         // Success/failure calculator
         let success_calculator = SuccessRewardCalculator::new(10.0, -5.0);
-        calculators.insert("success".to_string(), Box::new(success_calculator));
+        calculators.insert(
+            "success".to_string(),
+            RewardBackend::Success(success_calculator),
+        );
 
         // Performance calculator
         let performance_calculator =
             PerformanceRewardCalculator::new(PerformanceThresholds::default());
-        calculators.insert("performance".to_string(), Box::new(performance_calculator));
+        calculators.insert(
+            "performance".to_string(),
+            RewardBackend::Performance(performance_calculator),
+        );
 
         // Rule efficiency calculator
         let rule_calculator = RuleEfficiencyRewardCalculator::new(2.0);
-        calculators.insert("rule_efficiency".to_string(), Box::new(rule_calculator));
+        calculators.insert(
+            "rule_efficiency".to_string(),
+            RewardBackend::RuleEfficiency(rule_calculator),
+        );
 
         // Synchronization calculator
         let sync_calculator = SynchronizationRewardCalculator::new(1.0);
-        calculators.insert("synchronization".to_string(), Box::new(sync_calculator));
+        calculators.insert(
+            "synchronization".to_string(),
+            RewardBackend::Synchronization(sync_calculator),
+        );
 
         info!("Initialized {} reward calculators", calculators.len());
         Ok(())
@@ -691,11 +755,7 @@ impl RewardSystem {
     }
 
     /// Add custom reward calculator
-    pub async fn add_calculator(
-        &self,
-        name: String,
-        calculator: Box<dyn RewardCalculator>,
-    ) -> Result<()> {
+    pub async fn add_calculator(&self, name: String, calculator: RewardBackend) -> Result<()> {
         let mut calculators = self.calculators.write().await;
         calculators.insert(name.clone(), calculator);
 

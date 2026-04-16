@@ -29,11 +29,6 @@ futures = "0.3"
 
 # HTTP and networking (OPTIONAL - for HTTP patterns)
 # Production uses Unix sockets!
-#
-# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.12 → rustls 0.23 (pluggable crypto).
-# Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + custom crypto provider.
-# See docs/CRYPTO_MIGRATION.md.
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
 url = { version = "2.5", features = ["serde"] }
 
 # Logging and tracing
@@ -76,8 +71,7 @@ default = ["config-management", "security", "orchestration"]
 config-management = []
 security = []
 orchestration = []
-# HTTP patterns (brings reqwest → ring)
-http-patterns = ["dep:reqwest"]
+## http-patterns removed (stadial gate: reqwest lockfile ghost eliminated)
 testing = []
 
  

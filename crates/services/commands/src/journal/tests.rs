@@ -11,7 +11,7 @@ use crate::{Command, CommandError, CommandResult};
 
 use super::command_journal::CommandJournal;
 use super::entry::{JournalEntry, JournalEntryState};
-use super::persistence::{InMemoryJournalPersistence, JournalPersistence};
+use super::persistence::{InMemoryJournalPersistence, JournalBackend, JournalPersistence};
 
 // Test command implementation
 struct TestCommand;
@@ -134,7 +134,7 @@ fn test_in_memory_persistence() {
 #[test]
 fn test_command_journal_basic_workflow() {
     // Create a journal with in-memory persistence
-    let persistence = Arc::new(InMemoryJournalPersistence::new());
+    let persistence = Arc::new(JournalBackend::InMemory(InMemoryJournalPersistence::new()));
     let journal = CommandJournal::new(persistence, 100);
 
     let command = TestCommand {};
@@ -167,7 +167,7 @@ fn test_command_journal_basic_workflow() {
 #[test]
 fn test_command_journal_failed_command() {
     // Create a journal with in-memory persistence
-    let persistence = Arc::new(InMemoryJournalPersistence::new());
+    let persistence = Arc::new(JournalBackend::InMemory(InMemoryJournalPersistence::new()));
     let journal = CommandJournal::new(persistence, 100);
 
     let command = TestCommand {};
@@ -198,7 +198,7 @@ fn test_command_journal_failed_command() {
 #[test]
 fn test_find_incomplete_entries() {
     // Create a journal with in-memory persistence
-    let persistence = Arc::new(InMemoryJournalPersistence::new());
+    let persistence = Arc::new(JournalBackend::InMemory(InMemoryJournalPersistence::new()));
     let journal = CommandJournal::new(persistence, 100);
 
     let command = TestCommand {};
@@ -228,7 +228,7 @@ fn test_find_incomplete_entries() {
 #[test]
 fn test_recover_incomplete_entries() {
     // Create a journal with in-memory persistence
-    let persistence = Arc::new(InMemoryJournalPersistence::new());
+    let persistence = Arc::new(JournalBackend::InMemory(InMemoryJournalPersistence::new()));
     let journal = CommandJournal::new(persistence, 100);
 
     let command = TestCommand {};
@@ -259,7 +259,7 @@ fn test_recover_incomplete_entries() {
 #[test]
 fn test_entry_search() {
     // Create a journal with in-memory persistence
-    let persistence = Arc::new(InMemoryJournalPersistence::new());
+    let persistence = Arc::new(JournalBackend::InMemory(InMemoryJournalPersistence::new()));
     let journal = CommandJournal::new(persistence, 100);
 
     let command = TestCommand {};
@@ -313,7 +313,7 @@ fn test_entry_search() {
 #[test]
 fn test_journal_capacity() {
     // Create a journal with small capacity
-    let persistence = Arc::new(InMemoryJournalPersistence::new());
+    let persistence = Arc::new(JournalBackend::InMemory(InMemoryJournalPersistence::new()));
     let journal = CommandJournal::new(persistence, 2);
 
     let command = TestCommand {};

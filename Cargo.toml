@@ -63,11 +63,7 @@ futures = "0.3"
 tracing = { version = "0.1", features = ["log"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-# reqwest declared below under HTTP/AI section; all crate usage is feature-gated (optional)
-#
-# CRYPTO: reqwest 0.12 → rustls 0.23 (pluggable crypto). ecoPrimals target: Pure Rust.
-# Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + rustls-rustcrypto/aws-lc-rs.
-# See docs/CRYPTO_MIGRATION.md.
+# reqwest removed (stadial gate: Tower Atomic — HTTP goes through Songbird mesh via IPC)
 url = "2.5"
 
 # Additional common dependencies
@@ -127,7 +123,6 @@ metrics-exporter-prometheus = "0.12"
 
 # HTTP / AI client (optional; ai-tools + mcp)
 tokio-stream = { version = "0.1", features = ["sync"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
 axum = { version = "0.7", features = ["json"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace"] }

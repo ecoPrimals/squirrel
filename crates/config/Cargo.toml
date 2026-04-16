@@ -19,11 +19,6 @@ tracing = "0.1"
 uuid = { version = "1.0", features = ["v4"] }
 # HTTP client (OPTIONAL - for config fetching from HTTP endpoints)
 # Production uses Unix sockets or local files (Pure Rust!)
-#
-# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.12 → rustls 0.23 (pluggable crypto).
-# Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + custom crypto provider.
-# See docs/CRYPTO_MIGRATION.md.
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
 # once_cell removed - evolved to std::sync::OnceLock/LazyLock (stable Rust 1.80+)
 universal-constants = { path = "../universal-constants", version = "0.1.0" }
 dirs = "5.0" # For platform-agnostic directory resolution
@@ -35,8 +30,7 @@ zeroize.workspace = true
 [features]
 # Production default: local config files (Pure Rust!)
 default = []
-# HTTP config fetching (brings reqwest → rustls → ring)
-http-config = ["dep:reqwest"]
+## http-config removed (stadial gate: reqwest lockfile ghost eliminated)
 
 [dev-dependencies]
 tempfile = "3.8"

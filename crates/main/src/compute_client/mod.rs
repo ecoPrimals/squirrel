@@ -19,6 +19,6 @@ mod types_tests;
 // Removed ai_metadata - was over-engineered early implementation
 
 pub use client::UniversalComputeClient;
-pub use provider_trait::ComputeProviderImpl;
+pub use provider_trait::ComputeBackend;
 pub use providers::*;
 pub use types::*;

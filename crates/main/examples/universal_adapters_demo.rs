@@ -68,7 +68,7 @@ use squirrel::universal_adapters::{
 /// AI Coordination System using Universal Adapters
 struct SquirrelAICoordinator {
     /// Universal service registry for capability-based discovery
-    registry: Arc<dyn UniversalServiceRegistry>,
+    registry: Arc<InMemoryServiceRegistry>,
 
     /// Universal adapters - work with ANY service providing required capabilities
     security_adapter: UniversalSecurityAdapter,

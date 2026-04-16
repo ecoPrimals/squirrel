@@ -28,10 +28,6 @@ pub struct PluginMarketplaceClient {
     manager: Arc<DefaultPluginManager>,
     /// Configured repositories
     repositories: Arc<RwLock<Vec<PluginRepository>>>,
-    /// HTTP client for making requests
-    #[cfg(feature = "marketplace")]
-    #[expect(dead_code, reason = "used when feature marketplace is enabled")]
-    http_client: reqwest::Client,
     /// Cache for marketplace data
     cache: Arc<RwLock<MarketplaceCache>>,
 }
@@ -238,8 +234,6 @@ impl PluginMarketplaceClient {
         Self {
             manager,
             repositories: Arc::new(RwLock::new(Vec::new())),
-            #[cfg(feature = "marketplace")]
-            http_client: reqwest::Client::new(),
             cache: Arc::new(RwLock::new(cache)),
         }
     }

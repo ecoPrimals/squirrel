@@ -30,11 +30,6 @@ anyhow.workspace = true
 # HTTP client for AI services (OPTIONAL - for dev/testing only!)
 # Production uses Unix sockets via capability discovery (Pure Rust!)
 #
-# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.12 → rustls 0.23 (pluggable crypto).
-# Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + custom crypto provider.
-# See docs/CRYPTO_MIGRATION.md.
-reqwest = { workspace = true, optional = true }
-
 # Logging and tracing
 tracing.workspace = true
 
@@ -86,15 +81,7 @@ default = ["capability-ai"]
 # NO reqwest, NO ring!
 capability-ai = []
 
-# Direct HTTP to AI vendors (DEV/TESTING ONLY!)
-# Brings reqwest → rustls → ring
-# Use for development without service mesh
-direct-http = ["dep:reqwest"]
-
-# Legacy feature flags (kept for compatibility)
-anthropic = ["direct-http"]
-openai = ["direct-http"]
-gemini = ["direct-http"]
+## direct-http/anthropic/openai/gemini features removed (stadial gate: reqwest lockfile ghost eliminated)
 local = []
 testing = []
 

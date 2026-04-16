@@ -114,16 +114,6 @@ pub trait RepositoryProvider: Send + Sync {
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>>;
 }
 
-/// HTTP-based repository provider
-pub struct HttpRepositoryProvider {
-    /// Base URL of the repository
-    base_url: String,
-
-    /// HTTP client
-    #[cfg(feature = "marketplace")]
-    client: reqwest::Client,
-}
-
 /// Repository manager for handling multiple plugin repositories
 pub struct RepositoryManager {
     /// API version this manager supports
@@ -137,108 +127,6 @@ pub struct RepositoryManager {
 
     /// Map of repository info
     info_cache: RwLock<HashMap<String, RepositoryInfo>>,
-}
-
-#[cfg(feature = "marketplace")]
-impl HttpRepositoryProvider {
-    /// Create a new HTTP repository provider
-    pub fn new(base_url: impl Into<String>) -> Result<Self> {
-        Ok(Self {
-            base_url: base_url.into(),
-            client: reqwest::Client::new(),
-        })
-    }
-
-    /// Get the base URL of the repository
-    pub fn base_url(&self) -> &str {
-        &self.base_url
-    }
-}
-
-#[cfg(feature = "marketplace")]
-impl RepositoryProvider for HttpRepositoryProvider {
-    fn get_info(&self) -> Pin<Box<dyn Future<Output = Result<RepositoryInfo>> + Send + '_>> {
-        let url = format!("{}/info", self.base_url);
-        Box::pin(async {
-            let info = self
-                .client
-                .get(&url)
-                .send()
-                .await?
-                .json::<RepositoryInfo>()
-                .await?;
-            Ok(info)
-        })
-    }
-
-    fn list_plugins(
-        &self,
-    ) -> Pin<Box<dyn Future<Output = Result<Vec<PluginPackageInfo>>> + Send + '_>> {
-        let url = format!("{}/plugins", self.base_url);
-        Box::pin(async {
-            let plugins = self
-                .client
-                .get(&url)
-                .send()
-                .await?
-                .json::<Vec<PluginPackageInfo>>()
-                .await?;
-            Ok(plugins)
-        })
-    }
-
-    fn get_plugin(
-        &self,
-        id: &Uuid,
-    ) -> Pin<Box<dyn Future<Output = Result<Option<PluginPackageInfo>>> + Send + '_>> {
-        let url = format!("{}/plugin/{}", self.base_url, id);
-        Box::pin(async {
-            let response = self.client.get(&url).send().await?;
-
-            if response.status().is_success() {
-                let plugin = response.json::<PluginPackageInfo>().await?;
-                Ok(Some(plugin))
-            } else {
-                Ok(None)
-            }
-        })
-    }
-
-    fn search_plugins(
-        &self,
-        query: &str,
-    ) -> Pin<Box<dyn Future<Output = Result<Vec<PluginPackageInfo>>> + Send + '_>> {
-        let url = format!("{}/search?q={}", self.base_url, urlencoding::encode(query));
-        Box::pin(async {
-            let plugins = self
-                .client
-                .get(&url)
-                .send()
-                .await?
-                .json::<Vec<PluginPackageInfo>>()
-                .await?;
-            Ok(plugins)
-        })
-    }
-
-    fn download_plugin(
-        &self,
-        id: &Uuid,
-        path: &Path,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
-        let url = format!("{}/download/{}", self.base_url, id);
-        Box::pin(async {
-            let response = self.client.get(&url).send().await?;
-
-            if response.status().is_success() {
-                let bytes = response.bytes().await?;
-                tokio::fs::write(path, bytes).await?;
-                Ok(())
-            } else {
-                anyhow::bail!("Failed to download plugin: {}", response.status())
-            }
-        })
-    }
 }
 
 impl RepositoryManager {
@@ -363,7 +251,6 @@ impl RepositoryManager {
 }
 
 /// Create a new repository manager with default settings
-#[cfg(feature = "marketplace")]
 pub fn create_repository_manager(
     api_version: &str,
     download_dir: PathBuf,

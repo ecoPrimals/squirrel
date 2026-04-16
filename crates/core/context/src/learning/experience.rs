@@ -705,10 +705,9 @@ mod tests {
         let ts = Utc::now();
         let mut e = sample_exp("tid", 0.5, 2.0);
         e.timestamp = ts;
-        let exp: &dyn Experience = &e;
-        assert_eq!(exp.id(), "tid");
-        assert_eq!(exp.timestamp(), ts);
-        assert!((exp.priority() - 2.0).abs() < f64::EPSILON);
+        assert_eq!(e.id(), "tid");
+        assert_eq!(e.timestamp(), ts);
+        assert!((e.priority() - 2.0).abs() < f64::EPSILON);
     }
 
     #[test]

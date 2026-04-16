@@ -19,6 +19,12 @@ mod types;
 #[path = "tests.rs"]
 mod tests;
 
+#[cfg_attr(
+    not(test),
+    expect(unused_imports, reason = "Test-only re-exports for providers/tests.rs")
+)]
+#[allow(deprecated)]
+pub use beardog::{BEARDOG_SECURITY_SERVICE_ID, SECURITY_PRIMARY_SERVICE_ID};
 #[allow(deprecated)]
 pub use beardog::{
     BeardogIntegration, BeardogSecurityProvider, SECURITY_SERVICE_ID, SecurityProviderFactory,
@@ -34,13 +40,4 @@ pub use local::LocalSecurityProvider;
     )
 )]
 pub use registry::{UniversalSecurityRegistry, capabilities_match, register_security_service};
-#[cfg_attr(
-    not(test),
-    expect(
-        unused_imports,
-        reason = "Test-only re-exports for providers/tests.rs"
-    )
-)]
-#[allow(deprecated)]
-pub use beardog::{BEARDOG_SECURITY_SERVICE_ID, SECURITY_PRIMARY_SERVICE_ID};
 pub use types::*;

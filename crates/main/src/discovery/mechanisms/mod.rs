@@ -28,6 +28,7 @@ pub use mdns::MdnsDiscovery;
 )]
 pub use registry::{RegistryDiscovery, RegistryType};
 pub use registry_trait::{
-    ServiceRegistryProvider, UnavailableServiceRegistry, auto_detect_registry,
+    ServiceRegistryBackend, ServiceRegistryProvider, UnavailableServiceRegistry,
+    auto_detect_registry,
 };
 pub use socket_registry::{SocketRegistryDiscovery, discover_from_socket_registry};

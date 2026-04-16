@@ -147,14 +147,6 @@ pub enum Error {
     Io(#[from] std::io::Error),
 }
 
-// Feature-gated reqwest::Error conversion (only available with http-client feature)
-#[cfg(feature = "http-client")]
-impl From<reqwest::Error> for Error {
-    fn from(err: reqwest::Error) -> Self {
-        Self::Http(err.to_string())
-    }
-}
-
 /// Trait for coordinating tasks across primal ecosystem.
 #[expect(
     async_fn_in_trait,

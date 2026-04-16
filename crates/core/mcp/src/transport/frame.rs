@@ -337,14 +337,13 @@ where
 #[derive(Clone)]
 pub struct MessageCodec {
     /// Frame codec for encoding/decoding frames (reserved for future extensibility)
-    #[expect(dead_code, reason = "planned feature not yet wired")]
-    frame_codec: Arc<dyn FrameCodec<Error = MCPError> + Send + Sync>,
+    frame_codec: Arc<DefaultFrameCodec>,
 }
 
 impl std::fmt::Debug for MessageCodec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MessageCodec")
-            .field("frame_codec", &"<dyn FrameCodec>")
+            .field("frame_codec", &self.frame_codec)
             .finish()
     }
 }
@@ -359,9 +358,8 @@ impl MessageCodec {
     }
 
     /// Creates a message codec with a custom frame codec
-    pub fn with_frame_codec(
-        frame_codec: Arc<dyn FrameCodec<Error = MCPError> + Send + Sync>,
-    ) -> Self {
+    #[must_use]
+    pub const fn with_frame_codec(frame_codec: Arc<DefaultFrameCodec>) -> Self {
         Self { frame_codec }
     }
 

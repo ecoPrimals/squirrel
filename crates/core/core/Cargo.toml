@@ -24,10 +24,6 @@ futures = "0.3"
 # HTTP and networking (OPTIONAL - for HTTP utilities)
 # Production uses Unix sockets!
 #
-# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.12 → rustls 0.23 (pluggable crypto).
-# Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + custom crypto provider.
-# See docs/CRYPTO_MIGRATION.md.
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
 url = "2.5"
 
 # Web framework (OPTIONAL - legacy HTTP API, production uses Unix sockets)
@@ -66,8 +62,7 @@ default = []
 mesh = []
 # Legacy HTTP API server (brings axum, tower, hyper stack; requires mesh for routing/federation)
 http-api = ["dep:axum", "dep:tower", "dep:tower-http", "mesh"]
-# HTTP client utilities (brings reqwest)
-http-client = ["dep:reqwest"]
+## http-client removed (stadial gate: reqwest lockfile ghost eliminated)
 
 
 [dev-dependencies]

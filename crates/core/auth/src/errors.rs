@@ -174,13 +174,6 @@ impl AuthError {
 }
 
 // Convert from common error types
-#[cfg(feature = "http-auth")]
-impl From<reqwest::Error> for AuthError {
-    fn from(err: reqwest::Error) -> Self {
-        Self::network_error("http_request", err.to_string())
-    }
-}
-
 impl From<serde_json::Error> for AuthError {
     fn from(err: serde_json::Error) -> Self {
         Self::internal_error(format!("JSON serialization error: {err}"))
@@ -323,15 +316,6 @@ mod tests {
         let auth_err: AuthError = anyhow_err.into();
         assert!(matches!(auth_err, AuthError::Internal { .. }));
         assert!(auth_err.to_string().contains("Internal error"));
-    }
-
-    #[cfg(feature = "http-auth")]
-    #[tokio::test]
-    async fn from_reqwest_error() {
-        let reqwest_err = reqwest::get("not-a-valid-url").await.unwrap_err();
-        let auth_err: AuthError = reqwest_err.into();
-        assert!(matches!(auth_err, AuthError::Network { .. }));
-        assert!(auth_err.to_string().contains("http_request"));
     }
 
     #[test]

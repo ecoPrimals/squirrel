@@ -120,13 +120,6 @@ pub mod prelude {
     pub use crate::communication::*;
 
     // Client APIs
-    #[cfg(feature = "http")]
-    #[expect(
-        ambiguous_glob_reexports,
-        reason = "Prelude re-exports; http/fs feature namespacing"
-    )]
-    pub use crate::client::http::*;
-
     #[cfg(feature = "fs")]
     pub use crate::client::fs::*;
 
@@ -175,8 +168,6 @@ pub fn version() -> &'static str {
 /// Get enabled features as a `Vec<String>`
 fn get_enabled_features() -> Vec<String> {
     vec![
-        #[cfg(feature = "http")]
-        "http".to_string(),
         #[cfg(feature = "fs")]
         "fs".to_string(),
         #[cfg(feature = "mcp")]
@@ -231,8 +222,6 @@ pub fn wasm_init() {
 /// Check if a feature is enabled
 pub fn has_feature(feature: &str) -> bool {
     match feature {
-        #[cfg(feature = "http")]
-        "http" => true,
         #[cfg(feature = "fs")]
         "fs" => true,
         #[cfg(feature = "mcp")]
@@ -246,8 +235,6 @@ pub fn has_feature(feature: &str) -> bool {
 /// Get list of enabled features
 pub fn enabled_features() -> Vec<&'static str> {
     vec![
-        #[cfg(feature = "http")]
-        "http",
         #[cfg(feature = "fs")]
         "fs",
         #[cfg(feature = "mcp")]
@@ -339,9 +326,6 @@ pub use crate::core::{BasePlugin, PluginInfo, PluginStats, WasmPlugin};
 pub use crate::infrastructure::error::PluginResult;
 pub use crate::infrastructure::{Logger, PluginConfig, PluginError};
 
-#[cfg(feature = "http")]
-pub use crate::client::http::HttpClient;
-
 #[cfg(feature = "fs")]
 pub use crate::client::fs::FileSystem;
 
@@ -411,8 +395,6 @@ mod tests {
     #[test]
     fn test_has_feature() {
         assert!(!has_feature("nonexistent"));
-        #[cfg(feature = "http")]
-        assert!(has_feature("http"));
         #[cfg(feature = "mcp")]
         assert!(has_feature("mcp"));
     }

@@ -20,7 +20,6 @@
 //! ## TRUE ecoBin Architecture (v1.3.0) via Capability Discovery
 //!
 //! - **Production Mode**: JWT validation delegated to capability provider (Pure Rust!)
-//! - **Dev Mode**: Local JWT validation via feature flag (for fast iteration)
 //! - **Capability-Based**: Discovers JWT validation capability at runtime (not hardcoded!)
 //! - **Zero C Dependencies**: Production mode uses Pure Rust stack
 //!
@@ -37,7 +36,7 @@
 //! - **Capability Integration**: JWT delegation via Unix socket JSON-RPC
 //! - **Ecosystem Integration**: Deep integration with Squirrel MCP configuration
 //! - **Modern Rust Patterns**: No anyhow conflicts, clean Result types
-//! - **Feature-Gated JWT**: Production (delegated) vs Dev (local)
+//! - **Feature-Gated JWT**: Production uses delegated capability JWT (`delegated-jwt`)
 //!
 //! ## Usage
 //!
@@ -47,17 +46,11 @@
 //! # fn example() -> AuthResult<()> {
 //! let config = CapabilityJwtConfig::default();
 //! // Production: DelegatedJwtClient::new(config)?
-//! // Dev: DelegatedJwtClient::new_dev(secret)?
 //! # Ok(())
 //! # }
 //! ```
 
 // Removed: use squirrel_mcp_config::get_service_endpoints;
-
-// HTTP-based auth module (OPTIONAL - for HTTP authentication)
-// Production uses capability-based auth via Unix sockets!
-#[cfg(feature = "http-auth")]
-pub mod auth;
 
 pub mod errors;
 pub mod session;
@@ -68,7 +61,6 @@ pub mod delegated_jwt_client;
 
 // JWT implementations (feature-gated for TRUE ecoBin!)
 // - Production (delegated-jwt): Capability-based crypto (TRUE PRIMAL! 🌍)
-// - Dev/Testing (local-jwt): Local HMAC (brings ring)
 #[cfg(feature = "delegated-jwt")]
 pub mod capability_crypto;
 #[cfg(feature = "delegated-jwt")]
@@ -101,12 +93,7 @@ pub mod beardog_jwt {
     pub use super::ecosystem_jwt::*;
 }
 
-#[cfg(feature = "local-jwt")]
-pub mod jwt;
-
 // Modern re-exports leveraging capability-based patterns
-#[cfg(feature = "http-auth")]
-pub use auth::AuthService;
 pub use delegated_jwt_client::DelegatedJwtClient;
 pub use errors::{AuthError, AuthResult};
 pub use session::{Session, SessionManager};
@@ -162,10 +149,6 @@ pub use deprecated_primal_named_auth::{
     BearDogClient, BearDogClientConfig, BearDogJwtClaims, BearDogJwtConfig, BearDogJwtService,
 };
 
-// Dev/Testing: Local JWT (brings ring)
-#[cfg(feature = "local-jwt")]
-pub use jwt::JwtTokenManager;
-
 /// Initialize the authentication system with current configuration
 ///
 /// Multi-tier endpoint resolution:
@@ -198,9 +181,6 @@ pub fn initialize() -> AuthResult<()> {
     tracing::info!(
         "Initializing modern auth system (TRUE ecoBin mode - JWT delegated via capability discovery)"
     );
-
-    #[cfg(feature = "local-jwt")]
-    tracing::info!("Initializing modern auth system (Dev mode - local JWT validation)");
 
     tracing::info!(
         "Endpoints: security_service={}, mcp={}",

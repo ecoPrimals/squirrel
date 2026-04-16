@@ -50,12 +50,6 @@ zstd = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
 lz4_flex = { workspace = true, optional = true }
 
-# AI providers (optional) - openai-api-rs/anthropic-sdk REMOVED: pulled reqwest 0.11 (native-tls/openssl).
-# Providers use reqwest directly via direct-http (rustls). See coordinator/providers.rs.
-# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.12 → rustls 0.23 (pluggable crypto).
-# Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider. See docs/CRYPTO_MIGRATION.md.
-reqwest = { workspace = true, optional = true }
-
 # Utilities
 rand.workspace = true
 blake3.workspace = true
@@ -87,8 +81,7 @@ default = ["streaming"]
 # When disabled, crypto operations delegate to the security primal via capability discovery.
 local-crypto = ["dep:ed25519-dalek"]
 
-# Direct HTTP to AI vendors (DEV/TESTING)
-direct-http = ["dep:reqwest"]
+## direct-http removed (stadial gate: reqwest lockfile ghost eliminated)
 
 # TLS support (reserved; wire rustls when MCP TLS paths are implemented)
 tls = []
@@ -96,7 +89,6 @@ tls = []
 enhanced = [
     "tarpc",
     "streaming",
-    "ai-providers",
     "plugins",
     "persistence",
     "metrics",
@@ -106,7 +98,6 @@ enhanced = [
 full = [
     "tarpc",
     "streaming",
-    "ai-providers",
     "plugins",
     "persistence",
     "metrics",
@@ -115,7 +106,7 @@ full = [
 ]
 tarpc = []
 streaming = ["dep:tokio-stream"]
-ai-providers = ["direct-http"]
+## ai-providers feature removed (stadial gate: reqwest lockfile ghost eliminated)
 plugins = []
 persistence = []
 metrics = ["dep:metrics"]
