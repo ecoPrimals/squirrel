@@ -2,7 +2,7 @@
 title: Universal Patterns Specification
 version: 1.0.0
 date: 2025-01-17
-status: active
+status: historical
 priority: high
 crossRefs:
   - UNIVERSAL_SQUIRREL_ECOSYSTEM_SPEC.md
@@ -12,6 +12,8 @@ crossRefs:
 ---
 
 # Universal Patterns Specification
+
+> **Note (April 2026):** This is a gen2-era specification (January 2025). The architecture has evolved significantly: "Songbird-Centric Communication" → capability-based discovery; crossRef paths may be broken. Retained as reference material.
 
 ## Overview
 

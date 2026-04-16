@@ -77,9 +77,9 @@ Follows the groundSpring/wetSpring/airSpring niche pattern:
 | Constant | What |
 |----------|------|
 | `CAPABILITIES` | 29 exposed methods (inference, ai, capabilities, capability, identity, system, health, discovery, tool, context, lifecycle, graph) |
-| `CONSUMED_CAPABILITIES` | 32 external capabilities from BearDog, Songbird, ToadStool, NestGate, domain springs, rhizoCrypt, sweetGrass, primalSpring |
+| `CONSUMED_CAPABILITIES` | 32 external capabilities from security, service-mesh, compute, content-storage providers, domain springs, rhizoCrypt, sweetGrass, primalSpring |
 | `COST_ESTIMATES` | Per-method latency and GPU hints for Pathway Learner scheduling |
-| `DEPENDENCIES` | 6 primals (beardog, songbird required; toadstool, nestgate, primalspring, petaltongue optional) |
+| `DEPENDENCIES` | 6 primals (security-provider, service-mesh required; compute, content-storage, primalspring, petaltongue optional) |
 | `SEMANTIC_MAPPINGS` | Short name → fully qualified capability mapping |
 | `operation_dependencies()` | DAG inputs per operation for parallelization |
 
@@ -99,7 +99,7 @@ Centralized in `universal-constants::identity`:
 | `PRIMAL_DOMAIN` | `"ai"` | biomeOS Neural API domain registration |
 | `JWT_ISSUER` | `"squirrel-mcp"` | JWT token `iss` claim |
 | `JWT_AUDIENCE` | `"squirrel-mcp-api"` | JWT token `aud` claim |
-| `JWT_SIGNING_KEY_ID` | `"squirrel-jwt-signing-key"` | BearDog key lookup |
+| `JWT_SIGNING_KEY_ID` | `"squirrel-jwt-signing-key"` | Security provider key lookup |
 
 Runtime discovery uses capabilities, not primal names. Names are only for socket
 file naming conventions and logging. `CapabilityIdentifier` replaces the deprecated
@@ -133,8 +133,6 @@ requiring AI capabilities.
 | `tarpc-rpc` | High-performance binary RPC via tarpc | ON |
 | `delegated-jwt` | Capability-based JWT delegation | ON |
 | `monitoring` | Prometheus metrics (brings hyper) | OFF |
-| `nvml` | NVIDIA GPU detection via nvml-wrapper | OFF |
-| `local-jwt` | Local JWT signing (brings ring C dep) | OFF |
 | `deprecated-adapters` | Vendor-specific HTTP adapters (Anthropic, OpenAI) — v0.3.0 removal. Use `UniversalAiAdapter` + `LOCAL_AI_ENDPOINT`. | OFF |
 
 ## Human Dignity Evaluation
@@ -219,8 +217,8 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 | Orchestration Types | `DeploymentGraphDef`, `GraphNode`, `TickConfig` (ludoSpring wire-compatible) |
 | biomeOS Lifecycle | `lifecycle.register` + 30s heartbeat (when orchestrator detected) |
 | Discovery Service | `discovery.register` + 30s heartbeat (when discovery socket detected) |
-| BearDog Crypto | Discovery via biomeOS socket scan |
-| ToadStool AI | Auto-discovered via capability-based biomeOS socket scan |
+| Security Provider Crypto | Discovery via capability-based biomeOS socket scan |
+| Compute Provider AI | Auto-discovered via capability-based biomeOS socket scan |
 | Signal Handling | SIGTERM + SIGINT → socket cleanup + graceful shutdown |
 | Health Probes v3.0 | `health.liveness` + `health.readiness` — PRIMAL_IPC_PROTOCOL v3.0 |
 | Circuit Breaker | `CircuitBreaker` + `RetryPolicy` + `ResilientCaller` for IPC resilience; `StandardRetryPolicy::from_env()` with primal→ecosystem→default chain |
@@ -273,9 +271,8 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 1. **Coverage target met** — 90.1% region coverage (89.6% line). Remaining uncovered: binary entry points, demo binaries, WASM-only SDK paths, live IPC server loops. All production modules have test coverage.
 2. Performance optimizer `batch_processor` / `optimizer` are complete (no deferred stubs)
-3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
-4. `base64` duplicate (0.21 via `config`/`ron`, 0.22 direct) — transitive, benign
-5. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`, `test-context`)
+3. `base64` duplicate (0.21 via `config`/`ron`, 0.22 direct) — transitive, benign
+4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`, `test-context`)
 
 ## Changes Since Last Handoff (April 16, 2026)
 

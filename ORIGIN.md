@@ -85,10 +85,10 @@ Squirrel is one of 14 primals. The full catalog is in the
 ecoPrimals white paper (`PRIMAL_CATALOG.md`). Key relationships:
 
 - **biomeOS** routes all AI requests through Squirrel
-- **Songbird** provides service mesh orchestration and discovery
-- **NestGate** caches model weights
-- **BearDog** encrypts and manages API keys
-- **ToadStool** provides GPU compute for local inference
+- Primals providing `network.*` capabilities handle service mesh orchestration and discovery
+- Primals providing `storage.*` capabilities cache model weights
+- Primals providing `security.*` capabilities encrypt and manage API keys
+- Primals providing `compute.*` capabilities provide GPU compute for local inference
 
 The neuralSpring science validation suite is the use-case counterpart to
 Squirrel's infrastructure — it validates the neuromorphic and surrogate-learning

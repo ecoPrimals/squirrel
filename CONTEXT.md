@@ -17,7 +17,7 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 |------|--------|
 | Language | Rust, **edition 2024** |
 | Workspace | **22** crates (see `Cargo.toml` `members`) |
-| Scale | ~**336k** lines across **~1,037** `.rs` files |
+| Scale | ~**337k** lines across **~1,039** `.rs` files |
 | Native deps | **Pure Rust** default build — no C dependencies in the standard ecoBin path |
 | Code license | **AGPL-3.0-or-later** (workspace `license`; see License section for full public framing) |
 | Version | **v0.1.0** (root `Cargo.toml` workspace package version); older docs may cite **0.1.0-alpha.*** tags — status **pre-alpha** |

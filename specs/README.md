@@ -24,12 +24,14 @@ Pre-alpha specs (gRPC, RBAC, resilience) are preserved as fossil record in
 
 ## Key Specs
 
-| Spec | Location |
-|------|----------|
-| MCP Protocol | `active/mcp-protocol/MCP_SPECIFICATION.md` |
-| Universal Patterns | `active/UNIVERSAL_PATTERNS_SPECIFICATION.md` |
-| Ecosystem Integration | `active/UNIVERSAL_SQUIRREL_ECOSYSTEM_SPEC.md` |
-| Socket Registry | `SOCKET_REGISTRY_SPEC.md` |
-| Deployment | `current/DEPLOYMENT_GUIDE.md` |
-| Testing | `development/TESTING.md` |
-| Security | `development/SECURITY.md` |
+| Spec | Location | Status |
+|------|----------|--------|
+| MCP Protocol | `active/mcp-protocol/MCP_SPECIFICATION.md` | historical |
+| Universal Patterns | `active/UNIVERSAL_PATTERNS_SPECIFICATION.md` | historical |
+| Ecosystem Integration | `active/UNIVERSAL_SQUIRREL_ECOSYSTEM_SPEC.md` | reference |
+| Socket Registry | `SOCKET_REGISTRY_SPEC.md` | reference |
+| Deployment | `current/DEPLOYMENT_GUIDE.md` | current |
+| Testing | `development/TESTING.md` | reference |
+| Security | `development/SECURITY.md` | reference |
+
+Most `active/mcp-protocol/` specs are gen2-era (2024-2025) and marked `historical`. See `README.md` and `CURRENT_STATUS.md` for the authoritative current state.

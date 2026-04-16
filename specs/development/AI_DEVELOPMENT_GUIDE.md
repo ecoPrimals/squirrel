@@ -2,10 +2,13 @@
 description: Guide for AI teams developing for Squirrel
 version: 1.0.0
 last_updated: 2026-03-16
+status: historical
 owner: Core Team
 ---
 
 # AI Development Guide for Squirrel
+
+> **Note (April 2026):** Gen2-era guide (March 2026). Some patterns and prerequisites are outdated — Rust 1.94+ / edition 2024 is now required. See `README.md` and `CURRENT_STATUS.md` for current standards.
 
 ## Overview
 
@@ -15,7 +18,7 @@ This guide provides essential information for AI teams working on the Squirrel p
 
 ### Prerequisites
 
-- Rust 1.93 or newer
+- Rust 1.94 or newer (edition 2024)
 
 ### Development Environment Setup
 
