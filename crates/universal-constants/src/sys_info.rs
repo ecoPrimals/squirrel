@@ -75,6 +75,11 @@ pub fn process_rss_mb() -> Result<f64, io::Error> {
     Ok((rss_pages * page_size) as f64 / (1024.0 * 1024.0))
 }
 
+/// Non-Linux stub: returns `Ok(0.0)`.
+///
+/// # Errors
+///
+/// This variant always succeeds; the `Result` signature matches the Linux variant.
 #[cfg(not(target_os = "linux"))]
 pub fn process_rss_mb() -> Result<f64, io::Error> {
     Ok(0.0)
@@ -123,6 +128,11 @@ pub fn uptime_seconds() -> Result<u64, io::Error> {
     Ok(secs.max(0.0).round() as u64)
 }
 
+/// Non-Linux stub: returns `Ok(0)`.
+///
+/// # Errors
+///
+/// This variant always succeeds; the `Result` signature matches the Linux variant.
 #[cfg(not(target_os = "linux"))]
 pub fn uptime_seconds() -> Result<u64, io::Error> {
     Ok(0)
@@ -152,11 +162,12 @@ pub fn hostname() -> Result<String, io::Error> {
     }
     #[cfg(all(unix, not(target_os = "linux")))]
     {
-        if let Ok(u) = rustix::system::uname() {
-            let s = u.nodename().to_string_lossy().into_owned();
-            if !s.is_empty() {
-                return Ok(s);
-            }
+        let s = rustix::system::uname()
+            .nodename()
+            .to_string_lossy()
+            .into_owned();
+        if !s.is_empty() {
+            return Ok(s);
         }
     }
     Err(io::Error::new(
@@ -220,6 +231,11 @@ pub fn system_cpu_usage_percent() -> Result<f64, io::Error> {
     })
 }
 
+/// Non-Linux stub: returns `Ok(0.0)`.
+///
+/// # Errors
+///
+/// This variant always succeeds; the `Result` signature matches the Linux variant.
 #[cfg(not(target_os = "linux"))]
 pub fn system_cpu_usage_percent() -> Result<f64, io::Error> {
     Ok(0.0)
