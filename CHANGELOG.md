@@ -13,10 +13,12 @@ Pre-alpha history is preserved as fossil record in
 
 ### Summary (April 20, 2026)
 
-**7,165** tests, **~1,039** `.rs` files, **90.1%** region coverage (target met).
+**7,165** tests, **~1,032** `.rs` files, **~335k** lines, **90.1%** region coverage (target met).
 
-- **BTSP auto-detect (PG-14)**: Plain JSON-RPC clients no longer get connection reset on BTSP-guarded UDS sockets. First-byte peek: `{` → JSON-RPC fallback, else BTSP framing. Matches ecosystem pattern (ToadStool LD-04, BearDog, petalTongue, skunkBat). `accept_with_btsp()` centralizes both accept paths.
-- **Orphan/debris removal**: Deleted dead `auth/` subtree (4 files, `reqwest`+`http-auth` references). Removed 10 placeholder features with zero `cfg` references. Fixed SDK `console_error_panic_hook` → `console` feature name mismatch. Dead `http-api` test module removed.
+- **Cross-arch `uname()` fix**: `rustix::system::uname()` returns `Uname` directly in 1.x (not `Result`). Old `if let Ok()` pattern broke macOS/Android targets. Verified on `aarch64-apple-darwin`, `x86_64-apple-darwin`, `aarch64-linux-android`.
+- **Orphan removal**: Deleted `ecosystem-api/src/client.rs`, `client_types.rs`, `client_mock.rs` (802 lines, never mounted in `lib.rs`, referenced removed `reqwest`). Previously deleted `auth/` subtree (4 files). Removed 10 placeholder features with zero `cfg` references.
+- **Env var evolution to capability-first**: `SONGBIRD_HEARTBEAT_INTERVAL` → `SERVICE_MESH_HEARTBEAT_INTERVAL`, `BIOMEOS_*_URL` → `ECOSYSTEM_*_URL`. `EcosystemEndpoints::default()` refactored from 90 lines to 25 via `resolve_ecosystem_endpoint()` helper. `get_biomeos_endpoints()` now checks `ECOSYSTEM_*` before `BIOMEOS_*` fallbacks.
+- **BTSP auto-detect (PG-14)**: Plain JSON-RPC clients no longer get connection reset on BTSP-guarded UDS sockets. First-byte peek: `{` → JSON-RPC fallback, else BTSP framing.
 - **Niche capability naming**: `DEPENDENCIES` table evolved from `primal_names::BEARDOG` → `"security"`, `SONGBIRD` → `"discovery"`, etc. Hardcoded primal names in logs evolved to capability roles.
 
 Deep debt execution across five sessions (April 15–16):

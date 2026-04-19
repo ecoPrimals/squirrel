@@ -41,7 +41,7 @@ cargo doc --all-features --no-deps
 
 ### Architecture
 
-- **JSON-RPC 2.0 + tarpc** for IPC. No gRPC. Optional HTTP API via axum (feature-gated, off by default).
+- **JSON-RPC 2.0 + tarpc** for IPC. No gRPC, no HTTP clients (Tower Atomic: IPC-first).
 - **Capability-based discovery** at runtime. No hardcoded primal names for routing.
 - **Self-knowledge only**: Squirrel knows its own capabilities; discovers others at runtime.
 - **Zero-copy** where possible: `Arc<str>`, `bytes::Bytes`, `Cow<str>`, `&'static str`.
