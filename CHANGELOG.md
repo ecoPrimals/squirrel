@@ -11,9 +11,13 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
-### Summary (April 16, 2026)
+### Summary (April 20, 2026)
 
-**7,160** tests, **~1,037** `.rs` files, **90.1%** region coverage (target met). Deep debt execution across five sessions:
+**7,165** tests, **~1,039** `.rs` files, **90.1%** region coverage (target met).
+
+- **BTSP auto-detect (PG-14)**: Plain JSON-RPC clients no longer get connection reset on BTSP-guarded UDS sockets. First-byte peek: `{` → JSON-RPC fallback, else BTSP framing. Matches ecosystem pattern (ToadStool LD-04, BearDog, petalTongue, skunkBat). `accept_with_btsp()` centralizes both accept paths.
+
+Deep debt execution across five sessions (April 15–16):
 
 - **Wire Standard L3 Composable**: `capabilities.list` upgraded from L2 to L3 with `description` field on all 12 capability groups, drawn from `niche::CAPABILITY_GROUP_DESCRIPTIONS`
 - **Security service ID evolution**: `format!("{}-security", primal_names::BEARDOG)` eliminated — replaced with `SECURITY_SERVICE_ID` / `SECURITY_PRIMARY_SERVICE_ID` constants across 10 files; `supports_beardog` → `supports_security_provider`; error messages, session prefixes, config builders all evolved to capability-agnostic language; BLAKE3 crypto context strings preserved as cryptographic constants

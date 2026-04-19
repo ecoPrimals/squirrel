@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 16, 2026
+**Last Updated**: April 20, 2026
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,160 passing / 0 failures across 22 workspace members |
+| Tests | 7,165 passing / 0 failures across 22 workspace members |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`, `test-context`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -275,6 +275,13 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`, `test-context`)
 
 ## Changes Since Last Handoff (April 16, 2026)
+
+### April 20, 2026 session AA (BTSP auto-detect — PG-14 resolution)
+
+- **PG-14 resolved**: Plain JSON-RPC clients (springs, health probes, composition tooling) no longer get connection reset on BTSP-guarded UDS sockets. `maybe_handshake()` now peeks the first byte: `{` (0x7B) → plain JSON-RPC fallback; anything else → BTSP binary framing. Matches ecosystem pattern (ToadStool LD-04, BearDog, petalTongue, skunkBat).
+- **Wire protocol**: `read_frame_with_first_byte` / `read_message_with_first_byte` added to BTSP wire module; consumed peek byte is fed into the frame reader to reconstruct the 4-byte length prefix.
+- **Accept loop refactored**: `accept_with_btsp()` centralizes BTSP + auto-detect + fallback for both primary and filesystem socket accept paths. `handle_universal_connection_with_prefix()` replays the consumed `{` byte before the JSON-RPC handler.
+- **5 new tests**: `read_frame_with_first_byte_roundtrip`, `read_frame_with_first_byte_rejects_oversized`, `maybe_handshake_detects_plain_jsonrpc`, `maybe_handshake_passes_btsp_framing_through`, `btsp_error_display_plain_jsonrpc` — total 7,165 tests.
 
 ### April 16, 2026 session Z (Wire Standard L3 + security service ID evolution)
 

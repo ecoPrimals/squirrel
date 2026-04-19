@@ -244,26 +244,11 @@ impl JsonRpcServer {
         // Accept connections loop (primary transport)
         loop {
             match listener.accept().await {
-                Ok((mut transport, _remote_addr)) => {
+                Ok((transport, _remote_addr)) => {
                     debug!("📥 New connection accepted");
                     let server = Arc::clone(&self);
                     tokio::spawn(async move {
-                        // BTSP Phase 2: handshake when FAMILY_ID is set
-                        match super::btsp_handshake::maybe_handshake(&mut transport).await {
-                            Ok(session) => {
-                                if let Some(ref s) = session {
-                                    debug!(session_id = %s.session_id, "BTSP authenticated");
-                                }
-                            }
-                            Err(e) => {
-                                warn!("BTSP handshake failed, refusing connection: {e}");
-                                return;
-                            }
-                        }
-                        if let Err(e) = server.clone().handle_universal_connection(transport).await
-                        {
-                            error!("Error handling connection: {}", e);
-                        }
+                        Self::accept_with_btsp(server, transport).await;
                     });
                 }
                 Err(e) => {
@@ -286,27 +271,45 @@ impl JsonRpcServer {
                     debug!("📥 Filesystem socket connection accepted");
                     let srv = Arc::clone(&server);
                     tokio::spawn(async move {
-                        let mut transport = UniversalTransport::UnixSocket(stream);
-                        // BTSP Phase 2: handshake when FAMILY_ID is set
-                        match super::btsp_handshake::maybe_handshake(&mut transport).await {
-                            Ok(session) => {
-                                if let Some(ref s) = session {
-                                    debug!(session_id = %s.session_id, "BTSP authenticated (fs)");
-                                }
-                            }
-                            Err(e) => {
-                                warn!("BTSP handshake failed on filesystem socket: {e}");
-                                return;
-                            }
-                        }
-                        if let Err(e) = srv.clone().handle_universal_connection(transport).await {
-                            error!("Error handling filesystem socket connection: {}", e);
-                        }
+                        let transport = UniversalTransport::UnixSocket(stream);
+                        Self::accept_with_btsp(srv, transport).await;
                     });
                 }
                 Err(e) => {
                     error!("Failed to accept on filesystem socket: {}", e);
                 }
+            }
+        }
+    }
+
+    /// BTSP Phase 2 with auto-detect: handshake when `FAMILY_ID` is set,
+    /// graceful fallback for plain JSON-RPC clients (PG-14 resolution).
+    ///
+    /// When the first byte is `{`, the client is sending plain JSON-RPC
+    /// without BTSP framing. The consumed byte is prepended via
+    /// `std::io::Cursor` + `tokio::io::chain` so the JSON-RPC handler
+    /// sees the complete request.
+    async fn accept_with_btsp(server: Arc<Self>, mut transport: UniversalTransport) {
+        match super::btsp_handshake::maybe_handshake(&mut transport).await {
+            Ok(session) => {
+                if let Some(ref s) = session {
+                    debug!(session_id = %s.session_id, "BTSP authenticated");
+                }
+                if let Err(e) = server.clone().handle_universal_connection(transport).await {
+                    error!("Error handling connection: {}", e);
+                }
+            }
+            Err(super::btsp_handshake::BtspError::PlainJsonRpc) => {
+                if let Err(e) = server
+                    .clone()
+                    .handle_universal_connection_with_prefix(transport, b'{')
+                    .await
+                {
+                    error!("Error handling plain JSON-RPC connection: {}", e);
+                }
+            }
+            Err(e) => {
+                warn!("BTSP handshake failed, refusing connection: {e}");
             }
         }
     }
@@ -332,10 +335,41 @@ impl JsonRpcServer {
         }
     }
 
-    /// Handle a client connection via Universal Transport with protocol negotiation
+    /// Handle a plain JSON-RPC connection where the first byte (`{`) was
+    /// already consumed by BTSP auto-detect (PG-14 fallback path).
+    ///
+    /// Prepends the consumed byte to reconstruct the complete JSON-RPC
+    /// request, then reads the rest of the first line and processes it
+    /// through the standard JSON-RPC handler.
+    async fn handle_universal_connection_with_prefix(
+        self: std::sync::Arc<Self>,
+        transport: UniversalTransport,
+        prefix_byte: u8,
+    ) -> Result<()> {
+        let mut reader = BufReader::new(transport);
+        let mut line = String::from(char::from(prefix_byte));
+        let mut rest = String::new();
+
+        match reader.read_line(&mut rest).await {
+            Ok(0) => {
+                debug!("Client disconnected after sending single byte");
+                Ok(())
+            }
+            Ok(_) => {
+                line.push_str(&rest);
+                self.handle_jsonrpc_with_first_line(reader, line).await
+            }
+            Err(e) => {
+                warn!("Error reading from plain JSON-RPC connection: {}", e);
+                Err(e).context("Failed to read from plain JSON-RPC connection")
+            }
+        }
+    }
+
+    /// Handle a client connection via Universal Transport with protocol negotiation.
     ///
     /// This method works with ANY transport type (Unix socket, TCP, Named pipe)
-    /// using polymorphic AsyncRead + AsyncWrite traits.
+    /// using polymorphic `AsyncRead` + `AsyncWrite` traits.
     ///
     /// ## Protocol Negotiation
     ///

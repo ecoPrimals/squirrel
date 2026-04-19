@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! BTSP Phase 2 — Handshake-on-accept for UDS listeners.
+//! BTSP Phase 2 — Handshake-on-accept for UDS listeners with auto-detect.
 //!
 //! Implements the server-side BTSP handshake per `BTSP_PROTOCOL_STANDARD.md` v1.0.
 //! When `FAMILY_ID` is set (production mode), every incoming socket connection
-//! must complete the 4-step challenge-response before any JSON-RPC frames are
-//! processed.
+//! is inspected via first-byte auto-detect:
+//!
+//! - **`{` (0x7B)** → plain JSON-RPC client (health probes, composition tooling).
+//!   The handshake is skipped and the connection proceeds unauthenticated.
+//!   This resolves PG-14 (wetSpring): springs can send `health.liveness`
+//!   probes without a BTSP client.
+//! - **Any other byte** → BTSP binary framing. The 4-step challenge-response
+//!   must complete before JSON-RPC frames are processed.
 //!
 //! The handshake crypto is delegated to the BTSP provider's `btsp.session.*` JSON-RPC
 //! methods (handshake-as-a-service; typically the security primal). Squirrel does not hold the family seed.
@@ -46,7 +52,9 @@ pub use btsp_handshake_wire::{
     ServerHello,
 };
 
-use btsp_handshake_wire::{BTSP_VERSION, HANDSHAKE_TIMEOUT, read_message, write_message};
+use btsp_handshake_wire::{
+    BTSP_VERSION, HANDSHAKE_TIMEOUT, read_message, read_message_with_first_byte, write_message,
+};
 
 #[cfg(test)]
 mod btsp_handshake_tests;
@@ -172,9 +180,16 @@ fn discover_btsp_provider() -> Result<PathBuf, BtspError> {
 /// Delegates crypto to the BTSP provider via `btsp.session.create` and
 /// `btsp.session.verify` JSON-RPC calls.
 ///
+/// `peeked_first_byte`: when auto-detect has already consumed the first byte
+/// of the BTSP length prefix, pass it here so the frame reader can
+/// reconstruct the 4-byte header. `None` means no byte was pre-consumed.
+///
 /// After successful completion with `BTSP_NULL` cipher, the transport is
 /// ready for standard newline-delimited JSON-RPC.
-pub async fn btsp_handshake_server<S>(stream: &mut S) -> Result<BtspSession, BtspError>
+pub async fn btsp_handshake_server<S>(
+    stream: &mut S,
+    peeked_first_byte: Option<u8>,
+) -> Result<BtspSession, BtspError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
@@ -184,9 +199,18 @@ where
         .with_connection_timeout(std::time::Duration::from_secs(2));
 
     // Step 1: Read ClientHello
-    let client_hello: ClientHello = tokio::time::timeout(HANDSHAKE_TIMEOUT, read_message(stream))
+    let client_hello: ClientHello = if let Some(byte) = peeked_first_byte {
+        tokio::time::timeout(
+            HANDSHAKE_TIMEOUT,
+            read_message_with_first_byte(stream, byte),
+        )
         .await
-        .map_err(|_| BtspError::Timeout)??;
+        .map_err(|_| BtspError::Timeout)??
+    } else {
+        tokio::time::timeout(HANDSHAKE_TIMEOUT, read_message(stream))
+            .await
+            .map_err(|_| BtspError::Timeout)??
+    };
 
     if client_hello.version != BTSP_VERSION {
         let err = HandshakeErrorMsg {
@@ -292,15 +316,46 @@ where
 
 /// Conditionally run the BTSP handshake on an accepted connection.
 ///
-/// - **Production mode** (`FAMILY_ID` set): runs the full handshake.
-///   Returns `Err` if the handshake fails (connection should be dropped).
 /// - **Development mode** (no `FAMILY_ID`): returns `Ok(None)` immediately.
+/// - **Production mode** (`FAMILY_ID` set): peeks the first byte to
+///   auto-detect the protocol:
+///   - `{` (0x7B) → plain JSON-RPC client; logs a warning and returns
+///     `Ok(None)` so the connection proceeds without authentication.
+///     This resolves PG-14 (wetSpring): springs and composition tooling
+///     can send health probes without a BTSP client.
+///   - Any other byte → BTSP binary framing; runs the full handshake.
+///
+/// Returns `Err` if the handshake fails (connection should be dropped).
 pub async fn maybe_handshake<S>(stream: &mut S) -> Result<Option<BtspSession>, BtspError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
+    use tokio::io::AsyncReadExt;
+
     if !is_btsp_required() {
         return Ok(None);
     }
-    btsp_handshake_server(stream).await.map(Some)
+
+    // Auto-detect: peek the first byte to distinguish BTSP from plain JSON-RPC.
+    // BTSP frames start with a 4-byte BE length prefix (first byte is typically
+    // 0x00 for small payloads). JSON-RPC starts with `{` (0x7B) or whitespace.
+    let mut first = [0u8; 1];
+    tokio::time::timeout(HANDSHAKE_TIMEOUT, stream.read_exact(&mut first))
+        .await
+        .map_err(|_| BtspError::Timeout)??;
+
+    if first[0] == b'{' {
+        warn!(
+            "plain JSON-RPC client connected to BTSP-guarded socket — \
+             skipping handshake (PG-14 auto-detect fallback)"
+        );
+        // The `{` byte is the start of a JSON-RPC request. We consumed it,
+        // so the caller must handle replaying it. Return a sentinel that
+        // the caller can check.
+        return Err(BtspError::PlainJsonRpc);
+    }
+
+    btsp_handshake_server(stream, Some(first[0]))
+        .await
+        .map(Some)
 }

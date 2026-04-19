@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-use super::btsp_handshake_wire::{MAX_FRAME_SIZE, read_frame, write_frame};
+use super::btsp_handshake_wire::{
+    MAX_FRAME_SIZE, read_frame, read_frame_with_first_byte, write_frame,
+};
 use super::*;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 
@@ -444,4 +446,111 @@ async fn write_frame_maps_second_write_io_error() {
         .build();
     let err = write_frame(&mut mock, payload).await.expect_err("write");
     assert!(matches!(err, BtspError::Io(_)));
+}
+
+// ── Auto-detect (PG-14 resolution) ────────────────────────────
+
+#[tokio::test]
+async fn read_frame_with_first_byte_roundtrip() {
+    let (mut client, mut server) = duplex(4096);
+    let payload = b"hello btsp";
+    write_frame(&mut client, payload).await.expect("write");
+
+    let mut first = [0u8; 1];
+    server.read_exact(&mut first).await.expect("peek");
+
+    let got = read_frame_with_first_byte(&mut server, first[0])
+        .await
+        .expect("read");
+    assert_eq!(got, payload);
+}
+
+#[tokio::test]
+async fn read_frame_with_first_byte_rejects_oversized() {
+    let (mut client, mut server) = duplex(64);
+    let fake_len = (MAX_FRAME_SIZE as u32 + 1).to_be_bytes();
+    client.write_all(&fake_len).await.expect("write len");
+
+    let mut first = [0u8; 1];
+    server.read_exact(&mut first).await.expect("peek");
+
+    let err = read_frame_with_first_byte(&mut server, first[0])
+        .await
+        .unwrap_err();
+    assert!(matches!(err, BtspError::FrameTooLarge { .. }));
+}
+
+#[test]
+fn maybe_handshake_detects_plain_jsonrpc() {
+    temp_env::with_vars(
+        [
+            ("SQUIRREL_FAMILY_ID", None::<&str>),
+            ("BIOMEOS_FAMILY_ID", None::<&str>),
+            ("FAMILY_ID", Some("prod-family")),
+            ("BIOMEOS_INSECURE", None::<&str>),
+        ],
+        || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("runtime");
+            rt.block_on(async {
+                let (mut client, mut server) = duplex(4096);
+                let jsonrpc = b"{\"jsonrpc\":\"2.0\",\"method\":\"health.liveness\",\"id\":1}\n";
+                client.write_all(jsonrpc).await.expect("write");
+                drop(client);
+
+                let result = maybe_handshake(&mut server).await;
+                assert!(
+                    matches!(result, Err(BtspError::PlainJsonRpc)),
+                    "expected PlainJsonRpc, got {result:?}"
+                );
+            });
+        },
+    );
+}
+
+#[test]
+fn maybe_handshake_passes_btsp_framing_through() {
+    temp_env::with_vars(
+        [
+            ("SQUIRREL_FAMILY_ID", None::<&str>),
+            ("BIOMEOS_FAMILY_ID", None::<&str>),
+            ("FAMILY_ID", Some("prod-family")),
+            ("BIOMEOS_INSECURE", None::<&str>),
+            ("BTSP_PROVIDER_SOCKET", None::<&str>),
+            ("BTSP_CAPABILITY_SOCKET", None::<&str>),
+            ("SECURITY_SOCKET", None::<&str>),
+            ("BEARDOG_SOCKET", None::<&str>),
+        ],
+        || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("runtime");
+            rt.block_on(async {
+                let (mut client, mut server) = duplex(4096);
+                let hello = ClientHello {
+                    version: 1,
+                    client_ephemeral_pub: "dGVzdA==".into(),
+                };
+                write_message(&mut client, &hello).await.expect("write");
+                drop(client);
+
+                // BTSP framing detected (first byte != `{`), but no provider
+                // socket available → ProviderUnavailable error (not PlainJsonRpc).
+                let result = maybe_handshake(&mut server).await;
+                assert!(
+                    matches!(result, Err(BtspError::ProviderUnavailable(_))),
+                    "expected ProviderUnavailable (no provider socket), got {result:?}"
+                );
+            });
+        },
+    );
+}
+
+#[test]
+fn btsp_error_display_plain_jsonrpc() {
+    let err = BtspError::PlainJsonRpc;
+    assert!(err.to_string().contains("plain JSON-RPC"));
 }

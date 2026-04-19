@@ -93,6 +93,9 @@ pub enum BtspError {
 
     #[error("BTSP protocol error: {0}")]
     Protocol(String),
+
+    #[error("plain JSON-RPC detected on BTSP-guarded socket (auto-detect fallback)")]
+    PlainJsonRpc,
 }
 
 // ── Frame I/O (BTSP_PROTOCOL_STANDARD §Wire Framing) ───────────────────
@@ -100,6 +103,24 @@ pub enum BtspError {
 pub async fn read_frame<S: AsyncRead + Unpin>(stream: &mut S) -> Result<Vec<u8>, BtspError> {
     let mut len_buf = [0u8; 4];
     stream.read_exact(&mut len_buf).await?;
+    let len = u32::from_be_bytes(len_buf) as usize;
+    if len > MAX_FRAME_SIZE {
+        return Err(BtspError::FrameTooLarge { size: len });
+    }
+    let mut buf = vec![0u8; len];
+    stream.read_exact(&mut buf).await?;
+    Ok(buf)
+}
+
+/// Read a BTSP frame where the first byte of the 4-byte length prefix has
+/// already been consumed (by the auto-detect peek).
+pub async fn read_frame_with_first_byte<S: AsyncRead + Unpin>(
+    stream: &mut S,
+    first_byte: u8,
+) -> Result<Vec<u8>, BtspError> {
+    let mut remaining = [0u8; 3];
+    stream.read_exact(&mut remaining).await?;
+    let len_buf = [first_byte, remaining[0], remaining[1], remaining[2]];
     let len = u32::from_be_bytes(len_buf) as usize;
     if len > MAX_FRAME_SIZE {
         return Err(BtspError::FrameTooLarge { size: len });
@@ -127,6 +148,21 @@ where
     T: for<'de> Deserialize<'de>,
 {
     let bytes = read_frame(stream).await?;
+    serde_json::from_slice(&bytes)
+        .map_err(|e| BtspError::Protocol(format!("invalid handshake message: {e}")))
+}
+
+/// Read a BTSP message where the first byte of the length prefix was already
+/// consumed by auto-detect.
+pub async fn read_message_with_first_byte<S, T>(
+    stream: &mut S,
+    first_byte: u8,
+) -> Result<T, BtspError>
+where
+    S: AsyncRead + Unpin,
+    T: for<'de> Deserialize<'de>,
+{
+    let bytes = read_frame_with_first_byte(stream, first_byte).await?;
     serde_json::from_slice(&bytes)
         .map_err(|e| BtspError::Protocol(format!("invalid handshake message: {e}")))
 }
