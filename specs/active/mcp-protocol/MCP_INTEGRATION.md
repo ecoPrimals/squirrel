@@ -93,25 +93,29 @@ The protocol defines the message format and serialization. It includes:
 - ✅ Add subscribe and publish subcommands
 - ✅ Integrate with command registry for server-side execution
 
-### Phase 3: Advanced Features (In Progress)
+### Phase 3: Advanced Features (Partially Complete — gen2 roadmap)
 
 - ✅ Add subscription support for notifications
 - ✅ Implement topic-based routing
 - ✅ Add subscription management in clients
 - ✅ Implement notification callbacks
 - ✅ Add command registry integration
-- ❌ Implement authentication and encryption
-- ❌ Add session management
-- ❌ Implement server persistence
-- ❌ Create admin interface for server management
+- Auth/encryption → delegated to security provider via BTSP (not inline MCP)
+- Session management → delegated to ecosystem coordination
+- Server persistence → delegated to storage capability
+- Admin interface → not in scope (CLI + JSON-RPC introspection instead)
 
-### Phase 4: Ecosystem Integration (Planned)
+### Phase 4: Ecosystem Integration (gen2 roadmap — superseded)
 
-- ❌ Integrate with plugin system
-- ❌ Add MCP service discovery
-- ❌ Create SDKs for various languages
-- 🔄 Implement comprehensive testing
-- 🔄 Add detailed documentation
+> **Note (April 2026):** Most items below are superseded by gen3 architecture.
+> Plugin system, service discovery, and testing are implemented in the main
+> crate via capability discovery, not this MCP integration path.
+
+- Plugin system → `crates/core/plugins/` (unified manager)
+- MCP service discovery → capability-based discovery via ecosystem-api
+- SDKs → `crates/sdk/` (WASM SDK)
+- ✅ Comprehensive testing (7,165 tests, 90.1% coverage)
+- ✅ Documentation (CURRENT_STATUS.md, CONTEXT.md, wateringHole handoffs)
 
 ## Next Steps
 
