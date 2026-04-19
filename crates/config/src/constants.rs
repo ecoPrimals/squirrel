@@ -224,8 +224,11 @@ mod tests {
     #[test]
     fn test_env_var_names() {
         assert_eq!(env_vars::DATABASE_TIMEOUT, "DATABASE_TIMEOUT");
-        assert_eq!(env_vars::HEARTBEAT_INTERVAL, "SONGBIRD_HEARTBEAT_INTERVAL");
-        assert_eq!(env_vars::INITIAL_DELAY, "SONGBIRD_INITIAL_DELAY_MS");
+        assert_eq!(
+            env_vars::HEARTBEAT_INTERVAL,
+            "SERVICE_MESH_HEARTBEAT_INTERVAL"
+        );
+        assert_eq!(env_vars::INITIAL_DELAY, "SERVICE_MESH_INITIAL_DELAY_MS");
         assert_eq!(
             env_vars::SERVICE_MESH_MAX_SERVICES,
             "SERVICE_MESH_MAX_SERVICES"

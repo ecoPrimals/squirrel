@@ -124,20 +124,26 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
         Ok(is_valid)
     }
 
-    /// Get biomeos endpoints from environment
+    /// Get ecosystem orchestrator endpoints from environment
     ///
     /// Multi-tier resolution for each endpoint:
-    /// 1. Full URL env var (BIOMEOS_*_URL)
-    /// 2. Base endpoint + path (BIOMEOS_ENDPOINT)
-    /// 3. Port override (BIOMEOS_PORT)
-    /// 4. Default: http://localhost:5000/path
+    /// 1. Capability-first env var (`ECOSYSTEM_*_URL`)
+    /// 2. Legacy env var (`BIOMEOS_*_URL`)
+    /// 3. Base endpoint (`ECOSYSTEM_ENDPOINT` > `BIOMEOS_ENDPOINT`) + path
+    /// 4. Port override (`ECOSYSTEM_PORT` > `BIOMEOS_PORT`)
+    /// 5. Default: `http://localhost:5000/path`
     pub fn get_biomeos_endpoints(&self) -> Result<serde_json::Value, PrimalError> {
-        // Helper to construct endpoint with multi-tier resolution
-        let build_endpoint = |url_var: &str, path: &str| -> String {
-            std::env::var(url_var)
-                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{e}{path}")))
+        let build_endpoint = |cap_var: &str, legacy_var: &str, path: &str| -> String {
+            std::env::var(cap_var)
+                .or_else(|_| std::env::var(legacy_var))
+                .or_else(|_| {
+                    std::env::var("ECOSYSTEM_ENDPOINT")
+                        .or_else(|_| std::env::var("BIOMEOS_ENDPOINT"))
+                        .map(|e| format!("{e}{path}"))
+                })
                 .unwrap_or_else(|_| {
-                    let port = std::env::var("BIOMEOS_PORT")
+                    let port = std::env::var("ECOSYSTEM_PORT")
+                        .or_else(|_| std::env::var("BIOMEOS_PORT"))
                         .ok()
                         .and_then(|p| p.parse::<u16>().ok())
                         .unwrap_or(universal_constants::network::DEFAULT_BIOMEOS_PORT);
@@ -146,12 +152,12 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
         };
 
         let endpoints = serde_json::json!({
-            "registration_url": build_endpoint("BIOMEOS_REGISTRATION_URL", "/register"),
-            "health_url": build_endpoint("BIOMEOS_HEALTH_URL", "/health"),
-            "metrics_url": build_endpoint("BIOMEOS_METRICS_URL", "/metrics"),
+            "registration_url": build_endpoint("ECOSYSTEM_REGISTRATION_URL", "BIOMEOS_REGISTRATION_URL", "/register"),
+            "health_url": build_endpoint("ECOSYSTEM_HEALTH_URL", "BIOMEOS_HEALTH_URL", "/health"),
+            "metrics_url": build_endpoint("ECOSYSTEM_METRICS_URL", "BIOMEOS_METRICS_URL", "/metrics"),
         });
 
-        info!("BiomeOS endpoints retrieved from environment");
+        info!("Ecosystem endpoints retrieved from environment");
         Ok(endpoints)
     }
 

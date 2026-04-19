@@ -23,7 +23,7 @@
 //! // Get MCP server port (from env or default 8443)
 //! let port = ports::mcp_server();
 //!
-//! // Get security service name (from env or default "beardog")
+//! // Get security service name (from env or default "security")
 //! let security = services::security();
 //!
 //! // Build endpoint

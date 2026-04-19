@@ -24,7 +24,7 @@
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors + `anyhow::Result` (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`, `anyhow::Error`) |
 | Crates | 22 workspace members |
-| Files >800 lines (prod) | 0 — all production `.rs` files under 800 lines; max production file ~798L (`security/orchestrator/mod.rs`); test files up to 1,099L (expected). Smart-refactored: `discovery.rs` (945→596), `http.rs` (866→586), `config.rs` (856→266), `btsp_handshake.rs` (855→306), `adapter.rs` (847→292), `security.rs` (816→377), `ipc_routed_providers.rs` (805→373), plus prior round: `workflow_manager.rs` (831→403), `server/mod.rs` (840→647), `mcp/client.rs` (836→605), `ecosystem client.rs` (824→659), `plugins/manager.rs` (816→706) |
+| Files >800 lines (prod) | 0 — all production `.rs` files under 800 lines; max production file ~798L (`security/orchestrator/mod.rs`); test files up to ~1,105L (expected) |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
@@ -275,6 +275,15 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`, `test-context`)
 
 ## Changes Since Last Handoff (April 16, 2026)
+
+### April 20, 2026 session AC (deep debt: orphan removal, env var evolution, cross-arch fix)
+
+- **Cross-arch `uname()` fix**: `rustix::system::uname()` is infallible in rustix 1.x — code used `if let Ok()` pattern from 0.38.x API. macOS/Android `cargo check` now passes (PG audit resolution)
+- **Orphaned ecosystem-api files deleted**: `client.rs`, `client_types.rs`, `client_mock.rs` (802 lines) — unmounted from `lib.rs`, referenced removed `reqwest` dep, never compiled
+- **Ecosystem env var evolution**: `EcosystemEndpoints::default()` refactored from 90 lines of repetitive `BIOMEOS_*` resolution to ~25 lines via extracted `resolve_ecosystem_endpoint()` helper, adding `ECOSYSTEM_*` capability-first env vars with `BIOMEOS_*` as legacy fallbacks
+- **Env var constant evolution**: `HEARTBEAT_INTERVAL` → `SERVICE_MESH_HEARTBEAT_INTERVAL` (was `SONGBIRD_HEARTBEAT_INTERVAL`), `INITIAL_DELAY` → `SERVICE_MESH_INITIAL_DELAY_MS`, `BIOMEOS_*_URL` → `ECOSYSTEM_*_URL` constants in `env_vars.rs`
+- **`get_biomeos_endpoints()` capability-first**: Added `ECOSYSTEM_ENDPOINT`/`ECOSYSTEM_PORT` > `BIOMEOS_ENDPOINT`/`BIOMEOS_PORT` chains in `primal_provider/core`
+- **Stale doc fixes**: `deployment.rs` doc corrected `"beardog"` → `"security"` for `services::security()` default; description strings evolved from `"BiomeOS integration"` → `"Ecosystem integration"`
 
 ### April 20, 2026 session AB (deep debt: orphan removal, feature hygiene, capability naming)
 

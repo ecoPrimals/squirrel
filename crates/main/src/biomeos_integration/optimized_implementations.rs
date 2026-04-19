@@ -135,7 +135,7 @@ impl OptimizedServiceRegistration {
         EcosystemServiceRegistration {
             service_id: Arc::from(service_id.clone()),
             name: service_id.clone(),
-            description: format!("BiomeOS integration for {service_id}"),
+            description: format!("Ecosystem integration for {service_id}"),
             primal_type: crate::ecosystem::EcosystemPrimalType::Squirrel, // Use enum directly
             biome_id: Some(biome_id.map_or_else(
                 || "default-biome".to_string(),
@@ -391,7 +391,7 @@ pub fn register_with_ecosystem(
     EcosystemServiceRegistration {
         service_id: Arc::from(service_id.to_string()),
         name: service_id.to_string(),
-        description: format!("BiomeOS integration for {service_id}"),
+        description: format!("Ecosystem integration for {service_id}"),
         primal_type,
         biome_id: Some(biome_id.map_or_else(
             || "default-biome".to_string(),

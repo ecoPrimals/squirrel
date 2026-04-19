@@ -50,11 +50,11 @@ pub const OPERATION_TIMEOUT: &str = "OPERATION_TIMEOUT";
 /// Database timeout environment variable
 pub const DATABASE_TIMEOUT: &str = "DATABASE_TIMEOUT";
 
-/// Heartbeat interval environment variable
-pub const HEARTBEAT_INTERVAL: &str = "SONGBIRD_HEARTBEAT_INTERVAL";
+/// Heartbeat interval environment variable (capability-first; legacy `SONGBIRD_HEARTBEAT_INTERVAL` still read as fallback in config loader)
+pub const HEARTBEAT_INTERVAL: &str = "SERVICE_MESH_HEARTBEAT_INTERVAL";
 
-/// Initial delay environment variable
-pub const INITIAL_DELAY: &str = "SONGBIRD_INITIAL_DELAY_MS";
+/// Initial delay environment variable (capability-first; legacy `SONGBIRD_INITIAL_DELAY_MS` still read as fallback in config loader)
+pub const INITIAL_DELAY: &str = "SERVICE_MESH_INITIAL_DELAY_MS";
 
 // ============================================================================
 // Limits & Sizes
@@ -70,17 +70,17 @@ pub const BUFFER_SIZE: &str = "BUFFER_SIZE";
 pub const SERVICE_MESH_MAX_SERVICES: &str = "SERVICE_MESH_MAX_SERVICES";
 
 // ============================================================================
-// BiomeOS Integration
+// Ecosystem Orchestration (legacy name: biomeOS)
 // ============================================================================
 
-/// `BiomeOS` registration URL environment variable
-pub const BIOMEOS_REGISTRATION_URL: &str = "BIOMEOS_REGISTRATION_URL";
+/// Ecosystem registration URL (capability-first; legacy `BIOMEOS_REGISTRATION_URL` read as fallback)
+pub const ECOSYSTEM_REGISTRATION_URL: &str = "ECOSYSTEM_REGISTRATION_URL";
 
-/// `BiomeOS` health URL environment variable
-pub const BIOMEOS_HEALTH_URL: &str = "BIOMEOS_HEALTH_URL";
+/// Ecosystem health URL (capability-first; legacy `BIOMEOS_HEALTH_URL` read as fallback)
+pub const ECOSYSTEM_HEALTH_URL: &str = "ECOSYSTEM_HEALTH_URL";
 
-/// `BiomeOS` metrics URL environment variable
-pub const BIOMEOS_METRICS_URL: &str = "BIOMEOS_METRICS_URL";
+/// Ecosystem metrics URL (capability-first; legacy `BIOMEOS_METRICS_URL` read as fallback)
+pub const ECOSYSTEM_METRICS_URL: &str = "ECOSYSTEM_METRICS_URL";
 
 // ============================================================================
 // Feature Flags
@@ -98,8 +98,8 @@ pub const LOG_LEVEL: &str = "RUST_LOG";
 #[cfg(test)]
 mod tests {
     use super::{
-        ADMIN_PORT, BIND_ADDRESS, BIOMEOS_HEALTH_URL, BIOMEOS_METRICS_URL,
-        BIOMEOS_REGISTRATION_URL, BUFFER_SIZE, CONNECTION_TIMEOUT, DATABASE_TIMEOUT, DEBUG_MODE,
+        ADMIN_PORT, BIND_ADDRESS, BUFFER_SIZE, CONNECTION_TIMEOUT, DATABASE_TIMEOUT, DEBUG_MODE,
+        ECOSYSTEM_HEALTH_URL, ECOSYSTEM_METRICS_URL, ECOSYSTEM_REGISTRATION_URL,
         HEARTBEAT_INTERVAL, HTTP_PORT, INITIAL_DELAY, LOG_LEVEL, MAX_CONNECTIONS, MAX_MESSAGE_SIZE,
         METRICS_PORT, OPERATION_TIMEOUT, REQUEST_TIMEOUT, SERVICE_MESH_MAX_SERVICES,
         VERBOSE_LOGGING, WEBSOCKET_PORT,
@@ -121,8 +121,8 @@ mod tests {
         assert_eq!(REQUEST_TIMEOUT, "REQUEST_TIMEOUT");
         assert_eq!(OPERATION_TIMEOUT, "OPERATION_TIMEOUT");
         assert_eq!(DATABASE_TIMEOUT, "DATABASE_TIMEOUT");
-        assert_eq!(HEARTBEAT_INTERVAL, "SONGBIRD_HEARTBEAT_INTERVAL");
-        assert_eq!(INITIAL_DELAY, "SONGBIRD_INITIAL_DELAY_MS");
+        assert_eq!(HEARTBEAT_INTERVAL, "SERVICE_MESH_HEARTBEAT_INTERVAL");
+        assert_eq!(INITIAL_DELAY, "SERVICE_MESH_INITIAL_DELAY_MS");
     }
 
     #[test]
@@ -133,10 +133,10 @@ mod tests {
     }
 
     #[test]
-    fn test_biomeos_vars() {
-        assert_eq!(BIOMEOS_REGISTRATION_URL, "BIOMEOS_REGISTRATION_URL");
-        assert_eq!(BIOMEOS_HEALTH_URL, "BIOMEOS_HEALTH_URL");
-        assert_eq!(BIOMEOS_METRICS_URL, "BIOMEOS_METRICS_URL");
+    fn test_ecosystem_vars() {
+        assert_eq!(ECOSYSTEM_REGISTRATION_URL, "ECOSYSTEM_REGISTRATION_URL");
+        assert_eq!(ECOSYSTEM_HEALTH_URL, "ECOSYSTEM_HEALTH_URL");
+        assert_eq!(ECOSYSTEM_METRICS_URL, "ECOSYSTEM_METRICS_URL");
     }
 
     #[test]
