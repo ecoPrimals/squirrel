@@ -659,7 +659,10 @@ impl McpClient {
     }
 
     /// Exercise payload validation / preprocessing without `send_message` (unit tests).
-    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        expect(dead_code, reason = "test helper; only called from wasm32 test paths")
+    )]
     pub(crate) fn test_validate_and_process_payload(
         &self,
         message_type: &str,
@@ -669,7 +672,10 @@ impl McpClient {
     }
 
     /// Exercise JSON round-trip used by `send_message` (unit tests).
-    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        expect(dead_code, reason = "test helper; only called from wasm32 test paths")
+    )]
     pub(crate) fn test_serialize_response_to_js(
         &self,
         response: MessageResponse,

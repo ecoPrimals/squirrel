@@ -189,7 +189,7 @@ impl JsonRpcServer {
                 match tokio::net::UnixListener::bind(&fs_path) {
                     Ok(fs_listener) => {
                         info!(
-                            "✅ Filesystem socket bound: {} (biomeOS discovery)",
+                            "✅ Filesystem socket bound: {} (orchestrator discovery)",
                             fs_path
                         );
                         #[cfg(unix)]

@@ -19,7 +19,7 @@ use universal_constants::primal_names;
 /// external data - NOT for discovery routing. Actual discovery is capability-based.
 #[cfg_attr(
     not(test),
-    allow(
+    expect(
         dead_code,
         reason = "Warm-up table for tests; reserved for future shared interning"
     )

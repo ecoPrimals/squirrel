@@ -72,7 +72,7 @@ temp-env = "0.3"
 [features]
 # Integration tests gated until API rewrite for UDS transport — tracked in CURRENT_STATUS.md
 integration-tests = []
-disabled_until_rewrite = []
+## integration-tests / disabled_until_rewrite: gated until API rewrite for UDS transport
 
 # Production default: streaming only (Zero-HTTP, Pure Rust)
 default = ["streaming"]
@@ -81,16 +81,9 @@ default = ["streaming"]
 # When disabled, crypto operations delegate to the security primal via capability discovery.
 local-crypto = ["dep:ed25519-dalek"]
 
-## direct-http removed (stadial gate: reqwest lockfile ghost eliminated)
-
-# TLS support (reserved; wire rustls when MCP TLS paths are implemented)
-tls = []
-
 enhanced = [
     "tarpc",
     "streaming",
-    "plugins",
-    "persistence",
     "metrics",
     "compression",
     "local-crypto"
@@ -98,20 +91,16 @@ enhanced = [
 full = [
     "tarpc",
     "streaming",
-    "plugins",
-    "persistence",
     "metrics",
     "compression",
     "local-crypto"
 ]
 tarpc = []
 streaming = ["dep:tokio-stream"]
-## ai-providers feature removed (stadial gate: reqwest lockfile ghost eliminated)
-plugins = []
-persistence = []
 metrics = ["dep:metrics"]
 compression = ["dep:zstd", "dep:flate2", "dep:lz4_flex"]
-sync-placeholders = []
+## tls/plugins/persistence/sync-placeholders/disabled_until_rewrite removed —
+## zero cfg(feature) references; re-add when implementations exist.
 
 [lints]
 workspace = true

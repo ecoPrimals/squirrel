@@ -463,58 +463,7 @@ impl<C: ServiceMeshClientTrait + Send + Sync> ServiceDiscovery<C> {
     }
 }
 
-#[cfg(all(test, feature = "http-api"))]
-mod tests {
-    use super::*;
-    use std::time::Duration;
-
-    #[expect(deprecated)]
-    #[test]
-    fn test_songbird_client_new() {
-        let result = SongbirdClient::new(
-            "http://localhost:9999".to_string(),
-            None,
-            RetryConfig::default(),
-        );
-        assert!(result.is_ok());
-        let client = result.expect("should succeed");
-        let _with_timeout = client.with_timeout(Duration::from_secs(10));
-    }
-
-    #[expect(deprecated)]
-    #[test]
-    fn test_songbird_client_with_auth() {
-        let result = SongbirdClient::new(
-            "http://localhost:9999".to_string(),
-            Some("test-token".to_string()),
-            RetryConfig::default(),
-        );
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_service_mesh_client_factory_create_client() {
-        let result = ServiceMeshClientFactory::create_client(
-            "http://localhost:9999".to_string(),
-            None,
-            RetryConfig::default(),
-        );
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_health_monitor_new() {
-        let mock = MockServiceMeshClient::new();
-        let _monitor =
-            HealthMonitor::new(mock, "test-service".to_string(), Duration::from_secs(30));
-    }
-
-    #[test]
-    fn test_service_discovery_new() {
-        let mock = MockServiceMeshClient::new();
-        let _discovery = ServiceDiscovery::new(mock);
-    }
-}
+## http-api test module removed — feature was eliminated in stadial gate
 
 #[cfg(test)]
 mod discovery_health_tests {

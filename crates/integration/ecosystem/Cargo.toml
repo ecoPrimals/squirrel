@@ -14,13 +14,10 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tracing = "0.1"
 
-# Placeholder for future Songbird and Toadstool client dependencies
-# songbird-client = { path = "../../../songbird/client", optional = true }
-# toadstool-client = { path = "../../../toadstool/client", optional = true }
-
 [features]
 default = []
-songbird = []
-toadstool = [] 
+## songbird/toadstool features removed — Squirrel discovers primals by
+## capability at runtime (service_mesh, compute_provider); no compile-time
+## primal-name coupling.
 [lints]
 workspace = true

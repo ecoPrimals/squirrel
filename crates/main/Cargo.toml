@@ -109,8 +109,8 @@ tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]  # High-performance binary RPC (
 system-metrics = []  # Uses universal_constants::sys_info (pure Rust, /proc on Linux)
 monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]  # Metrics (optional)
 benchmarking = ["criterion"]             # Benchmarking tools
-enhanced_error_handling = []                     # Enhanced error handling
-optimizations = []                               # Performance optimizations
+## enhanced_error_handling / optimizations removed — no cfg(feature) references;
+## error handling and optimizations are always-on via workspace lint policy.
 ## Enable deprecated vendor-specific AI adapters (Anthropic, OpenAI).
 ## These compile in direct HTTP adapters — v0.3.0 removal planned.
 ## Prefer capability-based discovery with UniversalAiAdapter + LOCAL_AI_ENDPOINT.

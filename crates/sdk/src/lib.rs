@@ -149,7 +149,7 @@ pub use infrastructure::*;
 // Utility functions
 /// Set panic hook for better error messages in WASM
 pub fn set_panic_hook() {
-    #[cfg(feature = "console_error_panic_hook")]
+    #[cfg(feature = "console")]
     console_error_panic_hook::set_once();
 }
 
@@ -172,8 +172,8 @@ fn get_enabled_features() -> Vec<String> {
         "fs".to_string(),
         #[cfg(feature = "mcp")]
         "mcp".to_string(),
-        #[cfg(feature = "console_error_panic_hook")]
-        "console_error_panic_hook".to_string(),
+        #[cfg(feature = "console")]
+        "console".to_string(),
     ]
 }
 
@@ -226,8 +226,8 @@ pub fn has_feature(feature: &str) -> bool {
         "fs" => true,
         #[cfg(feature = "mcp")]
         "mcp" => true,
-        #[cfg(feature = "console_error_panic_hook")]
-        "console_error_panic_hook" => true,
+        #[cfg(feature = "console")]
+        "console" => true,
         _ => false,
     }
 }
@@ -239,8 +239,8 @@ pub fn enabled_features() -> Vec<&'static str> {
         "fs",
         #[cfg(feature = "mcp")]
         "mcp",
-        #[cfg(feature = "console_error_panic_hook")]
-        "console_error_panic_hook",
+        #[cfg(feature = "console")]
+        "console",
     ]
 }
 

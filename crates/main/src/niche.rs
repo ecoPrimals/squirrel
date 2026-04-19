@@ -22,8 +22,6 @@
 //! literals. Squirrel only knows itself — it discovers other primals at
 //! runtime via capability-based discovery.
 
-use universal_constants::primal_names;
-
 /// Primal identity — used in all JSON-RPC, IPC, and biomeOS interactions.
 pub const PRIMAL_ID: &str = "squirrel";
 
@@ -146,42 +144,42 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "composition.nucleus_health",
 ];
 
-/// Primal dependencies for deployment.
+/// Consumed capabilities for deployment metadata.
 ///
-/// Each entry: `(primal_id, required, description)`.
+/// Each entry: `(capability_role, required, description)`.
 /// `required = true` means Squirrel cannot function without it.
 /// `required = false` means graceful degradation is supported.
+///
+/// Discovery is capability-first at runtime — these names are deployment
+/// metadata for composition tooling (biomeOS graph builder, NUCLEUS launcher).
+/// The `capability_role` matches the wire `consumed_capabilities` schema.
 pub const DEPENDENCIES: &[(&str, bool, &str)] = &[
     (
-        primal_names::BEARDOG,
+        "security",
         true,
-        "cryptographic identity and trust",
+        "cryptographic identity and trust (btsp.session.*, crypto.*)",
     ),
     (
-        primal_names::SONGBIRD,
+        "discovery",
         true,
-        "service discovery and IPC mesh",
+        "service discovery and IPC mesh (ipc.discover, capability.resolve)",
     ),
     (
-        primal_names::TOADSTOOL,
+        "compute",
         false,
         "GPU compute dispatch (graceful fallback to CPU-only inference)",
     ),
     (
-        primal_names::NESTGATE,
+        "storage",
         false,
         "persistent storage (graceful fallback to in-memory cache)",
     ),
     (
-        primal_names::PRIMALSPRING,
+        "coordination",
         false,
-        "coordination validation and BYOB graph execution",
+        "composition validation and graph execution",
     ),
-    (
-        primal_names::PETALTONGUE,
-        false,
-        "visualization and user interface rendering",
-    ),
+    ("visualization", false, "user interface rendering"),
 ];
 
 /// Cost estimates for biomeOS Pathway Learner scheduling.
@@ -596,10 +594,10 @@ mod tests {
     }
 
     #[test]
-    fn dependencies_name_beardog_and_songbird_required() {
-        let beardog = DEPENDENCIES.iter().find(|(id, _, _)| *id == "beardog");
-        let songbird = DEPENDENCIES.iter().find(|(id, _, _)| *id == "songbird");
-        assert_eq!(beardog.map(|(_, r, _)| *r), Some(true));
-        assert_eq!(songbird.map(|(_, r, _)| *r), Some(true));
+    fn security_and_discovery_are_required_dependencies() {
+        let security = DEPENDENCIES.iter().find(|(id, _, _)| *id == "security");
+        let discovery = DEPENDENCIES.iter().find(|(id, _, _)| *id == "discovery");
+        assert_eq!(security.map(|(_, r, _)| *r), Some(true));
+        assert_eq!(discovery.map(|(_, r, _)| *r), Some(true));
     }
 }

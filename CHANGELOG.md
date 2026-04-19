@@ -16,6 +16,8 @@ Pre-alpha history is preserved as fossil record in
 **7,165** tests, **~1,039** `.rs` files, **90.1%** region coverage (target met).
 
 - **BTSP auto-detect (PG-14)**: Plain JSON-RPC clients no longer get connection reset on BTSP-guarded UDS sockets. First-byte peek: `{` → JSON-RPC fallback, else BTSP framing. Matches ecosystem pattern (ToadStool LD-04, BearDog, petalTongue, skunkBat). `accept_with_btsp()` centralizes both accept paths.
+- **Orphan/debris removal**: Deleted dead `auth/` subtree (4 files, `reqwest`+`http-auth` references). Removed 10 placeholder features with zero `cfg` references. Fixed SDK `console_error_panic_hook` → `console` feature name mismatch. Dead `http-api` test module removed.
+- **Niche capability naming**: `DEPENDENCIES` table evolved from `primal_names::BEARDOG` → `"security"`, `SONGBIRD` → `"discovery"`, etc. Hardcoded primal names in logs evolved to capability roles.
 
 Deep debt execution across five sessions (April 15–16):
 

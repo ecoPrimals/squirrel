@@ -276,6 +276,15 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Changes Since Last Handoff (April 16, 2026)
 
+### April 20, 2026 session AB (deep debt: orphan removal, feature hygiene, capability naming)
+
+- **Orphaned auth subtree removed**: `crates/core/auth/src/auth/` (4 files, ~35kb) referenced `reqwest` via dead `http-auth` feature and was never wired from `lib.rs` — deleted
+- **Feature flag hygiene**: Removed placeholder features with zero `cfg` references: `songbird`/`toadstool` (ecosystem-integration), `enhanced_error_handling`/`optimizations` (main), `tls`/`plugins`/`persistence`/`sync-placeholders`/`disabled_until_rewrite` (MCP). Dead `#[cfg(test, feature = "http-api")]` test module removed from ecosystem-api
+- **SDK feature mismatch fixed**: `cfg(feature = "console_error_panic_hook")` → `cfg(feature = "console")` across 4 sites in SDK (feature name was `console`, not `console_error_panic_hook`)
+- **`#[allow()]` → `#[expect(reason)]`**: Migrated remaining production `allow(dead_code)` to `expect(dead_code, reason)` in `interning.rs` and `client.rs`
+- **Niche self-knowledge**: `DEPENDENCIES` table evolved from `primal_names::BEARDOG` etc. to capability roles (`"security"`, `"discovery"`, `"compute"`, `"storage"`, `"coordination"`, `"visualization"`)
+- **Hardcoded names in logs**: `"biomeos"` → `"orchestration"`, `"BearDog coordination"` → `"security provider coordination"`, `"biomeOS discovery"` → `"orchestrator discovery"`
+
 ### April 20, 2026 session AA (BTSP auto-detect — PG-14 resolution)
 
 - **PG-14 resolved**: Plain JSON-RPC clients (springs, health probes, composition tooling) no longer get connection reset on BTSP-guarded UDS sockets. `maybe_handshake()` now peeks the first byte: `{` (0x7B) → plain JSON-RPC fallback; anything else → BTSP binary framing. Matches ecosystem pattern (ToadStool LD-04, BearDog, petalTongue, skunkBat).

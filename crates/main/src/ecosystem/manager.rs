@@ -142,7 +142,7 @@ impl EcosystemManager {
                 ],
                 integrations: vec![
                     "service_mesh".to_string(),
-                    "biomeos".to_string(),
+                    "orchestration".to_string(),
                     "crypto".to_string(),
                     "storage".to_string(),
                     "compute".to_string(),
@@ -506,7 +506,7 @@ impl EcosystemManager {
         &self,
         credentials: HashMap<String, String>,
     ) -> Result<String, PrimalError> {
-        tracing::info!("🐻 Authenticating via BearDog coordination");
+        tracing::info!("Authenticating via security provider coordination");
         let _user_id = credentials
             .get("user_id")
             .or_else(|| credentials.get("username"))
