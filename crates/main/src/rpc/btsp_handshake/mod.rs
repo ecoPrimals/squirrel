@@ -53,7 +53,7 @@ pub use btsp_handshake_wire::{
 };
 
 use btsp_handshake_wire::{
-    BTSP_VERSION, HANDSHAKE_TIMEOUT, read_message, read_message_with_first_byte, write_message,
+    BTSP_VERSION, handshake_timeout, read_message, read_message_with_first_byte, write_message,
 };
 
 #[cfg(test)]
@@ -194,20 +194,18 @@ where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     let provider_socket = discover_btsp_provider()?;
+    let timeout = handshake_timeout();
     let provider = super::ipc_client::IpcClient::new(&provider_socket)
-        .with_request_timeout(HANDSHAKE_TIMEOUT)
-        .with_connection_timeout(std::time::Duration::from_secs(2));
+        .with_request_timeout(timeout)
+        .with_connection_timeout(timeout.min(std::time::Duration::from_secs(2)));
 
     // Step 1: Read ClientHello
     let client_hello: ClientHello = if let Some(byte) = peeked_first_byte {
-        tokio::time::timeout(
-            HANDSHAKE_TIMEOUT,
-            read_message_with_first_byte(stream, byte),
-        )
-        .await
-        .map_err(|_| BtspError::Timeout)??
+        tokio::time::timeout(timeout, read_message_with_first_byte(stream, byte))
+            .await
+            .map_err(|_| BtspError::Timeout)??
     } else {
-        tokio::time::timeout(HANDSHAKE_TIMEOUT, read_message(stream))
+        tokio::time::timeout(timeout, read_message(stream))
             .await
             .map_err(|_| BtspError::Timeout)??
     };
@@ -263,10 +261,9 @@ where
     debug!("BTSP: sent ServerHello");
 
     // Step 4: Read ChallengeResponse
-    let challenge_resp: ChallengeResponse =
-        tokio::time::timeout(HANDSHAKE_TIMEOUT, read_message(stream))
-            .await
-            .map_err(|_| BtspError::Timeout)??;
+    let challenge_resp: ChallengeResponse = tokio::time::timeout(timeout, read_message(stream))
+        .await
+        .map_err(|_| BtspError::Timeout)??;
 
     debug!(
         preferred_cipher = %challenge_resp.preferred_cipher,
@@ -314,6 +311,17 @@ where
     Ok(BtspSession { session_id, cipher })
 }
 
+/// Send a BTSP error frame to the client so it can fail fast and retry with cleartext.
+///
+/// Best-effort: I/O errors are ignored since the connection will be dropped anyway.
+pub async fn send_error_frame<S: AsyncWrite + Unpin>(stream: &mut S, error: &BtspError) {
+    let msg = HandshakeErrorMsg {
+        error: "handshake_failed".into(),
+        reason: error.to_string(),
+    };
+    let _ = write_message(stream, &msg).await;
+}
+
 /// Conditionally run the BTSP handshake on an accepted connection.
 ///
 /// - **Development mode** (no `FAMILY_ID`): returns `Ok(None)` immediately.
@@ -340,7 +348,7 @@ where
     // BTSP frames start with a 4-byte BE length prefix (first byte is typically
     // 0x00 for small payloads). JSON-RPC starts with `{` (0x7B) or whitespace.
     let mut first = [0u8; 1];
-    tokio::time::timeout(HANDSHAKE_TIMEOUT, stream.read_exact(&mut first))
+    tokio::time::timeout(handshake_timeout(), stream.read_exact(&mut first))
         .await
         .map_err(|_| BtspError::Timeout)??;
 

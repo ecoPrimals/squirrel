@@ -276,6 +276,13 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Changes Since Last Handoff (April 16, 2026)
 
+### April 21, 2026 session AD (BTSP handshake timeout — PG-14 follow-up)
+
+- **Timeout reduction**: `HANDSHAKE_TIMEOUT` reduced from 5s → 1.5s default, configurable via `BTSP_HANDSHAKE_TIMEOUT_MS` env var. Value is cached via `OnceLock` (zero-cost after first call). Eliminates the ~5s latency on guidestone runs when BearDog is unavailable.
+- **Error frame on failure**: `accept_with_btsp()` now sends a BTSP `HandshakeErrorMsg` back to the client before dropping the connection on handshake failure, so the client can immediately retry with cleartext instead of waiting for its own timeout.
+- **Connection timeout tightened**: IPC client connection timeout is now `min(handshake_timeout, 2s)` instead of always 2s, so deployments that set sub-2s handshake timeouts get faster fallback.
+- **2 new tests**: `handshake_timeout_default_is_1500ms`, `send_error_frame_writes_btsp_error_msg` — total 7,167 tests.
+
 ### April 20, 2026 session AC (deep debt: orphan removal, env var evolution, cross-arch fix)
 
 - **Cross-arch `uname()` fix**: `rustix::system::uname()` is infallible in rustix 1.x — code used `if let Ok()` pattern from 0.38.x API. macOS/Android `cargo check` now passes (PG audit resolution)

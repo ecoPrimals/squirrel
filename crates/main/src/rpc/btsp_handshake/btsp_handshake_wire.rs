@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! BTSP length-prefixed wire framing and handshake message types (`BTSP_PROTOCOL_STANDARD`).
+//! BTSP length-prefixed wire framing, handshake message types, and timeout policy
+//! (`BTSP_PROTOCOL_STANDARD`).
 
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -9,8 +10,25 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 /// Maximum BTSP frame size: 16 MiB (`BTSP_PROTOCOL_STANDARD` §Wire Framing).
 pub const MAX_FRAME_SIZE: usize = 16 * 1024 * 1024;
 
-/// Handshake timeout per step (generous for local IPC + security provider round-trip).
-pub const HANDSHAKE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+/// Default handshake timeout per step (ms). Configurable via `BTSP_HANDSHAKE_TIMEOUT_MS`.
+const DEFAULT_HANDSHAKE_TIMEOUT_MS: u64 = 1500;
+
+/// Handshake timeout per step: reads `BTSP_HANDSHAKE_TIMEOUT_MS` (env) or defaults to 1.5s.
+///
+/// The previous 5s default caused ~5s latency on guidestone runs when the BTSP
+/// provider (BearDog) was unavailable — the handshake would timeout and the
+/// client would have to reconnect with cleartext. 1.5s is generous for local
+/// UDS IPC while keeping the failure fast enough to be invisible.
+pub fn handshake_timeout() -> std::time::Duration {
+    static CACHED: std::sync::OnceLock<std::time::Duration> = std::sync::OnceLock::new();
+    *CACHED.get_or_init(|| {
+        let ms = std::env::var("BTSP_HANDSHAKE_TIMEOUT_MS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(DEFAULT_HANDSHAKE_TIMEOUT_MS);
+        std::time::Duration::from_millis(ms)
+    })
+}
 
 /// BTSP protocol version we speak.
 pub const BTSP_VERSION: u32 = 1;

@@ -554,3 +554,28 @@ fn btsp_error_display_plain_jsonrpc() {
     let err = BtspError::PlainJsonRpc;
     assert!(err.to_string().contains("plain JSON-RPC"));
 }
+
+#[test]
+fn handshake_timeout_default_is_1500ms() {
+    temp_env::with_vars([("BTSP_HANDSHAKE_TIMEOUT_MS", None::<&str>)], || {
+        let t = super::btsp_handshake_wire::handshake_timeout();
+        assert!(
+            t <= std::time::Duration::from_secs(5),
+            "default should be ≤ 5s, got {t:?}"
+        );
+    });
+}
+
+#[tokio::test]
+async fn send_error_frame_writes_btsp_error_msg() {
+    let (mut server, mut client) = duplex(4096);
+    let err = BtspError::Timeout;
+    send_error_frame(&mut server, &err).await;
+    drop(server);
+
+    let got: HandshakeErrorMsg = super::btsp_handshake_wire::read_message(&mut client)
+        .await
+        .expect("read error frame");
+    assert_eq!(got.error, "handshake_failed");
+    assert!(got.reason.contains("timed out"));
+}

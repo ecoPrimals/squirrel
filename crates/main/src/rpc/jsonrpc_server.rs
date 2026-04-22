@@ -310,6 +310,7 @@ impl JsonRpcServer {
             }
             Err(e) => {
                 warn!("BTSP handshake failed, refusing connection: {e}");
+                super::btsp_handshake::send_error_frame(&mut transport, &e).await;
             }
         }
     }

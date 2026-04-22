@@ -19,6 +19,7 @@ Pre-alpha history is preserved as fossil record in
 - **Orphan removal**: Deleted `ecosystem-api/src/client.rs`, `client_types.rs`, `client_mock.rs` (802 lines, never mounted in `lib.rs`, referenced removed `reqwest`). Previously deleted `auth/` subtree (4 files). Removed 10 placeholder features with zero `cfg` references.
 - **Env var evolution to capability-first**: `SONGBIRD_HEARTBEAT_INTERVAL` → `SERVICE_MESH_HEARTBEAT_INTERVAL`, `BIOMEOS_*_URL` → `ECOSYSTEM_*_URL`. `EcosystemEndpoints::default()` refactored from 90 lines to 25 via `resolve_ecosystem_endpoint()` helper. `get_biomeos_endpoints()` now checks `ECOSYSTEM_*` before `BIOMEOS_*` fallbacks.
 - **BTSP auto-detect (PG-14)**: Plain JSON-RPC clients no longer get connection reset on BTSP-guarded UDS sockets. First-byte peek: `{` → JSON-RPC fallback, else BTSP framing.
+- **BTSP handshake timeout (PG-14 follow-up)**: Reduced default from 5s→1.5s, configurable via `BTSP_HANDSHAKE_TIMEOUT_MS`. On handshake failure, a BTSP error frame is now sent back to the client so it can retry immediately with cleartext instead of waiting for its own timeout. Eliminates ~5s latency on guidestone runs when BearDog is unavailable.
 - **Niche capability naming**: `DEPENDENCIES` table evolved from `primal_names::BEARDOG` → `"security"`, `SONGBIRD` → `"discovery"`, etc. Hardcoded primal names in logs evolved to capability roles.
 
 Deep debt execution across five sessions (April 15–16):
