@@ -2,7 +2,7 @@
 # Crypto Migration Guide
 
 **Status**: Complete — pure-Rust default build current as of April 2026 (workspace v0.1.0)
-**Last Updated**: April 20, 2026
+**Last Updated**: April 21, 2026
 
 ## Summary
 
