@@ -25,7 +25,7 @@ uuid.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
-futures = "0.3"
+futures.workspace = true
 
 # HTTP and networking (OPTIONAL - for HTTP patterns)
 # Production uses Unix sockets!
@@ -37,7 +37,7 @@ tracing.workspace = true
 # Configuration management
 config = "0.14"
 serde_yaml_ng = "0.10"
-dirs = "5.0"
+dirs.workspace = true
 
 # Ecosystem dependencies
 ecosystem-api = { path = "../ecosystem-api", version = "0.1.0" }

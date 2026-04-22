@@ -276,6 +276,13 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Changes Since Last Handoff (April 16, 2026)
 
+### April 21, 2026 session AE (deep debt: dep consolidation, log evolution)
+
+- **Dependency consolidation**: `directories` crate eliminated from workspace, replaced with `dirs` (already in `[workspace.dependencies]`). `test-context` dead dev-dep removed from `squirrel` main crate (declared but never imported). Both eliminated from `Cargo.lock`.
+- **Workspace dep alignment**: 6 crates migrated from pinned version strings to `workspace = true` for `clap`, `uuid`, `tokio`, `serde`, `serde_json`, `toml`, `thiserror`, `tracing`, `tracing-subscriber`, `futures`, `glob`, `dirs` — reduces version drift risk.
+- **Log/description capability evolution**: `"biomeOS"` → `"ecosystem orchestrator"` in lifecycle.rs and main.rs user-facing logs; `"biomeOS lifecycle"` → `"Ecosystem lifecycle"` in niche.rs capability description; `"biomeOS/v1"` → `"ecosystem/v1"` in optimized_implementations.rs string cache; `"biomeos_socket_registry"` → `"ecosystem_socket_registry"` in registry kind label.
+- **Audit findings (clean)**: Zero unsafe blocks, zero production `#[allow]` (1 justified `#[allow(dead_code)]` with reason), all 3 mock modules properly gated `#[cfg(test)]`, zero TODO/FIXME/HACK markers, zero production files >800L.
+
 ### April 21, 2026 session AD (BTSP handshake timeout — PG-14 follow-up)
 
 - **Timeout reduction**: `HANDSHAKE_TIMEOUT` reduced from 5s → 1.5s default, configurable via `BTSP_HANDSHAKE_TIMEOUT_MS` env var. Value is cached via `OnceLock` (zero-cost after first call). Eliminates the ~5s latency on guidestone runs when BearDog is unavailable.

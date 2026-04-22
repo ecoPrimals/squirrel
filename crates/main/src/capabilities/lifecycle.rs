@@ -93,7 +93,10 @@ pub async fn register_with_biomeos(
                 );
                 false
             } else {
-                info!("Registered with biomeOS at {}", biomeos_socket.display());
+                info!(
+                    "Registered with ecosystem orchestrator at {}",
+                    biomeos_socket.display()
+                );
                 true
             }
         }
@@ -133,8 +136,8 @@ pub fn spawn_heartbeat(
                     });
 
                     match send_jsonrpc_public(&biomeos_socket, &request).await {
-                        Ok(_) => debug!("heartbeat sent to biomeOS"),
-                        Err(e) => debug!("heartbeat failed (biomeOS may be down): {e}"),
+                        Ok(_) => debug!("heartbeat sent to ecosystem orchestrator"),
+                        Err(e) => debug!("heartbeat failed (orchestrator may be down): {e}"),
                     }
                 }
                 _ = shutdown_rx.changed() => {

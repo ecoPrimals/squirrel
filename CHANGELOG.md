@@ -13,7 +13,7 @@ Pre-alpha history is preserved as fossil record in
 
 ### Summary (April 20, 2026)
 
-**7,165** tests, **~1,032** `.rs` files, **~335k** lines, **90.1%** region coverage (target met).
+**7,167** tests, **~1,032** `.rs` files, **~335k** lines, **90.1%** region coverage (target met).
 
 - **Cross-arch `uname()` fix**: `rustix::system::uname()` returns `Uname` directly in 1.x (not `Result`). Old `if let Ok()` pattern broke macOS/Android targets. Verified on `aarch64-apple-darwin`, `x86_64-apple-darwin`, `aarch64-linux-android`.
 - **Orphan removal**: Deleted `ecosystem-api/src/client.rs`, `client_types.rs`, `client_mock.rs` (802 lines, never mounted in `lib.rs`, referenced removed `reqwest`). Previously deleted `auth/` subtree (4 files). Removed 10 placeholder features with zero `cfg` references.
@@ -21,6 +21,8 @@ Pre-alpha history is preserved as fossil record in
 - **BTSP auto-detect (PG-14)**: Plain JSON-RPC clients no longer get connection reset on BTSP-guarded UDS sockets. First-byte peek: `{` → JSON-RPC fallback, else BTSP framing.
 - **BTSP handshake timeout (PG-14 follow-up)**: Reduced default from 5s→1.5s, configurable via `BTSP_HANDSHAKE_TIMEOUT_MS`. On handshake failure, a BTSP error frame is now sent back to the client so it can retry immediately with cleartext instead of waiting for its own timeout. Eliminates ~5s latency on guidestone runs when BearDog is unavailable.
 - **Niche capability naming**: `DEPENDENCIES` table evolved from `primal_names::BEARDOG` → `"security"`, `SONGBIRD` → `"discovery"`, etc. Hardcoded primal names in logs evolved to capability roles.
+- **Dependency consolidation**: `directories` crate eliminated → `dirs` (already in workspace). `test-context` dead dev-dep removed. 6 crates migrated from pinned versions to `workspace = true` (`clap`, `uuid`, `tokio`, `serde`, `serde_json`, `toml`, `thiserror`, `tracing`, `tracing-subscriber`, `futures`, `glob`, `dirs`). Both `directories` and `test-context` removed from Cargo.lock.
+- **Log/description evolution**: "biomeOS" → "ecosystem orchestrator" in lifecycle.rs, main.rs logs; "biomeOS lifecycle" → "Ecosystem lifecycle" in niche.rs; "biomeOS/v1" → "ecosystem/v1" in optimized_implementations.rs; "biomeos_socket_registry" → "ecosystem_socket_registry" in registry.rs.
 
 Deep debt execution across five sessions (April 15–16):
 

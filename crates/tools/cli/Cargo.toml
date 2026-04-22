@@ -14,22 +14,22 @@ categories = ["development-tools"]
 workspace = true
 
 [dependencies]
-clap = { version = "4.0", features = ["derive"] }
-uuid = { version = "1.0", features = ["v4"] }
-tokio = { version = "1.0", features = ["full"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-toml = "0.8"
-thiserror = "1.0"
+clap = { workspace = true }
+uuid.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+thiserror.workspace = true
 anyhow.workspace = true
-tracing = { version = "0.1", features = ["log"] }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 blake3.workspace = true
 colored = "2.0"
 prettytable = "0.10"
 # lazy_static removed - evolved to std::sync::LazyLock (stable Rust 1.80+)
 serde_yaml_ng = "0.10"
-directories = "5.0"
+dirs.workspace = true
 
 universal-constants = { path = "../../universal-constants", version = "0.1.0" }
 

@@ -395,7 +395,7 @@ pub const CAPABILITY_GROUP_DESCRIPTIONS: &[(&str, &str)] = &[
     ),
     (
         "lifecycle",
-        "biomeOS lifecycle: register with orchestrator, report status",
+        "Ecosystem lifecycle: register with orchestrator, report status",
     ),
     (
         "graph",

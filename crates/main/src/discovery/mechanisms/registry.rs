@@ -57,7 +57,7 @@ use tracing::{debug, info};
 
 const fn registry_kind_label(registry_type: &RegistryType) -> &'static str {
     match registry_type {
-        RegistryType::Biomeos => "biomeos_socket_registry",
+        RegistryType::Biomeos => "ecosystem_socket_registry",
         RegistryType::Consul => "consul",
         RegistryType::Etcd => "etcd",
         RegistryType::Kubernetes => "kubernetes",

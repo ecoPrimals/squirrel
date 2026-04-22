@@ -98,8 +98,8 @@ impl OptimizedServiceRegistration {
             .unwrap_or_else(|| Arc::from("squirrel"));
         let _api_version = self
             .static_strings
-            .get("biomeOS/v1")
-            .unwrap_or_else(|| Arc::from("biomeOS/v1"));
+            .get("ecosystem/v1")
+            .unwrap_or_else(|| Arc::from("ecosystem/v1"));
         let _status = self
             .static_strings
             .get("running")

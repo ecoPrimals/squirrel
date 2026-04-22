@@ -335,7 +335,7 @@ async fn run_server(
         )
         .await
         {
-            info!("Registered with biomeOS");
+            info!("Registered with ecosystem orchestrator");
 
             // Start heartbeat (30s interval)
             let _heartbeat = squirrel::capabilities::lifecycle::spawn_heartbeat(
@@ -347,7 +347,7 @@ async fn run_server(
             info!("Heartbeat started (30s interval)");
         }
     } else {
-        info!("No biomeOS socket found — standalone mode");
+        info!("No ecosystem orchestrator socket found — standalone mode");
     }
 
     // Service-mesh registration via discovery socket

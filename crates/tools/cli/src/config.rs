@@ -94,9 +94,9 @@ impl ConfigManager {
 
         // 3. Try user config directory
         if found_path.is_none()
-            && let Some(proj_dirs) = directories::ProjectDirs::from("", "", "squirrel")
+            && let Some(config_base) = dirs::config_dir()
         {
-            let user_config_path = proj_dirs.config_dir().join("squirrel.toml");
+            let user_config_path = config_base.join("squirrel").join("squirrel.toml");
             debug!("Trying user config directory: {:?}", user_config_path);
             if user_config_path.exists() {
                 config = CliConfig::load_from_file(&user_config_path)?;
