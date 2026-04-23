@@ -112,8 +112,12 @@ pub enum BtspError {
     #[error("BTSP protocol error: {0}")]
     Protocol(String),
 
+    /// First line (full UTF-8 line) was consumed; must be re-injected for the JSON-RPC handler.
     #[error("plain JSON-RPC detected on BTSP-guarded socket (auto-detect fallback)")]
-    PlainJsonRpc,
+    PlainJsonRpc {
+        /// Complete first line, including the leading `{` and line terminator when present.
+        first_line: String,
+    },
 }
 
 // ── Frame I/O (BTSP_PROTOCOL_STANDARD §Wire Framing) ───────────────────
@@ -193,4 +197,38 @@ where
     let bytes = serde_json::to_vec(msg)
         .map_err(|e| BtspError::Protocol(format!("serialization failed: {e}")))?;
     write_frame(stream, &bytes).await
+}
+
+pub async fn write_json_line<S, T>(stream: &mut S, msg: &T) -> Result<(), BtspError>
+where
+    S: AsyncWrite + Unpin,
+    T: Serialize + Send + Sync,
+{
+    let mut bytes = serde_json::to_vec(msg)
+        .map_err(|e| BtspError::Protocol(format!("serialization failed: {e}")))?;
+    bytes.push(b'\n');
+    stream.write_all(&bytes).await?;
+    stream.flush().await?;
+    Ok(())
+}
+
+pub async fn read_json_line_msg<S, T>(stream: &mut S) -> Result<T, BtspError>
+where
+    S: AsyncRead + Unpin,
+    T: for<'de> Deserialize<'de>,
+{
+    let mut buf = Vec::with_capacity(4096);
+    let mut byte = [0u8; 1];
+    loop {
+        stream.read_exact(&mut byte).await?;
+        if byte[0] == b'\n' {
+            break;
+        }
+        buf.push(byte[0]);
+        if buf.len() > MAX_FRAME_SIZE {
+            return Err(BtspError::FrameTooLarge { size: buf.len() });
+        }
+    }
+    serde_json::from_slice(&buf)
+        .map_err(|e| BtspError::Protocol(format!("invalid JSON-line message: {e}")))
 }

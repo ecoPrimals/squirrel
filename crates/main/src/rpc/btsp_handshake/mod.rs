@@ -7,10 +7,10 @@
 //! When `FAMILY_ID` is set (production mode), every incoming socket connection
 //! is inspected via first-byte auto-detect:
 //!
-//! - **`{` (0x7B)** → plain JSON-RPC client (health probes, composition tooling).
-//!   The handshake is skipped and the connection proceeds unauthenticated.
-//!   This resolves PG-14 (wetSpring): springs can send `health.liveness`
-//!   probes without a BTSP client.
+//! - **`{` (0x7B)** → read the full first line. If it is a BTSP `ClientHello` (contains
+//!   both `"protocol"` and `"btsp"`), the JSON-line form is accepted and the handshake
+//!   runs. Otherwise the line is treated as plain JSON-RPC (unauthenticated) per PG-14
+//!   (e.g. `health.liveness` probes from springs).
 //! - **Any other byte** → BTSP binary framing. The 4-step challenge-response
 //!   must complete before JSON-RPC frames are processed.
 //!
@@ -53,14 +53,14 @@ pub use btsp_handshake_wire::{
 };
 
 use btsp_handshake_wire::{
-    BTSP_VERSION, handshake_timeout, read_message, read_message_with_first_byte, write_message,
+    BTSP_VERSION, handshake_timeout, read_json_line_msg, read_message,
+    read_message_with_first_byte, write_json_line, write_message,
 };
 
 #[cfg(test)]
 mod btsp_handshake_tests;
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use rand::RngCore;
 use std::path::PathBuf;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tracing::{debug, info, warn};
@@ -193,12 +193,7 @@ pub async fn btsp_handshake_server<S>(
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    let provider_socket = discover_btsp_provider()?;
     let timeout = handshake_timeout();
-    let provider = super::ipc_client::IpcClient::new(&provider_socket)
-        .with_request_timeout(timeout)
-        .with_connection_timeout(timeout.min(std::time::Duration::from_secs(2)));
-
     // Step 1: Read ClientHello
     let client_hello: ClientHello = if let Some(byte) = peeked_first_byte {
         tokio::time::timeout(timeout, read_message_with_first_byte(stream, byte))
@@ -209,6 +204,34 @@ where
             .await
             .map_err(|_| BtspError::Timeout)??
     };
+
+    btsp_handshake_after_client_hello(stream, client_hello, false).await
+}
+
+/// Read `FAMILY_SEED` (or `BEARDOG_FAMILY_SEED` fallback) and return base64-encoded.
+fn resolve_family_seed() -> Result<String, BtspError> {
+    let raw = std::env::var("FAMILY_SEED")
+        .or_else(|_| std::env::var("BEARDOG_FAMILY_SEED"))
+        .map_err(|_| {
+            BtspError::Protocol("FAMILY_SEED or BEARDOG_FAMILY_SEED must be set for BTSP".into())
+        })?;
+    Ok(BASE64.encode(raw.as_bytes()))
+}
+
+/// Continue the BTSP server handshake after `ClientHello` (binary or JSON line).
+async fn btsp_handshake_after_client_hello<S>(
+    stream: &mut S,
+    client_hello: ClientHello,
+    json_line_mode: bool,
+) -> Result<BtspSession, BtspError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    let provider_socket = discover_btsp_provider()?;
+    let timeout = handshake_timeout();
+    let provider = super::ipc_client::IpcClient::new(&provider_socket)
+        .with_request_timeout(timeout)
+        .with_connection_timeout(timeout.min(std::time::Duration::from_secs(2)));
 
     if client_hello.version != BTSP_VERSION {
         let err = HandshakeErrorMsg {
@@ -221,18 +244,9 @@ where
 
     debug!(version = client_hello.version, "BTSP: received ClientHello");
 
-    // Generate challenge (32 random bytes)
-    let mut challenge_bytes = [0u8; 32];
-    rand::rng().fill_bytes(&mut challenge_bytes);
-    let challenge_b64 = BASE64.encode(challenge_bytes);
-
     // Step 2: Call BTSP provider btsp.session.create
-    // EVOLUTION: When primalspring 0.10.0 ships, replace `family_seed_ref` with
-    // mito-beacon fields from `mito_beacon_from_env()` — three-tier genetics.
     let create_params = serde_json::json!({
-        "family_seed_ref": "env:FAMILY_SEED",
-        "client_ephemeral_pub": client_hello.client_ephemeral_pub,
-        "challenge": challenge_b64,
+        "family_seed": resolve_family_seed()?,
     });
 
     let create_result = provider
@@ -242,6 +256,7 @@ where
 
     let session_id = create_result["session_id"]
         .as_str()
+        .or_else(|| create_result["session_token"].as_str())
         .ok_or_else(|| BtspError::Protocol("missing session_id in create response".into()))?
         .to_string();
     let server_ephemeral_pub = create_result["server_ephemeral_pub"]
@@ -250,20 +265,34 @@ where
             BtspError::Protocol("missing server_ephemeral_pub in create response".into())
         })?
         .to_string();
+    let challenge_b64 = create_result["challenge"]
+        .as_str()
+        .ok_or_else(|| BtspError::Protocol("missing challenge in create response".into()))?
+        .to_string();
 
-    // Step 3: Send ServerHello
+    // Step 3: Send ServerHello (using BearDog's challenge)
     let server_hello = ServerHello {
         version: BTSP_VERSION,
         server_ephemeral_pub: server_ephemeral_pub.clone(),
         challenge: challenge_b64.clone(),
     };
-    write_message(stream, &server_hello).await?;
+    if json_line_mode {
+        write_json_line(stream, &server_hello).await?;
+    } else {
+        write_message(stream, &server_hello).await?;
+    }
     debug!("BTSP: sent ServerHello");
 
     // Step 4: Read ChallengeResponse
-    let challenge_resp: ChallengeResponse = tokio::time::timeout(timeout, read_message(stream))
-        .await
-        .map_err(|_| BtspError::Timeout)??;
+    let challenge_resp: ChallengeResponse = if json_line_mode {
+        tokio::time::timeout(timeout, read_json_line_msg(stream))
+            .await
+            .map_err(|_| BtspError::Timeout)??
+    } else {
+        tokio::time::timeout(timeout, read_message(stream))
+            .await
+            .map_err(|_| BtspError::Timeout)??
+    };
 
     debug!(
         preferred_cipher = %challenge_resp.preferred_cipher,
@@ -272,8 +301,8 @@ where
 
     // Step 5: Call BTSP provider btsp.session.verify
     let verify_params = serde_json::json!({
-        "session_id": session_id,
-        "client_response": challenge_resp.response,
+        "session_token": session_id,
+        "response": challenge_resp.response,
         "client_ephemeral_pub": client_hello.client_ephemeral_pub,
         "server_ephemeral_pub": server_ephemeral_pub,
         "challenge": challenge_b64,
@@ -304,7 +333,11 @@ where
         cipher: cipher.clone(),
         session_id: session_id.clone(),
     };
-    write_message(stream, &complete).await?;
+    if json_line_mode {
+        write_json_line(stream, &complete).await?;
+    } else {
+        write_message(stream, &complete).await?;
+    }
 
     info!(session_id = %session_id, cipher = %cipher, "BTSP handshake complete");
 
@@ -327,10 +360,11 @@ pub async fn send_error_frame<S: AsyncWrite + Unpin>(stream: &mut S, error: &Bts
 /// - **Development mode** (no `FAMILY_ID`): returns `Ok(None)` immediately.
 /// - **Production mode** (`FAMILY_ID` set): peeks the first byte to
 ///   auto-detect the protocol:
-///   - `{` (0x7B) → plain JSON-RPC client; logs a warning and returns
-///     `Ok(None)` so the connection proceeds without authentication.
-///     This resolves PG-14 (wetSpring): springs and composition tooling
-///     can send health probes without a BTSP client.
+///   - `{` (0x7B) → read the full first line. If it looks like a JSON-line
+///     BTSP `ClientHello` (contains both `"protocol"` and `"btsp"`), run the
+///     handshake. Otherwise log a warning and return [`BtspError::PlainJsonRpc`]
+///     with the line so the JSON-RPC path can proceed without authentication
+///     (PG-14: health probes, composition tooling).
 ///   - Any other byte → BTSP binary framing; runs the full handshake.
 ///
 /// Returns `Err` if the handshake fails (connection should be dropped).
@@ -338,6 +372,7 @@ pub async fn maybe_handshake<S>(stream: &mut S) -> Result<Option<BtspSession>, B
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
+    use self::btsp_handshake_wire::MAX_FRAME_SIZE;
     use tokio::io::AsyncReadExt;
 
     if !is_btsp_required() {
@@ -353,14 +388,38 @@ where
         .map_err(|_| BtspError::Timeout)??;
 
     if first[0] == b'{' {
+        let mut buf = vec![b'{'];
+        while buf.len() < MAX_FRAME_SIZE {
+            let mut b = [0u8; 1];
+            let n = tokio::time::timeout(handshake_timeout(), stream.read(&mut b))
+                .await
+                .map_err(|_| BtspError::Timeout)??;
+            if n == 0 {
+                break;
+            }
+            buf.push(b[0]);
+            if b[0] == b'\n' {
+                break;
+            }
+        }
+        if buf.len() > MAX_FRAME_SIZE {
+            return Err(BtspError::FrameTooLarge { size: buf.len() });
+        }
+        let first_line = String::from_utf8(buf)
+            .map_err(|e| BtspError::Protocol(format!("first line is not valid UTF-8: {e}")))?;
+        let trimmed = first_line.trim();
+        if trimmed.contains("\"protocol\"") && trimmed.contains("\"btsp\"") {
+            let client_hello: ClientHello = serde_json::from_str(trimmed)
+                .map_err(|e| BtspError::Protocol(format!("BTSP JSON-line ClientHello: {e}")))?;
+            return btsp_handshake_after_client_hello(stream, client_hello, true)
+                .await
+                .map(Some);
+        }
         warn!(
             "plain JSON-RPC client connected to BTSP-guarded socket — \
              skipping handshake (PG-14 auto-detect fallback)"
         );
-        // The `{` byte is the start of a JSON-RPC request. We consumed it,
-        // so the caller must handle replaying it. Return a sentinel that
-        // the caller can check.
-        return Err(BtspError::PlainJsonRpc);
+        return Err(BtspError::PlainJsonRpc { first_line });
     }
 
     btsp_handshake_server(stream, Some(first[0]))

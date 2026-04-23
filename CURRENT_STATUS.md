@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 20, 2026
+**Last Updated**: April 22, 2026
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,165 passing / 0 failures across 22 workspace crates |
+| Tests | 7,168 passing / 0 failures across 22 workspace crates |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`, `test-context`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -275,6 +275,16 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`, `test-context`)
 
 ## Changes Since Last Handoff (April 16, 2026)
+
+### April 22, 2026 session AF (BTSP JSON-line relay — Phase 45c)
+
+- **JSON-line BTSP auto-detect**: First byte `{` now reads the full first line. If it contains `"protocol"` and `"btsp"`, it is a JSON-line `ClientHello` and the handshake runs in JSON-line mode. Otherwise, the line is treated as plain JSON-RPC (PG-14 fallback). This resolves primalSpring's guidestone BTSP failures against relay primals.
+- **BearDog field alignment**: `family_seed_ref: "env:FAMILY_SEED"` replaced with actual base64-encoded `FAMILY_SEED` value. `session_id`/`session_token` fallback parsing added. `btsp.session.verify` params aligned: `session_token` (not `session_id`), `response` (not `client_response`).
+- **Challenge sourced from BearDog**: Local random challenge generation removed. BearDog generates the challenge in `btsp.session.create` and the relay uses BearDog's challenge in `ServerHello` — prevents HMAC verification failures ("family verification rejected").
+- **Consistent JSON-line framing**: `btsp_handshake_after_client_hello()` extracted with `json_line_mode: bool`. All 4 handshake messages (ServerHello, ChallengeResponse read, HandshakeComplete) use matching framing.
+- **Wire helpers**: New `write_json_line()` and `read_json_line_msg()` in `btsp_handshake_wire.rs`. `PlainJsonRpc` error variant now carries the full consumed first line for clean replay.
+- **Cleanup**: Removed unused `rand::RngCore` import (challenge no longer generated locally). Extracted `resolve_family_seed()` helper to keep main handshake function under 100-line clippy limit.
+- **1 new test**: `maybe_handshake_json_line_btsp_routes_to_handshake` — verifies JSON-line BTSP is routed to handshake path. Total: 7,168 tests.
 
 ### April 21, 2026 session AE (deep debt: dep consolidation, log evolution)
 

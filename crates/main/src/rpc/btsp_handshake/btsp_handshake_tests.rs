@@ -502,7 +502,7 @@ fn maybe_handshake_detects_plain_jsonrpc() {
 
                 let result = maybe_handshake(&mut server).await;
                 assert!(
-                    matches!(result, Err(BtspError::PlainJsonRpc)),
+                    matches!(result, Err(BtspError::PlainJsonRpc { .. })),
                     "expected PlainJsonRpc, got {result:?}"
                 );
             });
@@ -537,12 +537,57 @@ fn maybe_handshake_passes_btsp_framing_through() {
                 write_message(&mut client, &hello).await.expect("write");
                 drop(client);
 
-                // BTSP framing detected (first byte != `{`), but no provider
-                // socket available → ProviderUnavailable error (not PlainJsonRpc).
+                // BTSP framing detected (first byte != `{`) → handshake attempted.
+                // Fails with ProviderUnavailable (no socket) or Protocol (no FAMILY_SEED).
                 let result = maybe_handshake(&mut server).await;
                 assert!(
-                    matches!(result, Err(BtspError::ProviderUnavailable(_))),
-                    "expected ProviderUnavailable (no provider socket), got {result:?}"
+                    matches!(
+                        result,
+                        Err(BtspError::ProviderUnavailable(_) | BtspError::Protocol(_))
+                    ),
+                    "expected handshake error (not PlainJsonRpc), got {result:?}"
+                );
+            });
+        },
+    );
+}
+
+/// JSON-line BTSP `ClientHello` (first line contains `"protocol"` and `"btsp"`) is not
+/// classified as cleartext JSON-RPC; handshake runs (fails with no provider like binary BTSP).
+#[test]
+fn maybe_handshake_json_line_btsp_routes_to_handshake() {
+    temp_env::with_vars(
+        [
+            ("SQUIRREL_FAMILY_ID", None::<&str>),
+            ("BIOMEOS_FAMILY_ID", None::<&str>),
+            ("FAMILY_ID", Some("prod-family")),
+            ("BIOMEOS_INSECURE", None::<&str>),
+            ("BTSP_PROVIDER_SOCKET", None::<&str>),
+            ("BTSP_CAPABILITY_SOCKET", None::<&str>),
+            ("SECURITY_SOCKET", None::<&str>),
+            ("BEARDOG_SOCKET", None::<&str>),
+        ],
+        || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("runtime");
+            rt.block_on(async {
+                let (mut client, mut server) = duplex(4096);
+                let line = r#"{"protocol":"btsp","version":1,"client_ephemeral_pub":"dGVzdA=="}"#;
+                client.write_all(line.as_bytes()).await.expect("write");
+                client.write_all(b"\n").await.expect("write nl");
+                drop(client);
+
+                // JSON-line BTSP detected → handshake attempted (not PlainJsonRpc).
+                // Fails with ProviderUnavailable (no socket) or Protocol (no FAMILY_SEED).
+                let result = maybe_handshake(&mut server).await;
+                assert!(
+                    matches!(
+                        result,
+                        Err(BtspError::ProviderUnavailable(_) | BtspError::Protocol(_))
+                    ),
+                    "expected handshake error (not PlainJsonRpc), got {result:?}"
                 );
             });
         },
@@ -551,7 +596,9 @@ fn maybe_handshake_passes_btsp_framing_through() {
 
 #[test]
 fn btsp_error_display_plain_jsonrpc() {
-    let err = BtspError::PlainJsonRpc;
+    let err = BtspError::PlainJsonRpc {
+        first_line: String::new(),
+    };
     assert!(err.to_string().contains("plain JSON-RPC"));
 }
 

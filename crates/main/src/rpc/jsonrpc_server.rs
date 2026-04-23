@@ -285,10 +285,9 @@ impl JsonRpcServer {
     /// BTSP Phase 2 with auto-detect: handshake when `FAMILY_ID` is set,
     /// graceful fallback for plain JSON-RPC clients (PG-14 resolution).
     ///
-    /// When the first byte is `{`, the client is sending plain JSON-RPC
-    /// without BTSP framing. The consumed byte is prepended via
-    /// `std::io::Cursor` + `tokio::io::chain` so the JSON-RPC handler
-    /// sees the complete request.
+    /// When the first line is plain JSON-RPC (not a JSON-line BTSP `ClientHello`), the
+    /// line was consumed in auto-detect and is passed to the JSON-RPC handler together
+    /// with the remaining stream.
     async fn accept_with_btsp(server: Arc<Self>, mut transport: UniversalTransport) {
         match super::btsp_handshake::maybe_handshake(&mut transport).await {
             Ok(session) => {
@@ -299,10 +298,10 @@ impl JsonRpcServer {
                     error!("Error handling connection: {}", e);
                 }
             }
-            Err(super::btsp_handshake::BtspError::PlainJsonRpc) => {
+            Err(super::btsp_handshake::BtspError::PlainJsonRpc { first_line }) => {
                 if let Err(e) = server
                     .clone()
-                    .handle_universal_connection_with_prefix(transport, b'{')
+                    .handle_universal_connection_with_first_line(transport, first_line)
                     .await
                 {
                     error!("Error handling plain JSON-RPC connection: {}", e);
@@ -336,35 +335,17 @@ impl JsonRpcServer {
         }
     }
 
-    /// Handle a plain JSON-RPC connection where the first byte (`{`) was
-    /// already consumed by BTSP auto-detect (PG-14 fallback path).
-    ///
-    /// Prepends the consumed byte to reconstruct the complete JSON-RPC
-    /// request, then reads the rest of the first line and processes it
-    /// through the standard JSON-RPC handler.
-    async fn handle_universal_connection_with_prefix(
+    /// Handle a plain JSON-RPC connection where the full first line was
+    /// already read by BTSP auto-detect (PG-14 fallback path). The stream is
+    /// positioned at the start of the second line.
+    async fn handle_universal_connection_with_first_line(
         self: std::sync::Arc<Self>,
         transport: UniversalTransport,
-        prefix_byte: u8,
+        first_line: String,
     ) -> Result<()> {
-        let mut reader = BufReader::new(transport);
-        let mut line = String::from(char::from(prefix_byte));
-        let mut rest = String::new();
-
-        match reader.read_line(&mut rest).await {
-            Ok(0) => {
-                debug!("Client disconnected after sending single byte");
-                Ok(())
-            }
-            Ok(_) => {
-                line.push_str(&rest);
-                self.handle_jsonrpc_with_first_line(reader, line).await
-            }
-            Err(e) => {
-                warn!("Error reading from plain JSON-RPC connection: {}", e);
-                Err(e).context("Failed to read from plain JSON-RPC connection")
-            }
-        }
+        let reader = BufReader::new(transport);
+        self.handle_jsonrpc_with_first_line(reader, first_line)
+            .await
     }
 
     /// Handle a client connection via Universal Transport with protocol negotiation.
