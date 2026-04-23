@@ -276,6 +276,14 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Changes Since Last Handoff (April 16, 2026)
 
+### April 22, 2026 session AG (deep debt: test extraction, doc evolution, dep cleanup)
+
+- **Test extraction**: `adapter-pattern-tests/src/auth.rs` (845L) split into production code (465L) + sibling `auth_tests.rs` (382L). Zero production files >800L.
+- **Stale evolution comments**: Removed 4 stale `Evolution:` comments that described already-completed work (3 in `biomeos_integration/mod.rs` — interval tickers already in use; 1 in `security/orchestrator/mod.rs` — drain loop already implemented).
+- **Doc evolution**: `unix_socket.rs` module docs evolved from "biomeOS" to "ecosystem" language (descriptive text only; env var names and filesystem paths preserved as ecosystem-wide contracts). `security/orchestrator/mod.rs` drain comment cleaned.
+- **Dependency cleanup**: `test-context` workspace dep removed (orphaned — no crate references it). `zstd` bumped `0.12` → `0.13` (feature-gated, off by default).
+- **7,168** tests, clippy clean, deny clean.
+
 ### April 22, 2026 session AF (BTSP JSON-line relay — Phase 45c)
 
 - **JSON-line BTSP auto-detect**: First byte `{` now reads the full first line. If it contains `"protocol"` and `"btsp"`, it is a JSON-line `ClientHello` and the handshake runs in JSON-line mode. Otherwise, the line is treated as plain JSON-RPC (PG-14 fallback). This resolves primalSpring's guidestone BTSP failures against relay primals.

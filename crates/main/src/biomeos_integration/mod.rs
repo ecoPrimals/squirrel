@@ -318,7 +318,6 @@ impl SquirrelBiomeOSIntegration {
         // Start AI intelligence background task
         let ai_intelligence = self.ai_intelligence.clone();
         tokio::spawn(async move {
-            // Evolution: Use interval ticker instead of loop+sleep
             let interval_secs = std::env::var("AI_INTELLIGENCE_INTERVAL_SECS")
                 .ok()
                 .and_then(|s| s.parse::<u64>().ok())
@@ -344,7 +343,6 @@ impl SquirrelBiomeOSIntegration {
         // Start MCP coordination background task
         let mcp_integration = self.mcp_integration.clone();
         tokio::spawn(async move {
-            // Evolution: Use interval ticker instead of loop+sleep
             let interval_secs = std::env::var("MCP_COORDINATION_INTERVAL_SECS")
                 .ok()
                 .and_then(|s| s.parse::<u64>().ok())
@@ -370,7 +368,6 @@ impl SquirrelBiomeOSIntegration {
         // Start context management background task
         let context_state = self.context_state.clone();
         tokio::spawn(async move {
-            // Evolution: Use interval ticker instead of loop+sleep
             let interval_secs = std::env::var("CONTEXT_MANAGEMENT_INTERVAL_SECS")
                 .ok()
                 .and_then(|s| s.parse::<u64>().ok())

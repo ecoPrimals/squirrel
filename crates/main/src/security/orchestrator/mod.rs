@@ -412,8 +412,6 @@ impl ShutdownHandler for SecurityOrchestrator {
                 Ok(())
             }
             ShutdownPhase::DrainRequests => {
-                // Evolution: Properly wait for active security checks to complete
-                // instead of arbitrary sleep
                 let timeout_duration = Duration::from_secs(30);
                 let start = std::time::Instant::now();
 

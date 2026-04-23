@@ -105,7 +105,6 @@ mockall = "0.11"
 test-case = "3.0"
 tempfile = "3.8"
 pretty_assertions = "1.4"
-test-context = "0.2"
 proptest = "1.10.0"
 
 # Benchmarking dependencies
@@ -131,7 +130,7 @@ serde_bytes = "0.11"
 futures-util = "0.3"
 # tokio-tungstenite: REMOVED — Tower Atomic pattern; WebSocket provided by Songbird service mesh via IPC
 # zstd: C libzstd via zstd-safe — not in default build; only `squirrel-mcp` with `compression` feature.
-zstd = "0.12"
+zstd = "0.13"
 flate2 = { version = "1.0", default-features = false, features = ["rust_backend"] }
 lz4_flex = "0.13"
 

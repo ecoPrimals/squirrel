@@ -3,32 +3,30 @@
 
 //! Unix Socket Utilities
 //!
-//! Helper functions for Unix socket management following biomeOS atomic standards.
+//! Helper functions for Unix socket management following ecosystem atomic standards.
 //!
 //! ## Socket Configuration Priority (5-Tier Fallback)
 //!
 //! 1. `SQUIRREL_SOCKET` environment variable (primal-specific override)
-//! 2. `BIOMEOS_SOCKET_PATH` environment variable (Neural API orchestration) ⭐
+//! 2. `BIOMEOS_SOCKET_PATH` environment variable (ecosystem orchestration, legacy name)
 //! 3. `PRIMAL_SOCKET` environment variable with family suffix (generic primal coordination)
-//! 4. XDG Runtime Directory: `/run/user/<uid>/biomeos/squirrel.sock` (STANDARD biomeOS path)
+//! 4. XDG Runtime Directory: `/run/user/<uid>/biomeos/squirrel.sock` (standard ecosystem path)
 //! 5. Temp Directory (fallback): `/tmp/squirrel-<family>-<node>.sock` (dev/testing only)
 //!
 //! ## Environment Variables
 //!
 //! - `SQUIRREL_SOCKET`: Primal-specific override (highest priority)
-//! - `BIOMEOS_SOCKET_PATH`: Generic orchestrator path (Neural API coordination) ⭐
+//! - `BIOMEOS_SOCKET_PATH`: Ecosystem orchestrator path (legacy name, retained for compat)
 //! - `SQUIRREL_FAMILY_ID`: Family identifier for atomic grouping (default: "default")
 //! - `SQUIRREL_NODE_ID`: Node identifier for multi-instance (default: hostname)
 //!
-//! ## biomeOS Atomic Architecture Compliance
+//! ## Ecosystem Atomic Architecture Compliance
 //!
 //! This implementation follows the standardized socket configuration required for:
 //! - Tower atomics (security + mesh primals)
 //! - Node atomics (security + mesh + compute primals)
 //! - Nest atomics (security + mesh + storage primals)
 //! - NUCLEUS deployments (full atomic set)
-//!
-//! See: `docs/sessions/2026-01-11/BIOMEOS_SOCKET_STANDARDS.md`
 
 use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
@@ -36,7 +34,7 @@ use tracing::{debug, info, warn};
 /// Resolve a socket path for IPC binding, manifest registration, and SQ-01 filesystem bind.
 ///
 /// Deploy descriptors (e.g. `squirrel_deploy.toml`) often use a basename such as
-/// `squirrel.sock`. That value is interpreted relative to the biomeOS socket directory
+/// `squirrel.sock`. That value is interpreted relative to the ecosystem socket directory
 /// (`$XDG_RUNTIME_DIR/biomeos`, or `/tmp/biomeos` when `XDG_RUNTIME_DIR` is unset) so
 /// `readdir()`-based discovery finds a stable path. Absolute paths are unchanged.
 #[must_use]
@@ -115,7 +113,7 @@ pub fn get_socket_path_with(config: &SocketConfig, node_id: &str) -> String {
 
     // Tier 4: XDG runtime directory (family-scoped per PRIMAL_SELF_KNOWLEDGE_STANDARD)
     if let Some(xdg_path) = get_xdg_socket_path(&family_id) {
-        debug!("Socket Path: {xdg_path} (Tier 4 - STANDARD biomeOS)");
+        debug!("Socket Path: {xdg_path} (Tier 4 - standard ecosystem path)");
         return xdg_path;
     }
 
@@ -144,15 +142,15 @@ pub fn get_node_id_with(config: &SocketConfig) -> String {
     })
 }
 
-/// Get the socket path following biomeOS atomic standards
+/// Get the socket path following ecosystem atomic standards.
 ///
 /// ## Priority Order (5-Tier Fallback)
 ///
 /// 1. `SQUIRREL_SOCKET` env var (primal-specific override)
-/// 2. `BIOMEOS_SOCKET_PATH` env var (Neural API orchestration) ⭐
+/// 2. `BIOMEOS_SOCKET_PATH` env var (ecosystem orchestration, legacy name)
 /// 3. `PRIMAL_SOCKET` env var with family suffix (generic primal coordination)
-/// 4. XDG runtime directory (`/run/user/<uid>/biomeos/squirrel.sock`) - STANDARD
-/// 5. Temp directory fallback (`/tmp/squirrel-<family>-<node>.sock`) - dev only
+/// 4. XDG runtime directory (`/run/user/<uid>/biomeos/squirrel.sock`) — standard
+/// 5. Temp directory fallback (`/tmp/squirrel-<family>-<node>.sock`) — dev only
 ///
 /// ## Examples
 ///
@@ -179,12 +177,10 @@ pub fn get_socket_path(node_id: &str) -> String {
     get_socket_path_with(&SocketConfig::from_env(), node_id)
 }
 
-/// Get XDG-compliant socket path with biomeos subdirectory (STANDARD)
+/// Get XDG-compliant socket path with ecosystem subdirectory.
 ///
-/// Returns `/run/user/<uid>/biomeos/squirrel.sock` - the standardized biomeOS path
-/// that enables inter-primal discovery and NUCLEUS deployment.
-///
-/// This directory layout is shared across ecosystem primals (same inter-process discovery convention).
+/// Returns `/run/user/<uid>/biomeos/squirrel.sock` — the standardized ecosystem
+/// path that enables inter-primal discovery and NUCLEUS deployment.
 fn get_xdg_socket_path(family_id: &str) -> Option<String> {
     let uid = universal_constants::sys_info::current_uid();
     let xdg_runtime_dir = format!("/run/user/{uid}");
@@ -209,10 +205,10 @@ fn get_xdg_socket_path(family_id: &str) -> Option<String> {
     }
 }
 
-/// Ensure biomeos directory exists with proper permissions
+/// Ensure ecosystem socket directory exists with proper permissions.
 ///
 /// Creates `/run/user/<uid>/biomeos/` with 0700 permissions (user-only access).
-/// This is the standardized directory for all biomeOS primal sockets.
+/// The `biomeos` directory name is an ecosystem-wide convention shared by all primals.
 ///
 /// ## Security
 ///
@@ -233,7 +229,7 @@ pub fn ensure_biomeos_directory() -> std::io::Result<PathBuf> {
 
     // Create directory if it doesn't exist
     if !path.exists() {
-        debug!("Creating biomeos directory: {}", biomeos_dir);
+        debug!("Creating ecosystem socket directory: {}", biomeos_dir);
         std::fs::create_dir_all(&path)?;
 
         // Set permissions to 0700 (user-only)
@@ -242,7 +238,7 @@ pub fn ensure_biomeos_directory() -> std::io::Result<PathBuf> {
             use std::os::unix::fs::PermissionsExt;
             let perms = std::fs::Permissions::from_mode(0o700);
             std::fs::set_permissions(&path, perms)?;
-            debug!("Set biomeos directory permissions to 0700");
+            debug!("Set ecosystem socket directory permissions to 0700");
         }
     }
 
@@ -374,10 +370,10 @@ pub fn cleanup_capability_domain_symlink(_filesystem_socket_path: &str) {}
 /// 2. Old socket file is removed (prevents "address already in use")
 /// 3. Returns canonical path
 ///
-/// ## biomeOS Compliance
+/// ## Ecosystem Compliance
 ///
 /// This function implements the socket preparation requirements from
-/// the biomeOS primal socket configuration standards.
+/// the ecosystem primal socket configuration standards.
 ///
 /// ## Errors
 ///
@@ -421,7 +417,7 @@ pub fn cleanup_socket(socket_path: &str) {
     cleanup_capability_domain_symlink(socket_path);
 }
 
-/// Verify socket configuration for biomeOS atomic deployment
+/// Verify socket configuration for ecosystem atomic deployment.
 ///
 /// Returns `Ok(())` if configuration is valid for atomic deployment.
 /// Returns `Err` with explanation if configuration needs adjustment.
