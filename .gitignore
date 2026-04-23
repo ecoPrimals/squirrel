@@ -41,5 +41,9 @@ tarpaulin-report.json
 .cache/
 .tmp/
 *.tmp
+*.bak
+*.orig
 
-# Build debris
+# LLVM coverage
+*.profraw
+*.profdata
