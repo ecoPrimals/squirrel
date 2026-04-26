@@ -276,6 +276,13 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Changes Since Last Handoff (April 16, 2026)
 
+### April 26, 2026 session AJ (orphan dead code removal, 800-line boundary cleanup, doc sync)
+
+- **Orphan dead code audit and removal**: Comprehensive audit of all `.rs` files not in any module tree or `[[bin]]` entry. Deleted ~47 files (~11,870 lines) across 9 crates: 4 config/unified stubs (2,172L), 7 legacy auth files (3,101L), core context/coordinator/plugins orphans (899L), 6 main-crate capability/ecosystem/error stubs (1,291L), biomeos zero_copy + arc_str_serde (778L), 3 federation coverage test orphans (1,453L), 4 unwired demo/tool binaries (1,354L), misc prelude/casting/registry (551L). All preserved in git history as fossil record.
+- **800-line boundary test extraction**: `capability/mod.rs` (800→418L, tests→`capability_tests.rs`), `loader.rs` (800→419L, tests→`loader_tests.rs`).
+- **Root doc sync**: CHANGELOG, CURRENT_STATUS, README, CONTEXT updated. File count: ~1,032→~997 `.rs` files. Line count: ~335k→~325k lines (~10k orphan lines removed).
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,178 / 0 failures), `deny` ✓
+
 ### April 22, 2026 session AG (deep debt: test extraction, doc evolution, dep cleanup)
 
 - **Test extraction**: `adapter-pattern-tests/src/auth.rs` (845L) split into production code (465L) + sibling `auth_tests.rs` (382L). Zero production files >800L.
