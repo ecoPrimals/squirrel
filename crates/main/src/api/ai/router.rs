@@ -661,13 +661,30 @@ impl AiRouter {
     /// Called by `inference.register_provider` JSON-RPC handler. Creates a
     /// `RemoteInferenceAdapter` and adds it to the live provider list.
     pub async fn register_remote_provider(&self, config: super::adapters::RemoteProviderConfig) {
+        let id = config.provider_id.clone();
         let adapter = super::adapters::RemoteInferenceAdapter::new(config);
+        let new_provider = Arc::new(AiProvider::RemoteInference(adapter));
+
         let mut providers = self.providers.write().await;
-        providers.push(Arc::new(AiProvider::RemoteInference(adapter)));
-        info!(
-            "Registered remote inference provider (total: {})",
-            providers.len()
-        );
+        if let Some(pos) = providers.iter().position(|p| p.provider_id() == id) {
+            providers[pos] = new_provider;
+            info!(provider = %id, total = providers.len(), "Re-registered inference provider (upsert)");
+        } else {
+            providers.push(new_provider);
+            info!(provider = %id, total = providers.len(), "Registered new inference provider");
+        }
+    }
+
+    /// Remove a remote provider by ID. Returns `true` if it was found and removed.
+    pub async fn unregister_remote_provider(&self, provider_id: &str) -> bool {
+        let mut providers = self.providers.write().await;
+        let before = providers.len();
+        providers.retain(|p| p.provider_id() != provider_id);
+        let removed = providers.len() < before;
+        if removed {
+            info!(provider = %provider_id, total = providers.len(), "Unregistered inference provider");
+        }
+        removed
     }
 }
 

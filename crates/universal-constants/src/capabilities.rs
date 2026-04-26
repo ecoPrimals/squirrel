@@ -69,6 +69,7 @@ pub const SQUIRREL_EXPOSED_CAPABILITIES: &[&str] = &[
     "inference.embed",
     "inference.models",
     "inference.register_provider",
+    "inference.unregister_provider",
     // AI domain — backward-compat aliases (route to inference.* handlers)
     "ai.query",
     "ai.complete",

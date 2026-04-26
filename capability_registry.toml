@@ -79,7 +79,18 @@ type = "string"
 description = "Unix socket path for the provider"
 [capabilities.inference_register_provider.input_schema.properties.capabilities]
 type = "object"
-description = "Provider capabilities (supported_tasks, models, supports_streaming, max_context_size)"
+description = "Provider capabilities (supported_tasks, models, supports_streaming, max_context_size, quality_tier, cost_per_unit) — also accepts array shorthand"
+
+[capabilities.inference_unregister_provider]
+method = "inference.unregister_provider"
+domain = "inference.lifecycle"
+description = "Unregister an inference provider (graceful spring shutdown)"
+[capabilities.inference_unregister_provider.input_schema]
+type = "object"
+required = ["provider_id"]
+[capabilities.inference_unregister_provider.input_schema.properties.provider_id]
+type = "string"
+description = "Provider identifier to remove"
 
 # --- AI domain (backward-compat aliases — route to inference.* handlers) ---
 

@@ -11,10 +11,11 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
-### Summary (April 22, 2026)
+### Summary (April 26, 2026)
 
-**7,168** tests, **~1,032** `.rs` files, **~335k** lines, **90.1%** region coverage (target met).
+**7,178** tests, **~1,032** `.rs` files, **~335k** lines, **90.1%** region coverage (target met).
 
+- **Provider registration hardening (primalSpring audit)**: `inference.register_provider` production-hardened — upsert semantics (re-registration replaces existing provider instead of unbounded list growth), `provider_id` validation (non-empty, max 256 chars), `supported_tasks` parsed from capabilities and stored for capability-based routing, `quality_tier` and `cost_per_unit` declared by registering spring rather than hardcoded, `capabilities` accepts both object form (`{supported_tasks:[...]}`) and array shorthand (`["inference.complete"]`). New `inference.unregister_provider` method for graceful spring shutdown. `RemoteInferenceAdapter` now uses declared `supported_tasks` for `supports_text_generation()`/`supports_image_generation()` instead of hardcoded `true`/`false`. 10 new tests (5 router unit + 5 wire integration).
 - **BTSP JSON-line relay (Phase 45c)**: JSON-line `ClientHello` (newline-delimited `{"protocol":"btsp",...}`) is now auto-detected alongside binary BTSP. Full handshake runs in JSON-line mode with consistent framing. `family_seed` sent as base64 to BearDog (not `family_seed_ref`). Challenge sourced from BearDog's `btsp.session.create` response. Field alignment: `session_token`/`response` for `btsp.session.verify`. New `write_json_line()`/`read_json_line_msg()` wire helpers. `PlainJsonRpc` error now carries the full consumed first line for clean handoff.
 - **Cross-arch `uname()` fix**: `rustix::system::uname()` returns `Uname` directly in 1.x (not `Result`). Old `if let Ok()` pattern broke macOS/Android targets. Verified on `aarch64-apple-darwin`, `x86_64-apple-darwin`, `aarch64-linux-android`.
 - **Orphan removal**: Deleted `ecosystem-api/src/client.rs`, `client_types.rs`, `client_mock.rs` (802 lines, never mounted in `lib.rs`, referenced removed `reqwest`). Previously deleted `auth/` subtree (4 files). Removed 10 placeholder features with zero `cfg` references.

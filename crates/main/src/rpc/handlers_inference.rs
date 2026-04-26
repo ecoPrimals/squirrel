@@ -4,18 +4,77 @@
 //! Canonical `inference.*` domain handlers per SEMANTIC_METHOD_NAMING_STANDARD v2.0 §7.
 //!
 //! Methods: `inference.complete`, `inference.embed`, `inference.models`,
-//! `inference.register_provider`.
+//! `inference.register_provider`, `inference.unregister_provider`.
 //!
 //! These bridge the ecoPrimal `inference.*` wire standard to Squirrel's
 //! internal `AiRouter`. Consumers call `inference.complete` and don't
 //! care whether the backend is Ollama, neuralSpring, or a remote API.
 //! Springs call `inference.register_provider` to register themselves as
-//! inference backends (neuralSpring, healthSpring, ludoSpring, etc.).
+//! inference backends (neuralSpring, healthSpring, ludoSpring, etc.),
+//! and `inference.unregister_provider` on graceful shutdown.
 
 use super::jsonrpc_server::{JsonRpcError, JsonRpcServer, error_codes};
+use crate::api::ai::adapters::RemoteProviderConfig;
 use serde_json::Value;
 use std::time::Instant;
-use tracing::info;
+use tracing::{info, warn};
+
+fn parse_provider_capabilities(caps: &Value) -> ParsedCapabilities {
+    let supported_tasks: Vec<String> = if let Some(arr) = caps.as_array() {
+        arr.iter()
+            .filter_map(Value::as_str)
+            .map(String::from)
+            .collect()
+    } else {
+        caps.get("supported_tasks")
+            .and_then(Value::as_array)
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(Value::as_str)
+                    .map(String::from)
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+
+    let models: Vec<String> = caps
+        .get("models")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(Value::as_str)
+                .map(String::from)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    ParsedCapabilities {
+        supported_tasks,
+        models,
+        supports_streaming: caps
+            .get("supports_streaming")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        max_context_size: caps
+            .get("max_context_size")
+            .and_then(Value::as_u64)
+            .unwrap_or(4096) as usize,
+        quality_tier: caps
+            .get("quality_tier")
+            .and_then(Value::as_str)
+            .map(String::from),
+        cost_per_unit: caps.get("cost_per_unit").and_then(Value::as_f64),
+    }
+}
+
+struct ParsedCapabilities {
+    supported_tasks: Vec<String>,
+    models: Vec<String>,
+    supports_streaming: bool,
+    max_context_size: usize,
+    quality_tier: Option<String>,
+    cost_per_unit: Option<f64>,
+}
 
 impl JsonRpcServer {
     /// Handle `inference.complete` — text/chat completion via the AI router.
@@ -201,10 +260,26 @@ impl JsonRpcServer {
                 data: None,
             })?;
 
+        let trimmed_id = provider_id.trim();
+        if trimmed_id.is_empty() || trimmed_id.len() > 256 {
+            return Err(JsonRpcError {
+                code: error_codes::INVALID_PARAMS,
+                message: "provider_id must be 1–256 non-whitespace characters".into(),
+                data: None,
+            });
+        }
+
         let socket = params
             .get("socket")
             .and_then(Value::as_str)
             .map(String::from);
+
+        if socket.is_none() {
+            warn!(
+                provider = trimmed_id,
+                "inference.register_provider — no socket path; provider will be unavailable for routing"
+            );
+        }
 
         let caps = params.get("capabilities").cloned().unwrap_or(Value::Null);
 
@@ -214,50 +289,70 @@ impl JsonRpcServer {
             data: None,
         })?;
 
-        let models: Vec<String> = caps
-            .get("models")
-            .and_then(Value::as_array)
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(Value::as_str)
-                    .map(String::from)
-                    .collect()
-            })
-            .unwrap_or_default();
-
-        let supports_streaming = caps
-            .get("supports_streaming")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-
-        let max_context_size = caps
-            .get("max_context_size")
-            .and_then(Value::as_u64)
-            .unwrap_or(4096) as usize;
-
-        use crate::api::ai::adapters::RemoteProviderConfig;
+        let parsed = parse_provider_capabilities(&caps);
 
         let config = RemoteProviderConfig {
-            provider_id: provider_id.to_string(),
+            provider_id: trimmed_id.to_string(),
             socket_path: socket.clone(),
-            models: models.clone(),
-            supports_streaming,
-            max_context_size,
+            models: parsed.models,
+            supported_tasks: parsed.supported_tasks,
+            supports_streaming: parsed.supports_streaming,
+            max_context_size: parsed.max_context_size,
+            quality_tier: parsed.quality_tier,
+            cost_per_unit: parsed.cost_per_unit,
         };
 
-        router.register_remote_provider(config).await;
+        router.register_remote_provider(config.clone()).await;
 
         info!(
-            provider = provider_id,
+            provider = trimmed_id,
             socket = ?socket,
-            model_count = models.len(),
-            "inference.register_provider — registered remote inference backend"
+            model_count = config.models.len(),
+            task_count = config.supported_tasks.len(),
+            "inference.register_provider — registered"
         );
 
         Ok(serde_json::json!({
             "registered": true,
+            "provider_id": trimmed_id,
+            "models": config.models,
+            "supported_tasks": config.supported_tasks,
+        }))
+    }
+
+    /// Handle `inference.unregister_provider` — remove a spring from the provider list.
+    ///
+    /// Called by springs during graceful shutdown. Params: `{ "provider_id": "..." }`.
+    pub(crate) async fn handle_inference_unregister_provider(
+        &self,
+        params: Option<Value>,
+    ) -> Result<Value, JsonRpcError> {
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: error_codes::INVALID_PARAMS,
+            message: "inference.unregister_provider requires params".into(),
+            data: None,
+        })?;
+
+        let provider_id = params
+            .get("provider_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| JsonRpcError {
+                code: error_codes::INVALID_PARAMS,
+                message: "inference.unregister_provider requires 'provider_id' (string)".into(),
+                data: None,
+            })?;
+
+        let router = self.ai_router.as_ref().ok_or_else(|| JsonRpcError {
+            code: error_codes::INTERNAL_ERROR,
+            message: "AI router not initialized".into(),
+            data: None,
+        })?;
+
+        let removed = router.unregister_remote_provider(provider_id).await;
+
+        Ok(serde_json::json!({
+            "unregistered": removed,
             "provider_id": provider_id,
-            "models": models,
         }))
     }
 }

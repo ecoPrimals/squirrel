@@ -29,6 +29,9 @@ impl JsonRpcServer {
             "inference.embed" => self.handle_inference_embed(params).await,
             "inference.models" => self.handle_inference_models(params).await,
             "inference.register_provider" => self.handle_inference_register_provider(params).await,
+            "inference.unregister_provider" => {
+                self.handle_inference_unregister_provider(params).await
+            }
             "ai.list_providers" => self.handle_list_providers(params).await,
 
             // Capabilities domain — SEMANTIC_METHOD_NAMING_STANDARD v2.1

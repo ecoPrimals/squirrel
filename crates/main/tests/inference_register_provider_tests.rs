@@ -351,3 +351,207 @@ async fn wire_inference_complete_routes_to_registered_socket() {
     bg.abort();
     mock_bg.abort();
 }
+
+#[tokio::test]
+async fn wire_register_provider_empty_provider_id_rejected() {
+    let (server, _tmpdir, sock_path) =
+        make_server_with_empty_router("/tmp/inference-reg-emptyid.sock");
+    let bg = spawn_line_framed_jsonrpc_server(&sock_path, Arc::clone(&server));
+    tokio::task::yield_now().await;
+
+    let req = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.register_provider",
+        "params": { "provider_id": "   ", "socket": "/tmp/x.sock" },
+        "id": 1
+    });
+
+    let resp = jsonrpc_line_roundtrip(&sock_path, &req).await;
+    assert!(
+        resp.get("error").is_some(),
+        "whitespace-only provider_id should be rejected: {resp:?}"
+    );
+    let code = resp.pointer("/error/code").and_then(Value::as_i64);
+    assert_eq!(code, Some(i64::from(error_codes::INVALID_PARAMS)));
+
+    bg.abort();
+}
+
+#[tokio::test]
+async fn wire_register_provider_returns_supported_tasks() {
+    let (server, _tmpdir, sock_path) =
+        make_server_with_empty_router("/tmp/inference-reg-tasks.sock");
+    let bg = spawn_line_framed_jsonrpc_server(&sock_path, Arc::clone(&server));
+    tokio::task::yield_now().await;
+
+    let req = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.register_provider",
+        "params": {
+            "provider_id": "neural-tasks-test",
+            "socket": "/tmp/no-such.sock",
+            "capabilities": {
+                "supported_tasks": ["text_generation", "embedding"],
+                "models": ["llama3"]
+            }
+        },
+        "id": 1
+    });
+
+    let resp = jsonrpc_line_roundtrip(&sock_path, &req).await;
+    let result = resp.get("result").expect("result");
+    let tasks = result
+        .get("supported_tasks")
+        .and_then(Value::as_array)
+        .expect("supported_tasks array");
+    assert_eq!(tasks.len(), 2);
+
+    bg.abort();
+}
+
+#[tokio::test]
+async fn wire_register_provider_array_shorthand_capabilities() {
+    let (server, _tmpdir, sock_path) =
+        make_server_with_empty_router("/tmp/inference-reg-arrshort.sock");
+    let bg = spawn_line_framed_jsonrpc_server(&sock_path, Arc::clone(&server));
+    tokio::task::yield_now().await;
+
+    let req = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.register_provider",
+        "params": {
+            "provider_id": "neural-arr-test",
+            "capabilities": ["inference.complete", "inference.embed"]
+        },
+        "id": 1
+    });
+
+    let resp = jsonrpc_line_roundtrip(&sock_path, &req).await;
+    let result = resp.get("result").expect("result");
+    let tasks = result
+        .get("supported_tasks")
+        .and_then(Value::as_array)
+        .expect("supported_tasks");
+    assert_eq!(tasks.len(), 2);
+
+    bg.abort();
+}
+
+#[tokio::test]
+async fn wire_unregister_provider_success() {
+    let (server, _tmpdir, sock_path) =
+        make_server_with_empty_router("/tmp/inference-unreg-ok.sock");
+    let bg = spawn_line_framed_jsonrpc_server(&sock_path, Arc::clone(&server));
+    tokio::task::yield_now().await;
+
+    let reg = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.register_provider",
+        "params": {
+            "provider_id": "to-unreg",
+            "socket": "/tmp/x.sock",
+            "capabilities": []
+        },
+        "id": 1
+    });
+    let reg_resp = jsonrpc_line_roundtrip(&sock_path, &reg).await;
+    assert!(reg_resp.get("result").is_some());
+
+    let unreg = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.unregister_provider",
+        "params": { "provider_id": "to-unreg" },
+        "id": 2
+    });
+    let unreg_resp = jsonrpc_line_roundtrip(&sock_path, &unreg).await;
+    let result = unreg_resp.get("result").expect("result");
+    assert_eq!(
+        result.get("unregistered").and_then(Value::as_bool),
+        Some(true)
+    );
+
+    let models_req = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.models",
+        "id": 3
+    });
+    let models_resp = jsonrpc_line_roundtrip(&sock_path, &models_req).await;
+    let models = models_resp
+        .pointer("/result/models")
+        .and_then(Value::as_array)
+        .expect("models");
+    assert!(
+        !models
+            .iter()
+            .any(|m| m.get("id").and_then(Value::as_str) == Some("to-unreg")),
+        "unregistered provider should not appear in models"
+    );
+
+    bg.abort();
+}
+
+#[tokio::test]
+async fn wire_unregister_provider_nonexistent() {
+    let (server, _tmpdir, sock_path) =
+        make_server_with_empty_router("/tmp/inference-unreg-ghost.sock");
+    let bg = spawn_line_framed_jsonrpc_server(&sock_path, Arc::clone(&server));
+    tokio::task::yield_now().await;
+
+    let unreg = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.unregister_provider",
+        "params": { "provider_id": "ghost" },
+        "id": 1
+    });
+    let resp = jsonrpc_line_roundtrip(&sock_path, &unreg).await;
+    let result = resp.get("result").expect("result");
+    assert_eq!(
+        result.get("unregistered").and_then(Value::as_bool),
+        Some(false)
+    );
+
+    bg.abort();
+}
+
+#[tokio::test]
+async fn wire_register_provider_upsert_preserves_single_entry() {
+    let (server, _tmpdir, sock_path) = make_server_with_empty_router("/tmp/inference-upsert.sock");
+    let bg = spawn_line_framed_jsonrpc_server(&sock_path, Arc::clone(&server));
+    tokio::task::yield_now().await;
+
+    for id in [1_i64, 2, 3] {
+        let req = json!({
+            "jsonrpc": "2.0",
+            "method": "inference.register_provider",
+            "params": {
+                "provider_id": "upsert-test",
+                "socket": "/tmp/upsert.sock",
+                "capabilities": { "supported_tasks": ["text_generation"] }
+            },
+            "id": id
+        });
+        let resp = jsonrpc_line_roundtrip(&sock_path, &req).await;
+        assert!(resp.get("result").is_some());
+    }
+
+    let models_req = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.models",
+        "id": 10
+    });
+    let models_resp = jsonrpc_line_roundtrip(&sock_path, &models_req).await;
+    let models = models_resp
+        .pointer("/result/models")
+        .and_then(Value::as_array)
+        .expect("models");
+    let count = models
+        .iter()
+        .filter(|m| m.get("id").and_then(Value::as_str) == Some("upsert-test"))
+        .count();
+    assert_eq!(
+        count, 1,
+        "upsert: three registrations of same ID should yield exactly one entry"
+    );
+
+    bg.abort();
+}

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 22, 2026
+**Last Updated**: April 26, 2026
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,168 passing / 0 failures across 22 workspace crates |
+| Tests | 7,178 passing / 0 failures across 22 workspace crates |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`, `test-context`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -42,7 +42,7 @@ Source of truth: [`capability_registry.toml`](capability_registry.toml)
 
 | Domain | Methods |
 |--------|---------|
-| Inference | **`inference.complete`**, **`inference.embed`**, **`inference.models`**, **`inference.register_provider`** (canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.0 §7) |
+| Inference | **`inference.complete`**, **`inference.embed`**, **`inference.models`**, **`inference.register_provider`**, **`inference.unregister_provider`** (canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.0 §7) |
 | AI | `ai.query`, `ai.list_providers`, `ai.complete`, `ai.chat` (backward-compat aliases → `inference.*` handlers) |
 | Capability | **`capabilities.list`** (canonical), `capabilities.announce`, `capabilities.discover`, `capability.announce` (alias), `capability.discover` (alias), `capability.list` (alias), `primal.capabilities` (alias) |
 | Identity | `identity.get` (CAPABILITY_BASED_DISCOVERY_STANDARD v1.0) |
@@ -76,7 +76,7 @@ Follows the groundSpring/wetSpring/airSpring niche pattern:
 
 | Constant | What |
 |----------|------|
-| `CAPABILITIES` | 29 exposed methods (inference, ai, capabilities, capability, identity, system, health, discovery, tool, context, lifecycle, graph) |
+| `CAPABILITIES` | 30 exposed methods (inference, ai, capabilities, capability, identity, system, health, discovery, tool, context, lifecycle, graph) |
 | `CONSUMED_CAPABILITIES` | 32 external capabilities from security, service-mesh, compute, content-storage providers, domain springs, rhizoCrypt, sweetGrass, primalSpring |
 | `COST_ESTIMATES` | Per-method latency and GPU hints for Pathway Learner scheduling |
 | `DEPENDENCIES` | 6 primals (security-provider, service-mesh required; compute, content-storage, primalspring, petaltongue optional) |
@@ -316,6 +316,15 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 - **Env var constant evolution**: `HEARTBEAT_INTERVAL` → `SERVICE_MESH_HEARTBEAT_INTERVAL` (was `SONGBIRD_HEARTBEAT_INTERVAL`), `INITIAL_DELAY` → `SERVICE_MESH_INITIAL_DELAY_MS`, `BIOMEOS_*_URL` → `ECOSYSTEM_*_URL` constants in `env_vars.rs`
 - **`get_biomeos_endpoints()` capability-first**: Added `ECOSYSTEM_ENDPOINT`/`ECOSYSTEM_PORT` > `BIOMEOS_ENDPOINT`/`BIOMEOS_PORT` chains in `primal_provider/core`
 - **Stale doc fixes**: `deployment.rs` doc corrected `"beardog"` → `"security"` for `services::security()` default; description strings evolved from `"BiomeOS integration"` → `"Ecosystem integration"`
+
+### April 26, 2026 session AH (provider registration hardening — primalSpring audit)
+
+- **`inference.register_provider` production-hardened**: Upsert semantics — re-registering same `provider_id` replaces existing entry instead of unbounded list growth. `provider_id` validated (non-empty, max 256 chars, trimmed). Warning logged when no socket path provided.
+- **Capability-based routing from declared tasks**: `RemoteProviderConfig` now carries `supported_tasks`, `quality_tier`, and `cost_per_unit` from the registering spring. `RemoteInferenceAdapter` uses declared `supported_tasks` for `supports_text_generation()`/`supports_image_generation()` instead of hardcoded `true`/`false`. Empty `supported_tasks` defaults to text_generation (backward compat).
+- **`capabilities` accepts two wire forms**: Object form `{"supported_tasks":["text_generation"], "models":["llama3"]}` and array shorthand `["inference.complete","inference.embed"]` both accepted.
+- **`inference.unregister_provider` added**: New JSON-RPC method for graceful spring shutdown. Removes provider by ID, returns `{"unregistered": true/false}`. Wired in dispatch.
+- **10 new tests**: 5 router unit tests (upsert, multi-provider, unregister, nonexistent unregister) + 7 wire integration tests (empty ID validation, supported_tasks, array shorthand, unregister success, unregister nonexistent, upsert dedup). Total: 7,178 tests.
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓ (0 warnings), `test` ✓ (7,178 / 0 failures), `deny` ✓
 
 ### April 20, 2026 session AB (deep debt: orphan removal, feature hygiene, capability naming)
 

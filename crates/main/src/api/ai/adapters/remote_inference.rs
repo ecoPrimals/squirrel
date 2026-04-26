@@ -21,8 +21,11 @@ pub struct RemoteProviderConfig {
     pub provider_id: String,
     pub socket_path: Option<String>,
     pub models: Vec<String>,
+    pub supported_tasks: Vec<String>,
     pub supports_streaming: bool,
     pub max_context_size: usize,
+    pub quality_tier: Option<String>,
+    pub cost_per_unit: Option<f64>,
 }
 
 /// Adapter that routes inference to a remote spring over UDS JSON-RPC.
@@ -51,7 +54,7 @@ impl AiProviderAdapter for RemoteInferenceAdapter {
     }
 
     fn cost_per_unit(&self) -> Option<f64> {
-        Some(0.0)
+        self.config.cost_per_unit
     }
 
     fn avg_latency_ms(&self) -> u64 {
@@ -59,15 +62,29 @@ impl AiProviderAdapter for RemoteInferenceAdapter {
     }
 
     fn quality_tier(&self) -> QualityTier {
-        QualityTier::Standard
+        match self.config.quality_tier.as_deref() {
+            Some("basic") => QualityTier::Basic,
+            Some("fast") => QualityTier::Fast,
+            Some("high") => QualityTier::High,
+            Some("premium") => QualityTier::Premium,
+            _ => QualityTier::Standard,
+        }
     }
 
     fn supports_text_generation(&self) -> bool {
-        true
+        self.config.supported_tasks.is_empty()
+            || self
+                .config
+                .supported_tasks
+                .iter()
+                .any(|t| t == "text_generation" || t == "chat" || t == "inference.complete")
     }
 
     fn supports_image_generation(&self) -> bool {
-        false
+        self.config
+            .supported_tasks
+            .iter()
+            .any(|t| t == "image_generation" || t == "inference.image")
     }
 
     async fn is_available(&self) -> bool {

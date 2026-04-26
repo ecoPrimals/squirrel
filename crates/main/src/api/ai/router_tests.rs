@@ -388,20 +388,75 @@ async fn generate_image_fails_with_no_fallback_when_only_failing_image_provider(
     );
 }
 
+fn test_remote_config(id: &str) -> RemoteProviderConfig {
+    RemoteProviderConfig {
+        provider_id: id.to_string(),
+        socket_path: None,
+        models: vec![],
+        supported_tasks: vec![],
+        supports_streaming: false,
+        max_context_size: 0,
+        quality_tier: None,
+        cost_per_unit: None,
+    }
+}
+
 #[tokio::test]
 async fn register_remote_provider_increments_provider_count() {
     let router = AiRouter::default();
     assert_eq!(router.provider_count().await, 0);
     router
-        .register_remote_provider(RemoteProviderConfig {
-            provider_id: "remote-1".to_string(),
-            socket_path: None,
-            models: vec![],
-            supports_streaming: false,
-            max_context_size: 0,
-        })
+        .register_remote_provider(test_remote_config("remote-1"))
         .await;
     assert_eq!(router.provider_count().await, 1);
+}
+
+#[tokio::test]
+async fn register_remote_provider_upserts_same_id() {
+    let router = AiRouter::default();
+    router
+        .register_remote_provider(test_remote_config("dup"))
+        .await;
+    router
+        .register_remote_provider(test_remote_config("dup"))
+        .await;
+    assert_eq!(
+        router.provider_count().await,
+        1,
+        "re-registering same provider_id should upsert, not duplicate"
+    );
+}
+
+#[tokio::test]
+async fn register_multiple_distinct_providers() {
+    let router = AiRouter::default();
+    router
+        .register_remote_provider(test_remote_config("alpha"))
+        .await;
+    router
+        .register_remote_provider(test_remote_config("beta"))
+        .await;
+    router
+        .register_remote_provider(test_remote_config("gamma"))
+        .await;
+    assert_eq!(router.provider_count().await, 3);
+}
+
+#[tokio::test]
+async fn unregister_remote_provider_removes_by_id() {
+    let router = AiRouter::default();
+    router
+        .register_remote_provider(test_remote_config("to-remove"))
+        .await;
+    assert_eq!(router.provider_count().await, 1);
+    assert!(router.unregister_remote_provider("to-remove").await);
+    assert_eq!(router.provider_count().await, 0);
+}
+
+#[tokio::test]
+async fn unregister_nonexistent_returns_false() {
+    let router = AiRouter::default();
+    assert!(!router.unregister_remote_provider("ghost").await);
 }
 
 #[tokio::test]
