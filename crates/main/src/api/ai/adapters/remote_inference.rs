@@ -38,6 +38,65 @@ impl RemoteInferenceAdapter {
     pub const fn new(config: RemoteProviderConfig) -> Self {
         Self { config }
     }
+
+    /// Model names declared at registration time.
+    pub fn model_names(&self) -> &[String] {
+        &self.config.models
+    }
+
+    /// Whether this provider declared embedding support in `supported_tasks`.
+    pub fn supports_embedding(&self) -> bool {
+        self.config
+            .supported_tasks
+            .iter()
+            .any(|t| t == "embedding" || t == "inference.embed" || t == "text_embedding")
+    }
+
+    /// Forward an `inference.embed` call to the remote spring over UDS JSON-RPC.
+    pub async fn generate_embedding(
+        &self,
+        params: &serde_json::Value,
+    ) -> Result<serde_json::Value, PrimalError> {
+        let Some(socket) = &self.config.socket_path else {
+            return Err(PrimalError::Configuration(
+                "Remote inference provider has no socket path".into(),
+            ));
+        };
+
+        debug!(
+            provider = self.config.provider_id.as_str(),
+            socket = socket.as_str(),
+            "Forwarding inference.embed to remote spring"
+        );
+
+        let rpc_request = json!({
+            "jsonrpc": "2.0",
+            "method": "inference.embed",
+            "params": params,
+            "id": 1,
+        });
+
+        let socket_path = std::path::Path::new(socket);
+        let parsed = crate::capabilities::lifecycle::send_jsonrpc_public(socket_path, &rpc_request)
+            .await
+            .map_err(|e| {
+                warn!(
+                    provider = self.config.provider_id.as_str(),
+                    error = %e,
+                    "Remote embedding call failed"
+                );
+                PrimalError::Internal(format!("Remote embedding call to {socket} failed: {e}"))
+            })?;
+
+        parsed.get("result").cloned().ok_or_else(|| {
+            let err_msg = parsed
+                .get("error")
+                .and_then(|e| e.get("message"))
+                .and_then(|m| m.as_str())
+                .unwrap_or("unknown error");
+            PrimalError::Internal(format!("Remote embedding error: {err_msg}"))
+        })
+    }
 }
 
 impl AiProviderAdapter for RemoteInferenceAdapter {

@@ -175,24 +175,74 @@ impl JsonRpcServer {
 
     /// Handle `inference.embed` — embedding generation.
     ///
-    /// Embedding is not yet wired through `AiRouter` (the router only
-    /// supports text and image generation). Returns method-not-found
-    /// until an embedding provider is registered.
+    /// Routes to the first registered provider that declared embedding
+    /// support in `supported_tasks`. Forwards the raw params over JSON-RPC
+    /// to the remote spring.
     pub(crate) async fn handle_inference_embed(
         &self,
-        _params: Option<Value>,
+        params: Option<Value>,
     ) -> Result<Value, JsonRpcError> {
-        Err(JsonRpcError {
-            code: error_codes::METHOD_NOT_FOUND,
-            message: "inference.embed: no embedding provider registered yet".into(),
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: error_codes::INVALID_PARAMS,
+            message: "inference.embed requires params (at minimum 'text' or 'input')".into(),
             data: None,
-        })
+        })?;
+
+        let router = self.ai_router.as_ref().ok_or_else(|| JsonRpcError {
+            code: error_codes::INTERNAL_ERROR,
+            message: "No inference providers configured".into(),
+            data: None,
+        })?;
+
+        let provider = router.find_embedding_provider().await.ok_or_else(|| {
+            JsonRpcError {
+                code: error_codes::METHOD_NOT_FOUND,
+                message: "inference.embed: no embedding provider registered — register a provider with supported_tasks containing 'embedding'".into(),
+                data: None,
+            }
+        })?;
+
+        match provider.as_ref() {
+            crate::api::ai::adapters::AiProvider::RemoteInference(adapter) => {
+                let result =
+                    adapter
+                        .generate_embedding(&params)
+                        .await
+                        .map_err(|e| JsonRpcError {
+                            code: error_codes::INTERNAL_ERROR,
+                            message: format!("inference.embed failed: {e}"),
+                            data: None,
+                        })?;
+                Ok(result)
+            }
+            crate::api::ai::adapters::AiProvider::Universal(_) => Err(JsonRpcError {
+                code: error_codes::METHOD_NOT_FOUND,
+                message: "inference.embed: selected provider does not support remote embedding"
+                    .into(),
+                data: None,
+            }),
+            #[cfg(feature = "deprecated-adapters")]
+            crate::api::ai::adapters::AiProvider::OpenAi(_)
+            | crate::api::ai::adapters::AiProvider::Anthropic(_) => Err(JsonRpcError {
+                code: error_codes::METHOD_NOT_FOUND,
+                message: "inference.embed: selected provider does not support remote embedding"
+                    .into(),
+                data: None,
+            }),
+            #[cfg(test)]
+            _ => Err(JsonRpcError {
+                code: error_codes::METHOD_NOT_FOUND,
+                message: "inference.embed: selected provider does not support remote embedding"
+                    .into(),
+                data: None,
+            }),
+        }
     }
 
-    /// Handle `inference.models` — list available models.
+    /// Handle `inference.models` — list available models/providers.
     ///
-    /// Bridges to `AiRouter::list_providers()` and collects available
-    /// model metadata.
+    /// Returns provider-level info enriched with model names declared during
+    /// `inference.register_provider` and accurate embedding support flags.
     pub(crate) async fn handle_inference_models(
         &self,
         _params: Option<Value>,
@@ -203,10 +253,10 @@ impl JsonRpcServer {
             data: None,
         })?;
 
-        let providers = router.list_providers().await;
-        let models: Vec<Value> = providers
+        let detailed = router.list_providers_detailed().await;
+        let models: Vec<Value> = detailed
             .iter()
-            .map(|p| {
+            .map(|(p, model_names, supports_embedding)| {
                 let supports_completion = p
                     .capabilities
                     .iter()
@@ -215,7 +265,8 @@ impl JsonRpcServer {
                     "id": p.provider_id,
                     "name": p.provider_name,
                     "supports_completion": supports_completion,
-                    "supports_embedding": false,
+                    "supports_embedding": supports_embedding,
+                    "available_models": model_names,
                 })
             })
             .collect();

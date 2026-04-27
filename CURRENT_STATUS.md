@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 26, 2026
+**Last Updated**: April 27, 2026
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,178 passing / 0 failures across 22 workspace crates |
+| Tests | 7,182 passing / 0 failures across 22 workspace crates |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`, `test-context`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -275,6 +275,15 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`, `test-context`)
 
 ## Changes Since Last Handoff (April 16, 2026)
+
+### April 27, 2026 session AK (neuralSpring Gap 14 — inference.models enrichment, inference.embed routing)
+
+- **neuralSpring Gap 14 resolution**: Addressed primalSpring cross-spring convergence audit finding. Both `inference.register_provider` and `inference.models` already existed; the gap was in model-level detail and embedding support.
+- **`inference.models` enriched response**: Now includes `available_models` (model names declared at registration, e.g. `["llama3", "mistral-7b"]`) and accurate `supports_embedding` flag (derived from `supported_tasks` instead of hardcoded `false`). New `AiRouter::list_providers_detailed()` method.
+- **`inference.embed` routing**: Evolved from stub (always returned METHOD_NOT_FOUND) to production routing — forwards to the first registered provider that declared embedding support. `RemoteInferenceAdapter::generate_embedding()` forwards raw params over UDS JSON-RPC.
+- **New trait-free provider introspection**: `AiProvider::available_model_names()` and `AiProvider::supports_embedding()` methods on the enum (avoids touching the 11-variant dispatch trait). `RemoteInferenceAdapter::model_names()` and `supports_embedding()` accessors.
+- **4 new wire tests**: `wire_inference_models_surfaces_model_names_and_embedding_flag`, `wire_inference_models_no_embedding_for_text_only_provider`, `wire_inference_embed_routes_to_registered_provider`, `wire_inference_embed_no_provider_returns_error`. Mock neuralSpring updated to handle `inference.embed`.
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,182 / 0 failures), `deny` ✓
 
 ### April 26, 2026 session AJ (orphan dead code removal, 800-line boundary cleanup, doc sync)
 

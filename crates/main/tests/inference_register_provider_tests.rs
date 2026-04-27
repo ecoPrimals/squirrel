@@ -83,7 +83,7 @@ fn spawn_line_framed_jsonrpc_server(
     })
 }
 
-/// Mock neuralSpring: accepts `inference.complete` and returns a deterministic result.
+/// Mock neuralSpring: accepts `inference.complete` / `inference.embed` and returns deterministic results.
 fn spawn_mock_neural_spring(
     socket_path: &Path,
     saw_inference_complete: Arc<AtomicBool>,
@@ -111,13 +111,22 @@ fn spawn_mock_neural_spring(
                     flag.store(true, Ordering::SeqCst);
                 }
                 let id = request.get("id").cloned().unwrap_or(json!(null));
-                let response = json!({
-                    "jsonrpc": "2.0",
-                    "result": {
+                let result = if method == "inference.embed" {
+                    json!({
+                        "embedding": [0.1, 0.2, 0.3, 0.4],
+                        "model": "mock-embed-model",
+                        "provider": "neuralspring-wire-test"
+                    })
+                } else {
+                    json!({
                         "text": "from-mock-neuralspring",
                         "model": "mock-model",
                         "provider": "neuralspring-wire-test"
-                    },
+                    })
+                };
+                let response = json!({
+                    "jsonrpc": "2.0",
+                    "result": result,
                     "id": id
                 });
                 let mut out = serde_json::to_string(&response).expect("response json");
@@ -552,6 +561,191 @@ async fn wire_register_provider_upsert_preserves_single_entry() {
         count, 1,
         "upsert: three registrations of same ID should yield exactly one entry"
     );
+
+    bg.abort();
+}
+
+#[tokio::test]
+async fn wire_inference_models_surfaces_model_names_and_embedding_flag() {
+    let (server, _tmpdir, sock_path) =
+        make_server_with_empty_router("/tmp/inference-modelnames.sock");
+    let bg = spawn_line_framed_jsonrpc_server(&sock_path, Arc::clone(&server));
+    tokio::task::yield_now().await;
+
+    let reg = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.register_provider",
+        "params": {
+            "provider_id": "neural-models-test",
+            "socket": "/tmp/neural-models.sock",
+            "capabilities": {
+                "supported_tasks": ["text_generation", "embedding"],
+                "models": ["llama3", "mistral-7b"]
+            }
+        },
+        "id": 1
+    });
+    let reg_resp = jsonrpc_line_roundtrip(&sock_path, &reg).await;
+    assert!(reg_resp.get("result").is_some());
+
+    let models_req = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.models",
+        "id": 2
+    });
+    let models_resp = jsonrpc_line_roundtrip(&sock_path, &models_req).await;
+    let models = models_resp
+        .pointer("/result/models")
+        .and_then(Value::as_array)
+        .expect("models array");
+    let entry = models
+        .iter()
+        .find(|m| m.get("id").and_then(Value::as_str) == Some("neural-models-test"))
+        .expect("registered provider in models");
+
+    let available = entry
+        .get("available_models")
+        .and_then(Value::as_array)
+        .expect("available_models array");
+    let model_ids: Vec<&str> = available.iter().filter_map(Value::as_str).collect();
+    assert!(
+        model_ids.contains(&"llama3"),
+        "expected llama3 in available_models: {model_ids:?}"
+    );
+    assert!(
+        model_ids.contains(&"mistral-7b"),
+        "expected mistral-7b in available_models: {model_ids:?}"
+    );
+
+    assert_eq!(
+        entry.get("supports_embedding").and_then(Value::as_bool),
+        Some(true),
+        "provider with 'embedding' task should report supports_embedding=true"
+    );
+
+    bg.abort();
+}
+
+#[tokio::test]
+async fn wire_inference_models_no_embedding_for_text_only_provider() {
+    let (server, _tmpdir, sock_path) = make_server_with_empty_router("/tmp/inference-noembed.sock");
+    let bg = spawn_line_framed_jsonrpc_server(&sock_path, Arc::clone(&server));
+    tokio::task::yield_now().await;
+
+    let reg = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.register_provider",
+        "params": {
+            "provider_id": "text-only-provider",
+            "socket": "/tmp/text-only.sock",
+            "capabilities": {
+                "supported_tasks": ["text_generation"],
+                "models": ["gpt-local"]
+            }
+        },
+        "id": 1
+    });
+    let reg_resp = jsonrpc_line_roundtrip(&sock_path, &reg).await;
+    assert!(reg_resp.get("result").is_some());
+
+    let models_req = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.models",
+        "id": 2
+    });
+    let models_resp = jsonrpc_line_roundtrip(&sock_path, &models_req).await;
+    let models = models_resp
+        .pointer("/result/models")
+        .and_then(Value::as_array)
+        .expect("models array");
+    let entry = models
+        .iter()
+        .find(|m| m.get("id").and_then(Value::as_str) == Some("text-only-provider"))
+        .expect("provider in models");
+    assert_eq!(
+        entry.get("supports_embedding").and_then(Value::as_bool),
+        Some(false),
+        "text-only provider should have supports_embedding=false"
+    );
+
+    bg.abort();
+}
+
+#[tokio::test]
+async fn wire_inference_embed_routes_to_registered_provider() {
+    let tmp = tempfile::TempDir::new().expect("tempdir");
+    let spring_sock = tmp.path().join("neuralspring-embed.sock");
+    let saw = Arc::new(AtomicBool::new(false));
+    let mock_bg = spawn_mock_neural_spring(&spring_sock, Arc::clone(&saw));
+
+    let (server, _tmpdir, squirrel_sock) =
+        make_server_with_empty_router("/tmp/inference-embed-route.sock");
+    let bg = spawn_line_framed_jsonrpc_server(&squirrel_sock, Arc::clone(&server));
+    tokio::task::yield_now().await;
+
+    let reg = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.register_provider",
+        "params": {
+            "provider_id": "neuralspring-embed-test",
+            "socket": spring_sock.to_str().expect("utf8 path"),
+            "capabilities": {
+                "supported_tasks": ["text_generation", "embedding"],
+                "models": ["embed-model"]
+            }
+        },
+        "id": 1
+    });
+    let reg_resp = jsonrpc_line_roundtrip(&squirrel_sock, &reg).await;
+    assert!(
+        reg_resp.get("result").is_some(),
+        "register_provider: {reg_resp:?}"
+    );
+
+    let embed_req = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.embed",
+        "params": { "text": "hello embedding", "model": "embed-model" },
+        "id": 2
+    });
+    let embed_resp = jsonrpc_line_roundtrip(&squirrel_sock, &embed_req).await;
+    assert!(
+        embed_resp.get("error").is_none(),
+        "inference.embed should succeed: {embed_resp:?}"
+    );
+    let embedding = embed_resp
+        .pointer("/result/embedding")
+        .and_then(Value::as_array)
+        .expect("result.embedding");
+    assert!(
+        !embedding.is_empty(),
+        "embedding vector should not be empty"
+    );
+
+    bg.abort();
+    mock_bg.abort();
+}
+
+#[tokio::test]
+async fn wire_inference_embed_no_provider_returns_error() {
+    let (server, _tmpdir, sock_path) =
+        make_server_with_empty_router("/tmp/inference-embed-none.sock");
+    let bg = spawn_line_framed_jsonrpc_server(&sock_path, Arc::clone(&server));
+    tokio::task::yield_now().await;
+
+    let embed_req = json!({
+        "jsonrpc": "2.0",
+        "method": "inference.embed",
+        "params": { "text": "hello" },
+        "id": 1
+    });
+    let resp = jsonrpc_line_roundtrip(&sock_path, &embed_req).await;
+    assert!(
+        resp.get("error").is_some(),
+        "inference.embed without providers should error: {resp:?}"
+    );
+    let code = resp.pointer("/error/code").and_then(Value::as_i64);
+    assert_eq!(code, Some(i64::from(error_codes::METHOD_NOT_FOUND)));
 
     bg.abort();
 }

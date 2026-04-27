@@ -656,6 +656,29 @@ impl AiRouter {
         all
     }
 
+    /// List providers with enriched model-level detail (model names, embedding support).
+    pub async fn list_providers_detailed(&self) -> Vec<(ProviderInfo, Vec<String>, bool)> {
+        let infos = self.list_providers().await;
+        let providers = self.providers.read().await;
+        infos
+            .into_iter()
+            .map(|info| {
+                let (models, embeds) = providers
+                    .iter()
+                    .find(|p| p.provider_id() == info.provider_id)
+                    .map(|p| (p.available_model_names(), p.supports_embedding()))
+                    .unwrap_or_default();
+                (info, models, embeds)
+            })
+            .collect()
+    }
+
+    /// Find the first available provider that supports embedding.
+    pub async fn find_embedding_provider(&self) -> Option<Arc<AiProvider>> {
+        let providers = self.providers.read().await;
+        providers.iter().find(|p| p.supports_embedding()).cloned()
+    }
+
     /// Register a remote spring as an inference provider.
     ///
     /// Called by `inference.register_provider` JSON-RPC handler. Creates a

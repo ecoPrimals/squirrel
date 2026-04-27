@@ -137,6 +137,32 @@ pub enum AiProvider {
     JsonRpcTestAi(test_mocks::TestAiAdapter),
 }
 
+impl AiProvider {
+    /// Model names declared at registration (remote providers only).
+    pub fn available_model_names(&self) -> Vec<String> {
+        match self {
+            Self::RemoteInference(a) => a.model_names().to_vec(),
+            Self::Universal(_) => Vec::new(),
+            #[cfg(feature = "deprecated-adapters")]
+            Self::OpenAi(_) | Self::Anthropic(_) => Vec::new(),
+            #[cfg(test)]
+            _ => Vec::new(),
+        }
+    }
+
+    /// Whether this provider supports embedding.
+    pub fn supports_embedding(&self) -> bool {
+        match self {
+            Self::RemoteInference(a) => a.supports_embedding(),
+            Self::Universal(_) => false,
+            #[cfg(feature = "deprecated-adapters")]
+            Self::OpenAi(_) | Self::Anthropic(_) => false,
+            #[cfg(test)]
+            _ => false,
+        }
+    }
+}
+
 impl AiProviderAdapter for AiProvider {
     fn provider_id(&self) -> &str {
         match self {
