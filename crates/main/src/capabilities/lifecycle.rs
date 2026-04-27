@@ -24,8 +24,10 @@ use crate::primal_names;
 ///
 /// Checks standard locations without hardcoding a primal name.
 pub fn find_biomeos_socket() -> Option<PathBuf> {
-    // Explicit env override
-    if let Ok(path) = std::env::var("BIOMEOS_SOCKET") {
+    // Capability-first env override, then legacy fallback
+    let socket_env =
+        std::env::var("ECOSYSTEM_ORCHESTRATOR_SOCKET").or_else(|_| std::env::var("BIOMEOS_SOCKET"));
+    if let Ok(path) = socket_env {
         let p = PathBuf::from(path);
         if p.exists() {
             return Some(p);

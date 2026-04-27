@@ -15,6 +15,11 @@ Pre-alpha history is preserved as fossil record in
 
 **7,182** tests, **~997** `.rs` files, **~325k** lines, **90.1%** region coverage (target met).
 
+- **C dep elimination**: `zstd`/`flate2`/`lz4_flex` removed from workspace and Cargo.lock. `--all-features` now 100% pure Rust. `CompressionFormat` retained as metadata-only enum.
+- **Auth security hardening**: `DefaultIdentityManager::authenticate` no longer accepts any password — returns `MCPError::Authentication` directing callers to the security capability provider.
+- **Deprecated error removal**: `AuthError::BeardogUnavailable` / `BeardogError` / `beardog_error()` removed (zero callers).
+- **Ecosystem coordination stubs evolved**: Honest logging, socket existence checks, clear error messages instead of silent success.
+- **Capability-first env vars**: `ECOSYSTEM_ORCHESTRATOR_SOCKET` added before `BIOMEOS_SOCKET`. `API_VERSION` → `"ecosystem/v1"`. `lifecycle.biomeos` → `lifecycle.ecosystem`.
 - **neuralSpring Gap 14 resolution (primalSpring cross-spring audit)**: `inference.models` response enriched with `available_models` (model names from registration) and accurate `supports_embedding` flag. `inference.embed` evolved from stub to production routing via registered remote providers. `AiRouter::list_providers_detailed()` and `AiRouter::find_embedding_provider()` added. 4 new wire tests.
 
 ### Summary (April 26, 2026)

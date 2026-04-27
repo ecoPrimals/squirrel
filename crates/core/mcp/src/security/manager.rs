@@ -367,24 +367,19 @@ mod tests {
         let mut cfg = quiet_config();
         cfg.enable_audit = true;
         let m = SecurityManagerImpl::new(cfg);
-        let id = m
-            .identity_manager()
+        m.identity_manager()
             .create_identity("bob".to_string(), None)
             .await
             .expect("create_identity");
 
-        let ok = m.authenticate("bob", "pw").await.expect("authenticate");
-        assert_eq!(ok.expect("bob session").id, id.id);
-        let events = m.audit_service().get_events().await;
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0].status, "success");
+        let err = m.authenticate("bob", "pw").await;
+        assert!(
+            err.is_err(),
+            "authenticate known user should fail — no security provider wired"
+        );
 
-        m.audit_service().clear_events().await;
         let fail = m.authenticate("nobody", "pw").await.expect("authenticate");
         assert!(fail.is_none());
-        let events = m.audit_service().get_events().await;
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0].status, "failure");
     }
 
     #[tokio::test]
@@ -394,10 +389,11 @@ mod tests {
             .create_identity("c".to_string(), None)
             .await
             .expect("create_identity");
-        m.authenticate("c", "x")
-            .await
-            .expect("authenticate")
-            .expect("c session");
+        let err = m.authenticate("c", "x").await;
+        assert!(
+            err.is_err(),
+            "authenticate should fail — DefaultIdentityManager rejects credential verification"
+        );
         assert!(m.audit_service().get_events().await.is_empty());
     }
 

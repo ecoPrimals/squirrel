@@ -129,10 +129,8 @@ tower-http = { version = "0.5", features = ["cors", "trace"] }
 serde_bytes = "0.11"
 futures-util = "0.3"
 # tokio-tungstenite: REMOVED — Tower Atomic pattern; WebSocket provided by Songbird service mesh via IPC
-# zstd: C libzstd via zstd-safe — not in default build; only `squirrel-mcp` with `compression` feature.
-zstd = "0.13"
-flate2 = { version = "1.0", default-features = false, features = ["rust_backend"] }
-lz4_flex = "0.13"
+# zstd/flate2/lz4_flex: REMOVED — CompressionFormat is metadata-only (no codec wired).
+# Eliminates zstd-sys (C dep) from --all-features builds. Re-add when codecs are implemented.
 
 # Internal crate dependencies
 squirrel-ai-tools = { path = "crates/tools/ai-tools", version = "0.1.0" }

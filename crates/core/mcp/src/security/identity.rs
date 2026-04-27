@@ -104,8 +104,10 @@ impl DefaultIdentityManager {
 
     /// Resolves credentials to an identity.
     ///
-    /// Password verification is not implemented yet; successful matches are by username only.
-    /// Production deployments should integrate BearDog or another verifier.
+    /// Credential verification is delegated to the security provider (discovered
+    /// at runtime via capability discovery). This local identity store does not
+    /// hold password hashes, so authentication always fails with an explicit
+    /// error directing callers to the security capability.
     pub async fn authenticate(
         &self,
         username: &str,
@@ -114,11 +116,16 @@ impl DefaultIdentityManager {
         let identity = self.get_identity_by_username(username).await?;
         if identity.is_some() {
             warn!(
-                "Password verification not implemented — accepting any password for user '{}' (security risk)",
-                username
+                user = username,
+                "DefaultIdentityManager cannot verify credentials — \
+                 delegate authentication to the security provider via capability discovery"
             );
+            return Err(crate::error::MCPError::Authentication(
+                "Password verification requires a security provider (security.authenticate capability); \
+                 DefaultIdentityManager is a local identity store only".into(),
+            ));
         }
-        Ok(identity)
+        Ok(None)
     }
 
     /// Sets `last_login` to the current time for the given user id.
@@ -226,18 +233,14 @@ mod tests {
             Some("new@x.y")
         );
 
-        assert_eq!(
-            m.authenticate("alice", "any")
-                .await
-                .expect("authenticate")
-                .expect("alice authenticated")
-                .id,
-            id.id
+        assert!(
+            m.authenticate("alice", "any").await.is_err(),
+            "authenticate should reject — no password verifier wired"
         );
         assert!(
             m.authenticate("unknown", "pw")
                 .await
-                .expect("authenticate")
+                .expect("authenticate unknown user")
                 .is_none()
         );
 

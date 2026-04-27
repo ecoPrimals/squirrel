@@ -94,17 +94,6 @@ pub enum AuthError {
     /// Capability provider returned an error
     #[error("JWT capability provider error: {0}")]
     CapabilityProviderError(String),
-
-    // Legacy compatibility (for migration period)
-    /// Legacy security service unavailable (deprecated: use `CapabilityProviderUnavailable`)
-    #[error("BearDog unavailable: {0}")]
-    #[deprecated(note = "Use CapabilityProviderUnavailable instead (capability-based)")]
-    BeardogUnavailable(String),
-
-    /// Legacy security provider error (deprecated: use `CapabilityProviderError`)
-    #[error("BearDog error: {0}")]
-    #[deprecated(note = "Use CapabilityProviderError instead (capability-based)")]
-    BeardogError(String),
 }
 
 impl AuthError {
@@ -157,12 +146,6 @@ impl AuthError {
         Self::SecurityProviderIntegration {
             message: message.into(),
         }
-    }
-
-    /// Deprecated alias for [`AuthError::security_provider_error`].
-    #[deprecated(since = "0.1.0", note = "Use security_provider_error")]
-    pub fn beardog_error(message: impl Into<String>) -> Self {
-        Self::security_provider_error(message)
     }
 
     /// Create an internal error

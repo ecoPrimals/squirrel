@@ -17,7 +17,7 @@
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
 | Unsafe Code | 0 in production — `unsafe_code = "forbid"` in workspace `[lints.rust]` (all 22 crates) |
-| Pure Rust | 100% default features (zero C deps, zero non-Rust crypto); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed; `ed25519-dalek` feature-gated behind `local-crypto`; `flate2` → pure Rust `miniz_oxide` backend; `blake3` → `features = ["pure"]` (no SIMD assembly); `pprof`, `openai`, `libloading`, `nvml-wrapper` removed; `nix` → `rustix` (pure Rust syscalls); `rand` upgraded 0.8→0.9.4 (RUSTSEC-2026-0097); `ring`/`reqwest`/`jsonwebtoken`/`rustls` **ELIMINATED** from Cargo.lock (stadial gate: all HTTP features and `local-jwt` removed); `zstd-sys` only resolves under `--all-features` (compression feature) |
+| Pure Rust | 100% default features **and** `--all-features` (zero C deps, zero non-Rust crypto); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed; `ed25519-dalek` feature-gated behind `local-crypto`; `blake3` → `features = ["pure"]` (no SIMD assembly); `pprof`, `openai`, `libloading`, `nvml-wrapper` removed; `nix` → `rustix` (pure Rust syscalls); `rand` upgraded 0.8→0.9.4 (RUSTSEC-2026-0097); `ring`/`reqwest`/`jsonwebtoken`/`rustls` **ELIMINATED** from Cargo.lock (stadial gate); `zstd`/`flate2`/`lz4_flex` **ELIMINATED** from Cargo.lock (compression feature emptied: `CompressionFormat` is metadata-only, no codec wired) |
 | ecoBin | Compliant v3.0 — 3.5 MB static-pie musl binary, stripped, BLAKE3 checksummed, zero host paths (`--remap-path-prefix`), zero dynamic deps; `deny.toml` bans 14 C-dep crates + `tokio-tungstenite` (Tower Atomic) + `reqwest` (Tower Atomic); pure Rust `sys_info` via `/proc` parsing |
 | Coverage | **90.1%** region coverage / 89.6% line coverage via `cargo-llvm-cov` (**target met**); remaining uncovered: binary entry points, demo bins, WASM-only SDK paths, live IPC server loops |
 | `.unwrap()` in code | 0 — workspace-wide elimination; all Results use `?` or `.expect("invariant")` |
@@ -275,6 +275,15 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`, `test-context`)
 
 ## Changes Since Last Handoff (April 16, 2026)
+
+### April 27, 2026 session AL (deep debt: C dep elimination, auth security, stub evolution, hardcoding evolution)
+
+- **C dep elimination**: Removed `zstd`/`flate2`/`lz4_flex` from workspace and squirrel-mcp. `CompressionFormat` enum retained as metadata-only. `zstd-sys`, `zstd-safe`, `zstd`, `flate2`, `lz4_flex` all **ELIMINATED** from `Cargo.lock`. `--all-features` builds are now 100% pure Rust.
+- **Auth security hardening**: `DefaultIdentityManager::authenticate` evolved from accept-any-password stub (security risk) to explicit rejection with `MCPError::Authentication` directing callers to delegate to the security capability provider.
+- **Deprecated error removal**: `AuthError::BeardogUnavailable`, `AuthError::BeardogError`, and `beardog_error()` constructor removed (zero callers; replaced by `CapabilityProviderUnavailable`/`CapabilityProviderError`).
+- **Ecosystem coordination stub evolution**: `register_with_ecosystem` now checks socket existence and logs honest status. `discover_via_service_mesh` log message clarified. `probe_primal_endpoint` checks socket existence before failing.
+- **Capability-first env vars**: `ECOSYSTEM_ORCHESTRATOR_SOCKET` added as primary tier before `BIOMEOS_SOCKET` fallback in `find_biomeos_socket()`. `API_VERSION` evolved from `"biomeOS/v1"` to `"ecosystem/v1"`. `lifecycle.biomeos` domain in `capability_registry.toml` evolved to `lifecycle.ecosystem`.
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,182 / 0 failures), `deny` ✓
 
 ### April 27, 2026 session AK (neuralSpring Gap 14 — inference.models enrichment, inference.embed routing)
 

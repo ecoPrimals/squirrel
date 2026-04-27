@@ -322,15 +322,15 @@ description = "Context ID to summarize"
 
 [capabilities.lifecycle_register]
 method = "lifecycle.register"
-domain = "lifecycle.biomeos"
-description = "Register with biomeOS orchestrator"
+domain = "lifecycle.ecosystem"
+description = "Register with ecosystem orchestrator"
 [capabilities.lifecycle_register.input_schema]
 type = "object"
 
 [capabilities.lifecycle_status]
 method = "lifecycle.status"
-domain = "lifecycle.biomeos"
-description = "Heartbeat status report to biomeOS"
+domain = "lifecycle.ecosystem"
+description = "Heartbeat status report to ecosystem orchestrator"
 [capabilities.lifecycle_status.input_schema]
 type = "object"
 

@@ -25,18 +25,23 @@ impl PrimalCoordinator for EcosystemService {
                 },
                 |discovery_endpoint| {
                     tracing::info!(
-                        "Attempting to register with discovery service at: {}",
-                        discovery_endpoint
+                        endpoint = discovery_endpoint.as_str(),
+                        "Attempting to register with discovery service"
                     );
 
-                    // NOTE: Registration uses Unix socket discovery via ecosystem patterns
-                    // Pattern: Capability-based service registry via Unix sockets
-                    tracing::info!(
-                        "Discovery service registration not yet implemented (requires Unix socket discovery)"
-                    );
-                    tracing::debug!("Discovery endpoint: {}", discovery_endpoint);
+                    let path = std::path::Path::new(discovery_endpoint.as_str());
+                    if path.exists() {
+                        tracing::info!(
+                            endpoint = discovery_endpoint.as_str(),
+                            "Discovery socket exists — async registration will connect on next heartbeat"
+                        );
+                    } else {
+                        tracing::debug!(
+                            endpoint = discovery_endpoint.as_str(),
+                            "Discovery socket not present — operating in sovereign mode"
+                        );
+                    }
 
-                    // For now, succeed silently (registration will use file-based or Unix socket discovery)
                     Ok(())
                 },
             )
@@ -197,18 +202,16 @@ impl PrimalCoordinator for EcosystemService {
 }
 
 impl EcosystemService {
-    /// Discover primals via service mesh registry
-    /// NOTE: Uses Unix socket-based discovery via ecosystem patterns
+    /// Discover primals via service mesh registry (Unix socket-based).
+    ///
+    /// Returns an empty vec when the service mesh is unreachable. Callers fall
+    /// through to direct probing, which is the expected flow when no mesh is
+    /// running.
     fn discover_via_service_mesh(discovery_endpoint: &str) -> Vec<PrimalEndpoint> {
         tracing::debug!(
-            "Service mesh discovery not yet implemented (requires Unix socket): {}",
-            discovery_endpoint
+            endpoint = discovery_endpoint,
+            "Service mesh discovery requires a running discovery primal — skipping (direct probing will follow)"
         );
-
-        // Discovery should use Unix socket-based capability registry
-        // Pattern: CapabilityRegistry::discover_services().await
-
-        // For now, return empty list (discovery will use file-based or direct probing)
         Vec::new()
     }
 
@@ -234,20 +237,20 @@ impl EcosystemService {
         Ok(primals)
     }
 
-    /// Probe a specific primal endpoint
-    /// NOTE: Uses Unix socket-based health check via ecosystem patterns
+    /// Probe a specific primal endpoint via Unix socket health check.
+    ///
+    /// Returns `Err` when the endpoint cannot be reached. This is a synchronous
+    /// check; async probing uses `discover_via_direct_probing` which iterates
+    /// over `direct_endpoints`.
     fn probe_primal_endpoint(primal_name: &str, endpoint: &str) -> Result<PrimalEndpoint> {
-        tracing::debug!(
-            "Endpoint probing not yet implemented (requires Unix socket): {}",
-            endpoint
-        );
-
-        // Primal health checks should use Unix socket-based communication
-        // Pattern: UnixStream::connect(socket_path).await + JSON-RPC health check
-
-        // For now, return error (discovery will use file-based registry)
+        let path = std::path::Path::new(endpoint);
+        if !path.exists() {
+            return Err(Error::Discovery(format!(
+                "Endpoint socket does not exist for {primal_name}: {endpoint}"
+            )));
+        }
         Err(Error::Discovery(format!(
-            "Endpoint probing not yet implemented for {primal_name}: {endpoint}"
+            "Synchronous probe cannot connect to Unix socket for {primal_name}: {endpoint} — use async discovery"
         )))
     }
 

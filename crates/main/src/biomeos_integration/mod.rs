@@ -17,7 +17,7 @@ use tracing::warn;
 use crate::error::PrimalError;
 
 pub(crate) const PRIMAL_TYPE: &str = crate::niche::PRIMAL_ID;
-pub(crate) const API_VERSION: &str = "biomeOS/v1";
+pub(crate) const API_VERSION: &str = "ecosystem/v1";
 pub(crate) const STATUS_INITIALIZING: &str = "initializing";
 pub(crate) const STATUS_STARTING: &str = "starting";
 const STATUS_RUNNING: &str = "running";

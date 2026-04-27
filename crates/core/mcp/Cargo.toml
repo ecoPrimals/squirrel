@@ -45,10 +45,9 @@ anyhow.workspace = true
 # Configuration
 toml.workspace = true
 
-# Compression (optional)
-zstd = { workspace = true, optional = true }
-flate2 = { workspace = true, optional = true }
-lz4_flex = { workspace = true, optional = true }
+# Compression deps removed — CompressionFormat is metadata-only; no codec
+# implementation exists. Re-add when codec is wired. Eliminates zstd-sys (C dep)
+# from --all-features builds.
 
 # Utilities
 rand.workspace = true
@@ -98,7 +97,7 @@ full = [
 tarpc = []
 streaming = ["dep:tokio-stream"]
 metrics = ["dep:metrics"]
-compression = ["dep:zstd", "dep:flate2", "dep:lz4_flex"]
+compression = []
 ## tls/plugins/persistence/sync-placeholders/disabled_until_rewrite removed —
 ## zero cfg(feature) references; re-add when implementations exist.
 
