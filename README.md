@@ -47,7 +47,7 @@ cargo build --release
 ./target/release/squirrel client --method health.liveness --params '{}'
 
 # Test
-cargo test --workspace
+cargo test --workspace --all-features
 
 # Full CI gate (fmt + clippy + test + doc)
 just ci
@@ -76,7 +76,7 @@ Capability symlink: `ai.sock` → `squirrel.sock` (auto-created for capability-b
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   7,178 tests passing (0 failures) | ~997 `.rs` files | ~325k lines
+Fitness:   7,182 tests passing (0 failures) | ~997 `.rs` files | ~325k lines
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
@@ -144,7 +144,7 @@ squirrel/
 - `#[expect(reason)]` over `#[allow]` — dead suppressions caught automatically
 - `cargo fmt` — zero formatting violations
 - Pure Rust: zero C dependencies in default build (ecoBin v3.0 compliant — `sysinfo` removed)
-- All source files under 1,000 lines
+- Production files under 800 lines (test-only files may be larger)
 - SPDX `AGPL-3.0-or-later` license header on all `.rs` files
 - Edition 2024 across all 22 workspace crates
 - `tracing` for structured logging (no `println!` in production code)

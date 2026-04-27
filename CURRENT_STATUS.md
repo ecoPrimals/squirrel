@@ -12,7 +12,7 @@
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
 | Tests | 7,182 passing / 0 failures across 22 workspace crates |
 | Edition | 2024 (Rust 1.94+) |
-| async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`, `test-context`) |
+| async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
@@ -260,7 +260,7 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 | Tool | Config |
 |------|--------|
 | just | `justfile` — ci, check, fmt, clippy, test, coverage, build-release, build-ecobin-all (x86_64+aarch64 musl), audit, doctor |
-| rustfmt | `rustfmt.toml` — edition 2024, max_width 100 |
+| rustfmt | `.rustfmt.toml` — edition 2024, max_width 100 |
 | clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
 | cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards, deny yanked, 14-crate ecoBin C-dep ban |
 | cargo-llvm-cov | **90.1%** region coverage / 89.6% line coverage (**target met**) |
@@ -272,9 +272,9 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 1. **Coverage target met** — 90.1% region coverage (89.6% line). Remaining uncovered: binary entry points, demo binaries, WASM-only SDK paths, live IPC server loops. All production modules have test coverage.
 2. Performance optimizer `batch_processor` / `optimizer` are complete (no deferred stubs)
 3. `base64` duplicate (0.21 via `config`/`ron`, 0.22 direct) — transitive, benign
-4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`, `test-context`)
+4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
 
-## Changes Since Last Handoff (April 16, 2026)
+## Changes Since Last Handoff (April 27, 2026)
 
 ### April 27, 2026 session AL (deep debt: C dep elimination, auth security, stub evolution, hardcoding evolution)
 
