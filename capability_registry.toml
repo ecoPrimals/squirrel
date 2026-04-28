@@ -14,7 +14,7 @@
 name = "squirrel"
 version = "0.1.0"
 domain = "ai"
-license = "AGPL-3.0-only"
+license = "AGPL-3.0-or-later"
 transport = "unix_socket"
 protocol = "json-rpc-2.0"
 
@@ -46,7 +46,7 @@ description = "Maximum tokens in response"
 [capabilities.inference_embed]
 method = "inference.embed"
 domain = "inference.execution"
-description = "Embedding generation (pending provider registration)"
+description = "Embedding generation via registered inference providers (UDS or HTTP)"
 [capabilities.inference_embed.input_schema]
 type = "object"
 required = ["input"]

@@ -49,9 +49,8 @@ deny = [
     { name = "reqwest", reason = "Tower Atomic: HTTP must route through Songbird service mesh via IPC, not direct from primals.", use-instead = "capability.call via Unix socket (Tower Atomic pattern)" },
 ]
 # cc (build-time only) enters via blake3 as build-dep but unused with features=["pure"].
-# Default build is pure Rust. No wasmtime, sqlx, or pprof in dependency tree.
-# reqwest is optional behind feature gates (direct-http, http-auth, etc.).
-# Default build is reqwest-free. Tower Atomic: all HTTP routes through Songbird via IPC.
+# Default build is pure Rust. reqwest banned — Tower Atomic: all external HTTP routes
+# through service mesh via IPC. Local HTTP (e.g. Ollama) uses raw TCP in-process.
 
 [sources]
 unknown-registry = "deny"
