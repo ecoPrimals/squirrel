@@ -4,6 +4,7 @@
 use chrono::Utc;
 
 use super::*;
+use crate::error::PrimalError;
 use crate::universal::PrimalContext;
 
 fn sample_service(id: &str, endpoint: &str, capabilities: Vec<&str>) -> DiscoveredService {
@@ -130,7 +131,7 @@ async fn clear_caches_and_stats() {
 }
 
 #[tokio::test]
-async fn send_to_primal_returns_success_json() {
+async fn send_to_primal_errors_when_ipc_unwired() {
     let eco = UniversalPrimalEcosystem::new(PrimalContext::default());
     let req = PrimalRequest::new(
         "squirrel",
@@ -139,11 +140,14 @@ async fn send_to_primal_returns_success_json() {
         serde_json::json!({}),
         PrimalContext::default(),
     );
-    let resp = eco
-        .send_to_primal("any", req)
-        .await
-        .expect("should succeed");
-    assert!(resp.success);
+    let err = eco.send_to_primal("any", req).await.unwrap_err();
+    let PrimalError::OperationFailed(msg) = err else {
+        panic!("expected OperationFailed, got {err:?}");
+    };
+    assert!(
+        msg.contains("any") && msg.contains("not yet wired"),
+        "{msg}"
+    );
 }
 
 #[tokio::test]

@@ -266,41 +266,45 @@ impl SessionManagerImpl {
         session_id: &str,
         data: HashMap<String, serde_json::Value>,
     ) -> Result<(), PrimalError> {
-        if let Some(mut session_entry) = self.sessions.get_mut(session_id) {
-            // Create a new updated session
-            let session = session_entry.value().as_ref();
-            let mut updated_metadata = session.metadata.clone();
-            updated_metadata.last_activity = Utc::now();
+        let Some(mut session_entry) = self.sessions.get_mut(session_id) else {
+            return Err(PrimalError::NotFoundError(format!(
+                "Cannot update session: {session_id} not found"
+            )));
+        };
 
-            let mut updated_data = session.data.clone();
-            updated_data.extend(data);
+        let session = session_entry.value().as_ref();
+        let mut updated_metadata = session.metadata.clone();
+        updated_metadata.last_activity = Utc::now();
 
-            let updated_session = Arc::new(Session {
-                metadata: updated_metadata,
-                data: updated_data,
-                state: session.state.clone(),
-            });
+        let mut updated_data = session.data.clone();
+        updated_data.extend(data);
 
-            // Replace the session in the map
-            *session_entry.value_mut() = updated_session;
-        }
+        let updated_session = Arc::new(Session {
+            metadata: updated_metadata,
+            data: updated_data,
+            state: session.state.clone(),
+        });
+
+        *session_entry.value_mut() = updated_session;
         Ok(())
     }
 
     /// Terminates a session, transitioning it to the Terminated state.
     pub async fn terminate_session(&self, session_id: &str) -> Result<(), PrimalError> {
-        if let Some(mut session_entry) = self.sessions.get_mut(session_id) {
-            // Create a new terminated session
-            let session = session_entry.value().as_ref();
-            let terminated_session = Arc::new(Session {
-                metadata: session.metadata.clone(),
-                data: session.data.clone(),
-                state: SessionState::Terminated,
-            });
+        let Some(mut session_entry) = self.sessions.get_mut(session_id) else {
+            return Err(PrimalError::NotFoundError(format!(
+                "Cannot terminate session: {session_id} not found"
+            )));
+        };
 
-            // Replace the session in the map
-            *session_entry.value_mut() = terminated_session;
-        }
+        let session = session_entry.value().as_ref();
+        let terminated_session = Arc::new(Session {
+            metadata: session.metadata.clone(),
+            data: session.data.clone(),
+            state: SessionState::Terminated,
+        });
+
+        *session_entry.value_mut() = terminated_session;
         Ok(())
     }
 

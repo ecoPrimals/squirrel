@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 
 use super::registry::{InMemoryServiceRegistry, ServiceInfo};
-use super::{ServiceCapability, ServiceMatcher, UniversalRequest, UniversalServiceRegistry};
+use super::{ServiceCapability, ServiceMatcher, UniversalServiceRegistry};
 use crate::error::PrimalError;
 
 /// Universal Security Adapter - works with any security primal
@@ -38,7 +38,7 @@ impl UniversalSecurityAdapter {
     pub async fn coordinate_security(
         &mut self,
         operation: &str,
-        parameters: HashMap<String, serde_json::Value>,
+        _parameters: HashMap<String, serde_json::Value>,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
             "🔒 Coordinating security operation: {} via universal adapter",
@@ -55,50 +55,10 @@ impl UniversalSecurityAdapter {
             PrimalError::ResourceNotFound("No security service available".to_string())
         })?;
 
-        // Create universal request
-        let _request = UniversalRequest {
-            request_id: uuid::Uuid::new_v4().to_string(),
-            operation: operation.to_string(),
-            parameters,
-            context: HashMap::from([
-                (
-                    "requester".to_string(),
-                    serde_json::json!("squirrel_ai_coordinator"),
-                ),
-                (
-                    "coordinator_role".to_string(),
-                    serde_json::json!("ai_coordination"),
-                ),
-            ]),
-            requester: crate::niche::PRIMAL_ID.to_string(),
-            timestamp: chrono::Utc::now(),
-        };
-
-        // For now, simulate the coordination (in real implementation, make HTTP call to service endpoint)
-        let response_data = serde_json::json!({
-            "status": "success",
-            "operation": operation,
-            "security_provider": security_service.name,
-            "service_id": security_service.service_id,
-            "session_id": format!("{}_{}", security_service.name.to_lowercase(), uuid::Uuid::new_v4()),
-            "security_context": {
-                "authenticated": true,
-                "authorization_level": "standard",
-                "capabilities": ["ai_coordination", "service_access"]
-            },
-            "metadata": {
-                "processing_time_ms": 45,
-                "confidence": "high",
-                "security_level": "enterprise"
-            }
-        });
-
-        info!(
-            "✅ Security operation '{}' coordinated via {} ({})",
+        Err(PrimalError::OperationFailed(format!(
+            "Security operation '{}' cannot be executed — IPC to security capability provider '{}' ({}) not yet wired",
             operation, security_service.name, security_service.service_id
-        );
-
-        Ok(response_data)
+        )))
     }
 
     /// Authenticate using any available security primal
@@ -413,24 +373,25 @@ mod tests {
         let reg = registry_with_security().await;
         let mut adapter = UniversalSecurityAdapter::new(reg);
         let params = HashMap::from([("k".to_string(), serde_json::json!(1))]);
-        let v = adapter
+        let err = adapter
             .coordinate_security("token_validate", params)
             .await
-            .expect("coord");
-        assert_eq!(v["status"], "success");
-        assert_eq!(v["operation"], "token_validate");
+            .unwrap_err();
+        let PrimalError::OperationFailed(msg) = err else {
+            panic!("expected OperationFailed, got {err:?}");
+        };
+        assert!(
+            msg.contains("token_validate") && msg.contains("not yet wired"),
+            "{msg}"
+        );
     }
 
     #[tokio::test]
     async fn authenticate_universal_returns_session_id() {
         let reg = registry_with_security().await;
         let mut adapter = UniversalSecurityAdapter::new(reg);
-        let sid = adapter
-            .authenticate_universal("user-42")
-            .await
-            .expect("session");
-        assert!(sid.contains("test security") || sid.contains("user-42") || !sid.is_empty());
-        assert!(sid.contains('_'));
+        let err = adapter.authenticate_universal("user-42").await.unwrap_err();
+        assert!(matches!(err, PrimalError::OperationFailed(_)));
     }
 
     #[tokio::test]
@@ -441,7 +402,13 @@ mod tests {
             .authorize_universal("sess", "read")
             .await
             .unwrap_err();
-        assert!(matches!(err, PrimalError::SecurityError(_)));
+        let PrimalError::OperationFailed(msg) = err else {
+            panic!("expected OperationFailed, got {err:?}");
+        };
+        assert!(
+            msg.contains("authorize") && msg.contains("not yet wired"),
+            "{msg}"
+        );
     }
 
     #[tokio::test]
@@ -451,7 +418,7 @@ mod tests {
         adapter
             .coordinate_security("ping", HashMap::new())
             .await
-            .expect("should succeed");
+            .unwrap_err();
         adapter
             .rediscover_security_services()
             .await
@@ -514,7 +481,7 @@ mod tests {
         adapter
             .coordinate_security("x", HashMap::new())
             .await
-            .expect("should succeed");
+            .unwrap_err();
         assert!(!adapter.is_healthy().await);
     }
 

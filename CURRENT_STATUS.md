@@ -276,6 +276,16 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Changes Since Last Handoff (April 28, 2026)
 
+### April 28, 2026 session AO (deep debt: lying stubs, dead code, error honesty)
+
+- **6 lying production stubs → honest errors**: `coordinate_security`, `request_load_balancing`, `get_service_mesh_status`, `send_to_primal`, `update_session` (missing ID), `terminate_session` (missing ID).
+- **Fake marketplace data → empty/404**: `search_marketplace_plugins`, `get_marketplace_plugin_details`.
+- **5 rule actions → `success: false`**: `modify_context`, `create_recovery_point`, `transformation`, `notify`, `validate_context`.
+- **Dead code removed**: deprecated `handle_connection`, `find_services_by_type`, security adapter `UniversalRequest` construction.
+- **Error propagation fixed**: Plugin dependency resolution, monitoring health queries, coordination monitoring events.
+- **17 tests updated** to expect honest errors instead of fabricated success.
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,180 / 0 failures), `deny` ✓
+
 ### April 28, 2026 session AN (primalSpring Phase 55: HTTP providers, DISCOVERY_SOCKET, inference crypto foundation)
 
 - **Native HTTP provider support**: `inference.register_provider` accepts `endpoint` param for HTTP providers (Ollama). `RemoteInferenceAdapter` routes via Ollama REST API. `is_available` uses TCP health probe. No new dependencies (raw TCP HTTP/1.1).

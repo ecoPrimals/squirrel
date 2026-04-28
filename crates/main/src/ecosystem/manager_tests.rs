@@ -264,16 +264,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn find_services_by_type_deprecated_is_err() {
-        let manager = create_test_manager();
-        let e = manager
-            .find_services_by_type(crate::ecosystem::EcosystemPrimalType::Squirrel)
-            .await
-            .unwrap_err();
-        assert!(matches!(e, crate::error::PrimalError::Configuration(_)));
-    }
-
-    #[tokio::test]
     async fn call_primal_api_deprecated_is_err() {
         use crate::ecosystem::EcosystemPrimalType;
         use crate::ecosystem::registry::PrimalApiRequest;

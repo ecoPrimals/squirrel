@@ -223,22 +223,6 @@ impl EcosystemManager {
         Ok(services)
     }
 
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use find_services_by_capability() for TRUE PRIMAL compliance"
-    )]
-    pub async fn find_services_by_type(
-        &self,
-        _primal_type: EcosystemPrimalType,
-    ) -> Result<Vec<super::registry::types::DiscoveredService>, PrimalError> {
-        tracing::warn!(
-            "⚠️ find_services_by_type is deprecated - use find_services_by_capability()"
-        );
-        Err(PrimalError::Configuration(
-            "find_services_by_type is deprecated. Use find_services_by_capability()".to_string(),
-        ))
-    }
-
     pub async fn call_primal_api(
         &self,
         _request: super::registry::PrimalApiRequest,

@@ -266,6 +266,22 @@ mod tests {
             test_context(),
         );
         client.test_only_insert_provider(provider);
+        ecosystem
+            .test_only_set_next_primal_response(PrimalResponse {
+                request_id: Uuid::new_v4(),
+                response_id: Uuid::new_v4(),
+                status: ResponseStatus::Success,
+                success: true,
+                data: None,
+                payload: serde_json::json!({}),
+                timestamp: Utc::now(),
+                processing_time_ms: Some(100),
+                duration: None,
+                error: None,
+                error_message: None,
+                metadata: HashMap::new(),
+            })
+            .await;
         let r = client
             .store("k", vec![1, 2, 3], DataClassification::Internal)
             .await
@@ -376,6 +392,22 @@ mod tests {
             test_context(),
         );
         client.initialize().await.expect("init");
+        ecosystem
+            .test_only_set_next_primal_response(PrimalResponse {
+                request_id: Uuid::new_v4(),
+                response_id: Uuid::new_v4(),
+                status: ResponseStatus::Success,
+                success: true,
+                data: None,
+                payload: serde_json::json!({}),
+                timestamp: Utc::now(),
+                processing_time_ms: Some(100),
+                duration: None,
+                error: None,
+                error_message: None,
+                metadata: HashMap::new(),
+            })
+            .await;
         let r = client
             .delete("k")
             .await

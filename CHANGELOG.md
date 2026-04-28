@@ -11,6 +11,17 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (April 28, 2026 — session AO: deep debt — lying stubs, dead code, error honesty)
+
+**7,180** tests, **~997** `.rs` files, **~325k** lines, **90.1%** region coverage (target met).
+
+- **Lying stub elimination**: 6 production functions that fabricated success JSON for operations they didn't perform now return honest errors: `coordinate_security`, `request_load_balancing`, `get_service_mesh_status`, `send_to_primal`, `update_session` (missing ID), `terminate_session` (missing ID).
+- **Fake marketplace data removed**: `search_marketplace_plugins` and `get_marketplace_plugin_details` in `web/api/handlers.rs` no longer return fabricated "Sample Plugin" data — return empty results and 404 respectively with honest notes.
+- **Rule system action honesty**: 5 rule actions (`modify_context`, `create_recovery_point`, `transformation`, `notify`, `validate_context`) now return `success: false` with "not yet wired" messages instead of claiming operations succeeded.
+- **Dead deprecated code removed**: `handle_connection` (unused legacy JSON-RPC handler) and `find_services_by_type` (deprecated, already returns error) removed along with their tests.
+- **Error path honesty**: Plugin dependency resolution failures now propagate as `DependencyError` instead of being silently swallowed. Monitoring provider health/capability query errors now logged before defaulting. Ecosystem coordination monitoring event recording errors now logged.
+- **Security adapter dead code cleanup**: Removed fabricated `UniversalRequest` construction and unused import.
+
 ### Summary (April 28, 2026 — session AN: primalSpring Phase 55 audit)
 
 **7,182** tests, **~997** `.rs` files, **~325k** lines, **90.1%** region coverage (target met).

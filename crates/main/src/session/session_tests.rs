@@ -3,6 +3,8 @@
 
 use super::*;
 
+use crate::error::PrimalError;
+
 #[tokio::test]
 async fn test_session_creation() {
     let config = SessionConfig::default();
@@ -455,8 +457,10 @@ async fn test_update_nonexistent_session() {
     let mut data = HashMap::new();
     data.insert("test".to_string(), serde_json::json!("value"));
     let result = manager.update_session("nonexistent_session_id", data).await;
-    // Should not error, just do nothing
-    assert!(result.is_ok());
+    assert!(matches!(
+        result,
+        Err(PrimalError::NotFoundError(msg)) if msg.contains("nonexistent_session_id")
+    ));
 }
 
 #[tokio::test]
@@ -466,8 +470,10 @@ async fn test_terminate_nonexistent_session() {
 
     // Try to terminate a session that doesn't exist
     let result = manager.terminate_session("nonexistent_session_id").await;
-    // Should not error, just do nothing
-    assert!(result.is_ok());
+    assert!(matches!(
+        result,
+        Err(PrimalError::NotFoundError(msg)) if msg.contains("nonexistent_session_id")
+    ));
 }
 
 #[tokio::test]

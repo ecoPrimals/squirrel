@@ -266,25 +266,6 @@ async fn test_ecosystem_manager_find_services_by_capability() {
 }
 
 #[tokio::test]
-#[expect(
-    deprecated,
-    reason = "Tests deprecated path for backward compatibility"
-)]
-async fn test_ecosystem_manager_find_services_by_type_deprecated() {
-    // Test that deprecated method returns proper error
-    let config = create_test_config();
-    let metrics = create_test_metrics();
-    let mut manager = EcosystemManager::new(config, metrics);
-
-    manager.initialize().await.expect("test: should initialize");
-
-    let result = manager
-        .find_services_by_type(EcosystemPrimalType::Songbird)
-        .await;
-    assert!(result.is_err(), "Deprecated method should return error");
-}
-
-#[tokio::test]
 async fn test_ecosystem_primal_type_from_str_squirrel() {
     let result = EcosystemPrimalType::from_str("squirrel");
     assert!(result.is_ok());

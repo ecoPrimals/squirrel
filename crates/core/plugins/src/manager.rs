@@ -119,7 +119,9 @@ impl PluginManager {
                 );
             }
             Err(e) => {
-                tracing::warn!("Dependency resolution produced warnings: {e}");
+                return Err(crate::errors::PluginError::DependencyError(format!(
+                    "Plugin dependency resolution failed: {e}"
+                )));
             }
         }
 

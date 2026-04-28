@@ -51,7 +51,6 @@ mod unified_manager;
 mod zero_copy;
 mod zero_copy_config;
 
-// Platform-specific modules
 pub mod cli;
 pub mod mcp;
 pub mod web;

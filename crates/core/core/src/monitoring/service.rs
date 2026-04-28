@@ -275,11 +275,20 @@ impl MonitoringService {
         let mut provider_statuses = Vec::new();
 
         for provider in &providers {
-            let health = provider
-                .provider_health()
-                .await
-                .unwrap_or(HealthStatus::Unknown);
-            let capabilities = provider.provider_capabilities().await.unwrap_or_default();
+            let health = match provider.provider_health().await {
+                Ok(h) => h,
+                Err(e) => {
+                    tracing::debug!(provider = %provider.provider_name(), error = %e, "Health check failed, reporting Unknown");
+                    HealthStatus::Unknown
+                }
+            };
+            let capabilities = match provider.provider_capabilities().await {
+                Ok(c) => c,
+                Err(e) => {
+                    tracing::debug!(provider = %provider.provider_name(), error = %e, "Capabilities query failed, reporting empty");
+                    Vec::new()
+                }
+            };
 
             provider_statuses.push(ProviderStatus {
                 name: provider.provider_name().to_string(),

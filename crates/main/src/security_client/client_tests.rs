@@ -247,6 +247,23 @@ mod tests {
         );
         client.test_only_insert_provider(provider);
 
+        ecosystem
+            .test_only_set_next_primal_response(PrimalResponse {
+                request_id: Uuid::new_v4(),
+                response_id: Uuid::new_v4(),
+                status: ResponseStatus::Success,
+                success: true,
+                data: None,
+                payload: serde_json::json!({}),
+                timestamp: Utc::now(),
+                processing_time_ms: Some(100),
+                duration: None,
+                error: None,
+                error_message: None,
+                metadata: HashMap::new(),
+            })
+            .await;
+
         let mut creds = HashMap::new();
         creds.insert("password".to_string(), "x".to_string());
         let response = client
@@ -383,6 +400,22 @@ mod tests {
             test_context(),
         );
         client.initialize().await.expect("init");
+        ecosystem
+            .test_only_set_next_primal_response(PrimalResponse {
+                request_id: Uuid::new_v4(),
+                response_id: Uuid::new_v4(),
+                status: ResponseStatus::Success,
+                success: true,
+                data: None,
+                payload: serde_json::json!({}),
+                timestamp: Utc::now(),
+                processing_time_ms: Some(100),
+                duration: None,
+                error: None,
+                error_message: None,
+                metadata: HashMap::new(),
+            })
+            .await;
         let mut creds = HashMap::new();
         creds.insert("p".to_string(), "q".to_string());
         let r = client.authenticate("u", creds, RiskLevel::Low).await;
@@ -410,7 +443,7 @@ mod tests {
                 };
                 let provider = SecurityProvider::from_discovered_primal(&primal);
                 let client = UniversalSecurityClient::new(
-                    ecosystem,
+                    Arc::clone(&ecosystem),
                     SecurityClientConfig::default(),
                     test_context(),
                 );
@@ -419,6 +452,24 @@ mod tests {
                     .enable_all()
                     .build()
                     .expect("runtime");
+                rt.block_on(async {
+                    ecosystem
+                        .test_only_set_next_primal_response(PrimalResponse {
+                            request_id: Uuid::new_v4(),
+                            response_id: Uuid::new_v4(),
+                            status: ResponseStatus::Success,
+                            success: true,
+                            data: None,
+                            payload: serde_json::json!({}),
+                            timestamp: Utc::now(),
+                            processing_time_ms: Some(100),
+                            duration: None,
+                            error: None,
+                            error_message: None,
+                            metadata: HashMap::new(),
+                        })
+                        .await;
+                });
                 let mut creds = HashMap::new();
                 creds.insert("a".to_string(), "b".to_string());
                 let res = rt.block_on(client.authenticate("id", creds, RiskLevel::Medium));

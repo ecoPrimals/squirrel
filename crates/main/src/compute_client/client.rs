@@ -500,7 +500,9 @@ mod compute_client_tests {
         UniversalComputeRequest, WorkloadCharacteristics,
     };
     use crate::universal::PrimalContext;
+    use crate::universal::messages::{PrimalResponse, ResponseStatus};
     use crate::universal_primal_ecosystem::UniversalPrimalEcosystem;
+    use chrono::Utc;
     use std::collections::HashMap;
     use std::sync::Arc;
     use std::time::Duration;
@@ -588,13 +590,29 @@ mod compute_client_tests {
     async fn execute_operation_applies_defaults_and_succeeds_with_stub_ecosystem() {
         let eco = Arc::new(UniversalPrimalEcosystem::new(PrimalContext::default()));
         let client = UniversalComputeClient::new(
-            eco,
+            Arc::clone(&eco),
             ComputeClientConfig::default(),
             PrimalContext::default(),
         );
         let mut p = sample_provider("prov-1");
         p.health.queue_length = 1;
         client.test_only_insert_provider(p);
+
+        eco.test_only_set_next_primal_response(PrimalResponse {
+            request_id: Uuid::new_v4(),
+            response_id: Uuid::new_v4(),
+            status: ResponseStatus::Success,
+            success: true,
+            data: None,
+            payload: serde_json::json!({}),
+            timestamp: Utc::now(),
+            processing_time_ms: Some(100),
+            duration: None,
+            error: None,
+            error_message: None,
+            metadata: HashMap::new(),
+        })
+        .await;
 
         let mut req = minimal_request();
         client.apply_configuration_defaults(&mut req);
@@ -611,11 +629,26 @@ mod compute_client_tests {
     async fn execute_code_builds_request() {
         let eco = Arc::new(UniversalPrimalEcosystem::new(PrimalContext::default()));
         let client = UniversalComputeClient::new(
-            eco,
+            Arc::clone(&eco),
             ComputeClientConfig::default(),
             PrimalContext::default(),
         );
         client.test_only_insert_provider(sample_provider("prov-3"));
+        eco.test_only_set_next_primal_response(PrimalResponse {
+            request_id: Uuid::new_v4(),
+            response_id: Uuid::new_v4(),
+            status: ResponseStatus::Success,
+            success: true,
+            data: None,
+            payload: serde_json::json!({}),
+            timestamp: Utc::now(),
+            processing_time_ms: Some(100),
+            duration: None,
+            error: None,
+            error_message: None,
+            metadata: HashMap::new(),
+        })
+        .await;
         let r = client
             .execute_code("python", "x=1".to_string(), ComputePriority::High)
             .await

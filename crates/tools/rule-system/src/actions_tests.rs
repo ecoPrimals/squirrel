@@ -78,11 +78,11 @@ async fn test_execute_modify_context() {
         .await
         .expect("should succeed");
 
-    assert!(result.success);
+    assert!(!result.success);
     assert_eq!(result.rule_id, "rule-1");
     assert_eq!(result.context_id, "ctx-1");
     assert!(result.action_id.starts_with("modify_context_"));
-    assert!(result.message.contains("Modified context"));
+    assert!(result.message.contains("not yet wired"));
     assert_eq!(
         result.data.as_ref().expect("should succeed")["path"],
         "data.value"
@@ -103,11 +103,11 @@ async fn test_execute_create_recovery_point() {
         .await
         .expect("should succeed");
 
-    assert!(result.success);
+    assert!(!result.success);
     assert_eq!(result.rule_id, "rule-2");
     assert_eq!(result.context_id, "ctx-2");
     assert!(result.action_id.starts_with("recovery_point_"));
-    assert!(result.message.contains("Before migration"));
+    assert!(result.message.contains("not yet wired"));
     assert!(
         result
             .data
@@ -136,10 +136,11 @@ async fn test_execute_transformation() {
         .await
         .expect("should succeed");
 
-    assert!(result.success);
+    assert!(!result.success);
     assert_eq!(result.rule_id, "rule-3");
     assert!(result.action_id.starts_with("transformation_"));
     assert!(result.message.contains("transform-1"));
+    assert!(result.message.contains("not yet wired"));
     assert_eq!(
         result.data.as_ref().expect("should succeed")["transformation_id"],
         "transform-1"
@@ -160,7 +161,8 @@ async fn test_execute_transformation_without_config() {
         .await
         .expect("should succeed");
 
-    assert!(result.success);
+    assert!(!result.success);
+    assert!(result.message.contains("not yet wired"));
     assert_eq!(
         result.data.as_ref().expect("should succeed")["config"],
         serde_json::Value::Null
@@ -182,11 +184,11 @@ async fn test_execute_notify() {
         .await
         .expect("should succeed");
 
-    assert!(result.success);
+    assert!(!result.success);
     assert_eq!(result.rule_id, "rule-5");
     assert!(result.action_id.starts_with("notify_"));
     assert!(result.message.contains("slack"));
-    assert!(result.message.contains("Test alert"));
+    assert!(result.message.contains("not yet wired"));
     assert_eq!(
         result.data.as_ref().expect("should succeed")["channel"],
         "slack"
@@ -212,7 +214,8 @@ async fn test_execute_notify_without_data() {
         .await
         .expect("should succeed");
 
-    assert!(result.success);
+    assert!(!result.success);
+    assert!(result.message.contains("not yet wired"));
     assert_eq!(
         result.data.as_ref().expect("should succeed")["data"],
         serde_json::Value::Null
@@ -304,9 +307,9 @@ async fn test_execute_validate_context() {
         .await
         .expect("should succeed");
 
-    assert!(result.success);
+    assert!(!result.success);
     assert!(result.action_id.starts_with("validate_"));
-    assert_eq!(result.message, "Context validation completed");
+    assert!(result.message.contains("not yet wired"));
     assert_eq!(
         result.data.as_ref().expect("should succeed")["schema"],
         schema
@@ -363,7 +366,7 @@ async fn test_execution_history() {
     assert_eq!(history[0].rule_id(), "rule-h");
     assert_eq!(history[0].context_id(), "ctx-h");
     assert!(history[0].action_id().starts_with("modify_context_"));
-    assert!(history[0].result().success);
+    assert!(!history[0].result().success);
 }
 
 #[tokio::test]
@@ -395,8 +398,8 @@ async fn test_statistics_tracking() {
 
     let stats = executor.get_statistics().await;
     assert_eq!(stats.total_actions(), 3);
-    assert_eq!(stats.successful_actions(), 2);
-    assert_eq!(stats.failed_actions(), 1);
+    assert_eq!(stats.successful_actions(), 0);
+    assert_eq!(stats.failed_actions(), 3);
     assert_eq!(stats.count_for_type("modify_context"), 2);
     assert_eq!(stats.count_for_type("execute_script"), 1);
 }

@@ -268,14 +268,12 @@ impl ActionExecutor {
         context_id: &str,
         rule_id: &str,
     ) -> RuleSystemResult<ActionResult> {
-        // In a real implementation, this would modify the actual context
-        // For now, we'll just return a success result
         Ok(ActionResult {
             action_id: format!("modify_context_{}", uuid::Uuid::new_v4()),
             rule_id: rule_id.to_string(),
             context_id: context_id.to_string(),
-            success: true,
-            message: format!("Modified context at path '{path}' with value '{value}'"),
+            success: false,
+            message: format!("Context modification at '{path}' not yet wired to context store"),
             data: Some(serde_json::json!({
                 "path": path,
                 "value": value
@@ -295,15 +293,14 @@ impl ActionExecutor {
         context_id: &str,
         rule_id: &str,
     ) -> RuleSystemResult<ActionResult> {
-        // In a real implementation, this would create a recovery point
         let recovery_id = uuid::Uuid::new_v4().to_string();
 
         Ok(ActionResult {
             action_id: format!("recovery_point_{recovery_id}"),
             rule_id: rule_id.to_string(),
             context_id: context_id.to_string(),
-            success: true,
-            message: format!("Created recovery point: {description}"),
+            success: false,
+            message: format!("Recovery point '{description}' not yet wired to state store"),
             data: Some(serde_json::json!({
                 "recovery_id": recovery_id,
                 "description": description
@@ -324,13 +321,12 @@ impl ActionExecutor {
         context_id: &str,
         rule_id: &str,
     ) -> RuleSystemResult<ActionResult> {
-        // In a real implementation, this would execute a transformation
         Ok(ActionResult {
             action_id: format!("transformation_{}", uuid::Uuid::new_v4()),
             rule_id: rule_id.to_string(),
             context_id: context_id.to_string(),
-            success: true,
-            message: format!("Executed transformation: {transformation_id}"),
+            success: false,
+            message: format!("Transformation '{transformation_id}' not yet wired to pipeline"),
             data: Some(serde_json::json!({
                 "transformation_id": transformation_id,
                 "config": config
@@ -352,13 +348,12 @@ impl ActionExecutor {
         context_id: &str,
         rule_id: &str,
     ) -> RuleSystemResult<ActionResult> {
-        // In a real implementation, this would send a notification
         Ok(ActionResult {
             action_id: format!("notify_{}", uuid::Uuid::new_v4()),
             rule_id: rule_id.to_string(),
             context_id: context_id.to_string(),
-            success: true,
-            message: format!("Sent notification to {channel} channel: {message}"),
+            success: false,
+            message: format!("Notification to '{channel}' not yet wired — no delivery transport"),
             data: Some(serde_json::json!({
                 "channel": channel,
                 "message": message,
@@ -436,13 +431,12 @@ impl ActionExecutor {
         context_id: &str,
         rule_id: &str,
     ) -> RuleSystemResult<ActionResult> {
-        // In a real implementation, this would validate the context against a schema
         Ok(ActionResult {
             action_id: format!("validate_{}", uuid::Uuid::new_v4()),
             rule_id: rule_id.to_string(),
             context_id: context_id.to_string(),
-            success: true,
-            message: "Context validation completed".to_string(),
+            success: false,
+            message: "Context validation not yet wired — no schema engine registered".to_string(),
             data: Some(serde_json::json!({
                 "schema": schema
             })),

@@ -355,7 +355,7 @@ impl EcosystemService {
             task.id
         );
 
-        let _ = self
+        if let Err(e) = self
             .monitoring
             .record_event(MonitoringEvent::Custom {
                 event_type: "local_task_execution".to_string(),
@@ -366,7 +366,10 @@ impl EcosystemService {
                 }),
                 timestamp: Utc::now(),
             })
-            .await;
+            .await
+        {
+            tracing::debug!(error = %e, "Monitoring event recording failed (non-critical)");
+        }
 
         // Local execution: Squirrel handles the task. Returns structured result.
         Ok(serde_json::json!({

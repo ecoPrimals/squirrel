@@ -179,38 +179,10 @@ impl UniversalOrchestrationAdapter {
                     PrimalError::ResourceNotFound("No orchestration service available".to_string())
                 })?;
 
-        // Create load balancing request
-        let load_balancing_result = serde_json::json!({
-            "load_balancer_id": uuid::Uuid::new_v4().to_string(),
-            "strategy": strategy,
-            "target_services": target_services,
-            "orchestration_service": orchestration_service.name,
-            "configuration": {
-                "algorithm": "ai_optimized",
-                "health_check_enabled": true,
-                "failover_enabled": true,
-                "sticky_sessions": false
-            },
-            "routing_table": target_services.iter().enumerate().map(|(i, service)| {
-                serde_json::json!({
-                    "service_id": service,
-                    "weight": 100 / target_services.len().max(1),
-                    "priority": i + 1,
-                    "health_status": "healthy"
-                })
-            }).collect::<Vec<_>>(),
-            "metadata": {
-                "created_by": "squirrel_ai_coordinator",
-                "ai_enhanced": true,
-                "auto_scaling": true
-            }
-        });
-
-        info!(
-            "✅ Load balancing configured via {}",
-            orchestration_service.name
-        );
-        Ok(load_balancing_result)
+        Err(PrimalError::OperationFailed(format!(
+            "Load balancing for strategy '{}' cannot be executed — IPC to orchestration capability provider '{}' not yet wired",
+            strategy, orchestration_service.name
+        )))
     }
 
     /// Get orchestration service mesh status
@@ -230,38 +202,10 @@ impl UniversalOrchestrationAdapter {
                     PrimalError::ResourceNotFound("No orchestration service available".to_string())
                 })?;
 
-        // Get service mesh status (simulated for now)
-        let mesh_status = serde_json::json!({
-            "service_mesh": {
-                "status": "active",
-                "orchestration_service": orchestration_service.name,
-                "nodes": 5,
-                "healthy_nodes": 5,
-                "total_services": 12,
-                "active_connections": 48
-            },
-            "ai_coordination": {
-                "enabled": true,
-                "coordinator": "squirrel",
-                "active_workflows": 3,
-                "optimization_level": "high"
-            },
-            "performance_metrics": {
-                "average_response_time_ms": 85,
-                "throughput_rps": 1250,
-                "error_rate_percent": 0.02,
-                "availability_percent": 99.98
-            },
-            "capabilities": {
-                "auto_scaling": true,
-                "load_balancing": true,
-                "service_discovery": true,
-                "health_monitoring": true,
-                "ai_optimization": true
-            }
-        });
-
-        Ok(mesh_status)
+        Err(PrimalError::OperationFailed(format!(
+            "Service mesh status cannot be queried — IPC to orchestration capability provider '{}' not yet wired",
+            orchestration_service.name
+        )))
     }
 
     /// Discover orchestration services by capability
@@ -554,24 +498,42 @@ mod tests {
     async fn request_load_balancing_and_mesh_status() {
         let reg = registry_with_orchestration().await;
         let mut adapter = UniversalOrchestrationAdapter::new(reg);
-        let lb = adapter
+        let err = adapter
             .request_load_balancing(vec!["s1".to_string(), "s2".to_string()], "round_robin")
             .await
-            .expect("lb");
-        assert_eq!(lb["strategy"], "round_robin");
-        let mesh = adapter.get_service_mesh_status().await.expect("mesh");
-        assert_eq!(mesh["service_mesh"]["status"], "active");
+            .unwrap_err();
+        let PrimalError::OperationFailed(msg) = err else {
+            panic!("expected OperationFailed, got {err:?}");
+        };
+        assert!(
+            msg.contains("round_robin") && msg.contains("not yet wired"),
+            "{msg}"
+        );
+        let err = adapter.get_service_mesh_status().await.unwrap_err();
+        let PrimalError::OperationFailed(msg) = err else {
+            panic!("expected OperationFailed, got {err:?}");
+        };
+        assert!(
+            msg.to_lowercase().contains("service mesh") && msg.contains("not yet wired"),
+            "{msg}"
+        );
     }
 
     #[tokio::test]
     async fn request_load_balancing_empty_targets() {
         let reg = registry_with_orchestration().await;
         let mut adapter = UniversalOrchestrationAdapter::new(reg);
-        let lb = adapter
+        let err = adapter
             .request_load_balancing(vec![], "least_conn")
             .await
-            .expect("lb");
-        assert!(lb["routing_table"].is_array());
+            .unwrap_err();
+        let PrimalError::OperationFailed(msg) = err else {
+            panic!("expected OperationFailed, got {err:?}");
+        };
+        assert!(
+            msg.contains("least_conn") && msg.contains("not yet wired"),
+            "{msg}"
+        );
     }
 
     #[tokio::test]

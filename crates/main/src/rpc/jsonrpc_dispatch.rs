@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! JSON-RPC method dispatch table and deprecated legacy handler.
+//! JSON-RPC method dispatch table.
 //!
 //! Extracted from [`super::jsonrpc_server`] for module size management.
 
-use anyhow::{Context, Result};
 use serde_json::Value;
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
-use tracing::{debug, warn};
 
 use super::jsonrpc_server::JsonRpcServer;
 use super::jsonrpc_types::{JsonRpcError, normalize_method};
@@ -80,50 +77,5 @@ impl JsonRpcServer {
             // Method not found
             _ => Err(self.method_not_found(original_method)),
         }
-    }
-
-    /// Handle a client connection (LEGACY — kept for backward compatibility)
-    ///
-    /// New code should use `handle_universal_connection()` instead.
-    #[deprecated(note = "Use handle_universal_connection() with UniversalTransport instead")]
-    #[expect(dead_code, reason = "deprecated legacy path; kept for fallback")]
-    async fn handle_connection<S>(&self, stream: S) -> Result<()>
-    where
-        S: AsyncRead + AsyncWrite + Unpin,
-    {
-        let mut reader = BufReader::new(stream);
-        let mut line = String::new();
-
-        loop {
-            line.clear();
-            match reader.read_line(&mut line).await {
-                Ok(0) => {
-                    debug!("Client disconnected");
-                    break;
-                }
-                Ok(_) => {
-                    if let Some(response_json) = self.handle_request_or_batch(&line).await {
-                        let mut out = response_json;
-                        out.push('\n');
-                        reader
-                            .get_mut()
-                            .write_all(out.as_bytes())
-                            .await
-                            .context("Failed to write JSON-RPC response (legacy)")?;
-                        reader
-                            .get_mut()
-                            .flush()
-                            .await
-                            .context("Failed to flush JSON-RPC response (legacy)")?;
-                    }
-                }
-                Err(e) => {
-                    warn!("Error reading from socket: {}", e);
-                    break;
-                }
-            }
-        }
-
-        Ok(())
     }
 }

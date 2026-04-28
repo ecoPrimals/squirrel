@@ -243,31 +243,17 @@ impl PluginManagementAPI {
         &self,
         search: PluginSearchRequest,
     ) -> Result<WebResponse> {
-        // In real implementation, this would search the plugin marketplace
-        // For now, return sample data
-        let sample_plugins = vec![PluginMarketplaceEntry {
-            id: Uuid::new_v4(),
-            name: "Sample Plugin".to_string(),
-            version: "1.0.0".to_string(),
-            description: "A sample plugin for demonstration".to_string(),
-            author: "Plugin Author".to_string(),
-            category: "utility".to_string(),
-            capabilities: vec!["web".to_string(), "command".to_string()],
-            download_url: "https://example.com/plugin.zip".to_string(),
-            documentation_url: Some("https://example.com/docs".to_string()),
-            rating: Some(4.5),
-            downloads: 1000,
-            verified: true,
-        }];
+        let plugins: Vec<PluginMarketplaceEntry> = vec![];
 
         Ok(WebResponse {
             status: HttpStatus::Ok,
             headers: HashMap::new(),
             body: Some(serde_json::json!({
-                "plugins": sample_plugins,
-                "total": sample_plugins.len(),
+                "plugins": plugins,
+                "total": 0,
                 "query": search.query,
-                "category": search.category
+                "category": search.category,
+                "note": "plugin marketplace discovery not yet wired"
             })),
         })
     }
@@ -281,26 +267,14 @@ impl PluginManagementAPI {
         &self,
         plugin_id: Uuid,
     ) -> Result<WebResponse> {
-        // In real implementation, this would fetch plugin details from marketplace
-        let sample_plugin = PluginMarketplaceEntry {
-            id: plugin_id,
-            name: "Sample Plugin".to_string(),
-            version: "1.0.0".to_string(),
-            description: "A sample plugin for demonstration".to_string(),
-            author: "Plugin Author".to_string(),
-            category: "utility".to_string(),
-            capabilities: vec!["web".to_string(), "command".to_string()],
-            download_url: "https://example.com/plugin.zip".to_string(),
-            documentation_url: Some("https://example.com/docs".to_string()),
-            rating: Some(4.5),
-            downloads: 1000,
-            verified: true,
-        };
-
         Ok(WebResponse {
-            status: HttpStatus::Ok,
+            status: HttpStatus::NotFound,
             headers: HashMap::new(),
-            body: Some(serde_json::to_value(sample_plugin)?),
+            body: Some(serde_json::json!({
+                "error": "not_found",
+                "plugin_id": plugin_id.to_string(),
+                "note": "plugin marketplace discovery not yet wired"
+            })),
         })
     }
 

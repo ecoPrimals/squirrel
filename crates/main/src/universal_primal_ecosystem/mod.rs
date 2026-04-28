@@ -35,7 +35,7 @@ use std::sync::Arc;
 #[cfg(test)]
 use tokio::sync::Mutex;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::error::PrimalError;
 use crate::universal::{
@@ -400,7 +400,7 @@ impl UniversalPrimalEcosystem {
     pub async fn send_to_primal(
         &self,
         primal_id: &str,
-        request: PrimalRequest,
+        _request: PrimalRequest,
     ) -> UniversalResult<PrimalResponse> {
         debug!("Sending request to primal: {}", primal_id);
         #[cfg(test)]
@@ -410,32 +410,9 @@ impl UniversalPrimalEcosystem {
                 return Ok(resp);
             }
         }
-        // For now, return a default response
-        let response_data =
-            serde_json::json!({"status": "success", "message": "Request processed"});
-
-        Ok(PrimalResponse {
-            response_id: uuid::Uuid::new_v4(),
-            request_id: uuid::Uuid::parse_str(&request.request_id.to_string()).unwrap_or_else(
-                |e| {
-                    warn!(
-                        "Failed to parse request UUID '{}': {}, generating new UUID",
-                        request.request_id, e
-                    );
-                    uuid::Uuid::new_v4()
-                },
-            ),
-            payload: response_data.clone(),
-            metadata: std::collections::HashMap::new(),
-            data: Some(response_data),
-            success: true,
-            error_message: None,
-            error: None,
-            timestamp: chrono::Utc::now(),
-            processing_time_ms: Some(100),
-            duration: Some("100ms".to_string()),
-            status: crate::universal::ResponseStatus::Success,
-        })
+        Err(crate::error::PrimalError::OperationFailed(format!(
+            "Inter-primal IPC to '{primal_id}' not yet wired — discover via capability resolution first"
+        )))
     }
 }
 
