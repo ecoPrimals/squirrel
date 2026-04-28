@@ -204,6 +204,130 @@ impl SecurityProviderClient {
         Ok(valid)
     }
 
+    /// Retrieve a purpose key from the security provider's secret store.
+    ///
+    /// Per NUCLEUS two-tier crypto model, purpose keys are HMAC-derived from
+    /// the family key for a specific domain (e.g. `"inference"`, `"storage"`).
+    ///
+    /// # Returns
+    /// Raw key bytes (typically 32 bytes for `ChaCha20-Poly1305`).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if the security provider is unavailable or
+    /// the purpose key cannot be derived (e.g. no `FAMILY_ID` set).
+    pub async fn retrieve_purpose_key(&self, purpose: &str) -> Result<Vec<u8>> {
+        debug!("Retrieving purpose key: purpose={}", purpose);
+
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: self.next_request_id(),
+            method: "secrets.retrieve".to_string(),
+            params: serde_json::json!({
+                "purpose": purpose,
+                "key_type": "chacha20-poly1305"
+            }),
+        };
+
+        let response = self.send_request(request).await?;
+
+        let key_b64 = response["result"]["key"]
+            .as_str()
+            .context("Missing 'key' in secrets.retrieve response")?;
+
+        let key = BASE64
+            .decode(key_b64)
+            .context("Failed to decode purpose key")?;
+
+        debug!(
+            "Purpose key retrieved: purpose={}, len={}",
+            purpose,
+            key.len()
+        );
+        Ok(key)
+    }
+
+    /// Encrypt data using a purpose key via the security provider.
+    ///
+    /// Returns a `{ "v": 1, "ct": "<base64>", "n": "<base64>", "alg": "chacha20-poly1305" }`
+    /// envelope as defined by the NUCLEUS two-tier crypto model.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if encryption fails or the provider is unavailable.
+    pub async fn encrypt_with_purpose(
+        &self,
+        data: &[u8],
+        purpose: &str,
+    ) -> Result<serde_json::Value> {
+        debug!(
+            "Encrypting with purpose key: purpose={}, data_len={}",
+            purpose,
+            data.len()
+        );
+
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: self.next_request_id(),
+            method: "crypto.encrypt".to_string(),
+            params: serde_json::json!({
+                "data": BASE64.encode(data),
+                "purpose": purpose,
+                "algorithm": "chacha20-poly1305"
+            }),
+        };
+
+        let response = self.send_request(request).await?;
+
+        response["result"]
+            .as_object()
+            .context("Missing encryption envelope in crypto.encrypt response")?;
+
+        debug!("Encryption successful for purpose={}", purpose);
+        Ok(response["result"].clone())
+    }
+
+    /// Decrypt a NUCLEUS crypto envelope using a purpose key via the security provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if decryption fails, the envelope is malformed,
+    /// or the provider is unavailable.
+    pub async fn decrypt_with_purpose(
+        &self,
+        envelope: &serde_json::Value,
+        purpose: &str,
+    ) -> Result<Vec<u8>> {
+        debug!("Decrypting with purpose key: purpose={}", purpose);
+
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: self.next_request_id(),
+            method: "crypto.decrypt".to_string(),
+            params: serde_json::json!({
+                "envelope": envelope,
+                "purpose": purpose
+            }),
+        };
+
+        let response = self.send_request(request).await?;
+
+        let plaintext_b64 = response["result"]["data"]
+            .as_str()
+            .context("Missing 'data' in crypto.decrypt response")?;
+
+        let plaintext = BASE64
+            .decode(plaintext_b64)
+            .context("Failed to decode decrypted data")?;
+
+        debug!(
+            "Decryption successful for purpose={}, len={}",
+            purpose,
+            plaintext.len()
+        );
+        Ok(plaintext)
+    }
+
     /// Send JSON-RPC request to security provider with retry logic
     async fn send_request(&self, request: JsonRpcRequest) -> Result<JsonValue> {
         let mut last_error = None;

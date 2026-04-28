@@ -105,15 +105,20 @@ pub async fn discover_capability(capability: &str) -> Result<CapabilityProvider,
         return Ok(provider);
     }
 
-    // Method 2: Query capability registry (instant, event-driven!)
-    // Registry query first: <1ms vs socket scan 2s+ timeout
+    // Method 2: Query discovery service via DISCOVERY_SOCKET (fast, runtime)
+    if let Some(provider) = try_discovery_service(capability).await? {
+        info!("✅ Found {} via discovery service", capability);
+        return Ok(provider);
+    }
+
+    // Method 3: Query capability registry (instant, event-driven!)
     if let Some(provider) = try_registry_query(capability).await? {
         info!("✅ Found {} via capability registry", capability);
         return Ok(provider);
     }
 
-    // Method 3: Scan socket directory (slow fallback)
-    // Only used if registry unavailable (dev/testing)
+    // Method 4: Scan socket directory (slow fallback)
+    // Only used if registry and discovery service unavailable (dev/testing)
     if let Some(provider) = try_socket_scan(capability).await? {
         info!("✅ Found {} via socket scan", capability);
         return Ok(provider);
@@ -121,6 +126,87 @@ pub async fn discover_capability(capability: &str) -> Result<CapabilityProvider,
 
     warn!("❌ Capability not found: {}", capability);
     Err(DiscoveryError::CapabilityNotFound(capability.to_string()))
+}
+
+/// Query the discovery service (via `DISCOVERY_SOCKET`) for a capability provider.
+///
+/// Sends `discovery.find_provider` JSON-RPC to the discovery service socket.
+/// Returns `None` if the socket is not available or the service doesn't know
+/// about the requested capability.
+async fn try_discovery_service(
+    capability: &str,
+) -> Result<Option<CapabilityProvider>, DiscoveryError> {
+    let Some(discovery_socket) = super::discovery_service::discover_socket() else {
+        return Ok(None);
+    };
+
+    debug!(
+        capability = capability,
+        socket = %discovery_socket.display(),
+        "Querying discovery service for capability"
+    );
+
+    let request = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "discovery.find_provider",
+        "params": { "capability": capability },
+        "id": 1
+    });
+
+    let response = match super::lifecycle::send_jsonrpc_public(&discovery_socket, &request).await {
+        Ok(resp) => resp,
+        Err(e) => {
+            debug!("Discovery service query failed (service may be down): {e}");
+            return Ok(None);
+        }
+    };
+
+    if response.get("error").is_some() {
+        return Ok(None);
+    }
+
+    let Some(result) = response.get("result") else {
+        return Ok(None);
+    };
+
+    let Some(socket_path) = result.get("socket").and_then(|v| v.as_str()) else {
+        return Ok(None);
+    };
+
+    let path = PathBuf::from(socket_path);
+    if !path.exists() {
+        debug!(
+            "Discovery service returned socket {} but it does not exist",
+            socket_path
+        );
+        return Ok(None);
+    }
+
+    let provider_id = result
+        .get("primal")
+        .or_else(|| result.get("provider_id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("discovery-resolved");
+
+    let capabilities = result
+        .get("capabilities")
+        .and_then(|v| v.as_array())
+        .map_or_else(
+            || vec![capability.to_string()],
+            |arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            },
+        );
+
+    Ok(Some(CapabilityProvider {
+        id: provider_id.to_string(),
+        capabilities,
+        socket: path,
+        metadata: HashMap::new(),
+        discovered_via: "discovery_service".to_string(),
+    }))
 }
 
 /// Try to discover via explicit environment variable

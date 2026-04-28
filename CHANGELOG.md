@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (April 28, 2026 — session AN: primalSpring Phase 55 audit)
+
+**7,182** tests, **~997** `.rs` files, **~325k** lines, **90.1%** region coverage (target met).
+
+- **Native HTTP provider support (Ask 1)**: `inference.register_provider` now accepts `endpoint` param for HTTP providers (e.g. Ollama at `http://localhost:11434`). `RemoteInferenceAdapter` routes through Ollama-compatible REST (`/api/generate`, `/api/embeddings`) using lightweight raw TCP HTTP/1.1 (no new dependencies). `is_available` uses TCP health probe for HTTP endpoints. UDS JSON-RPC remains the default for ecosystem springs.
+- **`DISCOVERY_SOCKET` for capability resolution (Ask 3)**: `discover_capability()` now queries the discovery service (via `DISCOVERY_SOCKET`) as Method 2 — after explicit env vars, before registry query and socket scan. Sends `discovery.find_provider` JSON-RPC; gracefully falls through if discovery service is down. Discovery service docs corrected (removed undocumented `SONGBIRD_SOCKET` fallback).
+- **Inference payload encryption foundation (Ask 2)**: `SecurityProviderClient` extended with `retrieve_purpose_key()`, `encrypt_with_purpose()`, `decrypt_with_purpose()` — the NUCLEUS two-tier crypto model's RPC surface (`secrets.retrieve`, `crypto.encrypt`, `crypto.decrypt`). Foundation for encrypting inference prompts/responses when operating within a NUCLEUS. Full wiring requires BearDog server-side support for the purpose-key RPC methods.
+
 ### Summary (April 27, 2026 — session AM)
 
 **7,182** tests, **~997** `.rs` files, **~325k** lines, **90.1%** region coverage (target met).

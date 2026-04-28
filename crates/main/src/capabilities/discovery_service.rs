@@ -17,10 +17,9 @@
 //! ## Socket discovery order
 //!
 //! 1. `DISCOVERY_SOCKET` env var (explicit override)
-//! 2. `SONGBIRD_SOCKET` env var (deprecated fallback)
-//! 3. `$XDG_RUNTIME_DIR/biomeos/discovery-default.sock`
-//! 4. `/run/user/<uid>/biomeos/discovery-default.sock`
-//! 5. `/tmp/discovery-default.sock`
+//! 2. `$XDG_RUNTIME_DIR/biomeos/discovery-default.sock`
+//! 3. `/run/user/<uid>/biomeos/discovery-default.sock`
+//! 4. `/tmp/biomeos/discovery-default.sock`
 //!
 //! ## Bootstrap (chicken-and-egg)
 //!

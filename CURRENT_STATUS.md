@@ -274,7 +274,15 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 3. `base64` duplicate (0.21 via `config`/`ron`, 0.22 direct) — transitive, benign
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
 
-## Changes Since Last Handoff (April 27, 2026)
+## Changes Since Last Handoff (April 28, 2026)
+
+### April 28, 2026 session AN (primalSpring Phase 55: HTTP providers, DISCOVERY_SOCKET, inference crypto foundation)
+
+- **Native HTTP provider support**: `inference.register_provider` accepts `endpoint` param for HTTP providers (Ollama). `RemoteInferenceAdapter` routes via Ollama REST API. `is_available` uses TCP health probe. No new dependencies (raw TCP HTTP/1.1).
+- **`DISCOVERY_SOCKET` capability resolution**: `discover_capability()` queries discovery service as Method 2 (after env, before registry/scan). `discovery.find_provider` JSON-RPC with graceful fallthrough.
+- **Inference payload encryption foundation**: `SecurityProviderClient` extended with `retrieve_purpose_key()`, `encrypt_with_purpose()`, `decrypt_with_purpose()`. NUCLEUS two-tier crypto model RPC surface. Full wiring pending BearDog server-side purpose-key support.
+- **Discovery service docs fixed**: Removed undocumented `SONGBIRD_SOCKET` fallback from discovery order.
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,182 / 0 failures), `deny` ✓
 
 ### April 27, 2026 session AM (deep debt: Hash bug fix, silent arm elimination, SDK honesty, demo data isolation, doc alignment)
 

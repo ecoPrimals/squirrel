@@ -392,6 +392,7 @@ fn test_remote_config(id: &str) -> RemoteProviderConfig {
     RemoteProviderConfig {
         provider_id: id.to_string(),
         socket_path: None,
+        endpoint: None,
         models: vec![],
         supported_tasks: vec![],
         supports_streaming: false,

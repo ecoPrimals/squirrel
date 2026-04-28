@@ -3,9 +3,16 @@
 
 //! Remote inference provider adapter.
 //!
-//! Forwards `inference.complete` calls to a registered remote spring (e.g.
-//! neuralSpring) over Unix domain sockets via JSON-RPC.  Registered at
-//! runtime via `inference.register_provider`.
+//! Forwards `inference.complete` calls to a registered remote provider (e.g.
+//! neuralSpring, Ollama) via JSON-RPC over Unix domain sockets or HTTP.
+//! Registered at runtime via `inference.register_provider`.
+//!
+//! ## Transport selection
+//!
+//! - **UDS (default)**: `socket` param → JSON-RPC over Unix socket.
+//! - **HTTP**: `endpoint` param with `http://` or `https://` scheme →
+//!   Ollama-compatible REST API (`/api/generate`, `/api/embeddings`).
+//!   Used when providers expose an HTTP API instead of (or alongside) UDS.
 
 use super::{AiProviderAdapter, QualityTier};
 use crate::api::ai::types::{
@@ -20,6 +27,9 @@ use tracing::{debug, warn};
 pub struct RemoteProviderConfig {
     pub provider_id: String,
     pub socket_path: Option<String>,
+    /// HTTP endpoint URL (e.g. `http://localhost:11434` for Ollama).
+    /// When set, adapter uses HTTP REST instead of UDS JSON-RPC.
+    pub endpoint: Option<String>,
     pub models: Vec<String>,
     pub supported_tasks: Vec<String>,
     pub supports_streaming: bool,
@@ -28,7 +38,7 @@ pub struct RemoteProviderConfig {
     pub cost_per_unit: Option<f64>,
 }
 
-/// Adapter that routes inference to a remote spring over UDS JSON-RPC.
+/// Adapter that routes inference to a remote provider over UDS JSON-RPC or HTTP REST.
 pub struct RemoteInferenceAdapter {
     config: RemoteProviderConfig,
 }
@@ -52,21 +62,33 @@ impl RemoteInferenceAdapter {
             .any(|t| t == "embedding" || t == "inference.embed" || t == "text_embedding")
     }
 
-    /// Forward an `inference.embed` call to the remote spring over UDS JSON-RPC.
+    /// Whether this provider was registered with an HTTP endpoint.
+    fn is_http(&self) -> bool {
+        self.config
+            .endpoint
+            .as_ref()
+            .is_some_and(|e| e.starts_with("http://") || e.starts_with("https://"))
+    }
+
+    /// Forward an `inference.embed` call to the remote provider.
     pub async fn generate_embedding(
         &self,
         params: &serde_json::Value,
     ) -> Result<serde_json::Value, PrimalError> {
+        if self.is_http() {
+            return self.http_embed(params).await;
+        }
+
         let Some(socket) = &self.config.socket_path else {
             return Err(PrimalError::Configuration(
-                "Remote inference provider has no socket path".into(),
+                "Remote inference provider has no socket path or endpoint".into(),
             ));
         };
 
         debug!(
             provider = self.config.provider_id.as_str(),
             socket = socket.as_str(),
-            "Forwarding inference.embed to remote spring"
+            "Forwarding inference.embed to remote spring (UDS)"
         );
 
         let rpc_request = json!({
@@ -97,6 +119,104 @@ impl RemoteInferenceAdapter {
             PrimalError::Internal(format!("Remote embedding error: {err_msg}"))
         })
     }
+
+    /// HTTP embedding via Ollama `/api/embeddings`.
+    async fn http_embed(
+        &self,
+        params: &serde_json::Value,
+    ) -> Result<serde_json::Value, PrimalError> {
+        let endpoint = self.config.endpoint.as_deref().unwrap_or_default();
+        let model = params
+            .get("model")
+            .and_then(|v| v.as_str())
+            .or_else(|| self.config.models.first().map(String::as_str))
+            .unwrap_or("default");
+        let input = params
+            .get("input")
+            .or_else(|| params.get("text"))
+            .cloned()
+            .unwrap_or_else(|| json!(""));
+
+        let body = json!({ "model": model, "prompt": input });
+        let url = format!("{endpoint}/api/embeddings");
+
+        let response = send_http_json(&url, &body).await.map_err(|e| {
+            PrimalError::Internal(format!("HTTP embedding to {endpoint} failed: {e}"))
+        })?;
+
+        Ok(json!({ "embedding": response.get("embedding") }))
+    }
+
+    /// HTTP text generation via Ollama `/api/generate`.
+    async fn http_generate(
+        &self,
+        request: &TextGenerationRequest,
+    ) -> Result<TextGenerationResponse, PrimalError> {
+        let endpoint = self.config.endpoint.as_deref().unwrap_or_default();
+        let model = request
+            .model
+            .as_deref()
+            .or_else(|| self.config.models.first().map(String::as_str))
+            .unwrap_or("default");
+
+        let body = json!({
+            "model": model,
+            "prompt": request.prompt,
+            "stream": false,
+            "options": {
+                "temperature": request.temperature,
+                "num_predict": request.max_tokens,
+            }
+        });
+        let url = format!("{endpoint}/api/generate");
+
+        debug!(
+            provider = self.config.provider_id.as_str(),
+            url = url.as_str(),
+            model = model,
+            "Forwarding inference.complete to HTTP provider"
+        );
+
+        let response = send_http_json(&url, &body).await.map_err(|e| {
+            PrimalError::Internal(format!("HTTP inference to {endpoint} failed: {e}"))
+        })?;
+
+        let text = response
+            .get("response")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let resp_model = response
+            .get("model")
+            .and_then(|v| v.as_str())
+            .unwrap_or(model)
+            .to_string();
+
+        Ok(TextGenerationResponse {
+            text,
+            model: resp_model,
+            provider_id: self.config.provider_id.clone(),
+            usage: None,
+            cost_usd: None,
+            latency_ms: 0,
+        })
+    }
+
+    /// Check HTTP provider health via TCP connect.
+    async fn http_is_available(&self) -> bool {
+        let Some(endpoint) = &self.config.endpoint else {
+            return false;
+        };
+        let Some(addr) = parse_http_host_port(endpoint) else {
+            return false;
+        };
+        tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            tokio::net::TcpStream::connect(addr),
+        )
+        .await
+        .is_ok_and(|r| r.is_ok())
+    }
 }
 
 impl AiProviderAdapter for RemoteInferenceAdapter {
@@ -109,7 +229,7 @@ impl AiProviderAdapter for RemoteInferenceAdapter {
     }
 
     fn is_local(&self) -> bool {
-        self.config.socket_path.is_some()
+        self.config.socket_path.is_some() || self.is_http()
     }
 
     fn cost_per_unit(&self) -> Option<f64> {
@@ -117,7 +237,7 @@ impl AiProviderAdapter for RemoteInferenceAdapter {
     }
 
     fn avg_latency_ms(&self) -> u64 {
-        50
+        if self.is_http() { 100 } else { 50 }
     }
 
     fn quality_tier(&self) -> QualityTier {
@@ -147,6 +267,9 @@ impl AiProviderAdapter for RemoteInferenceAdapter {
     }
 
     async fn is_available(&self) -> bool {
+        if self.is_http() {
+            return self.http_is_available().await;
+        }
         let Some(socket) = &self.config.socket_path else {
             return false;
         };
@@ -157,16 +280,20 @@ impl AiProviderAdapter for RemoteInferenceAdapter {
         &self,
         request: TextGenerationRequest,
     ) -> Result<TextGenerationResponse, PrimalError> {
+        if self.is_http() {
+            return self.http_generate(&request).await;
+        }
+
         let Some(socket) = &self.config.socket_path else {
             return Err(PrimalError::Configuration(
-                "Remote inference provider has no socket path".into(),
+                "Remote inference provider has no socket path or endpoint".into(),
             ));
         };
 
         debug!(
             provider = self.config.provider_id.as_str(),
             socket = socket.as_str(),
-            "Forwarding inference.complete to remote spring"
+            "Forwarding inference.complete to remote spring (UDS)"
         );
 
         let rpc_request = json!({
@@ -231,4 +358,86 @@ impl AiProviderAdapter for RemoteInferenceAdapter {
             "Remote inference provider does not support image generation".into(),
         ))
     }
+}
+
+// ---------------------------------------------------------------------------
+// HTTP transport helpers (lightweight, no reqwest — pure tokio TCP + HTTP/1.1)
+// ---------------------------------------------------------------------------
+
+/// Send a JSON POST request over raw TCP and parse the JSON response.
+async fn send_http_json(
+    url: &str,
+    body: &serde_json::Value,
+) -> Result<serde_json::Value, PrimalError> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let addr = parse_http_host_port(url)
+        .ok_or_else(|| PrimalError::Configuration(format!("Invalid HTTP endpoint URL: {url}")))?;
+    let path = parse_http_path(url);
+    let host = addr.split(':').next().unwrap_or(&addr);
+
+    let payload = serde_json::to_string(body)
+        .map_err(|e| PrimalError::Internal(format!("JSON serialize: {e}")))?;
+
+    let request_str = format!(
+        "POST {path} HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{payload}",
+        payload.len()
+    );
+
+    let mut stream = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        tokio::net::TcpStream::connect(&addr),
+    )
+    .await
+    .map_err(|_| PrimalError::Internal(format!("HTTP connect timeout: {addr}")))?
+    .map_err(|e| PrimalError::Internal(format!("HTTP connect to {addr}: {e}")))?;
+
+    stream
+        .write_all(request_str.as_bytes())
+        .await
+        .map_err(|e| PrimalError::Internal(format!("HTTP write: {e}")))?;
+
+    let mut response_buf = Vec::with_capacity(8192);
+    tokio::time::timeout(
+        std::time::Duration::from_secs(120),
+        stream.read_to_end(&mut response_buf),
+    )
+    .await
+    .map_err(|_| PrimalError::Internal("HTTP read timeout".into()))?
+    .map_err(|e| PrimalError::Internal(format!("HTTP read: {e}")))?;
+
+    let response_str = String::from_utf8_lossy(&response_buf);
+    let body_start = response_str.find("\r\n\r\n").map_or(0, |i| i + 4);
+    let body_str = &response_str[body_start..];
+
+    serde_json::from_str(body_str).map_err(|e| {
+        PrimalError::Internal(format!(
+            "HTTP JSON parse: {e} — body: {}",
+            &body_str[..body_str.len().min(200)]
+        ))
+    })
+}
+
+/// Extract `host:port` from an HTTP URL for TCP connect.
+fn parse_http_host_port(url: &str) -> Option<String> {
+    let without_scheme = url
+        .strip_prefix("http://")
+        .or_else(|| url.strip_prefix("https://"))?;
+    let host_port = without_scheme.split('/').next()?;
+    if host_port.contains(':') {
+        Some(host_port.to_string())
+    } else {
+        Some(format!("{host_port}:80"))
+    }
+}
+
+/// Extract the path component from an HTTP URL.
+fn parse_http_path(url: &str) -> &str {
+    let without_scheme = url
+        .strip_prefix("http://")
+        .or_else(|| url.strip_prefix("https://"))
+        .unwrap_or(url);
+    without_scheme
+        .find('/')
+        .map_or("/", |i| &without_scheme[i..])
 }

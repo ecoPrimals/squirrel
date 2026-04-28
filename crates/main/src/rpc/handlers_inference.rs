@@ -281,6 +281,7 @@ impl JsonRpcServer {
     /// {
     ///   "provider_id": "neuralSpring-node-abc123",
     ///   "socket": "/run/user/1000/biomeos/neuralSpring.sock",
+    ///   "endpoint": "http://localhost:11434",
     ///   "capabilities": {
     ///     "supported_tasks": ["text_generation", "embedding", "chat"],
     ///     "models": ["llama3", "mistral-7b"],
@@ -289,6 +290,10 @@ impl JsonRpcServer {
     ///   }
     /// }
     /// ```
+    ///
+    /// Either `socket` (UDS) or `endpoint` (HTTP URL) must be provided.
+    /// When both are given, `socket` takes priority for JSON-RPC springs;
+    /// `endpoint` is used for HTTP-native providers (e.g. Ollama).
     ///
     /// Registers the caller's capabilities with `AiRouter` so Squirrel can
     /// route `inference.complete` / `inference.embed` to this provider.
@@ -325,10 +330,15 @@ impl JsonRpcServer {
             .and_then(Value::as_str)
             .map(String::from);
 
-        if socket.is_none() {
+        let endpoint = params
+            .get("endpoint")
+            .and_then(Value::as_str)
+            .map(String::from);
+
+        if socket.is_none() && endpoint.is_none() {
             warn!(
                 provider = trimmed_id,
-                "inference.register_provider — no socket path; provider will be unavailable for routing"
+                "inference.register_provider — no socket or endpoint; provider will be unavailable for routing"
             );
         }
 
@@ -345,6 +355,7 @@ impl JsonRpcServer {
         let config = RemoteProviderConfig {
             provider_id: trimmed_id.to_string(),
             socket_path: socket.clone(),
+            endpoint: endpoint.clone(),
             models: parsed.models,
             supported_tasks: parsed.supported_tasks,
             supports_streaming: parsed.supports_streaming,
@@ -355,9 +366,12 @@ impl JsonRpcServer {
 
         router.register_remote_provider(config.clone()).await;
 
+        let transport = if endpoint.is_some() { "HTTP" } else { "UDS" };
         info!(
             provider = trimmed_id,
             socket = ?socket,
+            endpoint = ?endpoint,
+            transport = transport,
             model_count = config.models.len(),
             task_count = config.supported_tasks.len(),
             "inference.register_provider — registered"
