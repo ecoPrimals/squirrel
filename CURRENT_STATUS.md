@@ -276,6 +276,17 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Changes Since Last Handoff (April 27, 2026)
 
+### April 27, 2026 session AM (deep debt: Hash bug fix, silent arm elimination, SDK honesty, demo data isolation, doc alignment)
+
+- **Hash correctness bug fix**: `PrimalCapability::hash()` wildcard arm was silently skipping field hashing for `FileSystem`, `NaturalLanguage`, `AgentFramework` — `Hash`/`Eq` contract violation. All variants now explicit.
+- **Capability-based errors**: Security manager error messages evolved from hardcoded "BearDog" references to generic "crypto.encrypt/decrypt capability provider".
+- **Silent match arm elimination**: Anthropic message builder, reward calculator, fallback monitoring logger all evolved from `_ => {}` to explicit logging.
+- **SDK MCP honesty**: `list_resources`/`list_prompts` evolved from misleading `Ok(Vec::new())` to `Err(McpError)` when transport not wired.
+- **Demo data isolation**: `get_sample_plugins()` moved to `#[cfg(test)]` impl block. Production marketplace handlers return empty results with honest metadata.
+- **deny.toml cleanup**: Stale wasmtime/sqlx/pprof commentary removed. `cc` note updated for blake3 reality.
+- **Root doc alignment**: Test counts unified (7,182), file limit aligned (800L), cargo test Quick Start aligned with merge gate, CURRENT_STATUS stale references corrected.
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,182 / 0 failures), `deny` ✓
+
 ### April 27, 2026 session AL (deep debt: C dep elimination, auth security, stub evolution, hardcoding evolution)
 
 - **C dep elimination**: Removed `zstd`/`flate2`/`lz4_flex` from workspace and squirrel-mcp. `CompressionFormat` enum retained as metadata-only. `zstd-sys`, `zstd-safe`, `zstd`, `flate2`, `lz4_flex` all **ELIMINATED** from `Cargo.lock`. `--all-features` builds are now 100% pure Rust.

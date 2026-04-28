@@ -26,7 +26,7 @@ impl FallbackLogger {
             "debug" => tracing::debug!("📊 Event: {:?}", event),
             "info" => tracing::info!("📊 Event: {}", Self::format_event(event)),
             "warn" => tracing::warn!("📊 Event: {}", Self::format_event(event)),
-            _ => {}
+            _ => tracing::trace!("📊 Event: {:?}", event),
         }
     }
 
@@ -36,7 +36,7 @@ impl FallbackLogger {
             match self.config.log_level.as_str() {
                 "debug" => tracing::debug!("📈 Metric: {:?}", metric),
                 "info" => tracing::info!("📈 Metric: {} = {:?}", metric.name, metric.value),
-                _ => {}
+                _ => tracing::trace!("📈 Metric: {} = {:?}", metric.name, metric.value),
             }
         }
     }
@@ -50,7 +50,7 @@ impl FallbackLogger {
                 "warn" if matches!(health, HealthStatus::Degraded | HealthStatus::Unhealthy) => {
                     tracing::warn!("🏥 Health: {} = {:?}", component, health);
                 }
-                _ => {}
+                _ => tracing::trace!("🏥 Health: {} = {:?}", component, health),
             }
         }
     }
@@ -65,7 +65,7 @@ impl FallbackLogger {
                     component,
                     Self::format_performance(metrics)
                 ),
-                _ => {}
+                _ => tracing::trace!("⚡ Performance: {} = {:?}", component, metrics),
             }
         }
     }

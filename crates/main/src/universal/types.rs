@@ -245,7 +245,7 @@ impl Hash for PrimalCapability {
                     orch.hash(state);
                 }
             }
-            Self::ServerlessExecution { languages } => {
+            Self::ServerlessExecution { languages } | Self::NaturalLanguage { languages } => {
                 for lang in languages {
                     lang.hash(state);
                 }
@@ -284,13 +284,27 @@ impl Hash for PrimalCapability {
                 }
                 hsm_support.hash(state);
             }
+            Self::FileSystem { fs_types } => {
+                for ft in fs_types {
+                    ft.hash(state);
+                }
+            }
+            Self::AgentFramework {
+                frameworks,
+                mcp_support,
+            } => {
+                for fw in frameworks {
+                    fw.hash(state);
+                }
+                mcp_support.hash(state);
+            }
             Self::Custom {
                 name, description, ..
             } => {
                 name.hash(state);
                 description.hash(state);
             }
-            _ => {}
+            Self::ServiceDiscovery | Self::LoadBalancing | Self::CircuitBreaking => {}
         }
     }
 }

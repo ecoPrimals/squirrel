@@ -185,11 +185,11 @@ async fn test_operation_handler_integration() {
     let calc_result = handler.execute_tool("calculator", calc_input).await;
     assert!(calc_result.is_err());
 
-    let resources = handler.list_resources().await.expect("should succeed");
-    assert!(resources.is_empty());
+    let resources_result = handler.list_resources().await;
+    assert!(resources_result.is_err());
 
-    let prompts = handler.list_prompts().await.expect("should succeed");
-    assert!(prompts.is_empty());
+    let prompts_result = handler.list_prompts().await;
+    assert!(prompts_result.is_err());
 }
 
 /// Test message handler ping/pong flow

@@ -148,7 +148,7 @@ impl<K: KeyStorage> SecurityManagerImpl<K> {
             }
             #[cfg(not(feature = "local-crypto"))]
             return Err(crate::error::MCPError::Configuration(
-                "enable_encryption requires `local-crypto` feature or BearDog capability"
+                "enable_encryption requires `local-crypto` feature or crypto.encrypt capability provider"
                     .to_string(),
             ));
         }
@@ -257,7 +257,7 @@ impl<K: KeyStorage> SecurityManagerImpl<K> {
         }
         #[cfg(not(feature = "local-crypto"))]
         Err(crate::error::MCPError::Configuration(
-            "Encryption requires `local-crypto` feature or BearDog crypto.signing capability"
+            "Encryption requires `local-crypto` feature or crypto.encrypt capability provider"
                 .to_string(),
         ))
     }
@@ -275,7 +275,7 @@ impl<K: KeyStorage> SecurityManagerImpl<K> {
         }
         #[cfg(not(feature = "local-crypto"))]
         Err(crate::error::MCPError::Configuration(
-            "Decryption requires `local-crypto` feature or BearDog crypto.signing capability"
+            "Decryption requires `local-crypto` feature or crypto.decrypt capability provider"
                 .to_string(),
         ))
     }

@@ -11,7 +11,19 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
-### Summary (April 27, 2026)
+### Summary (April 27, 2026 — session AM)
+
+**7,182** tests, **~997** `.rs` files, **~325k** lines, **90.1%** region coverage (target met).
+
+- **Hash correctness bug fix**: `PrimalCapability` `Hash` impl had wildcard `_ => {}` that skipped field hashing for `FileSystem`, `NaturalLanguage`, and `AgentFramework` variants — `Hash`/`Eq` contract violation. All enum variants now explicitly hashed; `ServerlessExecution` | `NaturalLanguage` merged as identical-shape arms per clippy.
+- **Capability-based error messages**: Security manager errors evolved from "BearDog capability" to "crypto.encrypt capability provider" / "crypto.decrypt capability provider" — primal self-knowledge only.
+- **Silent match arm elimination**: Anthropic message builder now logs skipped unsupported roles instead of discarding silently. Reward calculator logs unrecognized calculator names. Fallback monitoring logger defaults unknown log levels to `trace` instead of swallowing events.
+- **SDK MCP honesty**: `list_resources` / `list_prompts` evolved from `Ok(Vec::new())` (misleading "no resources") to `Err(McpError)` when transport not wired — callers can distinguish "none found" from "not available".
+- **Demo data isolation**: `get_sample_plugins()` moved from production `PluginMarketplaceClient` to `#[cfg(test)]` impl block. Production `get_featured_plugins` / `get_trending_plugins` / `search_repository` return empty results with honest `"note"` field instead of fake demo data.
+- **deny.toml cleanup**: Removed stale commentary about wasmtime/sqlx/pprof (none in dependency tree). Updated `cc` note to reflect blake3 build-dep (unused with `features=["pure"]`).
+- **Root doc alignment**: Test counts unified to 7,182 across README (Fitness section), CONTEXT, ORIGIN. File limit aligned to 800L. `cargo test` Quick Start aligned with `--all-features` merge gate. `CURRENT_STATUS` section title date, `test-context` references, and `rustfmt.toml` path corrected.
+
+### Summary (April 27, 2026 — sessions AK–AL)
 
 **7,182** tests, **~997** `.rs` files, **~325k** lines, **90.1%** region coverage (target met).
 

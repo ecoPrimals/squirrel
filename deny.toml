@@ -32,9 +32,6 @@ allow = [
 multiple-versions = "warn"
 wildcards = "deny"
 # ecoBin v3: Pure Rust required. C-dependency ban list per groundSpring V115 / wateringHole standard.
-# Exceptions: feature-gated build-time deps (wasmtime, sqlx-sqlite) are tolerated
-# behind optional features with documented migration paths.
-# pprof removed — migrate to samply for profiling.
 deny = [
     { name = "openssl-sys", reason = "ecoBin: C crypto FFI. Use rustls + RustCrypto.", use-instead = "rustls" },
     { name = "openssl", reason = "ecoBin: C crypto. Use rustls or RustCrypto suite.", use-instead = "rustls, sha2, aes-gcm, ed25519-dalek" },
@@ -51,14 +48,10 @@ deny = [
     { name = "lz4-sys", reason = "ecoBin: C compression FFI. Use lz4_flex (pure Rust).", use-instead = "lz4_flex" },
     { name = "reqwest", reason = "Tower Atomic: HTTP must route through Songbird service mesh via IPC, not direct from primals.", use-instead = "capability.call via Unix socket (Tower Atomic pattern)" },
 ]
-# cc (build-time only) enters via wasmtime → ittapi-sys.
-# Behind optional features; default build is pure Rust.
-# pprof removed (ecoBin v3 migration complete); wasmtime → cc-free backend pending.
-# ring enters transitively via sqlx → rustls 0.23 (default crypto provider).
-# ecoBin v3 migration: sqlx + rustls-rustcrypto (pure Rust crypto provider).
-# reqwest is optional in 10+ crates behind feature gates (direct-http, http-auth, etc.).
+# cc (build-time only) enters via blake3 as build-dep but unused with features=["pure"].
+# Default build is pure Rust. No wasmtime, sqlx, or pprof in dependency tree.
+# reqwest is optional behind feature gates (direct-http, http-auth, etc.).
 # Default build is reqwest-free. Tower Atomic: all HTTP routes through Songbird via IPC.
-# Migration: remove optional reqwest deps as crates evolve to capability.call pattern.
 
 [sources]
 unknown-registry = "deny"

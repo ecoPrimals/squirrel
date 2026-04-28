@@ -412,7 +412,9 @@ impl RewardSystem {
                 "performance" => breakdown.performance_bonus = weighted_reward,
                 "rule_efficiency" => breakdown.efficiency_bonus = weighted_reward,
                 "synchronization" => breakdown.sync_bonus = weighted_reward,
-                _ => {}
+                other => {
+                    tracing::debug!(calculator = other, reward = %weighted_reward, "reward calculator has no breakdown slot");
+                }
             }
         }
 

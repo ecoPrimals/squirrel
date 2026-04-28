@@ -166,12 +166,14 @@ impl OperationHandler {
         debug!("Listing resources (operation #{})", self.operation_counter);
 
         if !self.connected {
-            warn!("list_resources: no MCP server connected — returning empty");
-            return Ok(Vec::new());
+            return Err(PluginError::McpError {
+                message: "list_resources: no MCP server connected".to_string(),
+            });
         }
 
-        debug!("list_resources: MCP connected, IPC transport pending");
-        Ok(Vec::new())
+        Err(PluginError::McpError {
+            message: "list_resources: IPC transport not yet wired".to_string(),
+        })
     }
 
     /// Get a resource
@@ -239,12 +241,14 @@ impl OperationHandler {
         debug!("Listing prompts (operation #{})", self.operation_counter);
 
         if !self.connected {
-            warn!("list_prompts: no MCP server connected — returning empty");
-            return Ok(Vec::new());
+            return Err(PluginError::McpError {
+                message: "list_prompts: no MCP server connected".to_string(),
+            });
         }
 
-        debug!("list_prompts: MCP connected, IPC transport pending");
-        Ok(Vec::new())
+        Err(PluginError::McpError {
+            message: "list_prompts: IPC transport not yet wired".to_string(),
+        })
     }
 
     /// Get a prompt
@@ -346,8 +350,14 @@ mod tests {
     #[tokio::test]
     async fn test_list_resources() {
         let mut handler = OperationHandler::new();
-        let resources = handler.list_resources().await.expect("should succeed");
-        assert!(resources.is_empty());
+        let result = handler.list_resources().await;
+        assert!(result.is_err());
+        match result {
+            Err(PluginError::McpError { message }) => {
+                assert!(message.contains("no MCP server connected"));
+            }
+            _ => panic!("expected McpError"),
+        }
     }
 
     #[tokio::test]
@@ -367,8 +377,14 @@ mod tests {
     #[tokio::test]
     async fn test_list_prompts() {
         let mut handler = OperationHandler::new();
-        let prompts = handler.list_prompts().await.expect("should succeed");
-        assert!(prompts.is_empty());
+        let result = handler.list_prompts().await;
+        assert!(result.is_err());
+        match result {
+            Err(PluginError::McpError { message }) => {
+                assert!(message.contains("no MCP server connected"));
+            }
+            _ => panic!("expected McpError"),
+        }
     }
 
     #[tokio::test]

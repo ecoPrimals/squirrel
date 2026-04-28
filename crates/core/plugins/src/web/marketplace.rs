@@ -430,14 +430,15 @@ impl PluginMarketplaceClient {
         reason = "Async trait method; required for future implementations"
     )]
     async fn get_featured_plugins(&self) -> Result<WebResponse> {
-        let featured_plugins = self.get_sample_plugins("featured");
+        let featured_plugins: Vec<MarketplacePlugin> = Vec::new();
 
         Ok(WebResponse {
             status: HttpStatus::Ok,
             headers: HashMap::new(),
             body: Some(serde_json::json!({
                 "plugins": featured_plugins,
-                "total": featured_plugins.len()
+                "total": 0,
+                "note": "plugin marketplace discovery not yet wired"
             })),
         })
     }
@@ -448,14 +449,15 @@ impl PluginMarketplaceClient {
         reason = "Async trait method; required for future implementations"
     )]
     async fn get_trending_plugins(&self) -> Result<WebResponse> {
-        let trending_plugins = self.get_sample_plugins("trending");
+        let trending_plugins: Vec<MarketplacePlugin> = Vec::new();
 
         Ok(WebResponse {
             status: HttpStatus::Ok,
             headers: HashMap::new(),
             body: Some(serde_json::json!({
                 "plugins": trending_plugins,
-                "total": trending_plugins.len()
+                "total": 0,
+                "note": "plugin marketplace discovery not yet wired"
             })),
         })
     }
@@ -605,9 +607,7 @@ impl PluginMarketplaceClient {
         _repo: &PluginRepository,
         _criteria: &MarketplaceSearchCriteria,
     ) -> Result<Vec<MarketplacePlugin>> {
-        // In real implementation, this would make HTTP requests to the repository API
-        // For now, return sample data
-        Ok(self.get_sample_plugins("search"))
+        Ok(Vec::new())
     }
 
     /// Helper function to process search results
@@ -688,9 +688,13 @@ impl PluginMarketplaceClient {
             Err(anyhow::anyhow!("No UUID found in path"))
         }
     }
+}
 
-    /// Get sample plugins for demonstration
-    fn get_sample_plugins(&self, plugin_type: &str) -> Vec<MarketplacePlugin> {
+#[cfg(test)]
+impl PluginMarketplaceClient {
+    /// Test-only sample plugin data generator.
+    #[must_use]
+    pub fn get_sample_plugins(&self, plugin_type: &str) -> Vec<MarketplacePlugin> {
         vec![MarketplacePlugin {
             id: Uuid::new_v4(),
             name: format!("Sample {plugin_type} Plugin"),
@@ -707,7 +711,7 @@ impl PluginMarketplaceClient {
             rating: Some(4.5),
             downloads: 1000,
             verified: true,
-            size: 1024 * 1024, // 1MB
+            size: 1024 * 1024,
             published_at: chrono::Utc::now() - chrono::Duration::days(30),
             updated_at: chrono::Utc::now() - chrono::Duration::days(7),
             requirements: SystemRequirements {

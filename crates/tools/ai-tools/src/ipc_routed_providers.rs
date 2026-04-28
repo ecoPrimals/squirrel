@@ -219,7 +219,9 @@ impl<D: IpcHttpDelegate> IpcRoutedVendorClient<D> {
                     "role": "assistant",
                     "content": m.content.as_deref().unwrap_or("")
                 })),
-                _ => {}
+                ref other => {
+                    tracing::debug!(role = ?other, "skipping unsupported message role for Anthropic API");
+                }
             }
         }
         let mut body = json!({
