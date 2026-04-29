@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (April 29, 2026 — session AP: primalSpring Phase 56 audit)
+
+**7,181** tests, **~997** `.rs` files, **~325k** lines, **90.1%** region coverage (target met).
+
+- **GAP-03 (P0) — HTTP URL auto-promotion in `inference.register_provider`**: When a provider sends `"socket": "http://localhost:11434"`, the handler now auto-detects the HTTP scheme and promotes it to the `endpoint` field. Previously, HTTP URLs in the `socket` param were treated as UDS filesystem paths, creating broken Ollama providers. Both the new `endpoint` field and the legacy `socket` field now work correctly with HTTP URLs.
+- **GAP-06 (P2) — Canonical IPC method naming**: Evolved all discovery RPC method names to the canonical `ipc.*` namespace: `discovery.register` → `ipc.register`, `discovery.heartbeat` → `ipc.heartbeat`, `discovery.find_provider` → `ipc.find_provider`. Aligns with biomeOS Neural API's IPC protocol conventions.
+- **New test**: `register_http_endpoint_provider` validates HTTP endpoint registration and model listing through `list_providers_detailed`.
+
 ### Summary (April 28, 2026 — session AO: deep debt — lying stubs, dead code, error honesty)
 
 **7,180** tests, **~997** `.rs` files, **~325k** lines, **90.1%** region coverage (target met).
@@ -27,7 +35,7 @@ Pre-alpha history is preserved as fossil record in
 **7,182** tests, **~997** `.rs` files, **~325k** lines, **90.1%** region coverage (target met).
 
 - **Native HTTP provider support (Ask 1)**: `inference.register_provider` now accepts `endpoint` param for HTTP providers (e.g. Ollama at `http://localhost:11434`). `RemoteInferenceAdapter` routes through Ollama-compatible REST (`/api/generate`, `/api/embeddings`) using lightweight raw TCP HTTP/1.1 (no new dependencies). `is_available` uses TCP health probe for HTTP endpoints. UDS JSON-RPC remains the default for ecosystem springs.
-- **`DISCOVERY_SOCKET` for capability resolution (Ask 3)**: `discover_capability()` now queries the discovery service (via `DISCOVERY_SOCKET`) as Method 2 — after explicit env vars, before registry query and socket scan. Sends `discovery.find_provider` JSON-RPC; gracefully falls through if discovery service is down. Discovery service docs corrected (removed undocumented `SONGBIRD_SOCKET` fallback).
+- **`DISCOVERY_SOCKET` for capability resolution (Ask 3)**: `discover_capability()` now queries the discovery service (via `DISCOVERY_SOCKET`) as Method 2 — after explicit env vars, before registry query and socket scan. Sends `ipc.find_provider` JSON-RPC; gracefully falls through if discovery service is down. Discovery service docs corrected (removed undocumented `SONGBIRD_SOCKET` fallback).
 - **Inference payload encryption foundation (Ask 2)**: `SecurityProviderClient` extended with `retrieve_purpose_key()`, `encrypt_with_purpose()`, `decrypt_with_purpose()` — the NUCLEUS two-tier crypto model's RPC surface (`secrets.retrieve`, `crypto.encrypt`, `crypto.decrypt`). Foundation for encrypting inference prompts/responses when operating within a NUCLEUS. Full wiring requires BearDog server-side support for the purpose-key RPC methods.
 
 ### Summary (April 27, 2026 — session AM)

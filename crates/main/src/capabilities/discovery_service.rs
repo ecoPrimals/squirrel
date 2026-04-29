@@ -77,14 +77,14 @@ pub fn discover_socket() -> Option<PathBuf> {
         .find(|p| p.exists())
 }
 
-/// Register Squirrel with the discovery service via `discovery.register`.
+/// Register Squirrel with the discovery service via `ipc.register`.
 ///
 /// Sends primal identity, socket path, and all capabilities from `niche.rs`.
 /// Returns `true` if the discovery service acknowledged the registration.
 pub async fn register(discovery_socket: &Path, own_socket: &str) -> bool {
     let request = serde_json::json!({
         "jsonrpc": "2.0",
-        "method": "discovery.register",
+        "method": "ipc.register",
         "params": {
             "primal": niche::PRIMAL_ID,
             "socket": own_socket,
@@ -99,7 +99,7 @@ pub async fn register(discovery_socket: &Path, own_socket: &str) -> bool {
         Ok(resp) => {
             if resp.get("error").is_some() {
                 warn!(
-                    "discovery.register rejected by discovery service: {:?}",
+                    "ipc.register rejected by discovery service: {:?}",
                     resp.get("error")
                         .and_then(|e| e.get("message"))
                         .and_then(|m| m.as_str())
@@ -114,13 +114,13 @@ pub async fn register(discovery_socket: &Path, own_socket: &str) -> bool {
             }
         }
         Err(e) => {
-            warn!("discovery.register to discovery service failed: {e}");
+            warn!("ipc.register to discovery service failed: {e}");
             false
         }
     }
 }
 
-/// Spawn a background heartbeat loop that sends `discovery.heartbeat` to the discovery service.
+/// Spawn a background heartbeat loop that sends `ipc.heartbeat` to the discovery service.
 ///
 /// Runs until `shutdown_rx` receives a signal.
 #[must_use]
@@ -139,7 +139,7 @@ pub fn start_heartbeat_loop(
                 _ = ticker.tick() => {
                     let request = serde_json::json!({
                         "jsonrpc": "2.0",
-                        "method": "discovery.heartbeat",
+                        "method": "ipc.heartbeat",
                         "params": {
                             "primal": niche::PRIMAL_ID,
                             "socket": own_socket,

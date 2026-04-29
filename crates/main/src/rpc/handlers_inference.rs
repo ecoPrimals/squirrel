@@ -325,15 +325,33 @@ impl JsonRpcServer {
             });
         }
 
-        let socket = params
+        let raw_socket = params
             .get("socket")
             .and_then(Value::as_str)
             .map(String::from);
 
-        let endpoint = params
+        let raw_endpoint = params
             .get("endpoint")
             .and_then(Value::as_str)
             .map(String::from);
+
+        // Auto-promote HTTP URLs from `socket` to `endpoint`.
+        // Providers (e.g. neuralSpring for Ollama) may pass
+        // "socket": "http://localhost:11434" — treating that as a UDS path
+        // creates a broken provider. Detect the scheme and route correctly.
+        let is_http = |s: &str| s.starts_with("http://") || s.starts_with("https://");
+
+        let (socket, endpoint) = match (&raw_socket, &raw_endpoint) {
+            (Some(s), None) if is_http(s) => {
+                info!(
+                    provider = trimmed_id,
+                    url = s.as_str(),
+                    "Auto-promoting HTTP URL from 'socket' to 'endpoint'"
+                );
+                (None, Some(s.clone()))
+            }
+            _ => (raw_socket, raw_endpoint),
+        };
 
         if socket.is_none() && endpoint.is_none() {
             warn!(

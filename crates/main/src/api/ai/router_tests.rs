@@ -461,6 +461,25 @@ async fn unregister_nonexistent_returns_false() {
 }
 
 #[tokio::test]
+async fn register_http_endpoint_provider() {
+    let router = AiRouter::default();
+    let mut config = test_remote_config("ollama-http");
+    config.endpoint = Some("http://localhost:11434".to_string());
+    config.models = vec!["llama3".to_string()];
+    router.register_remote_provider(config).await;
+    assert_eq!(router.provider_count().await, 1);
+
+    let detailed = router.list_providers_detailed().await;
+    assert_eq!(detailed.len(), 1);
+    let (info, model_names, _supports_embed) = &detailed[0];
+    assert_eq!(info.provider_id, "ollama-http");
+    assert!(
+        model_names.contains(&"llama3".to_string()),
+        "HTTP endpoint provider models should be listed"
+    );
+}
+
+#[tokio::test]
 async fn get_text_generation_providers_maps_quality_tier() {
     let router = AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::ConstraintRouter(
         ConstraintRouterMockAdapter {

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 28, 2026
+**Last Updated**: April 29, 2026
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,180 passing / 0 failures across 22 workspace crates |
+| Tests | 7,181 passing / 0 failures across 22 workspace crates |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -284,12 +284,19 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 - **Dead code removed**: deprecated `handle_connection`, `find_services_by_type`, security adapter `UniversalRequest` construction.
 - **Error propagation fixed**: Plugin dependency resolution, monitoring health queries, coordination monitoring events.
 - **17 tests updated** to expect honest errors instead of fabricated success.
-- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,180 / 0 failures), `deny` ✓
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,181 / 0 failures), `deny` ✓
+
+### April 29, 2026 session AP (primalSpring Phase 56: HTTP URL auto-promotion, canonical IPC naming)
+
+- **GAP-03 (P0) — HTTP URL auto-promotion**: `inference.register_provider` now auto-detects HTTP URLs in the `socket` param and promotes them to `endpoint`. Previously Ollama's `http://localhost:11434` was treated as a UDS path.
+- **GAP-06 (P2) — Canonical `ipc.*` method naming**: `discovery.register` → `ipc.register`, `discovery.heartbeat` → `ipc.heartbeat`, `discovery.find_provider` → `ipc.find_provider`.
+- **New test**: `register_http_endpoint_provider` validates HTTP endpoint registration and model listing.
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,181 / 0 failures), `deny` ✓
 
 ### April 28, 2026 session AN (primalSpring Phase 55: HTTP providers, DISCOVERY_SOCKET, inference crypto foundation)
 
 - **Native HTTP provider support**: `inference.register_provider` accepts `endpoint` param for HTTP providers (Ollama). `RemoteInferenceAdapter` routes via Ollama REST API. `is_available` uses TCP health probe. No new dependencies (raw TCP HTTP/1.1).
-- **`DISCOVERY_SOCKET` capability resolution**: `discover_capability()` queries discovery service as Method 2 (after env, before registry/scan). `discovery.find_provider` JSON-RPC with graceful fallthrough.
+- **`DISCOVERY_SOCKET` capability resolution**: `discover_capability()` queries discovery service as Method 2 (after env, before registry/scan). `ipc.find_provider` JSON-RPC with graceful fallthrough.
 - **Inference payload encryption foundation**: `SecurityProviderClient` extended with `retrieve_purpose_key()`, `encrypt_with_purpose()`, `decrypt_with_purpose()`. NUCLEUS two-tier crypto model RPC surface. Full wiring pending BearDog server-side purpose-key support.
 - **Discovery service docs fixed**: Removed undocumented `SONGBIRD_SOCKET` fallback from discovery order.
 - **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,182 / 0 failures), `deny` ✓

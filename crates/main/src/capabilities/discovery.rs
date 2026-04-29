@@ -130,7 +130,7 @@ pub async fn discover_capability(capability: &str) -> Result<CapabilityProvider,
 
 /// Query the discovery service (via `DISCOVERY_SOCKET`) for a capability provider.
 ///
-/// Sends `discovery.find_provider` JSON-RPC to the discovery service socket.
+/// Sends `ipc.find_provider` JSON-RPC to the discovery service socket.
 /// Returns `None` if the socket is not available or the service doesn't know
 /// about the requested capability.
 async fn try_discovery_service(
@@ -148,7 +148,7 @@ async fn try_discovery_service(
 
     let request = serde_json::json!({
         "jsonrpc": "2.0",
-        "method": "discovery.find_provider",
+        "method": "ipc.find_provider",
         "params": { "capability": capability },
         "id": 1
     });
