@@ -13,6 +13,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::Duration;
 use tokio::sync::{RwLock, broadcast};
+use tracing::warn;
 
 /// Configuration for the unified plugin manager.
 #[derive(Debug, Clone)]
@@ -267,7 +268,13 @@ impl UnifiedPluginManager {
     /// Returns [`PluginError`] if shutdown hooks fail.
     pub async fn shutdown(&self) -> Result<()> {
         for entry in &self.plugins {
-            let _ = entry.value().plugin.shutdown().await;
+            if let Err(e) = entry.value().plugin.shutdown().await {
+                warn!(
+                    plugin = entry.key().as_str(),
+                    error = %e,
+                    "Plugin shutdown failed"
+                );
+            }
         }
         self.plugins.clear();
         Ok(())

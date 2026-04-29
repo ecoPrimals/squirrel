@@ -399,7 +399,7 @@ impl ShutdownManager {
             *complete = true;
         }
 
-        let _ = ctx.complete_success();
+        let _result = ctx.complete_success();
         Ok(())
     }
 

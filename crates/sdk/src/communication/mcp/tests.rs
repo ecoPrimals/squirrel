@@ -177,9 +177,9 @@ async fn test_client_with_custom_config() {
 async fn test_operation_handler_integration() {
     let mut handler = OperationHandler::new();
 
-    // Without an IPC MCP connection, list operations return empty and tools cannot run.
-    let tools = handler.list_tools().await.expect("should succeed");
-    assert!(tools.is_empty());
+    // Without IPC wired, list_tools returns an honest error.
+    let tools_result = handler.list_tools().await;
+    assert!(tools_result.is_err());
 
     let calc_input = json!({"operation": "add", "operands": [10, 20]});
     let calc_result = handler.execute_tool("calculator", calc_input).await;

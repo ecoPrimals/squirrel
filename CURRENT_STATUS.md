@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,181 passing / 0 failures across 22 workspace crates |
+| Tests | 7,182 passing / 0 failures across 22 workspace crates |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -284,7 +284,16 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 - **Dead code removed**: deprecated `handle_connection`, `find_services_by_type`, security adapter `UniversalRequest` construction.
 - **Error propagation fixed**: Plugin dependency resolution, monitoring health queries, coordination monitoring events.
 - **17 tests updated** to expect honest errors instead of fabricated success.
-- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,181 / 0 failures), `deny` ✓
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,182 / 0 failures), `deny` ✓
+
+### April 29, 2026 session AQ (deep debt: SDK honesty, error logging, capability naming)
+
+- **SDK `list_tools` lying stub → honest error**: Last MCP operation returning empty success when IPC not wired. Now returns `Err(McpError)` consistent with all other operations.
+- **SDK error messages**: Hardcoded "Songbird" → "service mesh" (capability-based). Module doc updated.
+- **Silent `let _ =` → logged errors**: Plugin shutdown failures (`unified_manager.rs`), MCP stream shutdown (`connection.rs`), reconnect close.
+- **Shutdown context**: `let _ = ctx.complete_success()` → `let _result =` (explicit naming).
+- **3 test changes**: Split list_tools test into disconnected + connected-pending; integration test updated.
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,182 / 0 failures), `deny` ✓
 
 ### April 29, 2026 session AP (primalSpring Phase 56: HTTP URL auto-promotion, canonical IPC naming)
 

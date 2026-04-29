@@ -11,6 +11,16 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (April 29, 2026 — session AQ: deep debt — SDK honesty, error logging, capability naming)
+
+**7,182** tests, **~997** `.rs` files, **~325k** lines, **90.1%** region coverage (target met).
+
+- **SDK `list_tools` lying stub → honest error**: `OperationHandler::list_tools()` was the last MCP operation returning empty success (`Ok(Vec::new())`) when IPC was not wired — now returns `Err(McpError)` consistent with `execute_tool`, `list_resources`, `get_resource`, and `list_prompts`.
+- **SDK error messages evolved to capability-based**: Removed hardcoded "Songbird" primal name from two user-facing error messages in `connection.rs` and `config.rs` → now "service mesh IPC" (capability-based).
+- **SDK module doc**: `connection.rs` module doc evolved from "Songbird IPC" to "service mesh IPC".
+- **Silent `let _ =` Result discards evolved to logging**: Plugin shutdown failures in `unified_manager.rs` now logged with `warn!`. MCP IPC stream shutdown errors and reconnect close errors in `connection.rs` now logged with `warn!`/`debug!`. Shutdown context `_result` explicitly named.
+- **3 new tests**: `test_list_tools_disconnected`, `test_list_tools_connected_pending` (split from 1), integration test updated.
+
 ### Summary (April 29, 2026 — session AP: primalSpring Phase 56 audit)
 
 **7,181** tests, **~997** `.rs` files, **~325k** lines, **90.1%** region coverage (target met).

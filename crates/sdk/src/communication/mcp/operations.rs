@@ -8,7 +8,7 @@
 
 use super::types::{McpPrompt, McpResource, McpTool};
 use crate::error::{PluginError, PluginResult};
-use tracing::{debug, warn};
+use tracing::debug;
 // Removed: use squirrel_mcp_config::get_service_endpoints;
 
 /// Operation handler for MCP protocol operations
@@ -85,12 +85,14 @@ impl OperationHandler {
         debug!("Listing tools (operation #{})", self.operation_counter);
 
         if !self.connected {
-            warn!("list_tools: no MCP server connected — returning empty");
-            return Ok(Vec::new());
+            return Err(PluginError::McpError {
+                message: "list_tools: no MCP server connected".to_string(),
+            });
         }
 
-        debug!("list_tools: MCP connected, IPC transport pending");
-        Ok(Vec::new())
+        Err(PluginError::McpError {
+            message: "list_tools: IPC transport not yet wired".to_string(),
+        })
     }
 
     /// Execute a tool
@@ -326,10 +328,29 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_list_tools() {
+    async fn test_list_tools_disconnected() {
         let mut handler = OperationHandler::new();
-        let tools = handler.list_tools().await.expect("should succeed");
-        assert!(tools.is_empty());
+        let result = handler.list_tools().await;
+        assert!(result.is_err());
+        match result {
+            Err(PluginError::McpError { message }) => {
+                assert!(message.contains("no MCP server connected"), "{message}");
+            }
+            other => panic!("expected McpError, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_list_tools_connected_pending() {
+        let mut handler = OperationHandler::with_connection();
+        let result = handler.list_tools().await;
+        assert!(result.is_err());
+        match result {
+            Err(PluginError::McpError { message }) => {
+                assert!(message.contains("IPC transport not yet wired"), "{message}");
+            }
+            other => panic!("expected McpError, got {other:?}"),
+        }
     }
 
     #[tokio::test]

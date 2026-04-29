@@ -147,7 +147,7 @@ impl McpClientConfig {
             let u = self.server_url.trim();
             if u.starts_with("ws://") || u.starts_with("wss://") {
                 return Err(PluginError::InvalidConfiguration {
-                    message: "MCP_SERVER_URL cannot use ws:// or wss:// on native targets; use unix://… IPC (Tower Atomic / Songbird).".to_string(),
+                    message: "MCP_SERVER_URL cannot use ws:// or wss:// on native targets; use unix://… IPC (Tower Atomic / service mesh).".to_string(),
                 });
             }
         }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! MCP client transport: JSON-RPC 2.0 over a Unix domain socket (Tower Atomic / Songbird IPC).
+//! MCP client transport: JSON-RPC 2.0 over a Unix domain socket (Tower Atomic / service mesh IPC).
 //!
 //! Native targets connect via [`tokio::net::UnixStream`]. Browser (WASM) builds may still use the
 //! host `WebSocket` API when `MCP_SERVER_URL` is a `ws:` / `wss:` URL.
@@ -10,7 +10,7 @@ use crate::config::McpClientConfig;
 use crate::infrastructure::error::{PluginError, PluginResult};
 use serde_json::json;
 use std::time::Duration;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 #[cfg(all(not(target_arch = "wasm32"), unix))]
 use tokio::io::AsyncWriteExt;
@@ -28,7 +28,7 @@ pub(crate) fn parse_unix_socket_path(server_url: &str) -> Result<std::path::Path
     let s = server_url.trim();
     if s.starts_with("ws://") || s.starts_with("wss://") {
         return Err(PluginError::InvalidConfiguration {
-            message: "MCP_SERVER_URL must use Unix IPC (unix://…) on native targets; embedded WebSocket was removed. Route MCP via Songbird service mesh (Tower Atomic).".to_string(),
+            message: "MCP_SERVER_URL must use Unix IPC (unix://…) on native targets; embedded WebSocket was removed. Route MCP via service mesh IPC (Tower Atomic).".to_string(),
         });
     }
     if let Some(rest) = s.strip_prefix("unix://") {
@@ -212,7 +212,9 @@ impl ConnectionManager {
     pub async fn close(&mut self) -> PluginResult<()> {
         #[cfg(all(not(target_arch = "wasm32"), unix))]
         if let Some(mut stream) = self.ipc_stream.take() {
-            let _ = stream.shutdown().await;
+            if let Err(e) = stream.shutdown().await {
+                warn!(error = %e, "MCP IPC stream shutdown encountered error");
+            }
             debug!("MCP IPC connection closed (native)");
         }
 
@@ -266,8 +268,10 @@ impl ConnectionManager {
         let delay = Duration::from_millis(config.reconnect_delay_ms * (2_u64.pow(attempt)));
         tokio::time::sleep(delay).await;
 
-        if self.is_connected() {
-            let _ = self.close().await;
+        if self.is_connected()
+            && let Err(e) = self.close().await
+        {
+            debug!(error = %e, "Pre-reconnect close encountered error");
         }
 
         self.establish_connection(config).await?;
