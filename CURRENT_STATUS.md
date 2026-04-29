@@ -116,7 +116,7 @@ NestGate's `storage.put` / `storage.get` capabilities are discovered at runtime.
 | Target | Protocol | Status |
 |--------|----------|--------|
 | biomeOS | `lifecycle.register` + 30s heartbeat | Active (when orchestrator detected) |
-| Discovery service | `discovery.register` + 30s heartbeat | Active (when discovery socket detected) |
+| Discovery service | `ipc.register` + 30s heartbeat | Active (when discovery socket detected) |
 
 ## Orchestration
 
@@ -216,7 +216,7 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 | Deploy Graph | `squirrel_deploy.toml` (BYOB pattern) |
 | Orchestration Types | `DeploymentGraphDef`, `GraphNode`, `TickConfig` (ludoSpring wire-compatible) |
 | biomeOS Lifecycle | `lifecycle.register` + 30s heartbeat (when orchestrator detected) |
-| Discovery Service | `discovery.register` + 30s heartbeat (when discovery socket detected) |
+| Discovery Service | `ipc.register` + 30s heartbeat (when discovery socket detected) |
 | Security Provider Crypto | Discovery via capability-based biomeOS socket scan |
 | Compute Provider AI | Auto-discovered via capability-based biomeOS socket scan |
 | Signal Handling | SIGTERM + SIGINT → socket cleanup + graceful shutdown |

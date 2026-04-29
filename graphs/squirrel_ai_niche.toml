@@ -48,9 +48,9 @@ depends_on = ["beardog"]
 health_method = "health.liveness"
 by_capability = "discovery"
 capabilities = [
-    "discovery.register",
-    "discovery.find_primals",
-    "discovery.query",
+    "ipc.register",
+    "ipc.find_provider",
+    "ipc.heartbeat",
 ]
 
 # ── Node 3: Squirrel (AI coordination) ──────────────────────────────

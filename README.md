@@ -82,7 +82,7 @@ IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
 TCP:       JSON-RPC 2.0 over TCP via `--port` + `--bind` (newline-delimited)
 Transport: Unix sockets → Named pipes → TCP (automatic fallback)
-Lifecycle: ecosystem lifecycle.register + discovery.register + 30s heartbeat
+Lifecycle: ecosystem lifecycle.register + ipc.register + 30s heartbeat
 Niche:     niche.rs self-knowledge (capabilities, costs, dependencies, consumed)
 Edition:   Rust 2024
 ecoBin:    Pure Rust — zero C dependencies in default build
