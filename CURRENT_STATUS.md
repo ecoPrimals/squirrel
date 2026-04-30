@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 29, 2026
+**Last Updated**: April 30, 2026
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,182 passing / 0 failures across 22 workspace crates |
+| Tests | 7,189 passing / 0 failures across 22 workspace crates |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -76,7 +76,7 @@ Follows the groundSpring/wetSpring/airSpring niche pattern:
 
 | Constant | What |
 |----------|------|
-| `CAPABILITIES` | 31 exposed methods (inference, ai, capabilities, capability, identity, system, health, discovery, tool, context, lifecycle, graph) |
+| `CAPABILITIES` | 34 exposed methods (inference, ai, capabilities, capability, identity, system, health, discovery, tool, context, provider, lifecycle, graph) |
 | `CONSUMED_CAPABILITIES` | 32 external capabilities from security, service-mesh, compute, content-storage providers, domain springs, rhizoCrypt, sweetGrass, primalSpring |
 | `COST_ESTIMATES` | Per-method latency and GPU hints for Pathway Learner scheduling |
 | `DEPENDENCIES` | 6 primals (security-provider, service-mesh required; compute, content-storage, primalspring, petaltongue optional) |
@@ -285,6 +285,13 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 - **Error propagation fixed**: Plugin dependency resolution, monitoring health queries, coordination monitoring events.
 - **17 tests updated** to expect honest errors instead of fabricated success.
 - **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `test` ✓ (7,182 / 0 failures), `deny` ✓
+
+### April 30, 2026 session AR (primalSpring Phase 56c: provider registration protocol)
+
+- **Provider registration protocol**: Implemented `provider.register`, `provider.list`, `provider.deregister` JSON-RPC + tarpc methods. Springs adding Squirrel to compositions can now register their capabilities and socket paths at runtime for dynamic capability-based routing.
+- **Wire Standard L3**: New methods included in `capabilities.list`, `cost_estimates`, `operation_dependencies`, `semantic_mappings`. Capability registry TOML updated with full input schemas.
+- **7 new tests**: Registration success, validation (capabilities/socket required), listing, deregistration, HTTP endpoint, upsert semantics.
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,189 / 0 failures), `deny` ✓
 
 ### April 29, 2026 session AQ (deep debt: SDK honesty, error logging, capability naming)
 

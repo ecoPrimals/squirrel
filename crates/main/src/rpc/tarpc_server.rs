@@ -20,7 +20,8 @@ use super::tarpc_service::{
     ContextCreateParams, ContextCreateResult, ContextSummarizeParams, ContextSummarizeResult,
     ContextUpdateParams, ContextUpdateResult, DiscoveryPeersResult, HealthCheckResult,
     LifecycleRegisterResult, LifecycleStatusResult, ListProvidersResult, PeerInfo, PingResult,
-    ProviderInfo, QueryAiParams, QueryAiResult, SquirrelRpc, SystemMetricsResult,
+    ProviderDeregisterResult, ProviderInfo, ProviderListResult, ProviderRegisterParams,
+    ProviderRegisterResult, QueryAiParams, QueryAiResult, SquirrelRpc, SystemMetricsResult,
     ToolExecuteResult, ToolListEntry, ToolListResult, ToolSource,
 };
 use anyhow::Result;
@@ -674,6 +675,92 @@ impl SquirrelRpc for TarpcRpcServer {
                 summary: String::new(),
                 data: serde_json::json!({}),
                 synchronized: false,
+            },
+        }
+    }
+
+    async fn provider_register(
+        self,
+        _ctx: context::Context,
+        params: ProviderRegisterParams,
+    ) -> ProviderRegisterResult {
+        let json_params = serde_json::json!({
+            "provider_id": params.provider_id,
+            "socket": params.socket,
+            "endpoint": params.endpoint,
+            "capabilities": params.capabilities,
+            "version": params.version.unwrap_or_default(),
+            "domain": params.domain.unwrap_or_default(),
+            "priority": params.priority.unwrap_or(50),
+        });
+        match self
+            .jsonrpc
+            .handle_provider_register(Some(json_params))
+            .await
+        {
+            Ok(v) => ProviderRegisterResult {
+                success: v
+                    .get("success")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false),
+                message: v
+                    .get("message")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+            },
+            Err(e) => ProviderRegisterResult {
+                success: false,
+                message: e.message,
+            },
+        }
+    }
+
+    async fn provider_list(self, _ctx: context::Context) -> ProviderListResult {
+        match self.jsonrpc.handle_provider_list().await {
+            Ok(v) => ProviderListResult {
+                providers: v
+                    .get("providers")
+                    .and_then(|p| p.as_array())
+                    .cloned()
+                    .unwrap_or_default(),
+                count: v
+                    .get("count")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0) as usize,
+            },
+            Err(_) => ProviderListResult {
+                providers: vec![],
+                count: 0,
+            },
+        }
+    }
+
+    async fn provider_deregister(
+        self,
+        _ctx: context::Context,
+        provider_id: String,
+    ) -> ProviderDeregisterResult {
+        let json_params = serde_json::json!({ "provider_id": provider_id });
+        match self
+            .jsonrpc
+            .handle_provider_deregister(Some(json_params))
+            .await
+        {
+            Ok(v) => ProviderDeregisterResult {
+                success: v
+                    .get("success")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false),
+                message: v
+                    .get("message")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+            },
+            Err(e) => ProviderDeregisterResult {
+                success: false,
+                message: e.message,
             },
         }
     }

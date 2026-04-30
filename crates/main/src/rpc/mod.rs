@@ -39,6 +39,7 @@ mod handlers_context;
 mod handlers_graph;
 mod handlers_identity;
 mod handlers_inference;
+mod handlers_provider;
 mod handlers_system;
 mod handlers_tool;
 pub mod ipc_client;

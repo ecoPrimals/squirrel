@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,182 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 3.5 MB
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,189 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 3.5 MB
 
 ---
 
@@ -76,12 +76,13 @@ Capability symlink: `ai.sock` → `squirrel.sock` (auto-created for capability-b
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   7,182 tests passing (0 failures) | ~997 `.rs` files | ~325k lines
+Fitness:   7,189 tests passing (0 failures) | ~997 `.rs` files | ~326k lines
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
 TCP:       JSON-RPC 2.0 over TCP via `--port` + `--bind` (newline-delimited)
 Transport: Unix sockets → Named pipes → TCP (automatic fallback)
+Provider:  provider.register / provider.list / provider.deregister (spring registration)
 Lifecycle: ecosystem lifecycle.register + ipc.register + 30s heartbeat
 Niche:     niche.rs self-knowledge (capabilities, costs, dependencies, consumed)
 Edition:   Rust 2024

@@ -84,6 +84,10 @@ pub struct JsonRpcServer {
     /// Capability registry loaded from capability_registry.toml (source of truth)
     pub capability_registry: Arc<crate::capabilities::registry::CapabilityRegistry>,
 
+    /// Runtime service provider registry — springs register their capabilities here
+    /// via `provider.register` so Squirrel can route requests to them.
+    pub(crate) provider_registry: Arc<crate::universal_adapters::InMemoryServiceRegistry>,
+
     /// When set, binds an additional TCP JSON-RPC listener on `<tcp_bind_host>:<port>`.
     tcp_port: Option<u16>,
 
@@ -117,6 +121,7 @@ impl JsonRpcServer {
             ai_router: None,
             announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
             capability_registry: Self::load_registry(),
+            provider_registry: Arc::new(crate::universal_adapters::InMemoryServiceRegistry::new()),
             tcp_port: None,
             tcp_bind_host: LOCALHOST_IPV4.to_string(),
         }
@@ -132,6 +137,7 @@ impl JsonRpcServer {
             ai_router: Some(ai_router),
             announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
             capability_registry: Self::load_registry(),
+            provider_registry: Arc::new(crate::universal_adapters::InMemoryServiceRegistry::new()),
             tcp_port: None,
             tcp_bind_host: LOCALHOST_IPV4.to_string(),
         }

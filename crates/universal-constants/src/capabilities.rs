@@ -100,6 +100,10 @@ pub const SQUIRREL_EXPOSED_CAPABILITIES: &[&str] = &[
     "context.create",
     "context.update",
     "context.summarize",
+    // Provider registration — springs register capabilities with Squirrel
+    "provider.register",
+    "provider.list",
+    "provider.deregister",
     // Lifecycle (biomeOS)
     "lifecycle.register",
     "lifecycle.status",

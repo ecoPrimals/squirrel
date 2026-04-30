@@ -438,6 +438,61 @@ pub struct LifecycleStatusResult {
     pub uptime_seconds: u64,
 }
 
+/// Provider registration parameters
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderRegisterParams {
+    /// Unique provider identifier
+    pub provider_id: String,
+
+    /// Unix domain socket path (optional if endpoint provided)
+    pub socket: Option<String>,
+
+    /// HTTP endpoint URL (optional if socket provided)
+    pub endpoint: Option<String>,
+
+    /// Capabilities this provider offers
+    pub capabilities: Vec<String>,
+
+    /// Provider version
+    pub version: Option<String>,
+
+    /// Capability domain
+    pub domain: Option<String>,
+
+    /// Routing priority (0–255)
+    pub priority: Option<u8>,
+}
+
+/// Provider registration result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderRegisterResult {
+    /// Success flag
+    pub success: bool,
+
+    /// Confirmation message
+    pub message: String,
+}
+
+/// Provider list result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderListResult {
+    /// Registered providers
+    pub providers: Vec<serde_json::Value>,
+
+    /// Total count
+    pub count: usize,
+}
+
+/// Provider deregister result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderDeregisterResult {
+    /// Success flag
+    pub success: bool,
+
+    /// Confirmation message
+    pub message: String,
+}
+
 // =============================================================================
 // Service trait
 // =============================================================================
@@ -470,6 +525,9 @@ pub struct LifecycleStatusResult {
 /// | `context_create` | `context.create` |
 /// | `context_update` | `context.update` |
 /// | `context_summarize` | `context.summarize` |
+/// | `provider_register` | `provider.register` |
+/// | `provider_list` | `provider.list` |
+/// | `provider_deregister` | `provider.deregister` |
 /// | `lifecycle_register` | `lifecycle.register` |
 /// | `lifecycle_status` | `lifecycle.status` |
 #[tarpc::service]
@@ -556,6 +614,21 @@ pub trait SquirrelRpc {
     ///
     /// Semantic: `context.summarize` (JSON-RPC)
     async fn context_summarize(params: ContextSummarizeParams) -> ContextSummarizeResult;
+
+    /// Register a spring as a provider
+    ///
+    /// Semantic: `provider.register` (JSON-RPC)
+    async fn provider_register(params: ProviderRegisterParams) -> ProviderRegisterResult;
+
+    /// List all registered providers
+    ///
+    /// Semantic: `provider.list` (JSON-RPC)
+    async fn provider_list() -> ProviderListResult;
+
+    /// Deregister a provider
+    ///
+    /// Semantic: `provider.deregister` (JSON-RPC)
+    async fn provider_deregister(provider_id: String) -> ProviderDeregisterResult;
 
     /// Register with biomeOS orchestrator
     ///

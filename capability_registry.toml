@@ -318,6 +318,45 @@ required = ["id"]
 type = "string"
 description = "Context ID to summarize"
 
+# --- Provider domain (spring capability registration) ---
+
+[capabilities.provider_register]
+method = "provider.register"
+domain = "provider.registration"
+description = "Register a spring as a capability provider for routing"
+[capabilities.provider_register.input_schema]
+type = "object"
+required = ["provider_id", "capabilities"]
+[capabilities.provider_register.input_schema.properties.provider_id]
+type = "string"
+[capabilities.provider_register.input_schema.properties.socket]
+type = "string"
+[capabilities.provider_register.input_schema.properties.endpoint]
+type = "string"
+[capabilities.provider_register.input_schema.properties.capabilities]
+type = "array"
+[capabilities.provider_register.input_schema.properties.version]
+type = "string"
+[capabilities.provider_register.input_schema.properties.domain]
+type = "string"
+
+[capabilities.provider_list]
+method = "provider.list"
+domain = "provider.registration"
+description = "List all registered capability providers"
+[capabilities.provider_list.input_schema]
+type = "object"
+
+[capabilities.provider_deregister]
+method = "provider.deregister"
+domain = "provider.registration"
+description = "Remove a registered provider"
+[capabilities.provider_deregister.input_schema]
+type = "object"
+required = ["provider_id"]
+[capabilities.provider_deregister.input_schema.properties.provider_id]
+type = "string"
+
 # --- Lifecycle domain (Phase 2 - biomeOS) ---
 
 [capabilities.lifecycle_register]

@@ -11,6 +11,16 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (April 30, 2026 — session AR: primalSpring Phase 56c — provider registration protocol)
+
+**7,189** tests, **~997** `.rs` files, **~326k** lines, **90.1%** region coverage (target met).
+
+- **Provider registration protocol**: Implemented `provider.register`, `provider.list`, `provider.deregister` JSON-RPC methods. Springs adding Squirrel to compositions can now register their capabilities and socket paths at runtime, enabling dynamic capability-based routing without filesystem scanning or external discovery. Uses `InMemoryServiceRegistry` with deterministic UUIDs for upsert semantics.
+- **tarpc parity**: Provider domain methods also wired into the tarpc binary RPC interface (`ProviderRegisterParams`, `ProviderListResult`, `ProviderDeregisterResult`).
+- **Wire Standard L3 compliance**: New methods included in `capabilities.list`, `cost_estimates`, `operation_dependencies`, and `semantic_mappings` — fully composable from day one.
+- **capability_registry.toml**: Added `provider_register`, `provider_list`, `provider_deregister` with full input schemas.
+- **7 new tests**: `register_provider_success`, `register_requires_capabilities`, `register_requires_socket_or_endpoint`, `list_providers_after_registration`, `deregister_provider`, `register_with_http_endpoint`, `upsert_semantics`.
+
 ### Summary (April 29, 2026 — session AQ: deep debt — SDK honesty, error logging, capability naming)
 
 **7,182** tests, **~997** `.rs` files, **~325k** lines, **90.1%** region coverage (target met).

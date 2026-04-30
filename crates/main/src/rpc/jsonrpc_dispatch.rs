@@ -66,6 +66,11 @@ impl JsonRpcServer {
             "context.update" => self.handle_context_update(params).await,
             "context.summarize" => self.handle_context_summarize(params).await,
 
+            // Provider domain — spring capability registration
+            "provider.register" => self.handle_provider_register(params).await,
+            "provider.list" => self.handle_provider_list().await,
+            "provider.deregister" => self.handle_provider_deregister(params).await,
+
             // Lifecycle domain — biomeOS registration
             "lifecycle.register" => self.handle_lifecycle_register().await,
             "lifecycle.status" => self.handle_lifecycle_status().await,
