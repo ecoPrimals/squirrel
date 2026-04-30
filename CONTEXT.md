@@ -17,7 +17,7 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 |------|--------|
 | Language | Rust, **edition 2024** |
 | Workspace | **22** crates (see `Cargo.toml` `members`) |
-| Scale | ~**325k** lines across **~997** `.rs` files |
+| Scale | ~**326k** lines across **~998** `.rs` files |
 | Native deps | **Pure Rust** default build — no C dependencies in the standard ecoBin path |
 | Code license | **AGPL-3.0-or-later** (workspace `license`; see License section for full public framing) |
 | Version | **v0.1.0** (root `Cargo.toml` workspace package version); older docs may cite **0.1.0-alpha.*** tags — status **pre-alpha** |
@@ -54,6 +54,7 @@ Other workspace crates include auth, context, interfaces, plugins, config, comma
 - **tarpc** — binary RPC where negotiated; complements JSON-RPC for performance-sensitive paths.
 - **Unix domain sockets** — default transport; paths under `$XDG_RUNTIME_DIR/biomeos/` (see README).
 - **Discovery service** — registration/heartbeat with ecosystem discovery (`ipc.register`, `ipc.heartbeat`; ecosystem lifecycle: `lifecycle.register`, `lifecycle.status`).
+- **Provider registration** — springs register capabilities at runtime (`provider.register`, `provider.list`, `provider.deregister`), enabling dynamic capability-based routing without filesystem scanning.
 
 ## Architecture
 
