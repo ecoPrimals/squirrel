@@ -526,25 +526,13 @@ impl PluginMarketplaceClient {
         reason = "Async trait method; required for future implementations"
     )]
     async fn get_installations(&self) -> Result<WebResponse> {
-        // In real implementation, this would return actual installation statuses
-        let installations = vec![InstallationStatus {
-            id: Uuid::new_v4(),
-            plugin_id: Uuid::new_v4(),
-            status: InstallationStatusType::Completed,
-            progress: 100,
-            current_step: "Installation completed".to_string(),
-            logs: vec!["Installation completed successfully".to_string()],
-            error: None,
-            started_at: chrono::Utc::now() - chrono::Duration::minutes(5),
-            completed_at: Some(chrono::Utc::now() - chrono::Duration::minutes(2)),
-        }];
-
         Ok(WebResponse {
             status: HttpStatus::Ok,
             headers: HashMap::new(),
             body: Some(serde_json::json!({
-                "installations": installations,
-                "total": installations.len()
+                "installations": [],
+                "total": 0,
+                "note": "plugin installation tracking not yet wired"
             })),
         })
     }
@@ -555,27 +543,12 @@ impl PluginMarketplaceClient {
         reason = "Async trait method; required for future implementations"
     )]
     async fn get_installation_status(&self, installation_id: Uuid) -> Result<WebResponse> {
-        // In real implementation, this would fetch the actual installation status
-        let installation_status = InstallationStatus {
-            id: installation_id,
-            plugin_id: Uuid::new_v4(),
-            status: InstallationStatusType::Installing,
-            progress: 75,
-            current_step: "Installing plugin files".to_string(),
-            logs: vec![
-                "Download completed".to_string(),
-                "Verification successful".to_string(),
-                "Installing plugin files...".to_string(),
-            ],
-            error: None,
-            started_at: chrono::Utc::now() - chrono::Duration::minutes(2),
-            completed_at: None,
-        };
-
         Ok(WebResponse {
-            status: HttpStatus::Ok,
+            status: HttpStatus::NotFound,
             headers: HashMap::new(),
-            body: Some(serde_json::to_value(installation_status)?),
+            body: Some(serde_json::json!({
+                "error": format!("Installation {installation_id} not found — installation tracking not yet wired")
+            })),
         })
     }
 
@@ -585,14 +558,11 @@ impl PluginMarketplaceClient {
         reason = "Async trait method; required for future implementations"
     )]
     async fn cancel_installation(&self, installation_id: Uuid) -> Result<WebResponse> {
-        // In real implementation, this would cancel the actual installation
         Ok(WebResponse {
-            status: HttpStatus::Ok,
+            status: HttpStatus::NotFound,
             headers: HashMap::new(),
             body: Some(serde_json::json!({
-                "installation_id": installation_id,
-                "status": "cancelled",
-                "message": "Installation cancelled successfully"
+                "error": format!("Installation {installation_id} not found — installation tracking not yet wired")
             })),
         })
     }

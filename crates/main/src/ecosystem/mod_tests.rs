@@ -376,11 +376,13 @@ async fn test_ecosystem_manager_complete_coordination() {
 }
 
 #[tokio::test]
-async fn test_ecosystem_manager_discover_services() {
+async fn test_ecosystem_manager_discover_services_deprecated() {
     let manager = create_test_manager();
     let result = manager.discover_services().await;
-    assert!(result.is_ok());
-    assert!(result.expect("should succeed").is_empty());
+    assert!(
+        result.is_err(),
+        "deprecated — directs callers to CapabilityResolver"
+    );
 }
 
 #[tokio::test]

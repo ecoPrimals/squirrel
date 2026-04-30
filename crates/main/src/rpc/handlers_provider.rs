@@ -341,7 +341,10 @@ mod tests {
             .handle_provider_register(params)
             .await
             .expect("should succeed");
-        assert_eq!(result.get("success").and_then(serde_json::Value::as_bool), Some(true));
+        assert_eq!(
+            result.get("success").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
         assert_eq!(
             result.get("provider_id").and_then(|v| v.as_str()),
             Some("neuralspring-01")
@@ -385,7 +388,10 @@ mod tests {
             .await
             .expect("register");
         let list = server.handle_provider_list().await.expect("list");
-        assert_eq!(list.get("count").and_then(serde_json::Value::as_u64), Some(1));
+        assert_eq!(
+            list.get("count").and_then(serde_json::Value::as_u64),
+            Some(1)
+        );
     }
 
     #[tokio::test]
@@ -403,7 +409,10 @@ mod tests {
             .expect("register");
 
         let list = server.handle_provider_list().await.expect("list");
-        assert_eq!(list.get("count").and_then(serde_json::Value::as_u64), Some(1));
+        assert_eq!(
+            list.get("count").and_then(serde_json::Value::as_u64),
+            Some(1)
+        );
 
         let dereg = Some(json!({ "provider_id": "to-remove" }));
         server
@@ -415,7 +424,10 @@ mod tests {
             .handle_provider_list()
             .await
             .expect("list after dereg");
-        assert_eq!(list.get("count").and_then(serde_json::Value::as_u64), Some(0));
+        assert_eq!(
+            list.get("count").and_then(serde_json::Value::as_u64),
+            Some(0)
+        );
     }
 
     #[tokio::test]
@@ -432,7 +444,10 @@ mod tests {
             .handle_provider_register(params)
             .await
             .expect("HTTP endpoint registration should succeed");
-        assert_eq!(result.get("success").and_then(serde_json::Value::as_bool), Some(true));
+        assert_eq!(
+            result.get("success").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
     }
 
     #[tokio::test]

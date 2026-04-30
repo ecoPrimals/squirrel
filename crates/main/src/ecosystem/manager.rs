@@ -182,10 +182,10 @@ impl EcosystemManager {
     pub async fn discover_services(
         &self,
     ) -> Result<Vec<super::registry::types::DiscoveredService>, PrimalError> {
-        tracing::info!(
-            "discover_services called - use CapabilityResolver for capability-based discovery"
-        );
-        Ok(Vec::new())
+        Err(PrimalError::OperationFailed(
+            "discover_services is deprecated — use CapabilityResolver for capability-based discovery"
+                .to_string(),
+        ))
     }
 
     pub async fn find_services_by_capability(

@@ -293,6 +293,13 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 - **7 new tests**: Registration success, validation (capabilities/socket required), listing, deregistration, HTTP endpoint, upsert semantics.
 - **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,189 / 0 failures), `deny` ✓
 
+### April 30, 2026 session AS (deep debt: lying stubs, marketplace honesty, distribution safety)
+
+- **Marketplace fabricated data eliminated**: `get_installations`, `get_installation_status`, `cancel_installation` no longer return fake data.
+- **Distribution `verify_plugin_package`**: Was always `Ok(true)` — now returns error. Silent no-ops (`remove_repository`, `enable_repository`, `disable_repository`, `refresh_repositories`, `uninstall_plugin`) → honest errors.
+- **`EcosystemManager::discover_services` deprecated → error**: Directs callers to `CapabilityResolver`.
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,189 / 0 failures), `deny` ✓
+
 ### April 29, 2026 session AQ (deep debt: SDK honesty, error logging, capability naming)
 
 - **SDK `list_tools` lying stub → honest error**: Last MCP operation returning empty success when IPC not wired. Now returns `Err(McpError)` consistent with all other operations.

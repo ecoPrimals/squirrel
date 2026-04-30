@@ -11,6 +11,16 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (April 30, 2026 — session AS: deep debt — lying stubs, marketplace honesty, distribution safety)
+
+**7,189** tests, **~997** `.rs` files, **~326k** lines, **90.1%** region coverage (target met).
+
+- **Marketplace lying stubs eliminated**: `get_installations` was fabricating a fake completed installation with random UUIDs. `get_installation_status` was returning fake 75% progress for any ID. `cancel_installation` was claiming success without any real logic. All three now return honest empty/not-found responses.
+- **Distribution `verify_plugin_package` safety**: Was always returning `Ok(true)` regardless of input — a dangerous trust violation. Now returns error indicating no verification backend is configured.
+- **Distribution silent no-ops → honest errors**: `remove_repository`, `enable_repository`, `disable_repository`, `refresh_repositories`, `uninstall_plugin` were silently succeeding without doing anything. Now return errors directing callers to configure a persistent backend.
+- **`EcosystemManager::discover_services` deprecated**: Was returning empty success, misleading callers. Now returns `Err(OperationFailed)` directing callers to `CapabilityResolver`.
+- **3 tests updated** to expect deprecation errors.
+
 ### Summary (April 30, 2026 — session AR: primalSpring Phase 56c — provider registration protocol)
 
 **7,189** tests, **~997** `.rs` files, **~326k** lines, **90.1%** region coverage (target met).

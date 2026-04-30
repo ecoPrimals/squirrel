@@ -257,10 +257,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn discover_services_returns_empty_vec() {
+    async fn discover_services_deprecated_returns_err() {
         let manager = create_test_manager();
-        let s = manager.discover_services().await.expect("should succeed");
-        assert!(s.is_empty());
+        assert!(
+            manager.discover_services().await.is_err(),
+            "deprecated — directs callers to CapabilityResolver"
+        );
     }
 
     #[tokio::test]

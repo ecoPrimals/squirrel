@@ -242,11 +242,10 @@ async fn test_ecosystem_manager_discover_services() {
     manager.initialize().await.expect("test: should initialize");
 
     let result = manager.discover_services().await;
-    assert!(result.is_ok(), "Service discovery should not fail");
-
-    let services = result.expect("test: should succeed");
-    // Empty or populated - just verify it returns a vec
-    let _ = services.len();
+    assert!(
+        result.is_err(),
+        "discover_services is deprecated — should return error directing callers to CapabilityResolver"
+    );
 }
 
 #[tokio::test]

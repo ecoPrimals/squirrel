@@ -205,8 +205,10 @@ impl PluginDistribution for DefaultPluginDistribution {
         ))
     }
 
-    async fn uninstall_plugin(&self, _id: Uuid) -> Result<()> {
-        Ok(())
+    async fn uninstall_plugin(&self, id: Uuid) -> Result<()> {
+        Err(anyhow::anyhow!(
+            "No distribution backend configured — cannot uninstall plugin {id}"
+        ))
     }
 
     async fn update_plugin(&self, id: Uuid) -> Result<Uuid> {
@@ -223,24 +225,35 @@ impl PluginDistribution for DefaultPluginDistribution {
         ))
     }
 
-    async fn remove_repository(&self, _id: Uuid) -> Result<()> {
-        Ok(())
+    async fn remove_repository(&self, id: Uuid) -> Result<()> {
+        Err(anyhow::anyhow!(
+            "Standalone distribution does not persist repositories — \
+             cannot remove '{id}'. Configure a persistent backend."
+        ))
     }
 
     async fn list_repositories(&self) -> Result<Vec<PluginRepository>> {
         Ok(Vec::new())
     }
 
-    async fn enable_repository(&self, _id: Uuid) -> Result<()> {
-        Ok(())
+    async fn enable_repository(&self, id: Uuid) -> Result<()> {
+        Err(anyhow::anyhow!(
+            "Standalone distribution does not persist repositories — \
+             cannot enable '{id}'. Configure a persistent backend."
+        ))
     }
 
-    async fn disable_repository(&self, _id: Uuid) -> Result<()> {
-        Ok(())
+    async fn disable_repository(&self, id: Uuid) -> Result<()> {
+        Err(anyhow::anyhow!(
+            "Standalone distribution does not persist repositories — \
+             cannot disable '{id}'. Configure a persistent backend."
+        ))
     }
 
     async fn refresh_repositories(&self) -> Result<()> {
-        Ok(())
+        Err(anyhow::anyhow!(
+            "No repositories configured — nothing to refresh"
+        ))
     }
 
     async fn create_plugin_package(
@@ -254,6 +267,8 @@ impl PluginDistribution for DefaultPluginDistribution {
     }
 
     async fn verify_plugin_package(&self, _package_path: &Path) -> Result<bool> {
-        Ok(true)
+        Err(anyhow::anyhow!(
+            "No verification backend configured — cannot verify package integrity"
+        ))
     }
 }
