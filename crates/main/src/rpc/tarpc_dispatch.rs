@@ -404,11 +404,14 @@ impl SquirrelRpc for TarpcRpcServer {
         _ctx: context::Context,
         params: BtspNegotiateParams,
     ) -> BtspNegotiateResult {
-        let json_params = serde_json::json!({
+        let mut json_params = serde_json::json!({
             "session_id": params.session_id,
             "preferred_cipher": params.preferred_cipher,
             "bond_type": params.bond_type,
         });
+        if let Some(ref cn) = params.client_nonce {
+            json_params["client_nonce"] = serde_json::Value::String(cn.clone());
+        }
         match self.jsonrpc.handle_btsp_negotiate(Some(json_params)).await {
             Ok(v) => BtspNegotiateResult {
                 cipher: v
@@ -419,11 +422,17 @@ impl SquirrelRpc for TarpcRpcServer {
                 server_nonce: v
                     .get("server_nonce")
                     .and_then(|x| x.as_str())
-                    .map(String::from),
+                    .unwrap_or_default()
+                    .to_string(),
+                allowed: v
+                    .get("allowed")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(true),
             },
             Err(_) => BtspNegotiateResult {
                 cipher: "null".to_string(),
-                server_nonce: None,
+                server_nonce: String::new(),
+                allowed: false,
             },
         }
     }

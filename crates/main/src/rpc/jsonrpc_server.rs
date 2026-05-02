@@ -92,6 +92,11 @@ pub struct JsonRpcServer {
     /// Used by `btsp.negotiate` (Phase 3) to validate negotiation requests.
     pub(crate) btsp_sessions: Arc<dashmap::DashMap<String, super::btsp_handshake::BtspSession>>,
 
+    /// Derived session keys after `btsp.negotiate` agrees on `chacha20-poly1305`.
+    /// Keyed by session_id. The transport layer reads these to switch to encrypted framing.
+    pub(crate) btsp_session_keys:
+        Arc<dashmap::DashMap<String, Arc<super::btsp_encrypted_framing::SessionKeys>>>,
+
     /// When set, binds an additional TCP JSON-RPC listener on `<tcp_bind_host>:<port>`.
     tcp_port: Option<u16>,
 
@@ -127,6 +132,7 @@ impl JsonRpcServer {
             capability_registry: Self::load_registry(),
             provider_registry: Arc::new(crate::universal_adapters::InMemoryServiceRegistry::new()),
             btsp_sessions: Arc::new(dashmap::DashMap::new()),
+            btsp_session_keys: Arc::new(dashmap::DashMap::new()),
             tcp_port: None,
             tcp_bind_host: LOCALHOST_IPV4.to_string(),
         }
@@ -144,6 +150,7 @@ impl JsonRpcServer {
             capability_registry: Self::load_registry(),
             provider_registry: Arc::new(crate::universal_adapters::InMemoryServiceRegistry::new()),
             btsp_sessions: Arc::new(dashmap::DashMap::new()),
+            btsp_session_keys: Arc::new(dashmap::DashMap::new()),
             tcp_port: None,
             tcp_bind_host: LOCALHOST_IPV4.to_string(),
         }
@@ -539,7 +546,7 @@ impl JsonRpcServer {
                 }
                 Ok(_) => {
                     if let Some(response_json) = self.handle_request_or_batch(&line).await {
-                        let mut out = response_json;
+                        let mut out = response_json.clone();
                         out.push('\n');
                         reader
                             .get_mut()
@@ -551,6 +558,21 @@ impl JsonRpcServer {
                             .flush()
                             .await
                             .context("Failed to flush JSON-RPC response in loop")?;
+
+                        // Detect btsp.negotiate → chacha20-poly1305 upgrade.
+                        // After the response is sent, transition to encrypted framing.
+                        if let Some(session_id) =
+                            Self::detect_negotiate_upgrade(&line, &response_json)
+                        {
+                            info!(
+                                session_id = %session_id,
+                                "BTSP Phase 3: switching to encrypted frame loop"
+                            );
+                            let transport = reader.into_inner();
+                            return self
+                                .handle_encrypted_connection(transport, &session_id)
+                                .await;
+                        }
                     }
                     // None means all-notification batch — no response per spec
                 }
@@ -558,6 +580,78 @@ impl JsonRpcServer {
                     warn!("Error reading from connection: {}", e);
                     break;
                 }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Detect if a JSON-RPC exchange was a `btsp.negotiate` that agreed on
+    /// `chacha20-poly1305`. Returns the `session_id` if so.
+    fn detect_negotiate_upgrade(request_line: &str, response_json: &str) -> Option<String> {
+        let req: serde_json::Value = serde_json::from_str(request_line.trim()).ok()?;
+        if req.get("method")?.as_str()? != "btsp.negotiate" {
+            return None;
+        }
+
+        let resp: serde_json::Value = serde_json::from_str(response_json.trim()).ok()?;
+        let result = resp.get("result")?;
+        if result.get("cipher")?.as_str()? != "chacha20-poly1305" {
+            return None;
+        }
+
+        req.get("params")?
+            .get("session_id")?
+            .as_str()
+            .map(String::from)
+    }
+
+    /// Run the encrypted frame loop after `btsp.negotiate` agreed on
+    /// `chacha20-poly1305`. Reads length-prefixed encrypted frames, decrypts,
+    /// dispatches as JSON-RPC, encrypts the response, and writes back.
+    async fn handle_encrypted_connection(
+        &self,
+        mut transport: UniversalTransport,
+        session_id: &str,
+    ) -> Result<()> {
+        use super::btsp_encrypted_framing::{read_encrypted_frame, write_encrypted_frame};
+
+        let keys = self
+            .btsp_session_keys
+            .get(session_id)
+            .map(|r| r.clone())
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "no session keys for {session_id} — btsp.negotiate did not derive keys"
+                )
+            })?;
+
+        // Server reads with c2s_key, writes with s2c_key.
+        let read_key = keys.c2s_key;
+        let write_key = keys.s2c_key;
+
+        loop {
+            let plaintext = match read_encrypted_frame(&mut transport, &read_key).await {
+                Ok(pt) => pt,
+                Err(super::btsp_encrypted_framing::FrameError::Io(ref e))
+                    if e.kind() == std::io::ErrorKind::UnexpectedEof =>
+                {
+                    debug!(session_id = %session_id, "encrypted client disconnected");
+                    break;
+                }
+                Err(e) => {
+                    warn!(session_id = %session_id, error = %e, "encrypted frame read error");
+                    break;
+                }
+            };
+
+            let request_str = String::from_utf8(plaintext)
+                .map_err(|e| anyhow::anyhow!("encrypted frame not valid UTF-8: {e}"))?;
+
+            if let Some(response_json) = self.handle_request_or_batch(&request_str).await {
+                write_encrypted_frame(&mut transport, &write_key, response_json.as_bytes())
+                    .await
+                    .map_err(|e| anyhow::anyhow!("encrypted frame write error: {e}"))?;
             }
         }
 

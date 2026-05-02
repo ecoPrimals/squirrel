@@ -11,6 +11,21 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 2, 2026 — session AU: BTSP Phase 3 FULL — encrypted framing, key derivation, transport upgrade)
+
+**7,213** tests, **~1,002** `.rs` files, **~327k** lines, **90.1%** region coverage (target met).
+
+- **BTSP Phase 3 FULL encrypted framing**: Squirrel is now the 10th NUCLEUS primal with complete BTSP Phase 3 implementation. After `btsp.negotiate` agrees on `chacha20-poly1305`, the connection seamlessly transitions from NDJSON to length-prefixed encrypted frames.
+- **`btsp_encrypted_framing` module**: New module with `encrypt_frame`/`decrypt_frame` (ChaCha20-Poly1305), `SessionKeys` (HKDF-SHA256 derivation with `Zeroize`/`ZeroizeOnDrop`), and async frame I/O primitives. Wire format: `[4B BE u32 len][12B nonce][ciphertext + 16B Poly1305 tag]`.
+- **Key derivation**: `c2s_key = HKDF-SHA256(handshake_key, client_nonce||server_nonce, "btsp-session-v1-c2s")`, `s2c_key = ...s2c`. Matches biomeOS/BearDog/sweetGrass ecosystem convergence.
+- **Nonce format alignment**: 32-byte server nonces, base64-encoded (matching BearDog/sweetGrass/biomeOS convergence pattern). Both `preferred_cipher` (string) and `ciphers` (array) wire formats accepted.
+- **`BtspSession` evolved**: Now stores `handshake_key` and `client_ephemeral_pub` from Phase 2 for Phase 3 key derivation.
+- **`btsp.negotiate` handler evolved**: From NULL-only stub to full key derivation + session key storage. Falls back to NULL cipher when handshake_key is unavailable (backward compatible).
+- **Transport upgrade wiring**: `handle_jsonrpc_loop` detects negotiate→chacha20-poly1305 upgrade and seamlessly transitions to `handle_encrypted_connection` (encrypted frame loop with directional keys).
+- **Secure key erasure**: `SessionKeys` derives `Zeroize`/`ZeroizeOnDrop` — keys are zeroed from memory on session drop.
+- **21 new Phase 3 tests**: Key derivation determinism, directional key separation, encrypt/decrypt roundtrip, wrong-key rejection, truncated frame handling, async I/O, multiple sequential frames, nonce uniqueness, base64 format, `ciphers[]` array, server nonce format.
+- **Dependencies**: `chacha20poly1305 0.10`, `hkdf 0.12`, `sha2 0.10` added to workspace.
+
 ### Summary (May 2, 2026 — session AT: BTSP Phase 3 + deep debt — lying stubs, large file refactor, honesty evolution)
 
 **7,192** tests, **~999** `.rs` files, **~327k** lines, **90.1%** region coverage (target met).

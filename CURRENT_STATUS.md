@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,192 passing / 0 failures across 22 workspace crates |
+| Tests | 7,213 passing / 0 failures across 22 workspace crates |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -51,7 +51,7 @@ Source of truth: [`capability_registry.toml`](capability_registry.toml)
 | Health | **`health.check`**, **`health.liveness`**, **`health.readiness`** (canonical — PRIMAL_IPC_PROTOCOL v3.0) |
 | Discovery | `discovery.peers`, `discovery.list` (alias) |
 | Tool | `tool.execute`, `tool.list` |
-| BTSP | `btsp.negotiate` (Phase 3 encrypted channel negotiation) |
+| BTSP | `btsp.negotiate` (Phase 3 FULL: encrypted framing + key derivation) |
 | Lifecycle | `lifecycle.register`, `lifecycle.status` |
 | Graph | `graph.parse`, `graph.validate` (primalSpring BYOB) |
 
@@ -276,6 +276,23 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
 
 ## Changes Since Last Handoff (April 28, 2026)
+
+### May 2, 2026 session AU (BTSP Phase 3 FULL: encrypted framing + key derivation)
+
+- **BTSP Phase 3 FULL encrypted framing**: 10th NUCLEUS primal with complete Phase 3. After `btsp.negotiate` → `chacha20-poly1305`, connection transitions from NDJSON to encrypted frames.
+- **`btsp_encrypted_framing` module**: `encrypt_frame`/`decrypt_frame` (ChaCha20-Poly1305), `SessionKeys` (HKDF-SHA256, `Zeroize`/`ZeroizeOnDrop`), async frame I/O. Wire: `[4B BE u32 len][12B nonce][ciphertext+tag]`.
+- **Key derivation**: HKDF-SHA256 with `btsp-session-v1-c2s`/`s2c` info strings. 32-byte base64 nonces (ecosystem convergence).
+- **`BtspSession` evolved**: stores `handshake_key` + `client_ephemeral_pub` from Phase 2.
+- **Transport upgrade wiring**: `handle_jsonrpc_loop` detects negotiate upgrade → `handle_encrypted_connection`.
+- **21 new tests**, **3 new crate deps** (`chacha20poly1305`, `hkdf`, `sha2`).
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,213 / 0 failures), `deny` ✓
+
+### May 2, 2026 session AT (BTSP Phase 3 negotiate + deep debt: lying stubs, large file refactor)
+
+- **BTSP Phase 3 `btsp.negotiate` handler**: Session validation, cipher negotiation, NULL cipher fallback.
+- **Smart refactor `tarpc_server.rs`** (847L → 388L + 476L): `tarpc_dispatch.rs` extraction.
+- **8 lying stubs eliminated** across 5 modules. Conservative `AiProviderAdapter::is_available` default.
+- **11 tests updated**, **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,192 / 0 failures), `deny` ✓
 
 ### April 28, 2026 session AO (deep debt: lying stubs, dead code, error honesty)
 

@@ -503,6 +503,10 @@ pub struct BtspNegotiateParams {
     #[serde(default = "default_null_cipher")]
     pub preferred_cipher: String,
 
+    /// Client nonce (base64-encoded 32 bytes) for key derivation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_nonce: Option<String>,
+
     /// Bond type (e.g. "Covalent")
     #[serde(default)]
     pub bond_type: String,
@@ -518,9 +522,12 @@ pub struct BtspNegotiateResult {
     /// Negotiated cipher ("chacha20-poly1305" or "null")
     pub cipher: String,
 
-    /// Server nonce (hex-encoded, present when cipher != "null")
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub server_nonce: Option<String>,
+    /// Server nonce (base64-encoded 32 bytes, always present)
+    pub server_nonce: String,
+
+    /// Whether the negotiation was accepted
+    #[serde(default)]
+    pub allowed: bool,
 }
 
 // =============================================================================

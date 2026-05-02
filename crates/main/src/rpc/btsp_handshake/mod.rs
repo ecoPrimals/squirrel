@@ -324,11 +324,27 @@ where
         ));
     }
 
-    // Phase 2: negotiate BTSP_NULL (plaintext after authentication).
-    // Full cipher negotiation (Phase 3) will use btsp.negotiate.
-    let cipher = "null".to_string();
+    send_complete_and_build_session(
+        stream,
+        json_line_mode,
+        session_id,
+        &verify_result,
+        client_hello.client_ephemeral_pub,
+    )
+    .await
+}
 
-    // Step 6: Send HandshakeComplete
+/// Step 6: send `HandshakeComplete` and build the session struct.
+async fn send_complete_and_build_session<S: AsyncWrite + Unpin>(
+    stream: &mut S,
+    json_line_mode: bool,
+    session_id: String,
+    verify_result: &serde_json::Value,
+    client_ephemeral_pub: String,
+) -> Result<BtspSession, BtspError> {
+    let cipher = "null".to_string();
+    let handshake_key = verify_result["handshake_key"].as_str().map(String::from);
+
     let complete = HandshakeComplete {
         cipher: cipher.clone(),
         session_id: session_id.clone(),
@@ -341,7 +357,12 @@ where
 
     info!(session_id = %session_id, cipher = %cipher, "BTSP handshake complete");
 
-    Ok(BtspSession { session_id, cipher })
+    Ok(BtspSession {
+        session_id,
+        cipher,
+        handshake_key,
+        client_ephemeral_pub: Some(client_ephemeral_pub),
+    })
 }
 
 /// Send a BTSP error frame to the client so it can fail fast and retry with cleartext.

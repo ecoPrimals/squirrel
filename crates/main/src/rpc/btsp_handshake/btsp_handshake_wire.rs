@@ -83,8 +83,15 @@ pub struct HandshakeErrorMsg {
 pub struct BtspSession {
     /// Established session id.
     pub session_id: String,
-    /// Negotiated cipher name.
+    /// Negotiated cipher name (Phase 2 always "null"; Phase 3 may upgrade).
     pub cipher: String,
+    /// Handshake key material from the BTSP provider (base64-encoded).
+    /// Present when the provider returns a `handshake_key` in `btsp.session.verify`.
+    /// Used by Phase 3 `btsp.negotiate` for HKDF key derivation.
+    pub handshake_key: Option<String>,
+    /// Client ephemeral public key from the `ClientHello` message.
+    /// Stored for Phase 3 nonce derivation context.
+    pub client_ephemeral_pub: Option<String>,
 }
 
 // ── Error type ──────────────────────────────────────────────────────────
