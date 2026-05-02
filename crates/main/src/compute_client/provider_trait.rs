@@ -365,19 +365,14 @@ impl ComputeProvider for LocalProcessProvider {
     }
 
     async fn execute_workload(&self, spec: WorkloadExecutionSpec) -> ComputeResult<Uuid> {
-        tracing::info!(name = %spec.name, id = %spec.id, "Local workload accepted (development mode)");
-        let result = WorkloadExecutionResult {
-            id: spec.id,
-            status: WorkloadStatus::Completed,
-            exit_code: Some(0),
-            logs: None,
-            metadata: HashMap::new(),
-        };
-        self.workloads
-            .lock()
-            .map_err(|e| ComputeProviderError::ProviderError(e.to_string()))?
-            .insert(spec.id, result);
-        Ok(spec.id)
+        tracing::warn!(
+            name = %spec.name,
+            id = %spec.id,
+            "Local compute provider cannot execute workloads — use compute capability discovery to route to a real compute primal"
+        );
+        Err(ComputeProviderError::ProviderError(
+            "local compute provider is a development fallback and cannot execute workloads — configure a compute primal via capability discovery".into(),
+        ))
     }
 
     async fn get_workload_status(&self, id: Uuid) -> ComputeResult<WorkloadExecutionResult> {
@@ -553,7 +548,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn local_provider_executes_and_tracks_workload() {
+    async fn local_provider_rejects_workload_execution() {
         let provider = LocalProcessProvider::new();
         let spec = WorkloadExecutionSpec {
             id: Uuid::new_v4(),
@@ -571,23 +566,11 @@ mod tests {
             },
             labels: HashMap::new(),
         };
-        let id = spec.id;
-        provider
-            .execute_workload(spec)
-            .await
-            .expect("should succeed");
-        let status = provider
-            .get_workload_status(id)
-            .await
-            .expect("should succeed");
-        assert_eq!(status.status, WorkloadStatus::Completed);
-
-        let list = provider.list_workloads().await.expect("should succeed");
-        assert_eq!(list.len(), 1);
-
-        provider.cancel_workload(id).await.expect("should succeed");
-        let list = provider.list_workloads().await.expect("should succeed");
-        assert!(list.is_empty());
+        let result = provider.execute_workload(spec).await;
+        assert!(
+            result.is_err(),
+            "local provider should reject workloads (development fallback only)"
+        );
     }
 
     #[tokio::test]

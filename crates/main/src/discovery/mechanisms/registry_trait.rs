@@ -134,11 +134,17 @@ impl ServiceRegistryProvider for UnavailableServiceRegistry {
     }
 
     async fn register_service(&self, _service: DiscoveredService) -> DiscoveryResult<()> {
-        Ok(())
+        Err(super::super::types::DiscoveryError::MechanismFailed {
+            mechanism: "unavailable-registry".into(),
+            reason: "no service registry backend configured — use capability discovery or configure a registry provider".into(),
+        })
     }
 
     async fn deregister_service(&self, _service_id: &str) -> DiscoveryResult<()> {
-        Ok(())
+        Err(super::super::types::DiscoveryError::MechanismFailed {
+            mechanism: "unavailable-registry".into(),
+            reason: "no service registry backend configured — use capability discovery or configure a registry provider".into(),
+        })
     }
 
     async fn health_check(&self) -> bool {

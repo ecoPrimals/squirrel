@@ -466,10 +466,10 @@ impl AsyncRead for UniversalTransport {
             #[cfg(windows)]
             UniversalTransport::NamedPipe(pipe) => std::pin::Pin::new(pipe).poll_read(cx, buf),
             UniversalTransport::Tcp(stream) => std::pin::Pin::new(stream).poll_read(cx, buf),
-            UniversalTransport::InProcess(_) => {
-                // In-process would implement actual channel reading
-                std::task::Poll::Ready(Ok(()))
-            }
+            UniversalTransport::InProcess(_) => std::task::Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "InProcess transport does not support raw I/O — use structured channel APIs",
+            ))),
         }
     }
 }
@@ -489,10 +489,10 @@ impl AsyncWrite for UniversalTransport {
             #[cfg(windows)]
             UniversalTransport::NamedPipe(pipe) => std::pin::Pin::new(pipe).poll_write(cx, buf),
             UniversalTransport::Tcp(stream) => std::pin::Pin::new(stream).poll_write(cx, buf),
-            UniversalTransport::InProcess(_) => {
-                // In-process would implement actual channel writing
-                std::task::Poll::Ready(Ok(buf.len()))
-            }
+            UniversalTransport::InProcess(_) => std::task::Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "InProcess transport does not support raw I/O — use structured channel APIs",
+            ))),
         }
     }
 

@@ -323,10 +323,9 @@ async fn test_evaluate_condition_javascript_not_implemented() {
     };
 
     let result = evaluator.evaluate_condition(&condition, &context).await;
-    assert!(result.is_ok());
     assert!(
-        !result.expect("test: operation should succeed"),
-        "JavaScript condition not implemented"
+        result.is_err(),
+        "JavaScript condition should return error (no script engine configured)"
     );
 }
 
@@ -341,9 +340,8 @@ async fn test_evaluate_condition_custom_not_implemented() {
     };
 
     let result = evaluator.evaluate_condition(&condition, &context).await;
-    assert!(result.is_ok());
     assert!(
-        !result.expect("test: operation should succeed"),
-        "Custom condition not implemented"
+        result.is_err(),
+        "Custom condition should return error (no custom evaluator registered)"
     );
 }

@@ -93,9 +93,12 @@ pub trait AiProviderAdapter: Send + Sync {
     /// Check if supports image generation
     fn supports_image_generation(&self) -> bool;
 
-    /// Check if provider is currently available
+    /// Check if provider is currently available.
+    ///
+    /// Implementors should perform a real reachability check (e.g., health probe).
+    /// Defaults to `false` (conservative: unknown availability is unavailable).
     async fn is_available(&self) -> bool {
-        true // Default: assume available
+        false
     }
 
     /// Generate text

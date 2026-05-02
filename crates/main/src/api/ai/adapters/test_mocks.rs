@@ -2,6 +2,9 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Test-only mock adapters for [`super::AiProvider`] enum variants.
+//!
+//! All test mocks override `is_available()` to return `true` since the trait
+//! default is `false` (conservative for production adapters without health probes).
 
 use super::{AiProviderAdapter, QualityTier};
 use crate::api::ai::types::{
@@ -26,6 +29,10 @@ impl AiProviderAdapter for MockTextAdapter {
     }
 
     fn is_local(&self) -> bool {
+        true
+    }
+
+    async fn is_available(&self) -> bool {
         true
     }
 
@@ -86,6 +93,10 @@ impl AiProviderAdapter for MockImageOnlyAdapter {
     }
 
     fn is_local(&self) -> bool {
+        true
+    }
+
+    async fn is_available(&self) -> bool {
         true
     }
 
@@ -153,6 +164,10 @@ impl AiProviderAdapter for MockFailingImageAdapter {
         true
     }
 
+    async fn is_available(&self) -> bool {
+        true
+    }
+
     fn cost_per_unit(&self) -> Option<f64> {
         Some(0.0)
     }
@@ -205,6 +220,10 @@ impl AiProviderAdapter for MockFallbackImageAdapter {
     }
 
     fn is_local(&self) -> bool {
+        true
+    }
+
+    async fn is_available(&self) -> bool {
         true
     }
 
@@ -278,6 +297,10 @@ impl AiProviderAdapter for ConstraintRouterMockAdapter {
         self.is_local
     }
 
+    async fn is_available(&self) -> bool {
+        true
+    }
+
     fn cost_per_unit(&self) -> Option<f64> {
         self.cost
     }
@@ -326,6 +349,10 @@ impl AiProviderAdapter for JsonRpcMockTextAdapter {
     }
 
     fn is_local(&self) -> bool {
+        true
+    }
+
+    async fn is_available(&self) -> bool {
         true
     }
 
@@ -416,6 +443,10 @@ impl AiProviderAdapter for TestAiAdapter {
     }
 
     fn is_local(&self) -> bool {
+        true
+    }
+
+    async fn is_available(&self) -> bool {
         true
     }
 

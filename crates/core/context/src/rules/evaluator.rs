@@ -95,21 +95,21 @@ impl RuleEvaluator {
                 }
             }
 
-            RuleCondition::JavaScript {
-                expression: _expression,
-            } => {
-                // JavaScript execution not implemented yet
-                warn!("JavaScript condition not implemented");
-                Ok(false)
+            RuleCondition::JavaScript { expression: _ } => {
+                warn!(
+                    "JavaScript condition evaluation not available — no script engine configured"
+                );
+                Err(RuleError::EvaluationError(
+                    "JavaScript condition evaluation not available — no script engine configured"
+                        .into(),
+                ))
             }
 
-            RuleCondition::Custom {
-                id: _id,
-                config: _config,
-            } => {
-                // Custom condition not implemented yet
-                warn!("Custom condition not implemented");
-                Ok(false)
+            RuleCondition::Custom { id, config: _ } => {
+                warn!(id = %id, "Custom condition type not available — no custom evaluator registered");
+                Err(RuleError::EvaluationError(format!(
+                    "custom condition type '{id}' not available — no custom evaluator registered"
+                )))
             }
         }
     }

@@ -11,14 +11,20 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
-### Summary (May 2, 2026 — session AT: BTSP Phase 3 — `btsp.negotiate` server-side handler)
+### Summary (May 2, 2026 — session AT: BTSP Phase 3 + deep debt — lying stubs, large file refactor, honesty evolution)
 
-**7,192** tests, **~998** `.rs` files, **~326k** lines, **90.1%** region coverage (target met).
+**7,192** tests, **~999** `.rs` files, **~327k** lines, **90.1%** region coverage (target met).
 
 - **BTSP Phase 3 `btsp.negotiate` handler**: Added server-side JSON-RPC method for encrypted channel negotiation. After Phase 2 handshake, clients can send `btsp.negotiate` with session_id and preferred_cipher. Currently returns `{"cipher":"null"}` (authenticated plaintext fallback) — primalSpring handles gracefully, zero breakage. Session tracking store (`DashMap<String, BtspSession>`) wired into `JsonRpcServer` and populated on successful Phase 2 handshake.
 - **tarpc parity**: `BtspNegotiateParams` / `BtspNegotiateResult` types and `btsp_negotiate` method added to the `SquirrelRpc` trait.
 - **Wire Standard L3 compliance**: `btsp.negotiate` included in `capabilities.list`, `cost_estimates`, `operation_dependencies`, and `capability_registry.toml`.
-- **3 new tests**: Session validation, unknown session rejection, null cipher response.
+- **Smart refactor `tarpc_server.rs`** (847L → 388L + 476L): Extracted `SquirrelRpc` trait implementation into `tarpc_dispatch.rs`. Same pattern as `jsonrpc_dispatch.rs`. Zero production files >800 lines.
+- **`UnavailableServiceRegistry` honesty**: `register_service`/`deregister_service` now return errors instead of silently succeeding. Discovery methods remain honest empty.
+- **`LocalProcessProvider` honesty**: `execute_workload` now returns error instead of fabricating "Completed" workloads. Development fallback directs callers to capability discovery.
+- **`UniversalTransport::InProcess` honesty**: `poll_read`/`poll_write` now return `Unsupported` error instead of pretending I/O succeeded with empty/discarded data.
+- **`RuleCondition::JavaScript`/`Custom` honesty**: Now return `RuleError::EvaluationError` instead of lying `Ok(false)` — callers can distinguish "condition failed" from "engine missing."
+- **`AiProviderAdapter::is_available` conservative default**: Changed from `true` (optimistic lie) to `false` (honest: unknown = unavailable). All test mocks explicitly return `true`.
+- **11 tests updated** to expect new honest error behavior.
 
 ### Summary (April 30, 2026 — session AS: deep debt — lying stubs, marketplace honesty, distribution safety)
 

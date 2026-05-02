@@ -58,6 +58,8 @@ pub mod unix_socket;
 #[cfg(feature = "tarpc-rpc")]
 pub mod tarpc_client;
 #[cfg(feature = "tarpc-rpc")]
+mod tarpc_dispatch;
+#[cfg(feature = "tarpc-rpc")]
 pub mod tarpc_server;
 #[cfg(feature = "tarpc-rpc")]
 pub mod tarpc_service;

@@ -419,10 +419,15 @@ async fn test_async_read_write_inprocess() {
     let mut transport = UniversalTransport::InProcess(InProcessTransport::new());
 
     let data = b"hello world";
-    let written = tokio::io::AsyncWriteExt::write(&mut transport, data)
-        .await
-        .expect("write should succeed");
-    assert_eq!(written, data.len());
+    let write_result = tokio::io::AsyncWriteExt::write(&mut transport, data).await;
+    assert!(
+        write_result.is_err(),
+        "InProcess write should return Unsupported error"
+    );
+    assert_eq!(
+        write_result.unwrap_err().kind(),
+        std::io::ErrorKind::Unsupported
+    );
 
     AsyncWriteExt::flush(&mut transport)
         .await
@@ -433,10 +438,11 @@ async fn test_async_read_write_inprocess() {
         .expect("shutdown should succeed");
 
     let mut buf = vec![0u8; 64];
-    let read = AsyncReadExt::read(&mut transport, &mut buf)
-        .await
-        .expect("read should succeed");
-    assert_eq!(read, 0, "InProcess read stub returns empty");
+    let read_result = AsyncReadExt::read(&mut transport, &mut buf).await;
+    assert!(
+        read_result.is_err(),
+        "InProcess read should return Unsupported error"
+    );
 }
 
 #[test]
