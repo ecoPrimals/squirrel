@@ -493,6 +493,36 @@ pub struct ProviderDeregisterResult {
     pub message: String,
 }
 
+/// BTSP Phase 3 negotiate parameters
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BtspNegotiateParams {
+    /// Session ID from Phase 2 handshake
+    pub session_id: String,
+
+    /// Preferred cipher suite (e.g. "chacha20-poly1305")
+    #[serde(default = "default_null_cipher")]
+    pub preferred_cipher: String,
+
+    /// Bond type (e.g. "Covalent")
+    #[serde(default)]
+    pub bond_type: String,
+}
+
+fn default_null_cipher() -> String {
+    "null".to_string()
+}
+
+/// BTSP Phase 3 negotiate result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BtspNegotiateResult {
+    /// Negotiated cipher ("chacha20-poly1305" or "null")
+    pub cipher: String,
+
+    /// Server nonce (hex-encoded, present when cipher != "null")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_nonce: Option<String>,
+}
+
 // =============================================================================
 // Service trait
 // =============================================================================
@@ -528,6 +558,7 @@ pub struct ProviderDeregisterResult {
 /// | `provider_register` | `provider.register` |
 /// | `provider_list` | `provider.list` |
 /// | `provider_deregister` | `provider.deregister` |
+/// | `btsp_negotiate` | `btsp.negotiate` |
 /// | `lifecycle_register` | `lifecycle.register` |
 /// | `lifecycle_status` | `lifecycle.status` |
 #[tarpc::service]
@@ -629,6 +660,11 @@ pub trait SquirrelRpc {
     ///
     /// Semantic: `provider.deregister` (JSON-RPC)
     async fn provider_deregister(provider_id: String) -> ProviderDeregisterResult;
+
+    /// Negotiate BTSP Phase 3 cipher for encrypted channel
+    ///
+    /// Semantic: `btsp.negotiate` (JSON-RPC)
+    async fn btsp_negotiate(params: BtspNegotiateParams) -> BtspNegotiateResult;
 
     /// Register with biomeOS orchestrator
     ///

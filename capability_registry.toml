@@ -357,6 +357,25 @@ required = ["provider_id"]
 [capabilities.provider_deregister.input_schema.properties.provider_id]
 type = "string"
 
+# --- BTSP domain (Phase 3 - encrypted channel) ---
+
+[capabilities.btsp_negotiate]
+method = "btsp.negotiate"
+domain = "btsp.security"
+description = "Negotiate cipher for BTSP Phase 3 encrypted channel upgrade"
+[capabilities.btsp_negotiate.input_schema]
+type = "object"
+required = ["session_id"]
+[capabilities.btsp_negotiate.input_schema.properties.session_id]
+type = "string"
+description = "Session ID from Phase 2 handshake"
+[capabilities.btsp_negotiate.input_schema.properties.preferred_cipher]
+type = "string"
+description = "Preferred cipher suite (e.g. chacha20-poly1305)"
+[capabilities.btsp_negotiate.input_schema.properties.bond_type]
+type = "string"
+description = "Bond type (e.g. Covalent)"
+
 # --- Lifecycle domain (Phase 2 - biomeOS) ---
 
 [capabilities.lifecycle_register]

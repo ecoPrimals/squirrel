@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 2, 2026 — session AT: BTSP Phase 3 — `btsp.negotiate` server-side handler)
+
+**7,192** tests, **~998** `.rs` files, **~326k** lines, **90.1%** region coverage (target met).
+
+- **BTSP Phase 3 `btsp.negotiate` handler**: Added server-side JSON-RPC method for encrypted channel negotiation. After Phase 2 handshake, clients can send `btsp.negotiate` with session_id and preferred_cipher. Currently returns `{"cipher":"null"}` (authenticated plaintext fallback) — primalSpring handles gracefully, zero breakage. Session tracking store (`DashMap<String, BtspSession>`) wired into `JsonRpcServer` and populated on successful Phase 2 handshake.
+- **tarpc parity**: `BtspNegotiateParams` / `BtspNegotiateResult` types and `btsp_negotiate` method added to the `SquirrelRpc` trait.
+- **Wire Standard L3 compliance**: `btsp.negotiate` included in `capabilities.list`, `cost_estimates`, `operation_dependencies`, and `capability_registry.toml`.
+- **3 new tests**: Session validation, unknown session rejection, null cipher response.
+
 ### Summary (April 30, 2026 — session AS: deep debt — lying stubs, marketplace honesty, distribution safety)
 
 **7,189** tests, **~997** `.rs` files, **~326k** lines, **90.1%** region coverage (target met).

@@ -219,6 +219,7 @@ pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
     ("provider.register", 5, false),
     ("provider.list", 2, false),
     ("provider.deregister", 5, false),
+    ("btsp.negotiate", 2, false),
     ("lifecycle.register", 10, false),
     ("lifecycle.status", 1, false),
     ("graph.parse", 5, false),
@@ -263,6 +264,7 @@ pub fn operation_dependencies() -> serde_json::Value {
         "provider.list": [],
         "provider.deregister": ["provider_id"],
         "lifecycle.register": [],
+        "btsp.negotiate": ["session_id"],
         "lifecycle.status": [],
         "graph.parse": ["graph_toml"],
         "graph.validate": ["graph_toml"],
@@ -306,6 +308,7 @@ pub fn cost_estimates_json() -> serde_json::Value {
         "provider.register":     { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
         "provider.list":         { "latency_ms": 2,   "cpu": "low",    "memory_bytes": 1024,  "gpu_beneficial": false },
         "provider.deregister":   { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
+        "btsp.negotiate":        { "latency_ms": 2,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
         "lifecycle.register":    { "latency_ms": 10,  "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
         "lifecycle.status":      { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
         "graph.parse":           { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 2048,  "gpu_beneficial": false },
@@ -413,6 +416,10 @@ pub const CAPABILITY_GROUP_DESCRIPTIONS: &[(&str, &str)] = &[
     (
         "provider",
         "Provider registration: springs register/deregister capabilities for routing",
+    ),
+    (
+        "btsp",
+        "BTSP Phase 3: cipher negotiation for encrypted channel upgrade",
     ),
     (
         "lifecycle",

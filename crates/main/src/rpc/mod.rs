@@ -34,6 +34,7 @@
 // Core modules (Pure Rust!)
 pub mod btsp_handshake;
 mod handlers_ai;
+mod handlers_btsp;
 mod handlers_capability;
 mod handlers_context;
 mod handlers_graph;

@@ -88,6 +88,10 @@ pub struct JsonRpcServer {
     /// via `provider.register` so Squirrel can route requests to them.
     pub(crate) provider_registry: Arc<crate::universal_adapters::InMemoryServiceRegistry>,
 
+    /// Active BTSP sessions from Phase 2 handshake — keyed by session_id.
+    /// Used by `btsp.negotiate` (Phase 3) to validate negotiation requests.
+    pub(crate) btsp_sessions: Arc<dashmap::DashMap<String, super::btsp_handshake::BtspSession>>,
+
     /// When set, binds an additional TCP JSON-RPC listener on `<tcp_bind_host>:<port>`.
     tcp_port: Option<u16>,
 
@@ -122,6 +126,7 @@ impl JsonRpcServer {
             announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
             capability_registry: Self::load_registry(),
             provider_registry: Arc::new(crate::universal_adapters::InMemoryServiceRegistry::new()),
+            btsp_sessions: Arc::new(dashmap::DashMap::new()),
             tcp_port: None,
             tcp_bind_host: LOCALHOST_IPV4.to_string(),
         }
@@ -138,6 +143,7 @@ impl JsonRpcServer {
             announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
             capability_registry: Self::load_registry(),
             provider_registry: Arc::new(crate::universal_adapters::InMemoryServiceRegistry::new()),
+            btsp_sessions: Arc::new(dashmap::DashMap::new()),
             tcp_port: None,
             tcp_bind_host: LOCALHOST_IPV4.to_string(),
         }
@@ -299,6 +305,7 @@ impl JsonRpcServer {
             Ok(session) => {
                 if let Some(ref s) = session {
                     debug!(session_id = %s.session_id, "BTSP authenticated");
+                    server.btsp_sessions.insert(s.session_id.clone(), s.clone());
                 }
                 if let Err(e) = server.clone().handle_universal_connection(transport).await {
                     error!("Error handling connection: {}", e);

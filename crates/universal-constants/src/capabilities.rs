@@ -104,6 +104,8 @@ pub const SQUIRREL_EXPOSED_CAPABILITIES: &[&str] = &[
     "provider.register",
     "provider.list",
     "provider.deregister",
+    // BTSP Phase 3
+    "btsp.negotiate",
     // Lifecycle (biomeOS)
     "lifecycle.register",
     "lifecycle.status",

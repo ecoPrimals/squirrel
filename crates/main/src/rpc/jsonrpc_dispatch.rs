@@ -71,6 +71,9 @@ impl JsonRpcServer {
             "provider.list" => self.handle_provider_list().await,
             "provider.deregister" => self.handle_provider_deregister(params).await,
 
+            // BTSP domain — Phase 3 encrypted channel negotiation
+            "btsp.negotiate" => self.handle_btsp_negotiate(params).await,
+
             // Lifecycle domain — biomeOS registration
             "lifecycle.register" => self.handle_lifecycle_register().await,
             "lifecycle.status" => self.handle_lifecycle_status().await,

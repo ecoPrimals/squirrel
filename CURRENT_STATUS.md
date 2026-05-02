@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 30, 2026
+**Last Updated**: May 2, 2026
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,189 passing / 0 failures across 22 workspace crates |
+| Tests | 7,192 passing / 0 failures across 22 workspace crates |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -51,6 +51,7 @@ Source of truth: [`capability_registry.toml`](capability_registry.toml)
 | Health | **`health.check`**, **`health.liveness`**, **`health.readiness`** (canonical — PRIMAL_IPC_PROTOCOL v3.0) |
 | Discovery | `discovery.peers`, `discovery.list` (alias) |
 | Tool | `tool.execute`, `tool.list` |
+| BTSP | `btsp.negotiate` (Phase 3 encrypted channel negotiation) |
 | Lifecycle | `lifecycle.register`, `lifecycle.status` |
 | Graph | `graph.parse`, `graph.validate` (primalSpring BYOB) |
 
@@ -76,7 +77,7 @@ Follows the groundSpring/wetSpring/airSpring niche pattern:
 
 | Constant | What |
 |----------|------|
-| `CAPABILITIES` | 34 exposed methods (inference, ai, capabilities, capability, identity, system, health, discovery, tool, context, provider, lifecycle, graph) |
+| `CAPABILITIES` | 35 exposed methods (inference, ai, capabilities, capability, identity, system, health, discovery, tool, context, provider, btsp, lifecycle, graph) |
 | `CONSUMED_CAPABILITIES` | 32 external capabilities from security, service-mesh, compute, content-storage providers, domain springs, rhizoCrypt, sweetGrass, primalSpring |
 | `COST_ESTIMATES` | Per-method latency and GPU hints for Pathway Learner scheduling |
 | `DEPENDENCIES` | 6 primals (security-provider, service-mesh required; compute, content-storage, primalspring, petaltongue optional) |

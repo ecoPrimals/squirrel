@@ -16,13 +16,14 @@
 // Note: This module is feature-gated via #[cfg(feature = "tarpc-rpc")] in mod.rs
 
 use super::tarpc_service::{
-    AnnounceCapabilitiesParams, AnnounceCapabilitiesResult, CapabilityDiscoverResult,
-    ContextCreateParams, ContextCreateResult, ContextSummarizeParams, ContextSummarizeResult,
-    ContextUpdateParams, ContextUpdateResult, DiscoveryPeersResult, HealthCheckResult,
-    LifecycleRegisterResult, LifecycleStatusResult, ListProvidersResult, PeerInfo, PingResult,
-    ProviderDeregisterResult, ProviderInfo, ProviderListResult, ProviderRegisterParams,
-    ProviderRegisterResult, QueryAiParams, QueryAiResult, SquirrelRpc, SystemMetricsResult,
-    ToolExecuteResult, ToolListEntry, ToolListResult, ToolSource,
+    AnnounceCapabilitiesParams, AnnounceCapabilitiesResult, BtspNegotiateParams,
+    BtspNegotiateResult, CapabilityDiscoverResult, ContextCreateParams, ContextCreateResult,
+    ContextSummarizeParams, ContextSummarizeResult, ContextUpdateParams, ContextUpdateResult,
+    DiscoveryPeersResult, HealthCheckResult, LifecycleRegisterResult, LifecycleStatusResult,
+    ListProvidersResult, PeerInfo, PingResult, ProviderDeregisterResult, ProviderInfo,
+    ProviderListResult, ProviderRegisterParams, ProviderRegisterResult, QueryAiParams,
+    QueryAiResult, SquirrelRpc, SystemMetricsResult, ToolExecuteResult, ToolListEntry,
+    ToolListResult, ToolSource,
 };
 use anyhow::Result;
 use futures::prelude::*;
@@ -761,6 +762,35 @@ impl SquirrelRpc for TarpcRpcServer {
             Err(e) => ProviderDeregisterResult {
                 success: false,
                 message: e.message,
+            },
+        }
+    }
+
+    async fn btsp_negotiate(
+        self,
+        _ctx: context::Context,
+        params: BtspNegotiateParams,
+    ) -> BtspNegotiateResult {
+        let json_params = serde_json::json!({
+            "session_id": params.session_id,
+            "preferred_cipher": params.preferred_cipher,
+            "bond_type": params.bond_type,
+        });
+        match self.jsonrpc.handle_btsp_negotiate(Some(json_params)).await {
+            Ok(v) => BtspNegotiateResult {
+                cipher: v
+                    .get("cipher")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("null")
+                    .to_string(),
+                server_nonce: v
+                    .get("server_nonce")
+                    .and_then(|x| x.as_str())
+                    .map(String::from),
+            },
+            Err(_) => BtspNegotiateResult {
+                cipher: "null".to_string(),
+                server_nonce: None,
             },
         }
     }
