@@ -11,6 +11,16 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 3, 2026 — session AW: deep debt audit — refactor, dead code removal, hardcoding cleanup)
+
+**7,216** tests, **~1,004** `.rs` files, **~327k** lines, **90.1%** region coverage (target met).
+
+- **Smart refactor `jsonrpc_server.rs`** (890L → 675L + 225L): Extracted request parsing/dispatch (`handle_request_or_batch`, `handle_single_request`, `handle_single_request_object`) into `jsonrpc_request_processing.rs`. Zero production `.rs` files >800 lines.
+- **Dead `SongbirdLoadBalancerConfig` alias removed**: Deprecated type alias and trait had zero callers outside their definition — removed as dead code.
+- **Dead `parse_primal_type` removed**: Hardcoded primal-type-to-enum parser was unused (`#[expect(dead_code)]`). Ecosystem coordination now uses capability-based discovery exclusively.
+- **Comment hygiene**: `ecosystem_coordination.rs` task routing comment updated from "would delegate to Songbird" to accurate "caller invokes via IPC using capability-based discovery."
+- **Audit results (no action needed)**: Zero `unsafe` code, zero `todo!()`/`unimplemented!()`/FIXME/HACK markers, all external dependencies are pure Rust (no C/FFI), production mocks are intentional and documented (plugin stubs, platform fallbacks, WASM sandbox).
+
 ### Summary (May 3, 2026 — session AV: Phase 3 transport switch verification + GAP-06 closure)
 
 **7,216** tests, **~1,003** `.rs` files, **~327k** lines, **90.1%** region coverage (target met).

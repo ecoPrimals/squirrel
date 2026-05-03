@@ -207,15 +207,6 @@ pub use types::{
     MeshFederationConfig, MeshFederationStats, MeshLoadBalancingStrategy, MeshServiceStats,
 };
 
-// Deprecated alias for backward compatibility (`ServiceMeshLoadBalancerConfig` is the canonical name, re-exported from [`types`]).
-#[cfg(feature = "mesh")]
-#[deprecated(
-    since = "0.2.0",
-    note = "Use ServiceMeshLoadBalancerConfig (service mesh is discovered by capability at runtime)"
-)]
-/// Deprecated alias for [`ServiceMeshLoadBalancerConfig`].
-pub type SongbirdLoadBalancerConfig = types::ServiceMeshLoadBalancerConfig;
-
 // Service Mesh Load Balancer Integration Trait (Capability-Based)
 #[cfg(feature = "mesh")]
 #[expect(
@@ -242,15 +233,6 @@ pub trait ServiceMeshLoadBalancerIntegration: Send + Sync {
     /// Coordinate with service mesh during scaling events
     async fn coordinate_scaling(&self, scale_event: &ScaleEvent) -> Result<ScaleRecommendation>;
 }
-
-// Deprecated alias for backward compatibility
-#[cfg(feature = "mesh")]
-#[deprecated(
-    since = "0.2.0",
-    note = "Use ServiceMeshLoadBalancerIntegration (discover mesh capabilities at runtime)"
-)]
-/// Deprecated marker trait; use [`ServiceMeshLoadBalancerIntegration`] instead.
-pub trait SongbirdLoadBalancerIntegration: ServiceMeshLoadBalancerIntegration {}
 
 // Enhanced MCP Router with Service Mesh Integration
 #[cfg(feature = "mesh")]

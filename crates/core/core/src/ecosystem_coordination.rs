@@ -10,8 +10,6 @@ use crate::{
     EcosystemMode, Error, HealthStatus, MonitoringEvent, PrimalCoordinator, PrimalEndpoint,
     PrimalType, Result, Task, TaskResult,
 };
-use universal_constants::primal_names;
-
 impl PrimalCoordinator for EcosystemService {
     async fn register_with_ecosystem(&self) -> Result<()> {
         self.config
@@ -254,20 +252,6 @@ impl EcosystemService {
         )))
     }
 
-    /// Parse primal type from string
-    #[expect(dead_code, reason = "Phase 2 placeholder — primal type parsing")]
-    fn parse_primal_type(type_str: &str) -> Result<PrimalType> {
-        match type_str.to_lowercase().as_str() {
-            primal_names::SQUIRREL => Ok(PrimalType::Squirrel),
-            primal_names::SONGBIRD => Ok(PrimalType::Songbird),
-            primal_names::NESTGATE => Ok(PrimalType::NestGate),
-            primal_names::BEARDOG => Ok(PrimalType::BearDog),
-            primal_names::TOADSTOOL => Ok(PrimalType::ToadStool),
-            primal_names::BIOMEOS => Ok(PrimalType::BiomeOS),
-            _ => Err(Error::Discovery(format!("Unknown primal type: {type_str}"))),
-        }
-    }
-
     /// Route task to appropriate primal using capability discovery pattern
     ///
     /// Resolution order:
@@ -336,8 +320,8 @@ impl EcosystemService {
             selected.endpoint
         );
 
-        // Actual invocation would delegate to Songbird/Unix socket; for now return
-        // structured result indicating routing decision. Caller records executed_by.
+        // Returns the routing decision; caller invokes via IPC using the endpoint.
+        // Cross-primal invocation uses capability-based discovery (ipc.find_provider).
         Ok(serde_json::json!({
             "result": "task_routed",
             "task_id": task.id,

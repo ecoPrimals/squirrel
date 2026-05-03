@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: May 2, 2026
+**Last Updated**: May 3, 2026
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,216 passing / 0 failures across 22 workspace crates |
+| Tests | 7,216 passing / 0 failures across 22 workspace crates; ~1,004 `.rs` files, ~327k lines |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -24,7 +24,7 @@
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors + `anyhow::Result` (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`, `anyhow::Error`) |
 | Crates | 22 workspace members |
-| Files >800 lines (prod) | 0 — all production `.rs` files under 800 lines; max production file ~798L (`security/orchestrator/mod.rs`); test files up to ~1,105L (expected) |
+| Files >800 lines (prod) | 0 — all production `.rs` files under 800 lines; max production file ~796L (`security/orchestrator/mod.rs`); test files up to ~1,105L (expected) |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
@@ -276,6 +276,14 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
 
 ## Changes Since Last Handoff (April 28, 2026)
+
+### May 3, 2026 session AW (deep debt audit — refactor + dead code removal)
+
+- **Smart refactor `jsonrpc_server.rs`** (890L → 675L): Extracted request processing into `jsonrpc_request_processing.rs` (225L). Zero production files >800 lines.
+- **Dead code removed**: `SongbirdLoadBalancerConfig` alias (0 callers), `SongbirdLoadBalancerIntegration` trait (0 callers), `parse_primal_type` (hardcoded primal-name parser, unused).
+- **Comment hygiene**: Legacy "would delegate to Songbird" comment updated to capability-based discovery language.
+- **Audit clean**: Zero `unsafe`, zero `todo!`/`unimplemented!`/FIXME/HACK, all deps pure Rust, all remaining stubs intentional + documented.
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,216 / 0 failures), `deny` ✓
 
 ### May 3, 2026 session AV (Phase 3 transport switch verification + GAP-06 closure)
 
