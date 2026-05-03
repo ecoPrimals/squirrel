@@ -5,14 +5,14 @@
 //! Discovery service registration and heartbeat
 //!
 //! Follows the wetSpring pattern: register capabilities with the discovery service via
-//! `discovery.register` and maintain a `discovery.heartbeat` loop.
+//! `ipc.register` and maintain an `ipc.heartbeat` loop.
 //!
 //! ## Capability-Based Discovery (TRUE PRIMAL)
 //!
 //! Squirrel discovers the **"discovery" capability**, not a specific primal.
-//! Whichever service exposes `discovery.register` and `discovery.heartbeat`
-//! satisfies the dependency. Today that is Songbird; tomorrow it could be
-//! any conformant service.
+//! Whichever service exposes `ipc.register` and `ipc.heartbeat` satisfies
+//! the dependency. Today that is Songbird; tomorrow it could be any
+//! conformant service.
 //!
 //! ## Socket discovery order
 //!

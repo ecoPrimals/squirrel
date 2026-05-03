@@ -102,10 +102,10 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "secrets.retrieve",
     "secrets.list",
     "secrets.delete",
-    // Discovery domain (service mesh)
-    "discovery.register",
-    "discovery.find_primals",
-    "discovery.query",
+    // IPC domain (service mesh — canonical naming per GAP-06)
+    "ipc.register",
+    "ipc.heartbeat",
+    "ipc.find_provider",
     // Compute domain (GPU dispatch, hardware)
     "compute.execute",
     "compute.submit",

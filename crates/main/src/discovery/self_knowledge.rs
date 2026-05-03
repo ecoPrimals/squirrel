@@ -621,7 +621,7 @@ mod tests {
 
     #[test]
     fn test_niche_consumed_capabilities() {
-        assert!(niche::CONSUMED_CAPABILITIES.contains(&"discovery.register"));
+        assert!(niche::CONSUMED_CAPABILITIES.contains(&"ipc.register"));
         assert!(niche::CONSUMED_CAPABILITIES.contains(&"crypto.sign"));
         assert!(niche::CONSUMED_CAPABILITIES.iter().all(|c| c.contains('.')));
     }

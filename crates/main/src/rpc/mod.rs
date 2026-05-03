@@ -68,6 +68,8 @@ pub mod tarpc_service;
 pub mod tarpc_transport;
 
 // Integration tests (test-only)
+#[cfg(test)]
+mod btsp_transport_switch_tests;
 #[cfg(all(test, feature = "tarpc-rpc"))]
 mod tarpc_integration_tests;
 

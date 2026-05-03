@@ -171,10 +171,8 @@ async fn test_handle_discover_capabilities() -> TestResult {
         .and_then(|v| v.as_array())
         .expect("test: consumed_capabilities must be array");
     assert!(
-        consumed
-            .iter()
-            .any(|c| c.as_str() == Some("discovery.register")),
-        "consumed_capabilities must include discovery.register"
+        consumed.iter().any(|c| c.as_str() == Some("ipc.register")),
+        "consumed_capabilities must include ipc.register"
     );
     Ok(())
 }

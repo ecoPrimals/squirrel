@@ -379,7 +379,7 @@ impl JsonRpcServer {
     /// - If client sends "PROTOCOLS: ..." → negotiate and route to selected protocol
     /// - If client sends JSON-RPC request → default to JSON-RPC
     /// - tarpc provides higher performance for bulk operations
-    async fn handle_universal_connection(
+    pub(crate) async fn handle_universal_connection(
         self: std::sync::Arc<Self>,
         transport: UniversalTransport,
     ) -> Result<()> {
@@ -443,7 +443,7 @@ impl JsonRpcServer {
         first_line: String,
     ) -> Result<()> {
         if let Some(response_json) = self.handle_request_or_batch(&first_line).await {
-            let mut out = response_json;
+            let mut out = response_json.clone();
             out.push('\n');
             reader
                 .get_mut()
@@ -455,6 +455,17 @@ impl JsonRpcServer {
                 .flush()
                 .await
                 .context("Failed to flush JSON-RPC response")?;
+
+            if let Some(session_id) = Self::detect_negotiate_upgrade(&first_line, &response_json) {
+                info!(
+                    session_id = %session_id,
+                    "BTSP Phase 3: switching to encrypted frame loop (first message)"
+                );
+                let transport = reader.into_inner();
+                return self
+                    .handle_encrypted_connection(transport, &session_id)
+                    .await;
+            }
         }
 
         self.handle_jsonrpc_loop(reader).await

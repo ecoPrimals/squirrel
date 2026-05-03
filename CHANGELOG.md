@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 3, 2026 — session AV: Phase 3 transport switch verification + GAP-06 closure)
+
+**7,216** tests, **~1,003** `.rs` files, **~327k** lines, **90.1%** region coverage (target met).
+
+- **Transport switch verification**: 3 integration tests exercising full post-negotiate encrypted frame loop on live Unix socket connections. Tests cover: NDJSON→negotiate→encrypted roundtrip, NULL cipher stays in NDJSON, and multiple sequential encrypted frames.
+- **First-message negotiate bug fixed**: `handle_jsonrpc_with_first_line` now detects `btsp.negotiate` → `chacha20-poly1305` upgrade on the very first JSON-RPC message (previously only detected in the loop path). Without this fix, a client sending negotiate as its first message would hang.
+- **GAP-06 closed**: `CONSUMED_CAPABILITIES` evolved from legacy `discovery.register`, `discovery.find_primals`, `discovery.query` to canonical `ipc.register`, `ipc.heartbeat`, `ipc.find_provider`. Module docs updated. Cosmetic naming gap shared with Songbird now resolved for Squirrel.
+
 ### Summary (May 2, 2026 — session AU: BTSP Phase 3 FULL — encrypted framing, key derivation, transport upgrade)
 
 **7,213** tests, **~1,002** `.rs` files, **~327k** lines, **90.1%** region coverage (target met).
