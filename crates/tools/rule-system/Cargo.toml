@@ -22,7 +22,6 @@ anyhow.workspace = true
 chrono.workspace = true
 tracing.workspace = true
 glob.workspace = true
-notify = { version = "5.0", optional = true }
 toml.workspace = true
 regex.workspace = true
 serde_yaml_ng.workspace = true
@@ -34,4 +33,3 @@ tempfile.workspace = true
 
 [features]
 default = []
-watcher = ["dep:notify"]

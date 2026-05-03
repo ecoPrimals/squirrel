@@ -8,9 +8,8 @@ use std::sync::{Arc, RwLock};
 use super::service_types::{FederationState, capability_unavailable_federation};
 use super::types::{FederationConfig, FederationStats, ScalingPolicy};
 use crate::{
-    Error, FederationLoadBalancer, FederationStatus, FederationTopology, InstanceStatus,
-    LoadMetrics, Result, SquirrelConfig, SquirrelInstance, SwarmManager,
-    monitoring::MonitoringService,
+    FederationLoadBalancer, FederationStatus, FederationTopology, InstanceStatus, LoadMetrics,
+    Result, SquirrelConfig, SquirrelInstance, SwarmManager, monitoring::MonitoringService,
 };
 use universal_constants::limits::DEFAULT_MAX_CONNECTIONS;
 use universal_constants::network::{DEFAULT_SQUIRREL_SERVER_PORT, get_service_port};
@@ -40,7 +39,7 @@ impl FederationService {
     ///
     /// # Errors
     ///
-    /// Returns [`Error`] if the service cannot be constructed.
+    /// Returns [`crate::Error`] if the service cannot be constructed.
     pub fn new(config: FederationConfig) -> Result<Self> {
         let federation_id: Arc<str> = format!("fed-{}", uuid::Uuid::new_v4()).into();
 
@@ -94,7 +93,7 @@ impl FederationService {
     ///
     /// # Errors
     ///
-    /// Returns [`Error`] if federation initialization fails.
+    /// Returns [`crate::Error`] if federation initialization fails.
     #[expect(
         clippy::unused_async,
         reason = "Async API matches callers that await start (e.g. squirrel-mcp-server)"
@@ -740,7 +739,7 @@ impl FederationService {
     ///
     /// # Errors
     ///
-    /// Returns [`Error`] if teardown steps fail.
+    /// Returns [`crate::Error`] if teardown steps fail.
     #[expect(
         clippy::unused_async,
         reason = "Async API matches callers that await shutdown (e.g. squirrel-mcp-server) and future async teardown"

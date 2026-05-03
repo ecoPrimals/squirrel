@@ -15,8 +15,6 @@ default = ["console"]
 console = ["console_error_panic_hook"]
 ## http feature removed (stadial gate: reqwest lockfile ghost eliminated)
 fs = []
-storage = []
-web = []
 mcp = []
 config = ["squirrel-mcp-config"]
 

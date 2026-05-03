@@ -7,8 +7,8 @@ use chrono::Utc;
 
 use super::ecosystem_service::EcosystemService;
 use crate::{
-    EcosystemMode, Error, HealthStatus, MonitoringEvent, PrimalCoordinator, PrimalEndpoint,
-    PrimalType, Result, Task, TaskResult,
+    EcosystemMode, Error, HealthStatus, MonitoringEvent, PrimalCoordinator, PrimalEndpoint, Result,
+    Task, TaskResult,
 };
 impl PrimalCoordinator for EcosystemService {
     async fn register_with_ecosystem(&self) -> Result<()> {

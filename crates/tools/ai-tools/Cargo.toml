@@ -82,7 +82,6 @@ default = ["capability-ai"]
 capability-ai = []
 
 ## direct-http/anthropic/openai/gemini features removed (stadial gate: reqwest lockfile ghost eliminated)
-local = []
 testing = []
 
 [[bin]]

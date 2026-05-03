@@ -76,7 +76,7 @@ Capability symlink: `ai.sock` → `squirrel.sock` (auto-created for capability-b
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   7,216 tests passing (0 failures) | ~1,003 `.rs` files | ~327k lines
+Fitness:   7,210 tests passing (0 failures) | ~1,001 `.rs` files | ~326k lines
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation

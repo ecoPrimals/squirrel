@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,216 passing / 0 failures across 22 workspace crates; ~1,004 `.rs` files, ~327k lines |
+| Tests | 7,210 passing / 0 failures across 22 workspace crates; ~1,001 `.rs` files, ~326k lines |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -277,13 +277,13 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Changes Since Last Handoff (April 28, 2026)
 
-### May 3, 2026 session AW (deep debt audit — refactor + dead code removal)
+### May 3, 2026 session AW (deep debt audit — refactor, dead code, debris cleanup)
 
 - **Smart refactor `jsonrpc_server.rs`** (890L → 675L): Extracted request processing into `jsonrpc_request_processing.rs` (225L). Zero production files >800 lines.
-- **Dead code removed**: `SongbirdLoadBalancerConfig` alias (0 callers), `SongbirdLoadBalancerIntegration` trait (0 callers), `parse_primal_type` (hardcoded primal-name parser, unused).
-- **Comment hygiene**: Legacy "would delegate to Songbird" comment updated to capability-based discovery language.
-- **Audit clean**: Zero `unsafe`, zero `todo!`/`unimplemented!`/FIXME/HACK, all deps pure Rust, all remaining stubs intentional + documented.
-- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,216 / 0 failures), `deny` ✓
+- **Dead code removed**: `SongbirdLoadBalancerConfig` alias, `SongbirdLoadBalancerIntegration` trait, `parse_primal_type` function, unused `PrimalType`/`Error` imports.
+- **Debris cleaned**: Deleted 3 permanently-disabled test files (1,539L total) gated behind non-existent features. Removed dead `watcher`/`notify` feature from `rule-system`, dead `local` feature from `ai-tools`, dead `storage`/`web` features from SDK.
+- **Docs updated**: `CRYPTO_MIGRATION.md` fixed (removed stale `miniz_oxide` reference, added BTSP crypto libs).
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,210 / 0 failures), `deny` ✓
 
 ### May 3, 2026 session AV (Phase 3 transport switch verification + GAP-06 closure)
 

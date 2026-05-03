@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Crypto Migration Guide
 
-**Status**: Complete — pure-Rust default build current as of April 2026 (workspace v0.1.0)
-**Last Updated**: April 21, 2026
+**Status**: Complete — pure-Rust default build current as of May 2026 (workspace v0.1.0)
+**Last Updated**: May 3, 2026
 
 ## Summary
 
@@ -13,7 +13,8 @@ cryptographic operations use pure-Rust implementations:
 |-----------|---------|-------|
 | Hashing | `blake3` | Pure Rust BLAKE3 — workspace uses `default-features = false` with `features = ["pure"]` (no bundled C/SIMD assembly backend) |
 | JWT signing | `ed25519-dalek` | **Feature-gated** behind `local-crypto` (squirrel-mcp crate) |
-| Compression | `miniz_oxide` | Pure Rust deflate (flate2 backend) |
+| BTSP encryption | `chacha20poly1305` | ChaCha20-Poly1305 AEAD for encrypted framing (Phase 3) |
+| Key derivation | `hkdf` + `sha2` | HKDF-SHA256 for session key derivation |
 
 TLS (`rustls`) was removed during the stadial gate — Squirrel is IPC-first
 (Unix sockets), so TLS is delegated to the security capability provider.
@@ -47,7 +48,7 @@ provider via `crypto.signing` capability discovery over Unix socket IPC.
 3. `reqwest` → removed (IPC-first architecture; banned in `deny.toml`)
 4. `pprof` → removed (was pulling `libunwind`)
 5. `libloading` → removed (secure plugin stub)
-6. `flate2` C backend → `miniz_oxide` pure Rust backend
+6. `flate2`/`miniz_oxide` → eliminated entirely (compression is metadata-only, no codec wired)
 7. `sysinfo` → pure Rust `/proc` parsing (`sys_info` module)
 8. `nix` → `rustix` (pure Rust Linux syscalls, no libc FFI)
 9. `nvml-wrapper` → removed (GPU monitoring delegated to compute capability provider)

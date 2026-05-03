@@ -11,15 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
-### Summary (May 3, 2026 — session AW: deep debt audit — refactor, dead code removal, hardcoding cleanup)
+### Summary (May 3, 2026 — session AW: deep debt audit — refactor, dead code, debris cleanup)
 
-**7,216** tests, **~1,004** `.rs` files, **~327k** lines, **90.1%** region coverage (target met).
+**7,210** tests, **~1,001** `.rs` files, **~326k** lines, **90.1%** region coverage (target met).
 
-- **Smart refactor `jsonrpc_server.rs`** (890L → 675L + 225L): Extracted request parsing/dispatch (`handle_request_or_batch`, `handle_single_request`, `handle_single_request_object`) into `jsonrpc_request_processing.rs`. Zero production `.rs` files >800 lines.
-- **Dead `SongbirdLoadBalancerConfig` alias removed**: Deprecated type alias and trait had zero callers outside their definition — removed as dead code.
-- **Dead `parse_primal_type` removed**: Hardcoded primal-type-to-enum parser was unused (`#[expect(dead_code)]`). Ecosystem coordination now uses capability-based discovery exclusively.
-- **Comment hygiene**: `ecosystem_coordination.rs` task routing comment updated from "would delegate to Songbird" to accurate "caller invokes via IPC using capability-based discovery."
-- **Audit results (no action needed)**: Zero `unsafe` code, zero `todo!()`/`unimplemented!()`/FIXME/HACK markers, all external dependencies are pure Rust (no C/FFI), production mocks are intentional and documented (plugin stubs, platform fallbacks, WASM sandbox).
+- **Smart refactor `jsonrpc_server.rs`** (890L → 675L + 225L): Extracted request parsing/dispatch into `jsonrpc_request_processing.rs`. Zero production `.rs` files >800 lines.
+- **Dead code removed**: `SongbirdLoadBalancerConfig` alias + trait (0 callers), `parse_primal_type` (unused hardcoded parser, superseded by capability discovery), unused imports (`PrimalType`, `Error`).
+- **Debris cleaned**: Deleted 3 permanently-disabled test files (1,539 lines total) gated behind non-existent `disabled_until_capability_registry_exported` feature and `#[cfg(all(..., false))]`. Removed dead Cargo features: `watcher`+`notify` dep from rule-system, `local` from ai-tools, `storage`/`web` from SDK.
+- **Docs fixed**: `CRYPTO_MIGRATION.md` updated — removed stale `miniz_oxide` compression reference, added BTSP Phase 3 crypto libraries (`chacha20poly1305`, `hkdf`, `sha2`).
+- **Audit results (no action needed)**: Zero `unsafe`, zero `todo!()`/FIXME/HACK, all deps pure Rust, production mocks are intentional + documented.
 
 ### Summary (May 3, 2026 — session AV: Phase 3 transport switch verification + GAP-06 closure)
 
