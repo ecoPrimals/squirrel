@@ -374,26 +374,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Google](https://ai.google.dev) for Gemini API
 - The Rust community for excellent async and HTTP libraries
 
-## 🗺️ Roadmap
+## Status
 
-### Near Term (Q2 2025)
-- [ ] Complete Anthropic and Gemini API implementations
-- [ ] Enhanced Ollama integration with model management
-- [ ] Performance optimizations and caching
-- [ ] Comprehensive error handling and retry logic
-
-### Medium Term (Q3 2025)
-- [ ] Native Rust model implementations using Candle
-- [ ] WebAssembly model support
-- [ ] Advanced routing algorithms (machine learning-based)
-- [ ] Distributed model serving
-
-### Long Term (Q4 2025)
-- [ ] Custom model fine-tuning integration
-- [ ] Multi-modal support (text, image, audio)
-- [ ] Federated learning capabilities
-- [ ] Advanced monitoring and observability
-
----
-
-For more information, see our [documentation](https://docs.squirrel.ai) or join our [Discord community](https://discord.gg/squirrel). 
+As of May 2026, all core routing and provider registration is wired and tested.
+Anthropic, OpenAI (including local OpenAI-compatible servers), and Gemini providers
+are operational. Advanced routing uses the `constraint_router` for cost/quality/latency
+selection. See `CURRENT_STATUS.md` in the repo root for the latest metrics.
