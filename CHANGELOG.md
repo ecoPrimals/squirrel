@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 4, 2026 — session AX: primalSpring Phase 58 audit — binary probe graceful handling)
+
+**7,213** tests, **~1,001** `.rs` files, **~326k** lines, **90.1%** region coverage (target met).
+
+- **Binary probe graceful handling**: BTSP-guarded sockets now distinguish non-BTSP binary preambles (HTTP probes, TLS ClientHello, garbled data) from legitimate BTSP frames. Non-`{`, non-`0x00` first bytes return `BinaryProbe` error and close gracefully at `debug` level — no BTSP error frame sent, no reconnect needed by callers. Resolves primalSpring Phase 58 item 1 (connection close on binary probe).
+- **`BtspError::BinaryProbe` variant**: New error type for non-BTSP binary data on BTSP-guarded sockets, handled separately from protocol errors in `accept_with_btsp`.
+- **3 new tests**: HTTP probe (`GET /`), TLS probe (`0x16`), and verification that `0x00` prefix still routes to BTSP handshake.
+- **Audit items 2 + 3 confirmed closed**: `inference.register_provider` is fully wired (handler → `AiRouter::register_remote_provider` → live provider list; wire tests exist). GAP-06 was already closed in session AV.
+
 ### Summary (May 3, 2026 — session AW: deep debt audit — refactor, dead code, debris cleanup)
 
 **7,210** tests, **~1,001** `.rs` files, **~326k** lines, **90.1%** region coverage (target met).

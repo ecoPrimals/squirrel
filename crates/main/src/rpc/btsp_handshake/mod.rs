@@ -386,7 +386,9 @@ pub async fn send_error_frame<S: AsyncWrite + Unpin>(stream: &mut S, error: &Bts
 ///     handshake. Otherwise log a warning and return [`BtspError::PlainJsonRpc`]
 ///     with the line so the JSON-RPC path can proceed without authentication
 ///     (PG-14: health probes, composition tooling).
-///   - Any other byte → BTSP binary framing; runs the full handshake.
+///   - `0x00` first byte → BTSP binary framing; runs the full handshake.
+///   - Any other non-`{` byte → [`BtspError::BinaryProbe`]; connection should be
+///     closed gracefully (health probe, TLS client, garbled data).
 ///
 /// Returns `Err` if the handshake fails (connection should be dropped).
 pub async fn maybe_handshake<S>(stream: &mut S) -> Result<Option<BtspSession>, BtspError>
@@ -441,6 +443,21 @@ where
              skipping handshake (PG-14 auto-detect fallback)"
         );
         return Err(BtspError::PlainJsonRpc { first_line });
+    }
+
+    // Binary preamble: first byte is NOT `{`, so this could be a BTSP length-prefix
+    // frame OR a stray binary probe (HTTP, TLS, health check, garbled data).
+    // BTSP frames encode a 4-byte BE u32 length; for realistic handshake payloads
+    // (JSON ClientHello ~100-500 bytes) the first byte is 0x00. Accept 0x00
+    // as likely-BTSP; anything else (ASCII letters, TLS 0x16, etc.) is a probe.
+    if first[0] != 0x00 {
+        debug!(
+            first_byte = format_args!("0x{:02x}", first[0]),
+            "non-BTSP binary preamble on BTSP-guarded socket — closing gracefully"
+        );
+        return Err(BtspError::BinaryProbe {
+            first_byte: first[0],
+        });
     }
 
     btsp_handshake_server(stream, Some(first[0]))

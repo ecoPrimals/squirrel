@@ -125,6 +125,14 @@ pub enum BtspError {
         /// Complete first line, including the leading `{` and line terminator when present.
         first_line: String,
     },
+
+    /// Non-BTSP binary data received (health probe, stale connection, garbled preamble).
+    /// Connection should be closed gracefully without sending a BTSP error frame.
+    #[error("non-BTSP binary probe on BTSP-guarded socket (first byte: 0x{first_byte:02x})")]
+    BinaryProbe {
+        /// The first byte that triggered detection.
+        first_byte: u8,
+    },
 }
 
 // ── Frame I/O (BTSP_PROTOCOL_STANDARD §Wire Framing) ───────────────────

@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,210 passing / 0 failures across 22 workspace crates; ~1,001 `.rs` files, ~326k lines |
+| Tests | 7,213 passing / 0 failures across 22 workspace crates; ~1,001 `.rs` files, ~326k lines |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -276,6 +276,12 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
 
 ## Changes Since Last Handoff (April 28, 2026)
+
+### May 4, 2026 session AX (primalSpring Phase 58 audit — binary probe graceful handling)
+
+- **Binary probe graceful handling**: Non-BTSP binary preambles (HTTP, TLS, garbled) on BTSP-guarded sockets now return `BinaryProbe` and close at `debug` level. No error frame sent. Resolves primalSpring Phase 58 item 1.
+- **Audit items 2 + 3 confirmed closed**: `inference.register_provider` fully wired; GAP-06 already resolved.
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,213 / 0 failures), `deny` ✓
 
 ### May 3, 2026 session AW (deep debt audit — refactor, dead code, debris cleanup)
 

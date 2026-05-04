@@ -325,6 +325,12 @@ impl JsonRpcServer {
                     error!("Error handling plain JSON-RPC connection: {}", e);
                 }
             }
+            Err(super::btsp_handshake::BtspError::BinaryProbe { first_byte }) => {
+                debug!(
+                    first_byte = format_args!("0x{first_byte:02x}"),
+                    "non-BTSP binary probe — closing connection gracefully"
+                );
+            }
             Err(e) => {
                 warn!("BTSP handshake failed, refusing connection: {e}");
                 super::btsp_handshake::send_error_frame(&mut transport, &e).await;

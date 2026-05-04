@@ -626,3 +626,114 @@ async fn send_error_frame_writes_btsp_error_msg() {
     assert_eq!(got.error, "handshake_failed");
     assert!(got.reason.contains("timed out"));
 }
+
+// ── Binary probe graceful handling ──────────────────────────────
+
+/// Non-BTSP binary data (e.g. HTTP probe, TLS ClientHello, garbled bytes) on a
+/// BTSP-guarded socket returns `BinaryProbe` instead of attempting a doomed handshake.
+#[test]
+fn maybe_handshake_binary_probe_closes_gracefully() {
+    temp_env::with_vars(
+        [
+            ("SQUIRREL_FAMILY_ID", None::<&str>),
+            ("BIOMEOS_FAMILY_ID", None::<&str>),
+            ("FAMILY_ID", Some("prod-family")),
+            ("BIOMEOS_INSECURE", None::<&str>),
+        ],
+        || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("runtime");
+            rt.block_on(async {
+                // HTTP GET probe
+                let (mut client, mut server) = duplex(4096);
+                client
+                    .write_all(b"GET / HTTP/1.1\r\n")
+                    .await
+                    .expect("write");
+                drop(client);
+
+                let result = maybe_handshake(&mut server).await;
+                assert!(
+                    matches!(result, Err(BtspError::BinaryProbe { first_byte: b'G' })),
+                    "HTTP probe should return BinaryProbe, got {result:?}"
+                );
+            });
+        },
+    );
+}
+
+#[test]
+fn maybe_handshake_tls_probe_closes_gracefully() {
+    temp_env::with_vars(
+        [
+            ("SQUIRREL_FAMILY_ID", None::<&str>),
+            ("BIOMEOS_FAMILY_ID", None::<&str>),
+            ("FAMILY_ID", Some("prod-family")),
+            ("BIOMEOS_INSECURE", None::<&str>),
+        ],
+        || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("runtime");
+            rt.block_on(async {
+                // TLS ClientHello starts with 0x16
+                let (mut client, mut server) = duplex(4096);
+                client
+                    .write_all(&[0x16, 0x03, 0x01, 0x00, 0x05])
+                    .await
+                    .expect("write");
+                drop(client);
+
+                let result = maybe_handshake(&mut server).await;
+                assert!(
+                    matches!(result, Err(BtspError::BinaryProbe { first_byte: 0x16 })),
+                    "TLS probe should return BinaryProbe, got {result:?}"
+                );
+            });
+        },
+    );
+}
+
+#[test]
+fn maybe_handshake_binary_btsp_preamble_still_attempts_handshake() {
+    temp_env::with_vars(
+        [
+            ("SQUIRREL_FAMILY_ID", None::<&str>),
+            ("BIOMEOS_FAMILY_ID", None::<&str>),
+            ("FAMILY_ID", Some("prod-family")),
+            ("BIOMEOS_INSECURE", None::<&str>),
+            ("BTSP_PROVIDER_SOCKET", None::<&str>),
+            ("BTSP_CAPABILITY_SOCKET", None::<&str>),
+            ("SECURITY_SOCKET", None::<&str>),
+            ("BEARDOG_SOCKET", None::<&str>),
+        ],
+        || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("runtime");
+            rt.block_on(async {
+                // 0x00 first byte → treated as BTSP binary length prefix → handshake attempted
+                let (mut client, mut server) = duplex(4096);
+                let hello = ClientHello {
+                    version: 1,
+                    client_ephemeral_pub: "dGVzdA==".into(),
+                };
+                write_message(&mut client, &hello).await.expect("write");
+                drop(client);
+
+                let result = maybe_handshake(&mut server).await;
+                assert!(
+                    matches!(
+                        result,
+                        Err(BtspError::ProviderUnavailable(_) | BtspError::Protocol(_))
+                    ),
+                    "0x00 prefix should attempt BTSP handshake, got {result:?}"
+                );
+            });
+        },
+    );
+}
