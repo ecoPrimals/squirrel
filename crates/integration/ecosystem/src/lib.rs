@@ -69,20 +69,10 @@ impl EcosystemIntegration {
         Self {}
     }
 
-    /// Register Squirrel MCP services with the ecosystem
-    ///
-    /// **Phase 2**: No-op until service mesh / compute clients are wired. The production
-    /// registration flow is implemented in the main Squirrel crate via capability
-    /// discovery and IPC.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if service registration fails.
-    pub fn register_mcp_services(&self) -> Result<(), Box<dyn std::error::Error>> {
-        tracing::debug!(
-            "register_mcp_services: Phase 2 no-op — use main crate capability discovery for mesh/compute"
-        );
-        Ok(())
+    /// No-op: service registration is handled by the main crate via capability
+    /// discovery and IPC (`ipc.register`). This method exists for API symmetry.
+    pub fn register_mcp_services(&self) {
+        tracing::debug!("register_mcp_services: delegated to main crate capability discovery");
     }
 }
 
@@ -145,7 +135,6 @@ mod tests {
     #[test]
     fn test_register_mcp_services() {
         let integration = EcosystemIntegration::new();
-        let result = integration.register_mcp_services();
-        assert!(result.is_ok());
+        integration.register_mcp_services();
     }
 }

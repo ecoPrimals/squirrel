@@ -262,13 +262,15 @@ impl SyncManager {
     /// * `id` - Subscription identifier to remove
     ///
     /// # Returns
-    /// * `Result<(), Box<dyn std::error::Error>>` - Success or error status
+    /// * `Result<(), ContextError>` - Success or error status
     ///
     /// # Errors
     /// * Returns an error if the subscription ID is not found
-    pub fn unsubscribe(&mut self, id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn unsubscribe(&mut self, id: &str) -> Result<(), ContextError> {
         if self.subscribers.remove(id).is_none() {
-            return Err("Subscription not found".into());
+            return Err(ContextError::NotFound(format!(
+                "Subscription not found: {id}"
+            )));
         }
         debug!("Sync event subscriber removed: {}", id);
         Ok(())
@@ -280,14 +282,11 @@ impl SyncManager {
     /// * `event` - Event to broadcast
     ///
     /// # Returns
-    /// * `Result<(), Box<dyn std::error::Error>>` - Success or error status
+    /// * `Result<(), ContextError>` - Success or error status
     ///
     /// # Errors
     /// * Returns an error if broadcasting to all subscribers fails
-    pub async fn broadcast_event(
-        &mut self,
-        event: SyncEvent,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn broadcast_event(&mut self, event: SyncEvent) -> Result<(), ContextError> {
         let mut failed_ids = Vec::new();
         for (id, sender) in &self.subscribers {
             if sender.send(event.clone()).await.is_err() {

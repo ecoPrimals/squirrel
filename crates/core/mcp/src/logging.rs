@@ -180,14 +180,12 @@ impl Logger {
     }
 }
 
-/// Initialize the logging system
+/// No-op: tracing subscriber is initialized by the binary entrypoint (`main.rs`).
 ///
-/// # Errors
-///
-/// This function will return an error if the logging system cannot be initialized
-pub fn initialize() -> Result<(), Box<dyn std::error::Error>> {
-    // This would normally set up the tracing subscriber, but for now just return Ok
-    Ok(())
+/// MCP components inherit the parent subscriber. This function exists for API
+/// symmetry with other MCP subsystem init calls.
+pub fn initialize() {
+    tracing::debug!("MCP logging: using parent tracing subscriber");
 }
 
 #[cfg(test)]

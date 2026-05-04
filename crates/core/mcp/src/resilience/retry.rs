@@ -149,12 +149,12 @@ pub struct RetryMetrics {
 #[derive(Debug, thiserror::Error)]
 pub enum RetryError {
     /// Maximum number of retry attempts exceeded
-    #[error("Maximum retry attempts ({attempts}) exceeded: {error}")]
+    #[error("Maximum retry attempts ({attempts}) exceeded: {last_error}")]
     MaxAttemptsExceeded {
         /// Number of attempts made
         attempts: u32,
-        /// The last error encountered
-        error: Box<dyn std::error::Error + Send + Sync>,
+        /// The last error message (stringified from the operation's error type)
+        last_error: String,
     },
 
     /// Retry operation was cancelled
@@ -278,11 +278,9 @@ impl RetryMechanism {
 
         Err(RetryError::MaxAttemptsExceeded {
             attempts: self.config.max_attempts,
-            error: last_error.unwrap_or_else(|| {
-                Box::new(std::io::Error::other(
-                    "Unknown error during retry operation",
-                ))
-            }),
+            last_error: last_error
+                .as_ref()
+                .map_or_else(|| "unknown error".to_string(), ToString::to_string),
         })
     }
 
@@ -401,11 +399,10 @@ impl RetryMechanism {
                         let delay = self.calculate_delay(attempts);
                         tokio::time::sleep(delay).await;
                     } else if attempts < self.config.max_attempts {
-                        // Error doesn't match retry criteria, exit early
                         self.failure_count.fetch_add(1, Ordering::Relaxed);
                         return Err(RetryError::MaxAttemptsExceeded {
                             attempts,
-                            error: err,
+                            last_error: err.to_string(),
                         });
                     }
 
@@ -418,11 +415,9 @@ impl RetryMechanism {
 
         Err(RetryError::MaxAttemptsExceeded {
             attempts: self.config.max_attempts,
-            error: last_error.unwrap_or_else(|| {
-                Box::new(std::io::Error::other(
-                    "Unknown error during retry operation",
-                ))
-            }),
+            last_error: last_error
+                .as_ref()
+                .map_or_else(|| "unknown error".to_string(), ToString::to_string),
         })
     }
 
@@ -522,11 +517,9 @@ impl RetryMechanism {
 
         Err(RetryError::MaxAttemptsExceeded {
             attempts: self.config.max_attempts,
-            error: last_error.unwrap_or_else(|| {
-                Box::new(std::io::Error::other(
-                    "Unknown error during retry operation",
-                ))
-            }),
+            last_error: last_error
+                .as_ref()
+                .map_or_else(|| "unknown error".to_string(), ToString::to_string),
         })
     }
 }

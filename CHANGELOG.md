@@ -11,6 +11,18 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 4, 2026 — session AY: deep debt — typed error evolution)
+
+**7,213** tests, **~1,001** `.rs` files, **~326k** lines, **90.1%** region coverage (target met).
+
+- **`Box<dyn Error>` → typed errors**: Evolved all production `Box<dyn Error>` returns to concrete types:
+  - `context::sync` — `unsubscribe` / `broadcast_event` now return `ContextError` instead of `Box<dyn Error>`.
+  - `mcp::resilience::retry` — `RetryError::MaxAttemptsExceeded` stores `last_error: String` instead of `Box<dyn Error + Send + Sync>` (error is already consumed, only display needed).
+  - `interfaces::tracing` — `TraceDataConsumer`/`TraceDataProvider` traits now use `anyhow::Result` (zero implementors yet; boundary evolution).
+  - `mcp::logging::initialize()` — evolved from `Result<(), Box<dyn Error>>` stub to honest `fn initialize()` (no-op; tracing setup is in `main.rs`).
+  - `ecosystem::register_mcp_services()` — evolved from `Result<(), Box<dyn Error>>` stub to honest `fn register_mcp_services()` (delegated to main crate capability discovery).
+- **Full audit confirmed clean**: Zero unsafe, zero unwrap/panic in production, zero TODO/FIXME/HACK, all `expect(dead_code)` have documented reasons ("awaiting activation"), all `expect()` calls in production are on static literals. Zero clippy warnings.
+
 ### Summary (May 4, 2026 — session AX: primalSpring Phase 58 audit — binary probe graceful handling)
 
 **7,213** tests, **~1,001** `.rs` files, **~326k** lines, **90.1%** region coverage (target met).

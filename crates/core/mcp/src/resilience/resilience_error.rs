@@ -68,11 +68,12 @@ pub type Result<T> = std::result::Result<T, ResilienceError>;
 impl From<crate::resilience::retry::RetryError> for ResilienceError {
     fn from(err: crate::resilience::retry::RetryError) -> Self {
         match err {
-            crate::resilience::retry::RetryError::MaxAttemptsExceeded { attempts, error } => {
-                Self::RetryExceeded(format!(
-                    "Maximum retry attempts ({attempts}) exceeded: {error}"
-                ))
-            }
+            crate::resilience::retry::RetryError::MaxAttemptsExceeded {
+                attempts,
+                last_error,
+            } => Self::RetryExceeded(format!(
+                "Maximum retry attempts ({attempts}) exceeded: {last_error}"
+            )),
             crate::resilience::retry::RetryError::Cancelled(msg) => {
                 Self::RetryExceeded(format!("Retry cancelled: {msg}"))
             }

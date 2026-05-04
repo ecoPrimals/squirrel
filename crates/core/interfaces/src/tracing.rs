@@ -6,6 +6,7 @@
 //! This module contains interfaces for distributed tracing that are used
 //! by multiple Squirrel components, including MCP and dashboard.
 
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::future::Future;
@@ -75,24 +76,19 @@ pub struct TraceData {
 /// Trait for consuming trace data
 pub trait TraceDataConsumer: Send + Sync {
     /// Process incoming trace data
-    fn consume_trace_data(
-        &self,
-        trace_data: TraceData,
-    ) -> impl Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send;
+    fn consume_trace_data(&self, trace_data: TraceData) -> impl Future<Output = Result<()>> + Send;
 }
 
 /// Trait for providing trace data
 pub trait TraceDataProvider: Send + Sync {
     /// Get trace data
-    fn get_trace_data(
-        &self,
-    ) -> impl Future<Output = Result<Vec<TraceData>, Box<dyn std::error::Error + Send + Sync>>> + Send;
+    fn get_trace_data(&self) -> impl Future<Output = Result<Vec<TraceData>>> + Send;
 
     /// Get trace data for a specific trace ID
     fn get_trace_by_id(
         &self,
         trace_id: &str,
-    ) -> impl Future<Output = Result<Option<TraceData>, Box<dyn std::error::Error + Send + Sync>>> + Send;
+    ) -> impl Future<Output = Result<Option<TraceData>>> + Send;
 }
 
 /// Configuration for trace data handling
