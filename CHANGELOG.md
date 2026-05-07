@@ -11,6 +11,13 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 7, 2026 — session AZ: primalSpring Phase 60 audit + merge conflict resolution)
+
+**7,213** tests, **~1,001** `.rs` files, **~326k** lines, **90.1%** region coverage (target met).
+
+- **Merge conflict resolution**: Fixed 3 conflict markers in production code (`jsonrpc_server.rs`, `mod.rs`, `niche.rs`) left from a stash pop. `niche.rs` now references centralized `SQUIRREL_EXPOSED_CAPABILITIES` from `universal-constants`. The stale inline dispatch in `jsonrpc_server.rs` (superseded by `jsonrpc_dispatch.rs`) removed. `handlers_provider` module declaration restored.
+- **primalSpring Phase 60 audit — E2E inference parity**: Investigated and confirmed Squirrel's `inference.complete` pipeline is fully functional. 15 dedicated wire tests exercise `register_provider` → `inference.complete` → forwarded-to-UDS-provider → response roundtrip. The audit gap ("validate_squirrel_roundtrip skips") is a **neuralSpring dependency** — not actionable in Squirrel. Squirrel correctly routes to any provider registered via `inference.register_provider`.
+
 ### Summary (May 4, 2026 — session AY: deep debt — typed error evolution)
 
 **7,213** tests, **~1,001** `.rs` files, **~326k** lines, **90.1%** region coverage (target met).
