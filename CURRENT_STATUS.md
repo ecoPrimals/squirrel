@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: May 4, 2026
+**Last Updated**: May 7, 2026
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -276,6 +276,17 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
 
 ## Changes Since Last Handoff (April 28, 2026)
+
+### May 7, 2026 session AZ (primalSpring Phase 60 audit — E2E inference parity)
+
+- **E2E inference parity confirmed**: Squirrel's `inference.complete` pipeline is fully functional. 15 wire tests exercise `register_provider` → `inference.complete` → forwarded-to-UDS-provider roundtrip. Audit gap is a neuralSpring dependency (needs native inference endpoint), not actionable in Squirrel.
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,213 / 0 failures), `deny` ✓
+
+### May 4, 2026 sessions AY (deep debt — typed error evolution)
+
+- **`Box<dyn Error>` → typed errors**: Evolved all 5 production `Box<dyn Error>` returns to concrete types (`ContextError`, `String`, `anyhow::Result`, honest no-ops).
+- **Docs cleaned**: Fixed stale test counts in README/CONTEXT, removed stale Q2–Q4 2025 roadmap from ai-tools README.
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,213 / 0 failures), `deny` ✓
 
 ### May 4, 2026 session AX (primalSpring Phase 58 audit — binary probe graceful handling)
 
