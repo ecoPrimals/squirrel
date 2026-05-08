@@ -32,22 +32,17 @@
 //! - Feature-gated behind `tarpc-rpc` feature flag
 
 // Core modules (Pure Rust!)
-pub mod btsp_encrypted_framing;
 pub mod btsp_handshake;
 mod handlers_ai;
-mod handlers_btsp;
 mod handlers_capability;
 mod handlers_context;
 mod handlers_graph;
 mod handlers_identity;
 mod handlers_inference;
-mod handlers_provider;
 mod handlers_system;
 mod handlers_tool;
 pub mod ipc_client;
-mod jsonrpc_dispatch;
 mod jsonrpc_handlers;
-mod jsonrpc_request_processing;
 pub mod jsonrpc_server;
 pub mod jsonrpc_types;
 pub mod protocol;
@@ -60,8 +55,6 @@ pub mod unix_socket;
 #[cfg(feature = "tarpc-rpc")]
 pub mod tarpc_client;
 #[cfg(feature = "tarpc-rpc")]
-mod tarpc_dispatch;
-#[cfg(feature = "tarpc-rpc")]
 pub mod tarpc_server;
 #[cfg(feature = "tarpc-rpc")]
 pub mod tarpc_service;
@@ -69,8 +62,6 @@ pub mod tarpc_service;
 pub mod tarpc_transport;
 
 // Integration tests (test-only)
-#[cfg(test)]
-mod btsp_transport_switch_tests;
 #[cfg(all(test, feature = "tarpc-rpc"))]
 mod tarpc_integration_tests;
 

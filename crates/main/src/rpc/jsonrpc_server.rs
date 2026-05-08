@@ -48,13 +48,15 @@
 //! ```
 
 use anyhow::{Context, Result};
+use serde_json::Value;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use std::time::Instant;
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
-use universal_constants::network::LOCALHOST_IPV4;
 use universal_patterns::transport::{UniversalListener, UniversalTransport};
 
+pub(crate) use super::jsonrpc_types::normalize_method;
 pub use super::jsonrpc_types::{
     JsonRpcError, JsonRpcRequest, JsonRpcResponse, ServerMetrics, error_codes,
 };
@@ -64,7 +66,11 @@ pub struct JsonRpcServer {
     /// Service name for Universal Transport discovery
     pub(crate) service_name: String,
 
-    /// Resolved filesystem socket path (manifest, lifecycle cleanup, SQ-01 dual bind on Linux).
+    /// Legacy socket path (kept for backward compatibility, used as fallback)
+    #[expect(
+        dead_code,
+        reason = "written during construction; reserved for fallback path"
+    )]
     pub(crate) socket_path: String,
 
     /// Server metrics
@@ -82,39 +88,29 @@ pub struct JsonRpcServer {
     /// Capability registry loaded from capability_registry.toml (source of truth)
     pub capability_registry: Arc<crate::capabilities::registry::CapabilityRegistry>,
 
-    /// Runtime service provider registry — springs register their capabilities here
-    /// via `provider.register` so Squirrel can route requests to them.
-    pub(crate) provider_registry: Arc<crate::universal_adapters::InMemoryServiceRegistry>,
-
-    /// Active BTSP sessions from Phase 2 handshake — keyed by session_id.
-    /// Used by `btsp.negotiate` (Phase 3) to validate negotiation requests.
-    pub(crate) btsp_sessions: Arc<dashmap::DashMap<String, super::btsp_handshake::BtspSession>>,
-
-    /// Derived session keys after `btsp.negotiate` agrees on `chacha20-poly1305`.
-    /// Keyed by session_id. The transport layer reads these to switch to encrypted framing.
-    pub(crate) btsp_session_keys:
-        Arc<dashmap::DashMap<String, Arc<super::btsp_encrypted_framing::SessionKeys>>>,
-
-    /// When set, binds an additional TCP JSON-RPC listener on `<tcp_bind_host>:<port>`.
+    /// When set, binds an additional TCP JSON-RPC listener on `127.0.0.1:<port>` (localhost only).
     tcp_port: Option<u16>,
-
-    /// Bind address for the TCP listener. Defaults to `127.0.0.1` (localhost only).
-    /// Set to `0.0.0.0` for Docker/benchScale deployments.
-    tcp_bind_host: String,
 }
 
 impl JsonRpcServer {
-    /// Load the capability registry from CWD or fall back to the compiled-in
-    /// embedded copy (no absolute host paths baked into the binary).
+    /// Load the capability registry from the workspace root or use compiled defaults
     fn load_registry() -> Arc<crate::capabilities::registry::CapabilityRegistry> {
-        let cwd_candidate = std::path::PathBuf::from("capability_registry.toml");
-        if cwd_candidate.exists() {
-            return Arc::new(crate::capabilities::registry::CapabilityRegistry::load(
-                &cwd_candidate,
-            ));
+        let candidates = [
+            std::path::PathBuf::from("capability_registry.toml"),
+            std::path::PathBuf::from(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../capability_registry.toml"
+            )),
+        ];
+        for path in &candidates {
+            if path.exists() {
+                return Arc::new(crate::capabilities::registry::CapabilityRegistry::load(
+                    path,
+                ));
+            }
         }
         Arc::new(crate::capabilities::registry::CapabilityRegistry::load(
-            &cwd_candidate,
+            &candidates[0],
         ))
     }
 
@@ -128,11 +124,7 @@ impl JsonRpcServer {
             ai_router: None,
             announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
             capability_registry: Self::load_registry(),
-            provider_registry: Arc::new(crate::universal_adapters::InMemoryServiceRegistry::new()),
-            btsp_sessions: Arc::new(dashmap::DashMap::new()),
-            btsp_session_keys: Arc::new(dashmap::DashMap::new()),
             tcp_port: None,
-            tcp_bind_host: LOCALHOST_IPV4.to_string(),
         }
     }
 
@@ -146,26 +138,15 @@ impl JsonRpcServer {
             ai_router: Some(ai_router),
             announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
             capability_registry: Self::load_registry(),
-            provider_registry: Arc::new(crate::universal_adapters::InMemoryServiceRegistry::new()),
-            btsp_sessions: Arc::new(dashmap::DashMap::new()),
-            btsp_session_keys: Arc::new(dashmap::DashMap::new()),
             tcp_port: None,
-            tcp_bind_host: LOCALHOST_IPV4.to_string(),
         }
-    }
-
-    /// Enable a TCP JSON-RPC listener on `<bind_host>:<port>` alongside Universal Transport.
-    #[must_use]
-    pub fn with_tcp(mut self, port: u16, bind_host: String) -> Self {
-        self.tcp_port = Some(port);
-        self.tcp_bind_host = bind_host;
-        self
     }
 
     /// Enable a localhost TCP JSON-RPC listener on `127.0.0.1:<port>` alongside Universal Transport.
     #[must_use]
-    pub fn with_tcp_port(self, port: u16) -> Self {
-        self.with_tcp(port, LOCALHOST_IPV4.to_string())
+    pub const fn with_tcp_port(mut self, port: u16) -> Self {
+        self.tcp_port = Some(port);
+        self
     }
 
     /// Start the JSON-RPC server with Universal Transport (Isomorphic IPC)
@@ -181,8 +162,7 @@ impl JsonRpcServer {
     /// which is invisible to `readdir()`. biomeOS filesystem socket scanning therefore
     /// cannot discover abstract-only primals. To comply with IPC_COMPLIANCE_MATRIX
     /// and PRIMAL_IPC_PROTOCOL, we **also** bind a filesystem socket at
-    /// the same path as `socket_path` (CLI / config / auto-detection, after
-    /// [`super::unix_socket::resolve_socket_path_for_ipc`]) so biomeOS can find us.
+    /// `$XDG_RUNTIME_DIR/biomeos/squirrel.sock` so biomeOS can find us.
     pub async fn start(self: Arc<Self>) -> Result<()> {
         info!("🔌 Starting JSON-RPC server with Universal Transport...");
 
@@ -196,7 +176,7 @@ impl JsonRpcServer {
         // discovery used by biomeOS socket scanning.
         #[cfg(target_os = "linux")]
         {
-            let fs_path = self.socket_path.clone();
+            let fs_path = super::unix_socket::get_socket_path(&super::unix_socket::get_node_id());
             if let Err(e) = super::unix_socket::prepare_socket_path(&fs_path) {
                 warn!(
                     "Failed to prepare filesystem socket {}: {} (abstract-only mode)",
@@ -206,7 +186,7 @@ impl JsonRpcServer {
                 match tokio::net::UnixListener::bind(&fs_path) {
                     Ok(fs_listener) => {
                         info!(
-                            "✅ Filesystem socket bound: {} (orchestrator discovery)",
+                            "✅ Filesystem socket bound: {} (biomeOS discovery)",
                             fs_path
                         );
                         #[cfg(unix)]
@@ -240,18 +220,20 @@ impl JsonRpcServer {
         }
 
         if let Some(port) = self.tcp_port {
-            let bind_host = &self.tcp_bind_host;
-            let addr = format!("{bind_host}:{port}");
+            let addr = format!("127.0.0.1:{port}");
             match tokio::net::TcpListener::bind(&addr).await {
                 Ok(tcp_listener) => {
-                    info!("TCP JSON-RPC listener on {addr}");
+                    info!("TCP JSON-RPC listener on 127.0.0.1:{port}");
                     let server = Arc::clone(&self);
                     tokio::spawn(async move {
                         Self::accept_tcp_jsonrpc(server, tcp_listener).await;
                     });
                 }
                 Err(e) => {
-                    warn!("Could not bind TCP JSON-RPC on {addr}: {e} (continuing without TCP)");
+                    warn!(
+                        "Could not bind TCP JSON-RPC on {}: {} (continuing without TCP)",
+                        addr, e
+                    );
                 }
             }
         }
@@ -261,11 +243,26 @@ impl JsonRpcServer {
         // Accept connections loop (primary transport)
         loop {
             match listener.accept().await {
-                Ok((transport, _remote_addr)) => {
+                Ok((mut transport, _remote_addr)) => {
                     debug!("📥 New connection accepted");
                     let server = Arc::clone(&self);
                     tokio::spawn(async move {
-                        Self::accept_with_btsp(server, transport).await;
+                        // BTSP Phase 2: handshake when FAMILY_ID is set
+                        match super::btsp_handshake::maybe_handshake(&mut transport).await {
+                            Ok(session) => {
+                                if let Some(ref s) = session {
+                                    debug!(session_id = %s.session_id, "BTSP authenticated");
+                                }
+                            }
+                            Err(e) => {
+                                warn!("BTSP handshake failed, refusing connection: {e}");
+                                return;
+                            }
+                        }
+                        if let Err(e) = server.clone().handle_universal_connection(transport).await
+                        {
+                            error!("Error handling connection: {}", e);
+                        }
                     });
                 }
                 Err(e) => {
@@ -288,52 +285,27 @@ impl JsonRpcServer {
                     debug!("📥 Filesystem socket connection accepted");
                     let srv = Arc::clone(&server);
                     tokio::spawn(async move {
-                        let transport = UniversalTransport::UnixSocket(stream);
-                        Self::accept_with_btsp(srv, transport).await;
+                        let mut transport = UniversalTransport::UnixSocket(stream);
+                        // BTSP Phase 2: handshake when FAMILY_ID is set
+                        match super::btsp_handshake::maybe_handshake(&mut transport).await {
+                            Ok(session) => {
+                                if let Some(ref s) = session {
+                                    debug!(session_id = %s.session_id, "BTSP authenticated (fs)");
+                                }
+                            }
+                            Err(e) => {
+                                warn!("BTSP handshake failed on filesystem socket: {e}");
+                                return;
+                            }
+                        }
+                        if let Err(e) = srv.clone().handle_universal_connection(transport).await {
+                            error!("Error handling filesystem socket connection: {}", e);
+                        }
                     });
                 }
                 Err(e) => {
                     error!("Failed to accept on filesystem socket: {}", e);
                 }
-            }
-        }
-    }
-
-    /// BTSP Phase 2 with auto-detect: handshake when `FAMILY_ID` is set,
-    /// graceful fallback for plain JSON-RPC clients (PG-14 resolution).
-    ///
-    /// When the first line is plain JSON-RPC (not a JSON-line BTSP `ClientHello`), the
-    /// line was consumed in auto-detect and is passed to the JSON-RPC handler together
-    /// with the remaining stream.
-    async fn accept_with_btsp(server: Arc<Self>, mut transport: UniversalTransport) {
-        match super::btsp_handshake::maybe_handshake(&mut transport).await {
-            Ok(session) => {
-                if let Some(ref s) = session {
-                    debug!(session_id = %s.session_id, "BTSP authenticated");
-                    server.btsp_sessions.insert(s.session_id.clone(), s.clone());
-                }
-                if let Err(e) = server.clone().handle_universal_connection(transport).await {
-                    error!("Error handling connection: {}", e);
-                }
-            }
-            Err(super::btsp_handshake::BtspError::PlainJsonRpc { first_line }) => {
-                if let Err(e) = server
-                    .clone()
-                    .handle_universal_connection_with_first_line(transport, first_line)
-                    .await
-                {
-                    error!("Error handling plain JSON-RPC connection: {}", e);
-                }
-            }
-            Err(super::btsp_handshake::BtspError::BinaryProbe { first_byte }) => {
-                debug!(
-                    first_byte = format_args!("0x{first_byte:02x}"),
-                    "non-BTSP binary probe — closing connection gracefully"
-                );
-            }
-            Err(e) => {
-                warn!("BTSP handshake failed, refusing connection: {e}");
-                super::btsp_handshake::send_error_frame(&mut transport, &e).await;
             }
         }
     }
@@ -359,23 +331,10 @@ impl JsonRpcServer {
         }
     }
 
-    /// Handle a plain JSON-RPC connection where the full first line was
-    /// already read by BTSP auto-detect (PG-14 fallback path). The stream is
-    /// positioned at the start of the second line.
-    async fn handle_universal_connection_with_first_line(
-        self: std::sync::Arc<Self>,
-        transport: UniversalTransport,
-        first_line: String,
-    ) -> Result<()> {
-        let reader = BufReader::new(transport);
-        self.handle_jsonrpc_with_first_line(reader, first_line)
-            .await
-    }
-
-    /// Handle a client connection via Universal Transport with protocol negotiation.
+    /// Handle a client connection via Universal Transport with protocol negotiation
     ///
     /// This method works with ANY transport type (Unix socket, TCP, Named pipe)
-    /// using polymorphic `AsyncRead` + `AsyncWrite` traits.
+    /// using polymorphic AsyncRead + AsyncWrite traits.
     ///
     /// ## Protocol Negotiation
     ///
@@ -383,7 +342,7 @@ impl JsonRpcServer {
     /// - If client sends "PROTOCOLS: ..." → negotiate and route to selected protocol
     /// - If client sends JSON-RPC request → default to JSON-RPC
     /// - tarpc provides higher performance for bulk operations
-    pub(crate) async fn handle_universal_connection(
+    async fn handle_universal_connection(
         self: std::sync::Arc<Self>,
         transport: UniversalTransport,
     ) -> Result<()> {
@@ -447,7 +406,7 @@ impl JsonRpcServer {
         first_line: String,
     ) -> Result<()> {
         if let Some(response_json) = self.handle_request_or_batch(&first_line).await {
-            let mut out = response_json.clone();
+            let mut out = response_json;
             out.push('\n');
             reader
                 .get_mut()
@@ -459,17 +418,6 @@ impl JsonRpcServer {
                 .flush()
                 .await
                 .context("Failed to flush JSON-RPC response")?;
-
-            if let Some(session_id) = Self::detect_negotiate_upgrade(&first_line, &response_json) {
-                info!(
-                    session_id = %session_id,
-                    "BTSP Phase 3: switching to encrypted frame loop (first message)"
-                );
-                let transport = reader.into_inner();
-                return self
-                    .handle_encrypted_connection(transport, &session_id)
-                    .await;
-            }
         }
 
         self.handle_jsonrpc_loop(reader).await
@@ -561,7 +509,7 @@ impl JsonRpcServer {
                 }
                 Ok(_) => {
                     if let Some(response_json) = self.handle_request_or_batch(&line).await {
-                        let mut out = response_json.clone();
+                        let mut out = response_json;
                         out.push('\n');
                         reader
                             .get_mut()
@@ -573,21 +521,6 @@ impl JsonRpcServer {
                             .flush()
                             .await
                             .context("Failed to flush JSON-RPC response in loop")?;
-
-                        // Detect btsp.negotiate → chacha20-poly1305 upgrade.
-                        // After the response is sent, transition to encrypted framing.
-                        if let Some(session_id) =
-                            Self::detect_negotiate_upgrade(&line, &response_json)
-                        {
-                            info!(
-                                session_id = %session_id,
-                                "BTSP Phase 3: switching to encrypted frame loop"
-                            );
-                            let transport = reader.into_inner();
-                            return self
-                                .handle_encrypted_connection(transport, &session_id)
-                                .await;
-                        }
                     }
                     // None means all-notification batch — no response per spec
                 }
@@ -601,79 +534,329 @@ impl JsonRpcServer {
         Ok(())
     }
 
-    /// Detect if a JSON-RPC exchange was a `btsp.negotiate` that agreed on
-    /// `chacha20-poly1305`. Returns the `session_id` if so.
-    fn detect_negotiate_upgrade(request_line: &str, response_json: &str) -> Option<String> {
-        let req: serde_json::Value = serde_json::from_str(request_line.trim()).ok()?;
-        if req.get("method")?.as_str()? != "btsp.negotiate" {
-            return None;
-        }
-
-        let resp: serde_json::Value = serde_json::from_str(response_json.trim()).ok()?;
-        let result = resp.get("result")?;
-        if result.get("cipher")?.as_str()? != "chacha20-poly1305" {
-            return None;
-        }
-
-        req.get("params")?
-            .get("session_id")?
-            .as_str()
-            .map(String::from)
-    }
-
-    /// Run the encrypted frame loop after `btsp.negotiate` agreed on
-    /// `chacha20-poly1305`. Reads length-prefixed encrypted frames, decrypts,
-    /// dispatches as JSON-RPC, encrypts the response, and writes back.
-    async fn handle_encrypted_connection(
-        &self,
-        mut transport: UniversalTransport,
-        session_id: &str,
-    ) -> Result<()> {
-        use super::btsp_encrypted_framing::{read_encrypted_frame, write_encrypted_frame};
-
-        let keys = self
-            .btsp_session_keys
-            .get(session_id)
-            .map(|r| r.clone())
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "no session keys for {session_id} — btsp.negotiate did not derive keys"
-                )
-            })?;
-
-        // Server reads with c2s_key, writes with s2c_key.
-        let read_key = keys.c2s_key;
-        let write_key = keys.s2c_key;
+    /// Handle a client connection (LEGACY - kept for backward compatibility)
+    ///
+    /// Note: New code should use handle_universal_connection() instead.
+    /// This method is kept for any legacy direct Unix socket usage.
+    #[deprecated(note = "Use handle_universal_connection() with UniversalTransport instead")]
+    #[expect(dead_code, reason = "deprecated legacy path; kept for fallback")]
+    async fn handle_connection<S>(&self, stream: S) -> Result<()>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
+        let mut reader = BufReader::new(stream);
+        let mut line = String::new();
 
         loop {
-            let plaintext = match read_encrypted_frame(&mut transport, &read_key).await {
-                Ok(pt) => pt,
-                Err(super::btsp_encrypted_framing::FrameError::Io(ref e))
-                    if e.kind() == std::io::ErrorKind::UnexpectedEof =>
-                {
-                    debug!(session_id = %session_id, "encrypted client disconnected");
+            line.clear();
+            match reader.read_line(&mut line).await {
+                Ok(0) => {
+                    debug!("Client disconnected");
                     break;
+                }
+                Ok(_) => {
+                    if let Some(response_json) = self.handle_request_or_batch(&line).await {
+                        let mut out = response_json;
+                        out.push('\n');
+                        reader
+                            .get_mut()
+                            .write_all(out.as_bytes())
+                            .await
+                            .context("Failed to write JSON-RPC response (legacy)")?;
+                        reader
+                            .get_mut()
+                            .flush()
+                            .await
+                            .context("Failed to flush JSON-RPC response (legacy)")?;
+                    }
                 }
                 Err(e) => {
-                    warn!(session_id = %session_id, error = %e, "encrypted frame read error");
+                    warn!("Error reading from socket: {}", e);
                     break;
                 }
-            };
-
-            let request_str = String::from_utf8(plaintext)
-                .map_err(|e| anyhow::anyhow!("encrypted frame not valid UTF-8: {e}"))?;
-
-            if let Some(response_json) = self.handle_request_or_batch(&request_str).await {
-                write_encrypted_frame(&mut transport, &write_key, response_json.as_bytes())
-                    .await
-                    .map_err(|e| anyhow::anyhow!("encrypted frame write error: {e}"))?;
             }
         }
 
         Ok(())
     }
 
-    // Request parsing and dispatch lives in jsonrpc_request_processing.rs
+    /// Handle a JSON-RPC request or batch (JSON-RPC 2.0 Section 6).
+    ///
+    /// Parses the raw JSON. If it's an array, dispatches each element as a
+    /// separate request and collects responses. Notifications (no `id`) produce
+    /// no response. If the batch is empty, returns a single Invalid Request
+    /// error per spec.
+    pub(crate) async fn handle_request_or_batch(&self, request_str: &str) -> Option<String> {
+        let trimmed = request_str.trim();
+
+        let parsed: Value = match serde_json::from_str(trimmed) {
+            Ok(v) => v,
+            Err(e) => {
+                let resp = JsonRpcResponse {
+                    jsonrpc: Arc::from("2.0"),
+                    result: None,
+                    error: Some(JsonRpcError {
+                        code: error_codes::PARSE_ERROR,
+                        message: format!("Parse error: {e}"),
+                        data: None,
+                    }),
+                    id: Value::Null,
+                };
+                return serde_json::to_string(&resp).ok();
+            }
+        };
+
+        if let Value::Array(items) = parsed {
+            if items.is_empty() {
+                let resp = JsonRpcResponse {
+                    jsonrpc: Arc::from("2.0"),
+                    result: None,
+                    error: Some(JsonRpcError {
+                        code: error_codes::INVALID_REQUEST,
+                        message: "Empty batch".to_string(),
+                        data: None,
+                    }),
+                    id: Value::Null,
+                };
+                return serde_json::to_string(&resp).ok();
+            }
+
+            let mut responses = Vec::with_capacity(items.len());
+            for item in items {
+                let single = serde_json::to_string(&item).unwrap_or_default();
+                let is_notification = item.as_object().is_some_and(|m| !m.contains_key("id"));
+                let resp = self.handle_single_request(&single).await;
+                // Per spec: notifications (no id) produce no response element
+                if !is_notification && let Some(r) = resp {
+                    responses.push(r);
+                }
+            }
+
+            if responses.is_empty() {
+                // All were notifications — per spec, no response at all
+                return None;
+            }
+            return serde_json::to_string(&responses).ok();
+        }
+
+        // Single request
+        match self.handle_single_request(trimmed).await {
+            Some(resp) => serde_json::to_string(&resp).ok(),
+            None => None,
+        }
+    }
+
+    /// Dispatch a validated JSON-RPC method name (after `normalize_method`).
+    pub(crate) async fn dispatch_jsonrpc_method(
+        &self,
+        original_method: &str,
+        params: Option<Value>,
+    ) -> Result<Value, JsonRpcError> {
+        let method = normalize_method(original_method);
+        match method {
+            // AI domain — semantic names (preferred)
+            "ai.query" | "ai.complete" | "ai.chat" => self.handle_query_ai(params).await,
+            "ai.list_providers" => self.handle_list_providers(params).await,
+
+            // Inference domain — vendor-agnostic wire standard
+            // (ecoPrimal inference provider abstraction)
+            "inference.complete" => self.handle_inference_complete(params).await,
+            "inference.embed" => self.handle_inference_embed(params).await,
+            "inference.models" => self.handle_inference_models(params).await,
+
+            // Capabilities domain — SEMANTIC_METHOD_NAMING_STANDARD v2.1
+            // `capabilities.list` canonical; aliases per standard + ecosystem compat.
+            "capabilities.announce" | "capability.announce" => {
+                self.handle_announce_capabilities(params).await
+            }
+            "capabilities.discover" | "capability.discover" => {
+                self.handle_discover_capabilities().await
+            }
+            "capabilities.list" | "capability.list" | "primal.capabilities" => {
+                self.handle_capability_list().await
+            }
+
+            // Identity domain — CAPABILITY_BASED_DISCOVERY_STANDARD v1.0
+            "identity.get" => self.handle_identity_get().await,
+
+            // Health domain — PRIMAL_IPC_PROTOCOL v3.0 (canonical)
+            // SEMANTIC_METHOD_NAMING_STANDARD: health.* is NON-NEGOTIABLE.
+            // system.health / system.status are backward-compat aliases.
+            "health.check" | "system.health" | "system.status" => self.handle_health().await,
+            "health.liveness" => self.handle_health_liveness().await,
+            "health.readiness" => self.handle_health_readiness().await,
+
+            // System domain — backward-compat (metrics/ping have no health.* equivalent)
+            "system.metrics" => self.handle_metrics().await,
+            "system.ping" => self.handle_ping().await,
+
+            // Discovery domain — semantic names (preferred)
+            "discovery.peers" | "discovery.list" => self.handle_discover_peers(params).await,
+
+            // Tool domain — semantic names (preferred)
+            "tool.execute" => self.handle_execute_tool(params).await,
+            "tool.list" => self.handle_list_tools().await,
+
+            // Context domain — semantic names (preferred)
+            "context.create" => self.handle_context_create(params).await,
+            "context.update" => self.handle_context_update(params).await,
+            "context.summarize" => self.handle_context_summarize(params).await,
+
+            // Lifecycle domain — biomeOS registration
+            "lifecycle.register" => self.handle_lifecycle_register().await,
+            "lifecycle.status" => self.handle_lifecycle_status().await,
+
+            // Graph domain — primalSpring BYOB coordination
+            "graph.parse" => self.handle_graph_parse(params).await,
+            "graph.validate" => self.handle_graph_validate(params).await,
+
+            // Method not found
+            _ => Err(self.method_not_found(original_method)),
+        }
+    }
+
+    /// Handle a single JSON-RPC request (non-batch).
+    /// Returns `None` for successful notifications (no response per JSON-RPC 2.0).
+    async fn handle_single_request(&self, request_str: &str) -> Option<JsonRpcResponse> {
+        let start_time = Instant::now();
+
+        let value: Value = match serde_json::from_str(request_str.trim()) {
+            Ok(v) => v,
+            Err(e) => {
+                return Some(JsonRpcResponse {
+                    jsonrpc: Arc::from("2.0"),
+                    result: None,
+                    error: Some(JsonRpcError {
+                        code: error_codes::PARSE_ERROR,
+                        message: format!("Parse error: {e}"),
+                        data: None,
+                    }),
+                    id: Value::Null,
+                });
+            }
+        };
+
+        let Some(obj) = value.as_object() else {
+            return Some(self.error_response(
+                Value::Null,
+                error_codes::INVALID_REQUEST,
+                "JSON-RPC request must be a JSON object",
+            ));
+        };
+
+        self.handle_single_request_object(obj, start_time).await
+    }
+
+    async fn handle_single_request_object(
+        &self,
+        obj: &serde_json::Map<String, Value>,
+        start_time: Instant,
+    ) -> Option<JsonRpcResponse> {
+        let is_notification = !obj.contains_key("id");
+
+        if obj.get("jsonrpc").and_then(|v| v.as_str()) != Some("2.0") {
+            if is_notification {
+                return None;
+            }
+            let req_id = obj.get("id").cloned().unwrap_or(Value::Null);
+            return Some(self.error_response(
+                req_id,
+                error_codes::INVALID_REQUEST,
+                "Invalid JSON-RPC version (must be 2.0)",
+            ));
+        }
+
+        let method_str: &str = match obj.get("method") {
+            None => {
+                if is_notification {
+                    return None;
+                }
+                let req_id = obj.get("id").cloned().unwrap_or(Value::Null);
+                return Some(self.error_response(
+                    req_id,
+                    error_codes::INVALID_REQUEST,
+                    "Missing method",
+                ));
+            }
+            Some(Value::String(s)) if !s.is_empty() => s.as_str(),
+            Some(Value::String(_)) => {
+                if is_notification {
+                    return None;
+                }
+                let req_id = obj.get("id").cloned().unwrap_or(Value::Null);
+                return Some(self.error_response(
+                    req_id,
+                    error_codes::INVALID_REQUEST,
+                    "Empty method name",
+                ));
+            }
+            _ => {
+                if is_notification {
+                    return None;
+                }
+                let req_id = obj.get("id").cloned().unwrap_or(Value::Null);
+                return Some(self.error_response(
+                    req_id,
+                    error_codes::INVALID_REQUEST,
+                    "Invalid method (must be a non-empty string)",
+                ));
+            }
+        };
+
+        if let Some(p) = obj.get("params")
+            && !p.is_object()
+            && !p.is_array()
+        {
+            if is_notification {
+                return None;
+            }
+            let req_id = obj.get("id").cloned().unwrap_or(Value::Null);
+            return Some(self.error_response(
+                req_id,
+                error_codes::INVALID_PARAMS,
+                "params must be a structured value (object or array)",
+            ));
+        }
+
+        let params = obj.get("params").cloned();
+
+        if is_notification {
+            let _ = self.dispatch_jsonrpc_method(method_str, params).await;
+            return None;
+        }
+
+        let request_id = obj.get("id").cloned().unwrap_or(Value::Null);
+
+        let span = tracing::info_span!("jsonrpc_method", method = method_str, id = ?request_id);
+        let _enter = span.enter();
+
+        let result = self.dispatch_jsonrpc_method(method_str, params).await;
+
+        let elapsed_ms = start_time.elapsed().as_millis() as u64;
+        let mut metrics = self.metrics.write().await;
+        metrics.requests_handled += 1;
+        metrics.total_response_time_ms += elapsed_ms;
+
+        Some(match result {
+            Ok(value) => JsonRpcResponse {
+                jsonrpc: Arc::from("2.0"),
+                result: Some(value),
+                error: None,
+                id: request_id,
+            },
+            Err(error) => {
+                metrics.errors += 1;
+                JsonRpcResponse {
+                    jsonrpc: Arc::from("2.0"),
+                    result: None,
+                    error: Some(error),
+                    id: request_id,
+                }
+            }
+        })
+    }
+
+    // Handler methods are in jsonrpc_handlers.rs (organized by domain)
 }
 
 #[cfg(test)]

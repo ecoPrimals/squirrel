@@ -22,6 +22,8 @@
 //! literals. Squirrel only knows itself — it discovers other primals at
 //! runtime via capability-based discovery.
 
+use universal_constants::primal_names;
+
 /// Primal identity — used in all JSON-RPC, IPC, and biomeOS interactions.
 pub const PRIMAL_ID: &str = "squirrel";
 
@@ -47,7 +49,48 @@ pub const PROTOCOL: &str = universal_constants::protocol::JSONRPC_PROTOCOL_ID;
 ///
 /// Each string is a fully qualified capability name (`{domain}.{method}`)
 /// that biomeOS can route via `capability.call`.
-pub const CAPABILITIES: &[&str] = universal_constants::capabilities::SQUIRREL_EXPOSED_CAPABILITIES;
+pub const CAPABILITIES: &[&str] = &[
+    // AI inference (legacy domain)
+    "ai.query",
+    "ai.complete",
+    "ai.chat",
+    "ai.list_providers",
+    // Inference domain — vendor-agnostic wire standard (ecoPrimal)
+    "inference.complete",
+    "inference.embed",
+    "inference.models",
+    // Capability routing (capabilities.list is canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1)
+    "capabilities.list",
+    "capability.announce",
+    "capability.discover",
+    "capability.list",
+    // Health probes — canonical per PRIMAL_IPC_PROTOCOL v3.0
+    "health.check",
+    "health.liveness",
+    "health.readiness",
+    // System monitoring (backward-compat aliases — prefer health.*)
+    "system.health",
+    "system.status",
+    "system.metrics",
+    "system.ping",
+    // Identity (CAPABILITY_BASED_DISCOVERY_STANDARD v1.0)
+    "identity.get",
+    // Peer discovery
+    "discovery.peers",
+    // Tool orchestration
+    "tool.execute",
+    "tool.list",
+    // Context management
+    "context.create",
+    "context.update",
+    "context.summarize",
+    // Lifecycle (biomeOS)
+    "lifecycle.register",
+    "lifecycle.status",
+    // Graph introspection (primalSpring BYOB)
+    "graph.parse",
+    "graph.validate",
+];
 
 /// Semantic mappings: short operation name → fully qualified capability.
 ///
@@ -55,13 +98,6 @@ pub const CAPABILITIES: &[&str] = universal_constants::capabilities::SQUIRREL_EX
 /// `capability.call { domain: "ai", operation: "query" }` routes to
 /// the correct JSON-RPC method on our socket.
 pub const SEMANTIC_MAPPINGS: &[(&str, &str)] = &[
-    // Inference domain (canonical)
-    ("inference_complete", "inference.complete"),
-    ("inference_embed", "inference.embed"),
-    ("inference_models", "inference.models"),
-    ("inference_register", "inference.register_provider"),
-    ("inference_unregister", "inference.unregister_provider"),
-    // AI domain (backward-compat aliases)
     ("query", "ai.query"),
     ("complete", "ai.complete"),
     ("chat", "ai.chat"),
@@ -102,10 +138,10 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "secrets.retrieve",
     "secrets.list",
     "secrets.delete",
-    // IPC domain (service mesh — canonical naming per GAP-06)
-    "ipc.register",
-    "ipc.heartbeat",
-    "ipc.find_provider",
+    // Discovery domain (service mesh)
+    "discovery.register",
+    "discovery.find_primals",
+    "discovery.query",
     // Compute domain (GPU dispatch, hardware)
     "compute.execute",
     "compute.submit",
@@ -145,42 +181,42 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "composition.nucleus_health",
 ];
 
-/// Consumed capabilities for deployment metadata.
+/// Primal dependencies for deployment.
 ///
-/// Each entry: `(capability_role, required, description)`.
+/// Each entry: `(primal_id, required, description)`.
 /// `required = true` means Squirrel cannot function without it.
 /// `required = false` means graceful degradation is supported.
-///
-/// Discovery is capability-first at runtime — these names are deployment
-/// metadata for composition tooling (biomeOS graph builder, NUCLEUS launcher).
-/// The `capability_role` matches the wire `consumed_capabilities` schema.
 pub const DEPENDENCIES: &[(&str, bool, &str)] = &[
     (
-        "security",
+        primal_names::BEARDOG,
         true,
-        "cryptographic identity and trust (btsp.session.*, crypto.*)",
+        "cryptographic identity and trust",
     ),
     (
-        "discovery",
+        primal_names::SONGBIRD,
         true,
-        "service discovery and IPC mesh (ipc.discover, capability.resolve)",
+        "service discovery and IPC mesh",
     ),
     (
-        "compute",
+        primal_names::TOADSTOOL,
         false,
         "GPU compute dispatch (graceful fallback to CPU-only inference)",
     ),
     (
-        "storage",
+        primal_names::NESTGATE,
         false,
         "persistent storage (graceful fallback to in-memory cache)",
     ),
     (
-        "coordination",
+        primal_names::PRIMALSPRING,
         false,
-        "composition validation and graph execution",
+        "coordination validation and BYOB graph execution",
     ),
-    ("visualization", false, "user interface rendering"),
+    (
+        primal_names::PETALTONGUE,
+        false,
+        "visualization and user interface rendering",
+    ),
 ];
 
 /// Cost estimates for biomeOS Pathway Learner scheduling.
@@ -189,11 +225,6 @@ pub const DEPENDENCIES: &[(&str, bool, &str)] = &[
 /// Times are representative for typical workloads. The Pathway Learner
 /// uses these to make intelligent routing decisions.
 pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
-    ("inference.complete", 500, true),
-    ("inference.embed", 300, true),
-    ("inference.models", 1, false),
-    ("inference.register_provider", 5, false),
-    ("inference.unregister_provider", 5, false),
     ("ai.query", 500, true),
     ("ai.complete", 500, true),
     ("ai.chat", 800, true),
@@ -216,10 +247,6 @@ pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
     ("context.create", 5, false),
     ("context.update", 5, false),
     ("context.summarize", 300, true),
-    ("provider.register", 5, false),
-    ("provider.list", 2, false),
-    ("provider.deregister", 5, false),
-    ("btsp.negotiate", 2, false),
     ("lifecycle.register", 10, false),
     ("lifecycle.status", 1, false),
     ("graph.parse", 5, false),
@@ -233,11 +260,6 @@ pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
 #[must_use]
 pub fn operation_dependencies() -> serde_json::Value {
     serde_json::json!({
-        "inference.complete": ["prompt"],
-        "inference.embed": ["input"],
-        "inference.models": [],
-        "inference.register_provider": ["provider_id"],
-        "inference.unregister_provider": ["provider_id"],
         "ai.query": ["prompt"],
         "ai.complete": ["prompt"],
         "ai.chat": ["prompt"],
@@ -260,11 +282,7 @@ pub fn operation_dependencies() -> serde_json::Value {
         "context.create": [],
         "context.update": ["id", "data"],
         "context.summarize": ["id"],
-        "provider.register": ["provider_id", "capabilities"],
-        "provider.list": [],
-        "provider.deregister": ["provider_id"],
         "lifecycle.register": [],
-        "btsp.negotiate": ["session_id"],
         "lifecycle.status": [],
         "graph.parse": ["graph_toml"],
         "graph.validate": ["graph_toml"],
@@ -278,11 +296,6 @@ pub fn operation_dependencies() -> serde_json::Value {
 #[must_use]
 pub fn cost_estimates_json() -> serde_json::Value {
     serde_json::json!({
-        "inference.complete":    { "latency_ms": 500, "cpu": "low",    "memory_bytes": 8192,  "gpu_beneficial": true },
-        "inference.embed":       { "latency_ms": 300, "cpu": "low",    "memory_bytes": 4096,  "gpu_beneficial": true },
-        "inference.models":      { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
-        "inference.register_provider": { "latency_ms": 5, "cpu": "low", "memory_bytes": 512, "gpu_beneficial": false },
-        "inference.unregister_provider": { "latency_ms": 5, "cpu": "low", "memory_bytes": 256, "gpu_beneficial": false },
         "ai.query":              { "latency_ms": 500, "cpu": "low",    "memory_bytes": 8192,  "gpu_beneficial": true },
         "ai.complete":           { "latency_ms": 500, "cpu": "low",    "memory_bytes": 8192,  "gpu_beneficial": true },
         "ai.chat":               { "latency_ms": 800, "cpu": "low",    "memory_bytes": 16384, "gpu_beneficial": true },
@@ -305,10 +318,6 @@ pub fn cost_estimates_json() -> serde_json::Value {
         "context.create":        { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
         "context.update":        { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 1024,  "gpu_beneficial": false },
         "context.summarize":     { "latency_ms": 300, "cpu": "medium", "memory_bytes": 32768, "gpu_beneficial": true },
-        "provider.register":     { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
-        "provider.list":         { "latency_ms": 2,   "cpu": "low",    "memory_bytes": 1024,  "gpu_beneficial": false },
-        "provider.deregister":   { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
-        "btsp.negotiate":        { "latency_ms": 2,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
         "lifecycle.register":    { "latency_ms": 10,  "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
         "lifecycle.status":      { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
         "graph.parse":           { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 2048,  "gpu_beneficial": false },
@@ -320,11 +329,6 @@ pub fn cost_estimates_json() -> serde_json::Value {
 #[must_use]
 pub fn semantic_mappings_json() -> serde_json::Value {
     serde_json::json!({
-        "inference_complete": "inference.complete",
-        "inference_embed":    "inference.embed",
-        "inference_models":   "inference.models",
-        "inference_register":   "inference.register_provider",
-        "inference_unregister": "inference.unregister_provider",
         "query":          "ai.query",
         "complete":       "ai.complete",
         "chat":           "ai.chat",
@@ -346,9 +350,6 @@ pub fn semantic_mappings_json() -> serde_json::Value {
         "create":         "context.create",
         "update":         "context.update",
         "summarize":      "context.summarize",
-        "provider_register":   "provider.register",
-        "provider_list":       "provider.list",
-        "provider_deregister": "provider.deregister",
         "register":       "lifecycle.register",
         "parse_graph":    "graph.parse",
         "validate_graph": "graph.validate",
@@ -369,68 +370,6 @@ pub const fn required_dependency_count() -> usize {
     count
 }
 
-/// Capability group descriptions for L3 composable wire responses.
-///
-/// Maps domain prefix → human-readable description for `provided_capabilities`.
-pub const CAPABILITY_GROUP_DESCRIPTIONS: &[(&str, &str)] = &[
-    (
-        "inference",
-        "AI model inference: completion, embedding, model registry, provider management",
-    ),
-    (
-        "ai",
-        "AI query routing: vendor-agnostic text generation, chat, provider listing (backward-compat aliases)",
-    ),
-    (
-        "capabilities",
-        "Self-advertisement: capability listing per Wire Standard v1.0",
-    ),
-    (
-        "capability",
-        "Peer capability management: announce and discover remote primal tools",
-    ),
-    (
-        "health",
-        "Health probes: liveness, readiness, and detailed health checks",
-    ),
-    (
-        "system",
-        "System introspection: health, status, metrics, ping (backward-compat aliases)",
-    ),
-    (
-        "identity",
-        "Primal identity: self-knowledge per Wire Standard v1.0",
-    ),
-    (
-        "discovery",
-        "Runtime peer discovery: list connected primals and their capabilities",
-    ),
-    (
-        "tool",
-        "MCP tool execution: invoke and list registered tools from MCP servers",
-    ),
-    (
-        "context",
-        "Context management: create, update, and summarize AI conversation contexts",
-    ),
-    (
-        "provider",
-        "Provider registration: springs register/deregister capabilities for routing",
-    ),
-    (
-        "btsp",
-        "BTSP Phase 3: cipher negotiation for encrypted channel upgrade",
-    ),
-    (
-        "lifecycle",
-        "Ecosystem lifecycle: register with orchestrator, report status",
-    ),
-    (
-        "graph",
-        "Deploy graph: parse and validate TOML deployment compositions",
-    ),
-];
-
 /// Feature gates that expand primal capabilities.
 pub const FEATURE_GATES: &[(&str, &str)] = &[
     (
@@ -440,6 +379,7 @@ pub const FEATURE_GATES: &[(&str, &str)] = &[
     ("marketplace", "Plugin marketplace integration"),
     ("monitoring", "Prometheus-compatible metrics export"),
     ("ecosystem", "Full ecosystem manager with federation"),
+    ("nvml", "NVIDIA GPU detection via NVML"),
 ];
 
 #[cfg(test)]
@@ -481,24 +421,6 @@ mod tests {
     fn required_dependency_count_is_correct() {
         let manual = DEPENDENCIES.iter().filter(|(_, req, _)| *req).count();
         assert_eq!(required_dependency_count(), manual);
-    }
-
-    #[test]
-    fn capability_group_descriptions_cover_all_domains() {
-        let domains: std::collections::BTreeSet<&str> = CAPABILITIES
-            .iter()
-            .filter_map(|c| c.split('.').next())
-            .collect();
-        let described: std::collections::BTreeSet<&str> = CAPABILITY_GROUP_DESCRIPTIONS
-            .iter()
-            .map(|(d, _)| *d)
-            .collect();
-        for domain in &domains {
-            assert!(
-                described.contains(domain),
-                "domain {domain} missing from CAPABILITY_GROUP_DESCRIPTIONS"
-            );
-        }
     }
 
     #[test]
@@ -622,10 +544,10 @@ mod tests {
     }
 
     #[test]
-    fn security_and_discovery_are_required_dependencies() {
-        let security = DEPENDENCIES.iter().find(|(id, _, _)| *id == "security");
-        let discovery = DEPENDENCIES.iter().find(|(id, _, _)| *id == "discovery");
-        assert_eq!(security.map(|(_, r, _)| *r), Some(true));
-        assert_eq!(discovery.map(|(_, r, _)| *r), Some(true));
+    fn dependencies_name_beardog_and_songbird_required() {
+        let beardog = DEPENDENCIES.iter().find(|(id, _, _)| *id == "beardog");
+        let songbird = DEPENDENCIES.iter().find(|(id, _, _)| *id == "songbird");
+        assert_eq!(beardog.map(|(_, r, _)| *r), Some(true));
+        assert_eq!(songbird.map(|(_, r, _)| *r), Some(true));
     }
 }
