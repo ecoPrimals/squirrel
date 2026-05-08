@@ -296,7 +296,7 @@ async fn run_server(
         || {
             let s = JsonRpcServer::new(socket_path.clone());
             Arc::new(if let Some(p) = port {
-                s.with_tcp(p, bind_host.clone())
+                s.with_tcp_port(p)
             } else {
                 s
             })
@@ -304,7 +304,7 @@ async fn run_server(
         |router| {
             let s = JsonRpcServer::with_ai_router(socket_path.clone(), router);
             Arc::new(if let Some(p) = port {
-                s.with_tcp(p, bind_host.clone())
+                s.with_tcp_port(p)
             } else {
                 s
             })

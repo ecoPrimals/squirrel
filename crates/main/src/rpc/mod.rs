@@ -43,6 +43,7 @@ mod handlers_system;
 mod handlers_tool;
 pub mod ipc_client;
 mod jsonrpc_handlers;
+mod jsonrpc_request_processing;
 pub mod jsonrpc_server;
 pub mod jsonrpc_types;
 pub mod protocol;
@@ -54,6 +55,8 @@ pub mod unix_socket;
 // tarpc binary RPC (feature-gated)
 #[cfg(feature = "tarpc-rpc")]
 pub mod tarpc_client;
+#[cfg(feature = "tarpc-rpc")]
+mod tarpc_dispatch;
 #[cfg(feature = "tarpc-rpc")]
 pub mod tarpc_server;
 #[cfg(feature = "tarpc-rpc")]

@@ -69,6 +69,10 @@ Fallback: `/run/user/<uid>/biomeos/squirrel.sock` or `/tmp/squirrel.sock`.
 
 Capability symlink: `ai.sock` → `squirrel.sock` (auto-created for capability-based discovery)
 
+### Auth Model
+
+Squirrel does **not** expose `auth.mode` — it delegates all auth to the security capability provider (any primal advertising `security.*` capabilities). This is intentional: Squirrel is the AI coordination primal, not an auth server. TCP and UDS transports share the same JSON-RPC method surface; neither implements auth methods locally.
+
 ---
 
 ## Architecture

@@ -316,124 +316,45 @@ impl SquirrelRpc for TarpcRpcServer {
     async fn provider_register(
         self,
         _ctx: context::Context,
-        params: ProviderRegisterParams,
+        _params: ProviderRegisterParams,
     ) -> ProviderRegisterResult {
-        let json_params = serde_json::json!({
-            "provider_id": params.provider_id,
-            "socket": params.socket,
-            "endpoint": params.endpoint,
-            "capabilities": params.capabilities,
-            "version": params.version.unwrap_or_default(),
-            "domain": params.domain.unwrap_or_default(),
-            "priority": params.priority.unwrap_or(50),
-        });
-        match self
-            .jsonrpc
-            .handle_provider_register(Some(json_params))
-            .await
-        {
-            Ok(v) => ProviderRegisterResult {
-                success: v
-                    .get("success")
-                    .and_then(serde_json::Value::as_bool)
-                    .unwrap_or(false),
-                message: v
-                    .get("message")
-                    .and_then(|x| x.as_str())
-                    .unwrap_or("")
-                    .to_string(),
-            },
-            Err(e) => ProviderRegisterResult {
-                success: false,
-                message: e.message,
-            },
+        warn!("provider_register: tarpc path pending provider_registry integration");
+        ProviderRegisterResult {
+            success: false,
+            message: "provider.register not yet wired via tarpc".to_string(),
         }
     }
 
     async fn provider_list(self, _ctx: context::Context) -> ProviderListResult {
-        match self.jsonrpc.handle_provider_list().await {
-            Ok(v) => ProviderListResult {
-                providers: v
-                    .get("providers")
-                    .and_then(|p| p.as_array())
-                    .cloned()
-                    .unwrap_or_default(),
-                count: v
-                    .get("count")
-                    .and_then(serde_json::Value::as_u64)
-                    .unwrap_or(0) as usize,
-            },
-            Err(_) => ProviderListResult {
-                providers: vec![],
-                count: 0,
-            },
+        warn!("provider_list: tarpc path pending provider_registry integration");
+        ProviderListResult {
+            providers: vec![],
+            count: 0,
         }
     }
 
     async fn provider_deregister(
         self,
         _ctx: context::Context,
-        provider_id: String,
+        _provider_id: String,
     ) -> ProviderDeregisterResult {
-        let json_params = serde_json::json!({ "provider_id": provider_id });
-        match self
-            .jsonrpc
-            .handle_provider_deregister(Some(json_params))
-            .await
-        {
-            Ok(v) => ProviderDeregisterResult {
-                success: v
-                    .get("success")
-                    .and_then(serde_json::Value::as_bool)
-                    .unwrap_or(false),
-                message: v
-                    .get("message")
-                    .and_then(|x| x.as_str())
-                    .unwrap_or("")
-                    .to_string(),
-            },
-            Err(e) => ProviderDeregisterResult {
-                success: false,
-                message: e.message,
-            },
+        warn!("provider_deregister: tarpc path pending provider_registry integration");
+        ProviderDeregisterResult {
+            success: false,
+            message: "provider.deregister not yet wired via tarpc".to_string(),
         }
     }
 
     async fn btsp_negotiate(
         self,
         _ctx: context::Context,
-        params: BtspNegotiateParams,
+        _params: BtspNegotiateParams,
     ) -> BtspNegotiateResult {
-        let mut json_params = serde_json::json!({
-            "session_id": params.session_id,
-            "preferred_cipher": params.preferred_cipher,
-            "bond_type": params.bond_type,
-        });
-        if let Some(ref cn) = params.client_nonce {
-            json_params["client_nonce"] = serde_json::Value::String(cn.clone());
-        }
-        match self.jsonrpc.handle_btsp_negotiate(Some(json_params)).await {
-            Ok(v) => BtspNegotiateResult {
-                cipher: v
-                    .get("cipher")
-                    .and_then(|x| x.as_str())
-                    .unwrap_or("null")
-                    .to_string(),
-                server_nonce: v
-                    .get("server_nonce")
-                    .and_then(|x| x.as_str())
-                    .unwrap_or_default()
-                    .to_string(),
-                allowed: v
-                    .get("allowed")
-                    .and_then(serde_json::Value::as_bool)
-                    .unwrap_or(true),
-            },
-            Err(_) => BtspNegotiateResult {
-                cipher: "null".to_string(),
-                server_nonce: String::new(),
-                allowed: false,
-            },
+        warn!("btsp_negotiate: tarpc path pending encrypted framing integration");
+        BtspNegotiateResult {
+            cipher: "null".to_string(),
+            server_nonce: String::new(),
+            allowed: false,
         }
     }
 

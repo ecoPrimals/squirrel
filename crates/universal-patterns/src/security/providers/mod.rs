@@ -16,12 +16,18 @@ mod registry;
 mod types;
 
 #[cfg(test)]
-#[path = "tests.rs"]
-mod tests;
+mod tests_integration;
+#[cfg(test)]
+mod tests_registry;
+#[cfg(test)]
+mod tests_types;
 
 #[cfg_attr(
     not(test),
-    expect(unused_imports, reason = "Test-only re-exports for providers/tests.rs")
+    expect(
+        unused_imports,
+        reason = "Test-only re-exports for providers test modules"
+    )
 )]
 #[expect(
     deprecated,

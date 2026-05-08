@@ -11,6 +11,19 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 8, 2026 — session BA: primalSpring P7 code quality + compilation fixes)
+
+- **Test file split (P7 audit)**: Split 1,105-line `security/providers/tests.rs` into 3 domain-specific modules (`tests_types.rs`, `tests_registry.rs`, `tests_integration.rs`). All 40 provider tests pass.
+- **DF-3 (auth.mode)**: Documented in README that Squirrel intentionally delegates auth — `auth.mode` is not exposed on any transport.
+- **Compilation fixes (pre-existing)**: Resolved 4 pre-existing compilation errors:
+  - Added `CAPABILITY_GROUP_DESCRIPTIONS` to `niche.rs` (missing constant).
+  - Added `tarpc_dispatch` and `jsonrpc_request_processing` module declarations (orphaned modules).
+  - Removed duplicate `handle_request_or_batch`/`handle_single_request` from `jsonrpc_server.rs` (extraction artifact).
+  - Fixed `main.rs` to use `with_tcp_port` (method was renamed).
+- **Niche sync**: Added `inference.*`, `provider.*`, `btsp.negotiate` capabilities to `CAPABILITIES`, `COST_ESTIMATES`, `operation_dependencies`, `cost_estimates_json`, `semantic_mappings`, and `CAPABILITY_GROUP_DESCRIPTIONS`. Added `ipc.register`/`ipc.heartbeat` to `CONSUMED_CAPABILITIES`.
+- **Dispatch wiring**: Wired `inference.register_provider` and `inference.unregister_provider` into `dispatch_jsonrpc_method`. All 15 inference register tests now pass.
+- **tarpc stubs**: Stubbed 4 tarpc dispatch methods pending provider_registry/btsp infrastructure integration.
+
 ### Summary (May 7, 2026 — session AZ: primalSpring Phase 60 audit + merge conflict resolution)
 
 **7,213** tests, **~1,001** `.rs` files, **~326k** lines, **90.1%** region coverage (target met).

@@ -613,9 +613,9 @@ async fn ai_query_dispatches_to_router_and_returns_echo() {
         .expect("should succeed");
     let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert_eq!(
-        v.pointer("/result/text").and_then(Value::as_str),
+        v.pointer("/result/response").and_then(Value::as_str),
         Some("echo:ping"),
-        "ai.query now routes to inference.complete handler; response uses 'text' field"
+        "ai.query routes through AiRouter and returns 'response' field"
     );
 }
 
