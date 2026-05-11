@@ -73,6 +73,10 @@ Capability symlink: `ai.sock` → `squirrel.sock` (auto-created for capability-b
 
 Squirrel does **not** expose `auth.mode` — it delegates all auth to the security capability provider (any primal advertising `security.*` capabilities). This is intentional: Squirrel is the AI coordination primal, not an auth server. TCP and UDS transports share the same JSON-RPC method surface; neither implements auth methods locally.
 
+### Method Gate (JH-0)
+
+Pre-dispatch capability gate at `crates/main/src/rpc/method_gate.rs`. Ships in **`GateMode::Permissive`** (no behavioral change). Classifies every JSON-RPC method as `Public` (health, identity, capabilities, discovery, auth, provenance) or `Protected` (AI inference, tool execution, context management). Prepares `CallerContext` and `ResourceEnvelope` structures for JH-2 enforcement when BearDog ionic token verification ships.
+
 ---
 
 ## Architecture

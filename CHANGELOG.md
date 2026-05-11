@@ -11,6 +11,17 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 11, 2026 — session BB: MethodGate JH-0 implementation)
+
+- **MethodGate (JH-0)**: Created `crates/main/src/rpc/method_gate.rs` implementing the ecosystem-standard pre-dispatch capability gate. Squirrel is now 13/13 at the primalSpring stadial gate.
+  - `classify_method()` — public: health.*, system.*, identity.get, capabilities.*, capability.*, lifecycle.status, discovery.*, auth.*, provenance.*; protected: everything else (ai.*, inference.*, tool.*, context.*, graph.*, lifecycle.register, provider.*, btsp.*).
+  - `MethodGate::check_with_context()` — JH-0 basic gate + JH-2 ResourceEnvelope/CallerContext prep.
+  - Ships in `GateMode::Permissive` (no behavioral change, ecosystem default).
+  - Wired before dispatch in `jsonrpc_request_processing.rs` (`handle_single_request_object`).
+  - 25 unit tests covering classify, permissive mode, enforcing mode, envelope allowlists, prefix normalization.
+- **Test count**: 7,203 (up from 7,178; +25 method_gate tests).
+- **Quality gates**: `cargo fmt`, `cargo clippy` (zero warnings), `cargo test --workspace` (7,203 pass), `cargo deny check` — all green.
+
 ### Summary (May 8, 2026 — session BA: primalSpring P7 code quality + compilation fixes)
 
 - **Test file split (P7 audit)**: Split 1,105-line `security/providers/tests.rs` into 3 domain-specific modules (`tests_types.rs`, `tests_registry.rs`, `tests_integration.rs`). All 40 provider tests pass.

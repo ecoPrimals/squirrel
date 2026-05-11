@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use super::jsonrpc_server::{JsonRpcError, JsonRpcResponse, JsonRpcServer, error_codes};
+use super::method_gate::{CallerContext, MethodGate};
 
 impl JsonRpcServer {
     /// Handle a JSON-RPC request or batch (JSON-RPC 2.0 Section 6).
@@ -109,6 +110,7 @@ impl JsonRpcServer {
         self.handle_single_request_object(obj, start_time).await
     }
 
+    #[allow(clippy::too_many_lines)]
     async fn handle_single_request_object(
         &self,
         obj: &serde_json::Map<String, Value>,
@@ -181,6 +183,22 @@ impl JsonRpcServer {
         }
 
         let params = obj.get("params").cloned();
+
+        // JH-0/JH-2: pre-dispatch capability gate
+        let gate = MethodGate::permissive();
+        let caller_ctx = CallerContext::anonymous();
+        if let Err(gate_err) = gate.check_with_context(method_str, &caller_ctx) {
+            if is_notification {
+                return None;
+            }
+            let req_id = obj.get("id").cloned().unwrap_or(Value::Null);
+            return Some(JsonRpcResponse {
+                jsonrpc: Arc::from("2.0"),
+                result: None,
+                error: Some(gate_err),
+                id: req_id,
+            });
+        }
 
         if is_notification {
             let _ = self.dispatch_jsonrpc_method(method_str, params).await;

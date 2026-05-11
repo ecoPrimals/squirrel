@@ -46,6 +46,7 @@ mod jsonrpc_handlers;
 mod jsonrpc_request_processing;
 pub mod jsonrpc_server;
 pub mod jsonrpc_types;
+pub(crate) mod method_gate;
 pub mod protocol;
 pub mod protocol_negotiation;
 pub mod spring_tools;
