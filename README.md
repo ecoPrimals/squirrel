@@ -77,6 +77,10 @@ Squirrel does **not** expose `auth.mode` — it delegates all auth to the securi
 
 Pre-dispatch capability gate at `crates/main/src/rpc/method_gate.rs`. Ships in **`GateMode::Permissive`** (no behavioral change). Classifies every JSON-RPC method as `Public` (health, identity, capabilities, discovery, auth, provenance) or `Protected` (AI inference, tool execution, context management). Prepares `CallerContext` and `ResourceEnvelope` structures for JH-2 enforcement when BearDog ionic token verification ships.
 
+### Compute Delegation
+
+Squirrel delegates compute workloads to the ecosystem compute primal (toadStool) via JSON-RPC IPC. Detection order: `COMPUTE_SERVICE_ENDPOINT` → `COMPUTE_ENDPOINT` → `TOADSTOOL_ENDPOINT` → local dev fallback. The `RemoteComputeProvider` translates `WorkloadExecutionSpec` into toadStool's `compute.execute` wire format and speaks JSON-RPC 2.0 over Unix socket or TCP.
+
 ---
 
 ## Architecture

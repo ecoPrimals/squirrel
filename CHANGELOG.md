@@ -11,6 +11,17 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 11, 2026 — session BC: compute delegation wired)
+
+- **Compute delegation**: Wired `RemoteComputeProvider` for JSON-RPC IPC delegation to toadStool (or any compute primal). Resolves composition gap where `auto_detect_compute_provider()` hit a dead path when `COMPUTE_ENDPOINT` was set.
+  - `RemoteComputeProvider` speaks JSON-RPC 2.0 over Unix socket or TCP
+  - Translates `WorkloadExecutionSpec` → toadStool's `compute.execute` wire format (`JsonWorkloadSubmission`)
+  - Endpoint resolution: `COMPUTE_SERVICE_ENDPOINT` → `COMPUTE_ENDPOINT` → `TOADSTOOL_ENDPOINT` → local fallback
+  - `ComputeBackend::Remote` variant added; full `ComputeProvider` trait implementation
+  - 6 new tests covering env detection, fallback, remote metadata, unreachable health check
+- **Test count**: 7,209 (up from 7,203; +6 compute delegation tests).
+- **Quality gates**: `cargo fmt`, `cargo clippy` (zero warnings), `cargo test --workspace` (7,209 pass), `cargo deny check` — all green.
+
 ### Summary (May 11, 2026 — session BB: MethodGate JH-0 implementation)
 
 - **MethodGate (JH-0)**: Created `crates/main/src/rpc/method_gate.rs` implementing the ecosystem-standard pre-dispatch capability gate. Squirrel is now 13/13 at the primalSpring stadial gate.

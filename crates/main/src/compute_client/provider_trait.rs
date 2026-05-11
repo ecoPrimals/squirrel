@@ -211,62 +211,77 @@ pub trait ComputeProvider: Send + Sync {
     }
 }
 
-/// Auto-detect compute provider
-///
-/// Attempts to detect and create an appropriate compute provider
-/// based on the runtime environment.
+/// Auto-detect compute provider based on runtime environment.
 ///
 /// # Detection Order
 ///
-/// 1. Environment variable `COMPUTE_PROVIDER_TYPE`
-/// 2. Toadstool detection (ecoPrimals compute primal)
-/// 3. Kubernetes detection (if `/var/run/secrets/kubernetes.io` exists)
-/// 4. Docker detection (if Docker socket exists)
-/// 5. Local process execution (fallback)
+/// 1. `COMPUTE_PROVIDER_TYPE` env: explicit type ("local", "remote")
+/// 2. `COMPUTE_ENDPOINT` / `COMPUTE_SERVICE_ENDPOINT` / `TOADSTOOL_ENDPOINT` env:
+///    resolve endpoint and create [`RemoteComputeProvider`] for IPC delegation
+/// 3. Fall back to [`LocalProcessProvider`] (development only)
 ///
-/// # Example
-///
-/// ```rust,ignore
-/// let compute = auto_detect_compute_provider().await?;
-/// println!("Using compute: {}", compute.provider_name());
-/// ```
+/// In composition, when toadStool is present, step 2 produces a remote
+/// provider that delegates `compute.execute` via JSON-RPC IPC.
 pub async fn auto_detect_compute_provider() -> ComputeResult<Box<ComputeBackend>> {
     use tracing::{debug, info};
 
     // 1. Explicit provider type from environment
     if let Ok(provider_type) = std::env::var("COMPUTE_PROVIDER_TYPE") {
         info!(provider = %provider_type, "Compute provider type specified via env");
-        return create_compute_from_type(&provider_type).await;
+        return create_compute_from_type(&provider_type, None).await;
     }
 
-    // 2. Capability-based: detect compute primal endpoint via env
-    if std::env::var("COMPUTE_ENDPOINT").is_ok() {
-        debug!("Detected compute primal via COMPUTE_ENDPOINT — delegate via capability discovery");
-        return create_compute_from_type("capability").await;
+    // 2. Capability-based: resolve compute primal endpoint from env
+    let endpoint = std::env::var("COMPUTE_SERVICE_ENDPOINT")
+        .or_else(|_| std::env::var("COMPUTE_ENDPOINT"))
+        .or_else(|_| std::env::var("TOADSTOOL_ENDPOINT"))
+        .ok();
+
+    if let Some(ref ep) = endpoint {
+        info!(endpoint = %ep, "Detected compute primal endpoint — creating remote provider");
+        return create_compute_from_type("remote", Some(ep)).await;
     }
 
     // 3. Fall back to local execution (development mode)
-    debug!("No compute provider detected, using local execution");
-    create_compute_from_type("local").await
+    debug!("No compute endpoint detected, using local execution (dev fallback)");
+    create_compute_from_type("local", None).await
 }
 
 /// Create compute provider from type string.
 ///
-/// Returns a [`LocalProcessProvider`] for local dev/test execution.
-/// All other provider types are delegated via `compute.execute` capability
-/// discovery — Squirrel never embeds vendor-specific orchestrators.
-async fn create_compute_from_type(provider_type: &str) -> ComputeResult<Box<ComputeBackend>> {
+/// - `"local"` — development stub (always available, rejects `execute_workload`)
+/// - `"remote"` — delegates to compute primal via JSON-RPC at `endpoint`
+async fn create_compute_from_type(
+    provider_type: &str,
+    endpoint: Option<&str>,
+) -> ComputeResult<Box<ComputeBackend>> {
     match provider_type.to_lowercase().as_str() {
         "local" => Ok(Box::new(ComputeBackend::Local(LocalProcessProvider::new()))),
+        "remote" | "capability" | "toadstool" => {
+            let ep = endpoint.ok_or_else(|| {
+                ComputeProviderError::NotAvailable(
+                    "Remote compute requires an endpoint (set COMPUTE_ENDPOINT)".into(),
+                )
+            })?;
+            Ok(Box::new(ComputeBackend::Remote(
+                RemoteComputeProvider::new(ep.to_string()),
+            )))
+        }
         other => {
             tracing::info!(
                 provider = other,
-                "Compute type not locally available; delegate via compute.execute capability"
+                "Unknown compute type — trying as remote endpoint"
             );
-            Err(ComputeProviderError::NotAvailable(format!(
-                "Provider '{other}' is not embedded — use `compute.execute` capability \
-                 discovery to delegate to the compute primal"
-            )))
+            if let Some(ep) = endpoint {
+                Ok(Box::new(ComputeBackend::Remote(
+                    RemoteComputeProvider::new(ep.to_string()),
+                )))
+            } else {
+                Err(ComputeProviderError::NotAvailable(format!(
+                    "Provider '{other}' is not embedded and no endpoint is configured \
+                     — set COMPUTE_ENDPOINT to delegate to the compute primal"
+                )))
+            }
         }
     }
 }
@@ -275,60 +290,71 @@ async fn create_compute_from_type(provider_type: &str) -> ComputeResult<Box<Comp
 pub enum ComputeBackend {
     /// Local in-process stub used for development.
     Local(LocalProcessProvider),
+    /// Remote compute primal delegation via JSON-RPC IPC.
+    Remote(RemoteComputeProvider),
 }
 
 impl ComputeProvider for ComputeBackend {
     fn provider_name(&self) -> &str {
         match self {
             Self::Local(p) => p.provider_name(),
+            Self::Remote(p) => p.provider_name(),
         }
     }
 
     async fn get_capabilities(&self) -> ComputeResult<Vec<ComputeCapabilityType>> {
         match self {
             Self::Local(p) => p.get_capabilities().await,
+            Self::Remote(p) => p.get_capabilities().await,
         }
     }
 
     async fn execute_workload(&self, spec: WorkloadExecutionSpec) -> ComputeResult<Uuid> {
         match self {
             Self::Local(p) => p.execute_workload(spec).await,
+            Self::Remote(p) => p.execute_workload(spec).await,
         }
     }
 
     async fn get_workload_status(&self, id: Uuid) -> ComputeResult<WorkloadExecutionResult> {
         match self {
             Self::Local(p) => p.get_workload_status(id).await,
+            Self::Remote(p) => p.get_workload_status(id).await,
         }
     }
 
     async fn cancel_workload(&self, id: Uuid) -> ComputeResult<()> {
         match self {
             Self::Local(p) => p.cancel_workload(id).await,
+            Self::Remote(p) => p.cancel_workload(id).await,
         }
     }
 
     async fn list_workloads(&self) -> ComputeResult<Vec<WorkloadExecutionResult>> {
         match self {
             Self::Local(p) => p.list_workloads().await,
+            Self::Remote(p) => p.list_workloads().await,
         }
     }
 
     async fn health_check(&self) -> bool {
         match self {
             Self::Local(p) => p.health_check().await,
+            Self::Remote(p) => p.health_check().await,
         }
     }
 
     fn metadata(&self) -> HashMap<String, String> {
         match self {
             Self::Local(p) => p.metadata(),
+            Self::Remote(p) => p.metadata(),
         }
     }
 
     async fn get_available_resources(&self) -> ComputeResult<ResourceRequirements> {
         match self {
             Self::Local(p) => p.get_available_resources().await,
+            Self::Remote(p) => p.get_available_resources().await,
         }
     }
 }
@@ -411,6 +437,288 @@ fn num_cpus() -> u32 {
     std::thread::available_parallelism()
         .map(|n| n.get() as u32)
         .unwrap_or(1)
+}
+
+/// Remote compute provider that delegates workloads to a compute primal
+/// (e.g. toadStool) via JSON-RPC IPC over Unix socket or TCP.
+///
+/// Translates Squirrel's `WorkloadExecutionSpec` into toadStool's
+/// `compute.execute` JSON-RPC call (`JsonWorkloadSubmission` wire format).
+pub struct RemoteComputeProvider {
+    endpoint: String,
+}
+
+impl RemoteComputeProvider {
+    #[must_use]
+    pub const fn new(endpoint: String) -> Self {
+        Self { endpoint }
+    }
+
+    /// Send a JSON-RPC request to the compute endpoint and return the result.
+    async fn rpc_call(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> ComputeResult<serde_json::Value> {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let request_id = Uuid::new_v4().to_string();
+        let rpc_request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": method,
+            "params": params,
+        });
+
+        let request_bytes = serde_json::to_vec(&rpc_request).map_err(|e| {
+            ComputeProviderError::ProviderError(format!("Failed to serialize request: {e}"))
+        })?;
+
+        let response_bytes = if self.endpoint.starts_with("unix://") {
+            let socket_path = self.endpoint.strip_prefix("unix://").ok_or_else(|| {
+                ComputeProviderError::ProviderError("Invalid unix:// endpoint".into())
+            })?;
+            let mut stream = tokio::net::UnixStream::connect(socket_path)
+                .await
+                .map_err(|e| {
+                    ComputeProviderError::ProviderError(format!(
+                        "Failed to connect to compute primal at {socket_path}: {e}"
+                    ))
+                })?;
+            stream.write_all(&request_bytes).await.map_err(|e| {
+                ComputeProviderError::ProviderError(format!("Socket write failed: {e}"))
+            })?;
+            stream.write_all(b"\n").await.map_err(|e| {
+                ComputeProviderError::ProviderError(format!("Socket write delimiter failed: {e}"))
+            })?;
+            stream.shutdown().await.map_err(|e| {
+                ComputeProviderError::ProviderError(format!("Socket shutdown failed: {e}"))
+            })?;
+            let mut buf = Vec::new();
+            stream.read_to_end(&mut buf).await.map_err(|e| {
+                ComputeProviderError::ProviderError(format!("Socket read failed: {e}"))
+            })?;
+            buf
+        } else {
+            // TCP endpoint (host:port or http://host:port)
+            let addr = self
+                .endpoint
+                .strip_prefix("http://")
+                .unwrap_or(&self.endpoint);
+            let mut stream = tokio::net::TcpStream::connect(addr).await.map_err(|e| {
+                ComputeProviderError::ProviderError(format!(
+                    "Failed to connect to compute primal at {addr}: {e}"
+                ))
+            })?;
+            stream.write_all(&request_bytes).await.map_err(|e| {
+                ComputeProviderError::ProviderError(format!("TCP write failed: {e}"))
+            })?;
+            stream.write_all(b"\n").await.map_err(|e| {
+                ComputeProviderError::ProviderError(format!("TCP write delimiter failed: {e}"))
+            })?;
+            stream.shutdown().await.map_err(|e| {
+                ComputeProviderError::ProviderError(format!("TCP shutdown failed: {e}"))
+            })?;
+            let mut buf = Vec::new();
+            stream.read_to_end(&mut buf).await.map_err(|e| {
+                ComputeProviderError::ProviderError(format!("TCP read failed: {e}"))
+            })?;
+            buf
+        };
+
+        let rpc_response: serde_json::Value =
+            serde_json::from_slice(&response_bytes).map_err(|e| {
+                ComputeProviderError::ProviderError(format!(
+                    "Failed to parse response from compute primal: {e}"
+                ))
+            })?;
+
+        if let Some(err) = rpc_response.get("error") {
+            let msg = err
+                .get("message")
+                .and_then(|m| m.as_str())
+                .unwrap_or("unknown remote error");
+            return Err(ComputeProviderError::ExecutionFailed(format!(
+                "Compute primal returned error: {msg}"
+            )));
+        }
+
+        rpc_response.get("result").cloned().ok_or_else(|| {
+            ComputeProviderError::ProviderError(
+                "Compute primal response missing 'result' field".into(),
+            )
+        })
+    }
+}
+
+impl ComputeProvider for RemoteComputeProvider {
+    #[allow(clippy::unused_self, clippy::unnecessary_literal_bound)]
+    fn provider_name(&self) -> &str {
+        "remote"
+    }
+
+    async fn get_capabilities(&self) -> ComputeResult<Vec<ComputeCapabilityType>> {
+        let result = self
+            .rpc_call("compute.capabilities", serde_json::json!({}))
+            .await;
+
+        match result {
+            Ok(val) => {
+                // Best-effort parse; if the shape doesn't match, return generic
+                if let Ok(caps) = serde_json::from_value(val) {
+                    Ok(caps)
+                } else {
+                    Ok(vec![ComputeCapabilityType::CpuIntensive {
+                        cores: 0,
+                        memory_gb: 0,
+                        architecture: "remote".to_string(),
+                    }])
+                }
+            }
+            Err(_) => Ok(vec![ComputeCapabilityType::CpuIntensive {
+                cores: 0,
+                memory_gb: 0,
+                architecture: "remote".to_string(),
+            }]),
+        }
+    }
+
+    async fn execute_workload(&self, spec: WorkloadExecutionSpec) -> ComputeResult<Uuid> {
+        use base64::Engine;
+
+        // Translate WorkloadExecutionSpec → toadStool's JsonWorkloadSubmission wire format
+        let data_payload = serde_json::json!({
+            "image": spec.image,
+            "command": spec.command,
+            "environment": spec.environment,
+        });
+        let data_b64 = base64::engine::general_purpose::STANDARD.encode(
+            serde_json::to_vec(&data_payload).map_err(|e| {
+                ComputeProviderError::ProviderError(format!("Failed to encode payload: {e}"))
+            })?,
+        );
+
+        let params = serde_json::json!({
+            "workload_id": spec.id.to_string(),
+            "workload_type": spec.labels.get("workload_type").map_or("generic", String::as_str),
+            "data": data_b64,
+            "metadata": spec.labels,
+            "priority": "Normal",
+            "requirements": {
+                "cpu_cores": spec.resources.cpu_cores,
+                "memory_bytes": u64::from(spec.resources.memory_gb) * 1_073_741_824,
+                "timeout_secs": spec.resources.max_execution_time.as_secs(),
+            }
+        });
+
+        let result = self.rpc_call("compute.execute", params).await?;
+
+        // toadStool returns workload_id in the result
+        if let Some(id_str) = result.get("workload_id").and_then(|v| v.as_str()) {
+            Uuid::parse_str(id_str).map_err(|e| {
+                ComputeProviderError::ProviderError(format!(
+                    "Compute primal returned invalid workload_id: {e}"
+                ))
+            })
+        } else {
+            // Fall back to using our own ID
+            Ok(spec.id)
+        }
+    }
+
+    async fn get_workload_status(&self, id: Uuid) -> ComputeResult<WorkloadExecutionResult> {
+        let result = self
+            .rpc_call(
+                "compute.status",
+                serde_json::json!({"workload_id": id.to_string()}),
+            )
+            .await?;
+
+        let status_str = result
+            .get("status")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Pending");
+
+        let status = match status_str {
+            "Running" => WorkloadStatus::Running,
+            "Completed" => WorkloadStatus::Completed,
+            "Failed" => WorkloadStatus::Failed,
+            "Cancelled" => WorkloadStatus::Cancelled,
+            _ => WorkloadStatus::Pending,
+        };
+
+        Ok(WorkloadExecutionResult {
+            id,
+            status,
+            exit_code: result
+                .get("exit_code")
+                .and_then(serde_json::Value::as_i64)
+                .map(|c| c as i32),
+            logs: result
+                .get("logs")
+                .and_then(serde_json::Value::as_str)
+                .map(Into::into),
+            metadata: HashMap::new(),
+        })
+    }
+
+    async fn cancel_workload(&self, id: Uuid) -> ComputeResult<()> {
+        self.rpc_call(
+            "compute.cancel",
+            serde_json::json!({"workload_id": id.to_string()}),
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn list_workloads(&self) -> ComputeResult<Vec<WorkloadExecutionResult>> {
+        let result = self.rpc_call("compute.list", serde_json::json!({})).await?;
+
+        if let Some(arr) = result.as_array() {
+            Ok(arr
+                .iter()
+                .filter_map(|v| {
+                    let id = v
+                        .get("workload_id")
+                        .and_then(|i| i.as_str())
+                        .and_then(|s| Uuid::parse_str(s).ok())?;
+                    let status_str = v
+                        .get("status")
+                        .and_then(|s| s.as_str())
+                        .unwrap_or("Pending");
+                    let status = match status_str {
+                        "Running" => WorkloadStatus::Running,
+                        "Completed" => WorkloadStatus::Completed,
+                        "Failed" => WorkloadStatus::Failed,
+                        "Cancelled" => WorkloadStatus::Cancelled,
+                        _ => WorkloadStatus::Pending,
+                    };
+                    Some(WorkloadExecutionResult {
+                        id,
+                        status,
+                        exit_code: None,
+                        logs: None,
+                        metadata: HashMap::new(),
+                    })
+                })
+                .collect())
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    async fn health_check(&self) -> bool {
+        self.rpc_call("health.check", serde_json::json!({}))
+            .await
+            .is_ok()
+    }
+
+    fn metadata(&self) -> HashMap<String, String> {
+        let mut meta = HashMap::new();
+        meta.insert("provider".to_string(), "remote".to_string());
+        meta.insert("endpoint".to_string(), self.endpoint.clone());
+        meta
+    }
 }
 
 #[cfg(test)]
@@ -524,8 +832,8 @@ mod tests {
             match e {
                 ComputeProviderError::NotAvailable(msg) => {
                     assert!(
-                        msg.contains("capability discovery"),
-                        "Error should guide to capability discovery: {msg}"
+                        msg.contains("COMPUTE_ENDPOINT"),
+                        "Error should guide to setting COMPUTE_ENDPOINT: {msg}"
                     );
                 }
                 ref other => unreachable!("unexpected {other:?}"),
@@ -592,5 +900,106 @@ mod tests {
             .await
             .expect("should succeed");
         assert_eq!(r.cpu_cores, u32::MAX);
+    }
+
+    #[test]
+    fn auto_detect_with_compute_endpoint_creates_remote() {
+        temp_env::with_vars(
+            [
+                ("COMPUTE_PROVIDER_TYPE", None::<&str>),
+                ("COMPUTE_ENDPOINT", Some("unix:///tmp/toadstool.sock")),
+            ],
+            || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("rt");
+                let provider = rt
+                    .block_on(auto_detect_compute_provider())
+                    .expect("remote provider creation should succeed");
+                assert_eq!(provider.provider_name(), "remote");
+            },
+        );
+    }
+
+    #[test]
+    fn auto_detect_with_toadstool_endpoint_creates_remote() {
+        temp_env::with_vars(
+            [
+                ("COMPUTE_PROVIDER_TYPE", None::<&str>),
+                ("COMPUTE_ENDPOINT", None::<&str>),
+                ("COMPUTE_SERVICE_ENDPOINT", None::<&str>),
+                ("TOADSTOOL_ENDPOINT", Some("unix:///run/toadstool/ipc.sock")),
+            ],
+            || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("rt");
+                let provider = rt
+                    .block_on(auto_detect_compute_provider())
+                    .expect("remote provider from TOADSTOOL_ENDPOINT should succeed");
+                assert_eq!(provider.provider_name(), "remote");
+            },
+        );
+    }
+
+    #[test]
+    fn auto_detect_explicit_remote_type_needs_endpoint() {
+        temp_env::with_vars(
+            [
+                ("COMPUTE_PROVIDER_TYPE", Some("remote")),
+                ("COMPUTE_ENDPOINT", None::<&str>),
+                ("COMPUTE_SERVICE_ENDPOINT", None::<&str>),
+                ("TOADSTOOL_ENDPOINT", None::<&str>),
+            ],
+            || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("rt");
+                let result = rt.block_on(auto_detect_compute_provider());
+                assert!(result.is_err(), "remote type without endpoint should error");
+            },
+        );
+    }
+
+    #[tokio::test]
+    async fn remote_provider_metadata_includes_endpoint() {
+        let provider = RemoteComputeProvider::new("unix:///tmp/test.sock".to_string());
+        let m = provider.metadata();
+        assert_eq!(m.get("provider").map(String::as_str), Some("remote"));
+        assert_eq!(
+            m.get("endpoint").map(String::as_str),
+            Some("unix:///tmp/test.sock")
+        );
+    }
+
+    #[tokio::test]
+    async fn remote_provider_health_check_fails_on_unreachable() {
+        let provider = RemoteComputeProvider::new("unix:///nonexistent/socket.sock".to_string());
+        assert!(!provider.health_check().await);
+    }
+
+    #[test]
+    fn auto_detect_no_env_falls_back_to_local() {
+        temp_env::with_vars(
+            [
+                ("COMPUTE_PROVIDER_TYPE", None::<&str>),
+                ("COMPUTE_ENDPOINT", None::<&str>),
+                ("COMPUTE_SERVICE_ENDPOINT", None::<&str>),
+                ("TOADSTOOL_ENDPOINT", None::<&str>),
+            ],
+            || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("rt");
+                let provider = rt
+                    .block_on(auto_detect_compute_provider())
+                    .expect("should fall back to local");
+                assert_eq!(provider.provider_name(), "local");
+            },
+        );
     }
 }
