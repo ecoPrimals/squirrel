@@ -81,6 +81,18 @@ Pre-dispatch capability gate at `crates/main/src/rpc/method_gate.rs`. Ships in *
 
 Squirrel delegates compute workloads to the ecosystem compute primal (toadStool) via JSON-RPC IPC. Detection order: `COMPUTE_SERVICE_ENDPOINT` → `COMPUTE_ENDPOINT` → `TOADSTOOL_ENDPOINT` → local dev fallback. The `RemoteComputeProvider` translates `WorkloadExecutionSpec` into toadStool's `compute.execute` wire format and speaks JSON-RPC 2.0 over Unix socket or TCP.
 
+### Inference Provider Discovery
+
+At startup, `AiRouter` discovers inference providers from multiple sources:
+
+1. **HTTP providers**: `AI_HTTP_PROVIDERS` env + vendor API keys
+2. **Local AI**: `LOCAL_AI_ENDPOINT` / `OLLAMA_ENDPOINT` / `OLLAMA_URL` → Ollama-compatible HTTP
+3. **Inference endpoints**: `INFERENCE_ENDPOINT` / `AI_INFERENCE_ENDPOINT` → auto-registers a `RemoteInferenceAdapter` for neuralSpring or any inference primal (UDS or HTTP)
+4. **Socket hints**: `AI_PROVIDER_SOCKETS` → comma-separated Unix socket paths
+5. **Socket scan**: `COMPUTE_SOCKET` → tiered capability discovery
+
+Runtime registration: any primal can call `inference.register_provider` to dynamically add itself. UDS inference calls use a **120-second** read timeout (appropriate for LLM response times).
+
 ---
 
 ## Architecture

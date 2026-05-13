@@ -101,14 +101,16 @@ impl DefaultEndpoints {
     ///
     /// Multi-tier resolution (primal-agnostic first, legacy fallback):
     /// 1. `STORAGE_SERVICE_ENDPOINT` (full endpoint — preferred)
-    /// 2. `NESTGATE_ENDPOINT` (legacy alias — deprecated)
-    /// 3. `STORAGE_PORT` / `NESTGATE_PORT` (port override)
-    /// 4. Default: `universal_constants::network::get_service_port("admin")`
+    /// 2. `STORAGE_ENDPOINT` (canonical capability env)
+    /// 3. `NESTGATE_ENDPOINT` (legacy alias — deprecated)
+    /// 4. `STORAGE_PORT` / `STORAGE_SERVICE_PORT` / `NESTGATE_PORT` (port override)
+    /// 5. Default: `universal_constants::network::get_service_port("admin")`
     #[must_use]
     pub fn storage_endpoint() -> String {
         env::var("STORAGE_SERVICE_ENDPOINT")
+            .or_else(|_| env::var("STORAGE_ENDPOINT"))
             .or_else(|_| {
-                // Legacy env var — prefer STORAGE_SERVICE_ENDPOINT
+                // Legacy env var — prefer STORAGE_SERVICE_ENDPOINT / STORAGE_ENDPOINT
                 env::var("NESTGATE_ENDPOINT")
             })
             .unwrap_or_else(|_| {

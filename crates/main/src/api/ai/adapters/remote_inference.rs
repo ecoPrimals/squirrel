@@ -38,6 +38,9 @@ pub struct RemoteProviderConfig {
     pub cost_per_unit: Option<f64>,
 }
 
+/// Default read timeout for UDS inference calls (120s — LLM responses can be slow).
+const INFERENCE_UDS_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+
 /// Adapter that routes inference to a remote provider over UDS JSON-RPC or HTTP REST.
 pub struct RemoteInferenceAdapter {
     config: RemoteProviderConfig,
@@ -99,16 +102,20 @@ impl RemoteInferenceAdapter {
         });
 
         let socket_path = std::path::Path::new(socket);
-        let parsed = crate::capabilities::lifecycle::send_jsonrpc_public(socket_path, &rpc_request)
-            .await
-            .map_err(|e| {
-                warn!(
-                    provider = self.config.provider_id.as_str(),
-                    error = %e,
-                    "Remote embedding call failed"
-                );
-                PrimalError::Internal(format!("Remote embedding call to {socket} failed: {e}"))
-            })?;
+        let parsed = crate::capabilities::lifecycle::send_jsonrpc_with_timeout(
+            socket_path,
+            &rpc_request,
+            INFERENCE_UDS_READ_TIMEOUT,
+        )
+        .await
+        .map_err(|e| {
+            warn!(
+                provider = self.config.provider_id.as_str(),
+                error = %e,
+                "Remote embedding call failed"
+            );
+            PrimalError::Internal(format!("Remote embedding call to {socket} failed: {e}"))
+        })?;
 
         parsed.get("result").cloned().ok_or_else(|| {
             let err_msg = parsed
@@ -309,16 +316,20 @@ impl AiProviderAdapter for RemoteInferenceAdapter {
         });
 
         let socket_path = std::path::Path::new(socket);
-        let parsed = crate::capabilities::lifecycle::send_jsonrpc_public(socket_path, &rpc_request)
-            .await
-            .map_err(|e| {
-                warn!(
-                    provider = self.config.provider_id.as_str(),
-                    error = %e,
-                    "Remote inference call failed"
-                );
-                PrimalError::Internal(format!("Remote inference call to {socket} failed: {e}"))
-            })?;
+        let parsed = crate::capabilities::lifecycle::send_jsonrpc_with_timeout(
+            socket_path,
+            &rpc_request,
+            INFERENCE_UDS_READ_TIMEOUT,
+        )
+        .await
+        .map_err(|e| {
+            warn!(
+                provider = self.config.provider_id.as_str(),
+                error = %e,
+                "Remote inference call failed"
+            );
+            PrimalError::Internal(format!("Remote inference call to {socket} failed: {e}"))
+        })?;
 
         let result = parsed.get("result").ok_or_else(|| {
             let err_msg = parsed

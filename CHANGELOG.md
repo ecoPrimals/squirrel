@@ -11,6 +11,13 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 13, 2026 — session BD: neuralSpring inference wiring + NestGate env unification)
+
+- **Inference UDS timeout fix**: `send_jsonrpc_with_timeout` added to `capabilities/lifecycle.rs` — inference calls now get 120s read timeout instead of the lifecycle heartbeat 2s. Prevents timeout failures for LLM inference over Unix sockets (neuralSpring, Ollama-UDS). `send_jsonrpc_public` preserved at 2s for lifecycle heartbeats.
+- **Inference endpoint auto-discovery**: `AiRouter::new_with_discovery` now checks `INFERENCE_ENDPOINT` / `AI_INFERENCE_ENDPOINT` env vars and auto-registers a `RemoteInferenceAdapter` at startup. neuralSpring (or any inference primal) can advertise its endpoint via env and be discovered without requiring a runtime `inference.register_provider` call.
+- **Storage env unification**: `DefaultEndpoints::storage_endpoint()` now includes `STORAGE_ENDPOINT` in its resolution chain (`STORAGE_SERVICE_ENDPOINT` → `STORAGE_ENDPOINT` → `NESTGATE_ENDPOINT`), matching `EcosystemConfig`. This closes the env fragmentation gap for NestGate weight storage.
+- **Quality gates**: `cargo fmt`, `cargo clippy` (zero warnings), `cargo test --workspace` (7,209 pass), `cargo deny check` — all green.
+
 ### Summary (May 11, 2026 — session BC: compute delegation wired)
 
 - **Compute delegation**: Wired `RemoteComputeProvider` for JSON-RPC IPC delegation to toadStool (or any compute primal). Resolves composition gap where `auto_detect_compute_provider()` hit a dead path when `COMPUTE_ENDPOINT` was set.

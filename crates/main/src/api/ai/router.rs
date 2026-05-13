@@ -208,6 +208,63 @@ impl AiRouter {
                     }
                 }
 
+                // 1.7: Auto-discover inference endpoints from environment
+                // neuralSpring (or any inference primal) advertises via
+                // INFERENCE_ENDPOINT / AI_INFERENCE_ENDPOINT env var.
+                for env_key in ["INFERENCE_ENDPOINT", "AI_INFERENCE_ENDPOINT"] {
+                    if let Ok(endpoint) = std::env::var(env_key) {
+                        info!(
+                            "🔍 Inference endpoint discovered via {env_key}: {endpoint}"
+                        );
+                        let config = super::adapters::RemoteProviderConfig {
+                            provider_id: format!("env-{}", env_key.to_lowercase().replace('_', "-")),
+                            socket_path: if endpoint.starts_with("unix://")
+                                || endpoint.starts_with('/')
+                            {
+                                Some(
+                                    endpoint
+                                        .strip_prefix("unix://")
+                                        .unwrap_or(&endpoint)
+                                        .to_string(),
+                                )
+                            } else {
+                                None
+                            },
+                            endpoint: if endpoint.starts_with("http://")
+                                || endpoint.starts_with("https://")
+                            {
+                                Some(endpoint.clone())
+                            } else {
+                                None
+                            },
+                            models: Vec::new(),
+                            supported_tasks: vec![
+                                "text_generation".to_string(),
+                                "inference.complete".to_string(),
+                            ],
+                            supports_streaming: false,
+                            max_context_size: 4096,
+                            quality_tier: Some("standard".to_string()),
+                            cost_per_unit: None,
+                        };
+                        let adapter =
+                            super::adapters::RemoteInferenceAdapter::new(config);
+                        if adapter.is_available().await {
+                            info!(
+                                "✅ Inference provider registered from {env_key}: {endpoint}"
+                            );
+                            local_providers.push(Arc::new(
+                                AiProvider::RemoteInference(adapter),
+                            ));
+                        } else {
+                            debug!(
+                                "⚠️ Inference endpoint from {env_key} not reachable: {endpoint}"
+                            );
+                        }
+                        break;
+                    }
+                }
+
                 // 2. Check for Unix socket providers (other primals)
                 // BIOME OS RECOMMENDATION: Use AI_PROVIDER_SOCKETS hint (simple & fast)
                 if let Ok(socket_paths) = std::env::var("AI_PROVIDER_SOCKETS") {

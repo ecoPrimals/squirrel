@@ -224,8 +224,20 @@ pub(crate) async fn send_jsonrpc_public(
     socket: &Path,
     request: &serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
+    send_jsonrpc_with_timeout(socket, request, std::time::Duration::from_secs(2)).await
+}
+
+/// Like [`send_jsonrpc_public`] but with a configurable read timeout.
+///
+/// Inference calls can take 10-120+ seconds; the default 2s timeout is
+/// designed for lifecycle heartbeats, not LLM inference.
+pub(crate) async fn send_jsonrpc_with_timeout(
+    socket: &Path,
+    request: &serde_json::Value,
+    read_timeout: std::time::Duration,
+) -> anyhow::Result<serde_json::Value> {
     let stream = tokio::time::timeout(
-        std::time::Duration::from_secs(2),
+        std::time::Duration::from_secs(5),
         UnixStream::connect(socket),
     )
     .await??;
@@ -239,11 +251,7 @@ pub(crate) async fn send_jsonrpc_public(
 
     let mut buf = BufReader::new(reader);
     let mut resp_line = String::new();
-    tokio::time::timeout(
-        std::time::Duration::from_secs(2),
-        buf.read_line(&mut resp_line),
-    )
-    .await??;
+    tokio::time::timeout(read_timeout, buf.read_line(&mut resp_line)).await??;
 
     let response: serde_json::Value = serde_json::from_str(resp_line.trim())?;
     Ok(response)
