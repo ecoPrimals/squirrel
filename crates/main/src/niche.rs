@@ -55,6 +55,8 @@ pub const CAPABILITIES: &[&str] = &[
     "ai.complete",
     "ai.chat",
     "ai.list_providers",
+    // Signal planning (Neural API composition collapse)
+    "signal.plan",
     // Inference domain — vendor-agnostic wire standard (ecoPrimal)
     "inference.complete",
     "inference.embed",

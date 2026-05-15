@@ -588,7 +588,9 @@ impl JsonRpcServer {
         let method = normalize_method(original_method);
         match method {
             // AI domain — semantic names (preferred)
-            "ai.query" | "ai.complete" | "ai.chat" => self.handle_query_ai(params).await,
+            "ai.query" | "ai.complete" | "ai.chat" | "signal.plan" => {
+                self.handle_query_ai(params).await
+            }
             "ai.list_providers" => self.handle_list_providers(params).await,
 
             // Inference domain — vendor-agnostic wire standard

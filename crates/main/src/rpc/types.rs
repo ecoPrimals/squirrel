@@ -32,6 +32,56 @@ pub struct QueryAiRequest {
 
     /// Whether to stream the response
     pub stream: Option<bool>,
+
+    /// Execution mode. "signal_plan" = decompose intent into atomic signal
+    /// steps using the tool schema; default (None) = standard text generation.
+    #[serde(default)]
+    pub mode: Option<String>,
+
+    /// Path or inline content for tool schema (e.g. signal_tools.toml).
+    /// Used when mode = "signal_plan" to provide function-calling context.
+    #[serde(default)]
+    pub tool_schema: Option<String>,
+
+    /// Pre-parsed tools array (alternative to tool_schema file path).
+    #[serde(default)]
+    pub tools: Option<Vec<SignalToolDef>>,
+
+    /// Additional context for the AI (e.g., ecosystem state, constraints).
+    #[serde(default)]
+    pub context: Option<serde_json::Value>,
+}
+
+/// Definition of an atomic signal tool for function-calling.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SignalToolDef {
+    pub name: String,
+    pub tier: String,
+    pub description: String,
+    #[serde(default)]
+    pub parameters: Option<serde_json::Value>,
+}
+
+/// A single step in a signal execution plan.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SignalPlanStep {
+    pub tier: String,
+    pub signal: String,
+    #[serde(default)]
+    pub params: serde_json::Value,
+    #[serde(default)]
+    pub reason: Option<String>,
+}
+
+/// Response from signal_plan mode.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SignalPlanResponse {
+    pub plan: Vec<SignalPlanStep>,
+    pub reasoning: String,
+    pub provider: String,
+    pub model: String,
+    pub latency_ms: u64,
+    pub success: bool,
 }
 
 /// Response from AI query
