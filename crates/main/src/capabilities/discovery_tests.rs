@@ -56,25 +56,40 @@ fn discovery_error_display() {
 }
 
 #[test]
-fn discover_capability_returns_env_provider_without_probe() {
+fn discover_capability_returns_env_provider_with_alive_socket() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let path = dir.path().join("fake.sock");
-    std::fs::File::create(&path).expect("touch");
-    temp_env::with_var(
-        "CRYPTO_SIGNING_PROVIDER_SOCKET",
-        Some(path.to_str().expect("utf8")),
+    let path = dir.path().join("alive.sock");
+
+    let rt = tokio::runtime::Runtime::new().expect("rt");
+    let _enter = rt.enter();
+    let listener = tokio::net::UnixListener::bind(&path).expect("bind");
+
+    temp_env::with_vars(
+        [
+            (
+                "CRYPTO_SIGNING_PROVIDER_SOCKET",
+                Some(path.to_str().expect("utf8")),
+            ),
+            ("NEURAL_API_SOCKET", None::<&str>),
+            ("CAPABILITY_REGISTRY_SOCKET", None::<&str>),
+            ("SOCKET_SCAN_DIR", Some(dir.path().to_str().expect("utf8"))),
+        ],
         || {
-            tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("rt")
-                .block_on(async {
-                    let p = discover_capability("crypto.signing")
-                        .await
-                        .expect("discovered");
-                    assert_eq!(p.socket, path);
-                    assert!(p.discovered_via.starts_with("env:"));
+            rt.block_on(async {
+                // Spawn a mock handler that responds to the probe
+                let sock_path = path.clone();
+                tokio::spawn(async move {
+                    // Keep listener alive — connect-probe just needs accept to not refuse
+                    let _l = listener;
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                 });
+
+                let p = discover_capability("crypto.signing")
+                    .await
+                    .expect("discovered");
+                assert_eq!(p.socket, sock_path);
+                assert!(p.discovered_via.starts_with("env:"));
+            });
         },
     );
 }

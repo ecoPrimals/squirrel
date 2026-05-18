@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 18, 2026 — session BF: stale socket detection + cleanup)
+
+- **Connect-probe liveness for discovery** (`CAPABILITY_BASED_DISCOVERY_STANDARD` v1.3.0 §5): Added `socket_is_alive()` async helper (50ms timeout connect-probe) to `capabilities/discovery.rs`. Discovery paths that previously used `path.exists()` now use connect-probe to filter stale sockets left after ungraceful shutdowns. Applies to: env-var provider discovery, discovery-service socket validation, biomeOS/discovery socket lookup in `lifecycle.rs` and `discovery_service.rs` (sync variant using `std::os::unix::net::UnixStream::connect`).
+- **PID file on startup**: `main.rs` now writes `{socket_path}.pid` on startup and removes it on shutdown. Enables instant `kill(pid, 0)` liveness checks by consumers.
+- **Server-side socket hygiene already present**: Confirmed `prepare_socket_path()` (unlink-before-bind) and `cleanup_socket()` (shutdown handler) were already implemented and working. No changes needed for the server-side requirement.
+- **Test updates**: Discovery tests updated to use real `UnixListener`-bound sockets instead of plain file touches, reflecting the new connect-probe behavior.
+- **Quality gates**: `cargo fmt`, `cargo clippy` (zero warnings), `cargo test --workspace` (7,089 pass), `cargo deny check` — all green.
+
 ### Summary (May 17, 2026 — session BE: stadial readiness hardening)
 
 - **`capabilities.list` envelope compliance**: Response now includes `capabilities` array and `count` field per `CAPABILITY_WIRE_STANDARD` canonical shape (`{ capabilities, count, primal }`). Existing `methods` field preserved for backward compatibility.

@@ -50,12 +50,14 @@ use tempfile::tempdir;
 fn test_discover_capability_via_env_var() {
     let dir = tempdir().expect("should succeed");
     let socket_path = dir.path().join("test_cap.sock");
-    std::fs::write(&socket_path, "").expect("should succeed");
+
+    let rt = tokio::runtime::Runtime::new().expect("should succeed");
+    let _enter = rt.enter();
+    let _listener = tokio::net::UnixListener::bind(&socket_path).expect("bind test socket");
 
     let env_var = "TEST_CAPABILITY_PROVIDER_SOCKET";
     let path_str = socket_path.to_str().expect("should succeed").to_string();
     temp_env::with_var(env_var, Some(path_str.as_str()), || {
-        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         let result = rt.block_on(discover_capability("test.capability"));
 
         assert!(result.is_ok());

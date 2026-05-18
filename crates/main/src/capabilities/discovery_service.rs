@@ -42,13 +42,28 @@ use tracing::{debug, info, warn};
 use crate::niche;
 use crate::primal_names;
 
+/// Synchronous connect-probe per CAPABILITY_BASED_DISCOVERY_STANDARD v1.3.0 §5.
+///
+/// For Unix domain sockets, `connect()` returns immediately: ECONNREFUSED for
+/// stale sockets (no listener), success for alive ones.
+fn socket_is_alive_sync(path: &Path) -> bool {
+    use std::os::unix::net::UnixStream;
+
+    if !path.exists() {
+        return false;
+    }
+
+    UnixStream::connect(path).is_ok()
+}
+
 /// Discover the discovery service socket.
 ///
 /// Returns `None` if no discovery service socket is found at any standard location.
+/// Uses connect-probe liveness check to filter stale sockets.
 pub fn discover_socket() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("DISCOVERY_SOCKET") {
         let p = PathBuf::from(path);
-        if p.exists() {
+        if socket_is_alive_sync(&p) {
             return Some(p);
         }
     }
@@ -57,7 +72,7 @@ pub fn discover_socket() -> Option<PathBuf> {
         let p = PathBuf::from(xdg)
             .join(primal_names::BIOMEOS_SOCKET_DIR)
             .join(primal_names::DISCOVERY_SOCKET_NAME);
-        if p.exists() {
+        if socket_is_alive_sync(&p) {
             return Some(p);
         }
     }
@@ -74,7 +89,7 @@ pub fn discover_socket() -> Option<PathBuf> {
     candidates
         .into_iter()
         .map(PathBuf::from)
-        .find(|p| p.exists())
+        .find(|p| socket_is_alive_sync(p))
 }
 
 /// Register Squirrel with the discovery service via `ipc.register`.

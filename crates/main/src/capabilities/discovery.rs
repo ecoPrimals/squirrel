@@ -32,6 +32,20 @@ use tokio::net::UnixStream;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
+/// Connect-probe liveness check per CAPABILITY_BASED_DISCOVERY_STANDARD v1.3.0 §5.
+///
+/// Performs a 50ms connect attempt to distinguish listening sockets from stale
+/// filesystem entries left after ungraceful shutdown. Stale sockets fail
+/// immediately with ECONNREFUSED; alive sockets accept within microseconds.
+pub async fn socket_is_alive(path: &Path) -> bool {
+    tokio::time::timeout(
+        std::time::Duration::from_millis(50),
+        UnixStream::connect(path),
+    )
+    .await
+    .is_ok_and(|r| r.is_ok())
+}
+
 /// Discovered capability provider
 ///
 /// Represents a service discovered at runtime that provides capabilities.
@@ -174,9 +188,9 @@ async fn try_discovery_service(
     };
 
     let path = PathBuf::from(socket_path);
-    if !path.exists() {
+    if !socket_is_alive(&path).await {
         debug!(
-            "Discovery service returned socket {} but it does not exist",
+            "Discovery service returned socket {} but it is not alive (stale or missing)",
             socket_path
         );
         return Ok(None);
@@ -226,15 +240,13 @@ async fn try_explicit_env(capability: &str) -> Result<Option<CapabilityProvider>
     if let Ok(socket_path) = std::env::var(&env_var) {
         let path = PathBuf::from(&socket_path);
 
-        // Verify socket exists
-        if path.exists() {
+        // Connect-probe to confirm socket is alive (CAPABILITY_BASED_DISCOVERY_STANDARD v1.3.0 §5)
+        if socket_is_alive(&path).await {
             info!(
                 "✅ Found {} via env var {} = {}",
                 capability, env_var, socket_path
             );
 
-            // Trust the env var - operator knows what they're doing
-            // Skip probe since not all primals support discover_capabilities
             return Ok(Some(CapabilityProvider {
                 id: format!("{capability}-provider"),
                 capabilities: vec![capability.to_string()],
@@ -243,6 +255,10 @@ async fn try_explicit_env(capability: &str) -> Result<Option<CapabilityProvider>
                 discovered_via: format!("env:{env_var}"),
             }));
         }
+        debug!(
+            "Socket from env {} = {} is not alive (stale or missing)",
+            env_var, socket_path
+        );
     }
 
     Ok(None)
@@ -327,7 +343,6 @@ async fn try_registry_query(
         if registry_path.exists() {
             info!("🧠 Querying Neural API at: {:?}", registry_path);
 
-            // Connect to Neural API and query capability
             match query_registry(&registry_path, capability).await {
                 Ok(provider) => {
                     info!(

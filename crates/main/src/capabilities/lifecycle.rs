@@ -20,16 +20,31 @@ use tracing::{debug, info, warn};
 use crate::niche;
 use crate::primal_names;
 
+/// Synchronous connect-probe per CAPABILITY_BASED_DISCOVERY_STANDARD v1.3.0 §5.
+///
+/// For Unix domain sockets, `connect()` returns immediately: ECONNREFUSED for
+/// stale sockets (no listener), success for alive ones. No timeout needed — the
+/// kernel answers instantly for local filesystem sockets.
+fn socket_is_alive_sync(path: &Path) -> bool {
+    use std::os::unix::net::UnixStream as StdUnixStream;
+
+    if !path.exists() {
+        return false;
+    }
+
+    StdUnixStream::connect(path).is_ok()
+}
+
 /// Discover the biomeOS orchestrator socket.
 ///
 /// Checks standard locations without hardcoding a primal name.
+/// Uses connect-probe liveness (§5) to filter stale sockets.
 pub fn find_biomeos_socket() -> Option<PathBuf> {
-    // Capability-first env override, then legacy fallback
     let socket_env =
         std::env::var("ECOSYSTEM_ORCHESTRATOR_SOCKET").or_else(|_| std::env::var("BIOMEOS_SOCKET"));
     if let Ok(path) = socket_env {
         let p = PathBuf::from(path);
-        if p.exists() {
+        if socket_is_alive_sync(&p) {
             return Some(p);
         }
     }
@@ -60,7 +75,7 @@ pub fn find_biomeos_socket() -> Option<PathBuf> {
     candidates
         .into_iter()
         .map(PathBuf::from)
-        .find(|p| p.exists())
+        .find(|p| socket_is_alive_sync(p))
 }
 
 /// Send `lifecycle.register` to a biomeOS socket.

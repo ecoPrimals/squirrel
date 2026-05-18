@@ -332,6 +332,14 @@ async fn run_server(
         squirrel::capabilities::lifecycle::install_signal_handlers(socket_path.clone());
     let shutdown_rx = shutdown_tx.subscribe();
 
+    // Write PID file alongside socket (CAPABILITY_BASED_DISCOVERY_STANDARD v1.3.0 §6)
+    let pid_path = format!("{socket_path}.pid");
+    if let Err(e) = std::fs::write(&pid_path, process::id().to_string()) {
+        warn!("Could not write PID file {pid_path}: {e}");
+    } else {
+        info!("PID file: {pid_path}");
+    }
+
     // biomeOS lifecycle registration (healthSpring pattern)
     if let Some(biomeos_socket) = squirrel::capabilities::lifecycle::find_biomeos_socket() {
         let caps = server.capability_registry.method_names();
@@ -386,6 +394,8 @@ async fn run_server(
         _ = signal_task => {
             info!("Shutting down gracefully...");
 
+            let _ = std::fs::remove_file(&pid_path);
+
             if let Err(e) = universal_patterns::manifest_discovery::remove_manifest(
                 squirrel::niche::PRIMAL_ID,
                 family_id.as_deref(),
@@ -401,6 +411,7 @@ async fn run_server(
         }
         _ = server_task => {
             info!("Server task completed");
+            let _ = std::fs::remove_file(&pid_path);
         }
     }
 
