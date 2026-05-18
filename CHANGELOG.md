@@ -11,6 +11,19 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 17, 2026 — session BE: stadial readiness hardening)
+
+- **`capabilities.list` envelope compliance**: Response now includes `capabilities` array and `count` field per `CAPABILITY_WIRE_STANDARD` canonical shape (`{ capabilities, count, primal }`). Existing `methods` field preserved for backward compatibility.
+- **`primal.announce` method**: Added as stadial-standard self-registration alias. Dispatches to `handle_announce_capabilities` alongside existing `capabilities.announce` / `capability.announce`. Registered in `capability_registry.toml`, `method_gate.rs` (public), and `niche.rs`.
+- **TCP from env binding**: `run_server` now resolves `SQUIRREL_PORT` / `SQUIRREL_SERVER_PORT` env when `--port` CLI arg is absent. Previously TCP only bound with explicit `--port`.
+- **Stability tier annotations**: All 38 registered methods in `capability_registry.toml` annotated with `stability = "stable"` or `"evolving"`. Health, identity, capabilities, system, lifecycle, discovery = stable. Inference, tool, context, provider, BTSP, graph, signal = evolving.
+- **Degradation behavior documented**: README now includes per-domain degradation table and standalone mode behavior.
+- **Stadial pairing documented**: README documents downstream partner integration surfaces (esotericWebb, projectFOUNDATION, neuralSpring, all springs).
+- **`signal.plan` registered**: Added to `capability_registry.toml`, `COST_ESTIMATES`, `operation_dependencies`, and `SEMANTIC_MAPPINGS`.
+- **`cost_estimates_json` refactored**: Replaced giant `serde_json::json!` macro (hit recursion limit at 38 entries) with programmatic builder from `COST_ESTIMATES` array.
+- **Clippy debt cleanup**: Fixed `PartialEq` without `Eq` on 3 signal types, redundant clone, let-and-return pattern, unused `Credentials` import.
+- **Quality gates**: `cargo fmt`, `cargo clippy` (zero warnings), `cargo test --workspace` (7,089 pass), `cargo deny check` — all green.
+
 ### Summary (May 13, 2026 — session BD: neuralSpring inference wiring + NestGate env unification)
 
 - **Inference UDS timeout fix**: `send_jsonrpc_with_timeout` added to `capabilities/lifecycle.rs` — inference calls now get 120s read timeout instead of the lifecycle heartbeat 2s. Prevents timeout failures for LLM inference over Unix sockets (neuralSpring, Ollama-UDS). `send_jsonrpc_public` preserved at 2s for lifecycle heartbeats.

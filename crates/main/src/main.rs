@@ -292,10 +292,18 @@ async fn run_server(
         }
     };
 
+    // Resolve TCP port: CLI --port takes precedence, then SQUIRREL_PORT env
+    let tcp_port: Option<u16> = port.or_else(|| {
+        std::env::var("SQUIRREL_PORT")
+            .or_else(|_| std::env::var("SQUIRREL_SERVER_PORT"))
+            .ok()
+            .and_then(|p| p.parse().ok())
+    });
+
     let server = ai_router.map_or_else(
         || {
             let s = JsonRpcServer::new(socket_path.clone());
-            Arc::new(if let Some(p) = port {
+            Arc::new(if let Some(p) = tcp_port {
                 s.with_tcp_port(p)
             } else {
                 s
@@ -303,7 +311,7 @@ async fn run_server(
         },
         |router| {
             let s = JsonRpcServer::with_ai_router(socket_path.clone(), router);
-            Arc::new(if let Some(p) = port {
+            Arc::new(if let Some(p) = tcp_port {
                 s.with_tcp_port(p)
             } else {
                 s

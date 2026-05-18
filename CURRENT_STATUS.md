@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: May 13, 2026
+**Last Updated**: May 17, 2026
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,209 passing / 0 failures across 22 workspace crates; ~1,001 `.rs` files, ~326k lines |
+| Tests | 7,089 passing / 0 failures across 22 workspace crates; ~1,001 `.rs` files, ~326k lines |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -44,7 +44,8 @@ Source of truth: [`capability_registry.toml`](capability_registry.toml)
 |--------|---------|
 | Inference | **`inference.complete`**, **`inference.embed`**, **`inference.models`**, **`inference.register_provider`**, **`inference.unregister_provider`** (canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.0 §7) |
 | AI | `ai.query`, `ai.list_providers`, `ai.complete`, `ai.chat` (backward-compat aliases → `inference.*` handlers) |
-| Capability | **`capabilities.list`** (canonical), `capabilities.announce`, `capabilities.discover`, `capability.announce` (alias), `capability.discover` (alias), `capability.list` (alias), `primal.capabilities` (alias) |
+| Signal | `signal.plan` (Neural API composition collapse) |
+| Capability | **`capabilities.list`** (canonical), `capabilities.announce`, `capabilities.discover`, `capability.announce` (alias), `capability.discover` (alias), `capability.list` (alias), `primal.announce` (stadial standard), `primal.capabilities` (alias) |
 | Identity | `identity.get` (CAPABILITY_BASED_DISCOVERY_STANDARD v1.0) |
 | Context | `context.create`, `context.update`, `context.summarize` |
 | System | **`system.metrics`** (canonical), `system.health`, `system.status`, `system.ping` (backward-compat aliases) |

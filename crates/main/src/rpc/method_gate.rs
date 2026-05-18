@@ -116,7 +116,7 @@ impl MethodGate {
     }
 
     #[cfg(test)]
-    pub fn mode(&self) -> GateMode {
+    pub const fn mode(&self) -> GateMode {
         self.mode
     }
 
@@ -213,6 +213,7 @@ pub fn classify_method(method: &str) -> MethodVisibility {
         | "primal.capabilities"
         | "capabilities.announce"
         | "capability.announce"
+        | "primal.announce"
         | "capabilities.discover"
         | "capability.discover"
         | "lifecycle.status"

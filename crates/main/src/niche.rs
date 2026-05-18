@@ -65,9 +65,12 @@ pub const CAPABILITIES: &[&str] = &[
     "inference.unregister_provider",
     // Capability routing (capabilities.list is canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1)
     "capabilities.list",
+    "capabilities.announce",
     "capability.announce",
     "capability.discover",
     "capability.list",
+    // Self-registration (stadial standard)
+    "primal.announce",
     // Health probes — canonical per PRIMAL_IPC_PROTOCOL v3.0
     "health.check",
     "health.liveness",
@@ -111,9 +114,11 @@ pub const CAPABILITY_GROUP_DESCRIPTIONS: &[(&str, &str)] = &[
     ("inference", "Vendor-agnostic inference wire standard"),
     ("capabilities", "Capability introspection and routing"),
     ("capability", "Capability announcement and discovery"),
+    ("primal", "Self-registration and announcements"),
     ("health", "Health probes (liveness, readiness)"),
     ("system", "System monitoring and diagnostics"),
     ("identity", "Primal identity resolution"),
+    ("signal", "Neural API composition and signal planning"),
     ("discovery", "Peer discovery and mesh routing"),
     ("tool", "Tool orchestration and execution"),
     ("context", "Context lifecycle management"),
@@ -136,7 +141,10 @@ pub const SEMANTIC_MAPPINGS: &[(&str, &str)] = &[
     ("complete", "ai.complete"),
     ("chat", "ai.chat"),
     ("list_providers", "ai.list_providers"),
+    ("signal_plan", "signal.plan"),
     ("announce", "capability.announce"),
+    ("capabilities_announce", "capabilities.announce"),
+    ("primal_announce", "primal.announce"),
     ("discover", "capability.discover"),
     ("list_capabilities", "capabilities.list"),
     ("health_check", "health.check"),
@@ -163,6 +171,7 @@ pub const SEMANTIC_MAPPINGS: &[(&str, &str)] = &[
     ("provider_deregister", "provider.deregister"),
     ("btsp_negotiate", "btsp.negotiate"),
     ("register", "lifecycle.register"),
+    ("lifecycle_status", "lifecycle.status"),
     ("parse_graph", "graph.parse"),
     ("validate_graph", "graph.validate"),
 ];
@@ -280,10 +289,13 @@ pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
     ("inference.models", 1, false),
     ("inference.register_provider", 5, false),
     ("inference.unregister_provider", 5, false),
+    ("signal.plan", 1000, true),
     ("capabilities.list", 1, false),
+    ("capabilities.announce", 2, false),
     ("capability.announce", 2, false),
     ("capability.discover", 1, false),
     ("capability.list", 1, false),
+    ("primal.announce", 2, false),
     ("health.check", 1, false),
     ("health.liveness", 1, false),
     ("health.readiness", 2, false),
@@ -324,10 +336,13 @@ pub fn operation_dependencies() -> serde_json::Value {
         "inference.models": [],
         "inference.register_provider": ["provider_id", "socket"],
         "inference.unregister_provider": ["provider_id"],
+        "signal.plan": ["prompt", "tools"],
         "capabilities.list": [],
+        "capabilities.announce": ["capabilities", "primal"],
         "capability.announce": ["capabilities", "primal"],
         "capability.discover": [],
         "capability.list": [],
+        "primal.announce": ["capabilities", "primal"],
         "health.check": [],
         "health.liveness": [],
         "health.readiness": [],
@@ -355,47 +370,34 @@ pub fn operation_dependencies() -> serde_json::Value {
 
 /// Structured cost estimates as JSON for `capability.list` responses.
 ///
-/// Richer than the static `COST_ESTIMATES` array — includes CPU load hints
-/// and memory estimates for Pathway Learner scheduling.
+/// Built from `COST_ESTIMATES` with enriched CPU/memory hints for the Pathway
+/// Learner. GPU-beneficial operations get `"medium"` memory; others scale
+/// from latency.
 #[must_use]
 pub fn cost_estimates_json() -> serde_json::Value {
-    serde_json::json!({
-        "ai.query":              { "latency_ms": 500, "cpu": "low",    "memory_bytes": 8192,  "gpu_beneficial": true },
-        "ai.complete":           { "latency_ms": 500, "cpu": "low",    "memory_bytes": 8192,  "gpu_beneficial": true },
-        "ai.chat":               { "latency_ms": 800, "cpu": "low",    "memory_bytes": 16384, "gpu_beneficial": true },
-        "ai.list_providers":     { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
-        "inference.complete":    { "latency_ms": 500, "cpu": "low",    "memory_bytes": 8192,  "gpu_beneficial": true },
-        "inference.embed":       { "latency_ms": 300, "cpu": "low",    "memory_bytes": 4096,  "gpu_beneficial": true },
-        "inference.models":      { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
-        "inference.register_provider": { "latency_ms": 5, "cpu": "low", "memory_bytes": 512, "gpu_beneficial": false },
-        "inference.unregister_provider": { "latency_ms": 5, "cpu": "low", "memory_bytes": 256, "gpu_beneficial": false },
-        "capabilities.list":     { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
-        "capability.announce":   { "latency_ms": 2,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
-        "capability.discover":   { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
-        "capability.list":       { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
-        "health.check":          { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
-        "health.liveness":       { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 128,   "gpu_beneficial": false },
-        "health.readiness":      { "latency_ms": 2,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
-        "system.health":         { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
-        "system.status":         { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
-        "system.metrics":        { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 1024,  "gpu_beneficial": false },
-        "system.ping":           { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 128,   "gpu_beneficial": false },
-        "identity.get":          { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
-        "discovery.peers":       { "latency_ms": 50,  "cpu": "low",    "memory_bytes": 4096,  "gpu_beneficial": false },
-        "tool.execute":          { "latency_ms": 200, "cpu": "medium", "memory_bytes": 16384, "gpu_beneficial": false },
-        "tool.list":             { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
-        "context.create":        { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
-        "context.update":        { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 1024,  "gpu_beneficial": false },
-        "context.summarize":     { "latency_ms": 300, "cpu": "medium", "memory_bytes": 32768, "gpu_beneficial": true },
-        "provider.register":     { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
-        "provider.list":         { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
-        "provider.deregister":   { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
-        "btsp.negotiate":        { "latency_ms": 10,  "cpu": "low",    "memory_bytes": 1024,  "gpu_beneficial": false },
-        "lifecycle.register":    { "latency_ms": 10,  "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
-        "lifecycle.status":      { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
-        "graph.parse":           { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 2048,  "gpu_beneficial": false },
-        "graph.validate":        { "latency_ms": 50,  "cpu": "low",    "memory_bytes": 4096,  "gpu_beneficial": false },
-    })
+    let mut map = serde_json::Map::with_capacity(COST_ESTIMATES.len());
+    for &(cap, latency_ms, gpu) in COST_ESTIMATES {
+        let cpu = if latency_ms >= 200 { "medium" } else { "low" };
+        let memory_bytes: u64 = if gpu {
+            if latency_ms >= 500 { 32768 } else { 8192 }
+        } else if latency_ms >= 200 {
+            16384
+        } else if latency_ms >= 5 {
+            1024
+        } else {
+            256
+        };
+        map.insert(
+            cap.to_string(),
+            serde_json::json!({
+                "latency_ms": latency_ms,
+                "cpu": cpu,
+                "memory_bytes": memory_bytes,
+                "gpu_beneficial": gpu,
+            }),
+        );
+    }
+    serde_json::Value::Object(map)
 }
 
 /// Semantic mappings as JSON for biomeOS Neural API routing.
@@ -406,7 +408,10 @@ pub fn semantic_mappings_json() -> serde_json::Value {
         "complete":       "ai.complete",
         "chat":           "ai.chat",
         "list_providers": "ai.list_providers",
+        "signal_plan":    "signal.plan",
         "announce":       "capability.announce",
+        "capabilities_announce": "capabilities.announce",
+        "primal_announce": "primal.announce",
         "discover":       "capability.discover",
         "list_capabilities": "capabilities.list",
         "health_check":   "health.check",
@@ -433,6 +438,7 @@ pub fn semantic_mappings_json() -> serde_json::Value {
         "provider_deregister":   "provider.deregister",
         "btsp_negotiate":        "btsp.negotiate",
         "register":              "lifecycle.register",
+        "lifecycle_status":      "lifecycle.status",
         "parse_graph":           "graph.parse",
         "validate_graph":        "graph.validate",
     })

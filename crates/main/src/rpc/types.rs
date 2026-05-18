@@ -53,7 +53,7 @@ pub struct QueryAiRequest {
 }
 
 /// Definition of an atomic signal tool for function-calling.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignalToolDef {
     pub name: String,
     pub tier: String,
@@ -63,7 +63,7 @@ pub struct SignalToolDef {
 }
 
 /// A single step in a signal execution plan.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignalPlanStep {
     pub tier: String,
     pub signal: String,
@@ -74,7 +74,7 @@ pub struct SignalPlanStep {
 }
 
 /// Response from signal_plan mode.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignalPlanResponse {
     pub plan: Vec<SignalPlanStep>,
     pub reasoning: String,
@@ -312,6 +312,10 @@ mod tests {
             max_tokens: Some(100),
             temperature: Some(0.7),
             stream: Some(false),
+            mode: None,
+            tool_schema: None,
+            tools: None,
+            context: None,
         };
 
         let json = serde_json::to_string(&request)?;
@@ -476,6 +480,10 @@ mod tests {
             max_tokens: None,
             temperature: None,
             stream: None,
+            mode: None,
+            tool_schema: None,
+            tools: None,
+            context: None,
         };
 
         let json = serde_json::to_string(&request)?;

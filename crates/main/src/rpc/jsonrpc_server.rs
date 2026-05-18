@@ -65,11 +65,7 @@ pub struct JsonRpcServer {
     /// Service name for Universal Transport discovery
     pub(crate) service_name: String,
 
-    /// Legacy socket path (kept for backward compatibility, used as fallback)
-    #[expect(
-        dead_code,
-        reason = "written during construction; reserved for fallback path"
-    )]
+    #[allow(dead_code)]
     pub(crate) socket_path: String,
 
     /// Server metrics
@@ -605,7 +601,7 @@ impl JsonRpcServer {
 
             // Capabilities domain — SEMANTIC_METHOD_NAMING_STANDARD v2.1
             // `capabilities.list` canonical; aliases per standard + ecosystem compat.
-            "capabilities.announce" | "capability.announce" => {
+            "capabilities.announce" | "capability.announce" | "primal.announce" => {
                 self.handle_announce_capabilities(params).await
             }
             "capabilities.discover" | "capability.discover" => {

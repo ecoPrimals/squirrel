@@ -5,8 +5,8 @@
 
 use super::jsonrpc_server::{JsonRpcError, JsonRpcServer, error_codes};
 use super::types::{
-    ListProvidersResponse, ProviderInfo, QueryAiRequest, QueryAiResponse,
-    SignalPlanResponse, SignalPlanStep, SignalToolDef,
+    ListProvidersResponse, ProviderInfo, QueryAiRequest, QueryAiResponse, SignalPlanResponse,
+    SignalPlanStep, SignalToolDef,
 };
 use serde_json::Value;
 use std::time::Instant;
@@ -80,10 +80,7 @@ impl JsonRpcServer {
     /// Formats the available signal tools into a function-calling prompt,
     /// sends to the AI provider, and parses the response into a sequence
     /// of `SignalPlanStep` entries that can be executed via `signal.dispatch`.
-    async fn handle_signal_plan(
-        &self,
-        request: QueryAiRequest,
-    ) -> Result<Value, JsonRpcError> {
+    async fn handle_signal_plan(&self, request: QueryAiRequest) -> Result<Value, JsonRpcError> {
         let router = self.ai_router.as_ref().ok_or_else(|| JsonRpcError {
             code: error_codes::INTERNAL_ERROR,
             message: "AI router not configured for signal planning".to_string(),
@@ -141,21 +138,23 @@ impl JsonRpcServer {
         };
 
         let start = Instant::now();
-        let ai_response = router.generate_text(ai_request, None).await.map_err(|e| {
-            JsonRpcError {
-                code: error_codes::INTERNAL_ERROR,
-                message: format!("AI router error during signal planning: {e}"),
-                data: None,
-            }
-        })?;
+        let ai_response =
+            router
+                .generate_text(ai_request, None)
+                .await
+                .map_err(|e| JsonRpcError {
+                    code: error_codes::INTERNAL_ERROR,
+                    message: format!("AI router error during signal planning: {e}"),
+                    data: None,
+                })?;
 
         let plan = Self::parse_signal_plan(&ai_response.text)?;
 
         let response = SignalPlanResponse {
             plan,
             reasoning: ai_response.text,
-            provider: ai_response.provider_id.clone(),
-            model: ai_response.model.clone(),
+            provider: ai_response.provider_id,
+            model: ai_response.model,
             latency_ms: start.elapsed().as_millis() as u64,
             success: true,
         };
@@ -225,9 +224,9 @@ impl JsonRpcServer {
                 .and_then(|d| d.as_str())
                 .unwrap_or("")
                 .to_string();
-            let parameters = tool.get("parameters").and_then(|p| {
-                serde_json::to_value(p).ok()
-            });
+            let parameters = tool
+                .get("parameters")
+                .and_then(|p| serde_json::to_value(p).ok());
             defs.push(SignalToolDef {
                 name,
                 tier,
@@ -244,21 +243,18 @@ impl JsonRpcServer {
         let trimmed = response_text.trim();
         // Strip markdown code fences if present
         let json_str = if trimmed.starts_with("```") {
-            let inner = trimmed
+            trimmed
                 .trim_start_matches("```json")
                 .trim_start_matches("```")
                 .trim_end_matches("```")
-                .trim();
-            inner
+                .trim()
         } else {
             trimmed
         };
 
         serde_json::from_str(json_str).map_err(|e| JsonRpcError {
             code: error_codes::INTERNAL_ERROR,
-            message: format!(
-                "Failed to parse signal plan from AI response: {e}. Raw: {json_str}"
-            ),
+            message: format!("Failed to parse signal plan from AI response: {e}. Raw: {json_str}"),
             data: None,
         })
     }

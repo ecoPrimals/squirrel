@@ -6,7 +6,7 @@
 use super::*;
 use crate::config::AuthMethod;
 use crate::security::context::SecurityContext;
-use crate::traits::{Credentials, Principal, PrincipalType};
+use crate::traits::{Principal, PrincipalType};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;

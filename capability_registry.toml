@@ -19,10 +19,12 @@ transport = "unix_socket"
 protocol = "json-rpc-2.0"
 
 # --- Inference domain (CANONICAL per SEMANTIC_METHOD_NAMING_STANDARD v2.0 §7) ---
+# stability: evolving — wire format stable, provider routing actively evolving
 
 [capabilities.inference_complete]
 method = "inference.complete"
 domain = "inference.execution"
+stability = "evolving"
 description = "Text/chat completion — canonical inference wire method"
 [capabilities.inference_complete.input_schema]
 type = "object"
@@ -46,6 +48,7 @@ description = "Maximum tokens in response"
 [capabilities.inference_embed]
 method = "inference.embed"
 domain = "inference.execution"
+stability = "evolving"
 description = "Embedding generation via registered inference providers (UDS or HTTP)"
 [capabilities.inference_embed.input_schema]
 type = "object"
@@ -60,6 +63,7 @@ description = "Embedding model to use"
 [capabilities.inference_models]
 method = "inference.models"
 domain = "inference.discovery"
+stability = "evolving"
 description = "List available inference models across all providers"
 [capabilities.inference_models.input_schema]
 type = "object"
@@ -67,6 +71,7 @@ type = "object"
 [capabilities.inference_register_provider]
 method = "inference.register_provider"
 domain = "inference.lifecycle"
+stability = "evolving"
 description = "Register a spring as an inference backend (neuralSpring, etc.)"
 [capabilities.inference_register_provider.input_schema]
 type = "object"
@@ -84,6 +89,7 @@ description = "Provider capabilities (supported_tasks, models, supports_streamin
 [capabilities.inference_unregister_provider]
 method = "inference.unregister_provider"
 domain = "inference.lifecycle"
+stability = "evolving"
 description = "Unregister an inference provider (graceful spring shutdown)"
 [capabilities.inference_unregister_provider.input_schema]
 type = "object"
@@ -93,10 +99,12 @@ type = "string"
 description = "Provider identifier to remove"
 
 # --- AI domain (backward-compat aliases — route to inference.* handlers) ---
+# stability: stable — wire format frozen, aliases for inference.*
 
 [capabilities.ai_query]
 method = "ai.query"
 domain = "ai.inference"
+stability = "stable"
 description = "Route prompt to best available AI model"
 [capabilities.ai_query.input_schema]
 type = "object"
@@ -117,6 +125,7 @@ description = "Sampling temperature (0.0-2.0)"
 [capabilities.ai_list_providers]
 method = "ai.list_providers"
 domain = "ai.discovery"
+stability = "stable"
 description = "List available AI providers and their status"
 [capabilities.ai_list_providers.input_schema]
 type = "object"
@@ -124,6 +133,7 @@ type = "object"
 [capabilities.ai_complete]
 method = "ai.complete"
 domain = "ai.inference"
+stability = "stable"
 description = "Text completion (alias for ai.query)"
 [capabilities.ai_complete.input_schema]
 type = "object"
@@ -134,6 +144,7 @@ type = "string"
 [capabilities.ai_chat]
 method = "ai.chat"
 domain = "ai.inference"
+stability = "stable"
 description = "Chat completion with message history"
 [capabilities.ai_chat.input_schema]
 type = "object"
@@ -142,10 +153,12 @@ required = ["prompt"]
 type = "string"
 
 # --- Capability domain ---
+# stability: stable — core routing contract
 
 [capabilities.capability_announce]
 method = "capability.announce"
 domain = "capability.routing"
+stability = "stable"
 description = "Accept capability and tool announcements from remote primals"
 [capabilities.capability_announce.input_schema]
 type = "object"
@@ -163,9 +176,28 @@ description = "Unix socket for forwarding"
 type = "array"
 description = "Tool names the primal provides"
 
+[capabilities.capabilities_announce]
+method = "capabilities.announce"
+domain = "capability.routing"
+stability = "stable"
+description = "Accept capability announcements (alias of capability.announce)"
+[capabilities.capabilities_announce.input_schema]
+type = "object"
+required = ["capabilities"]
+
+[capabilities.primal_announce]
+method = "primal.announce"
+domain = "primal.registration"
+stability = "stable"
+description = "Self-registration announcement (stadial standard alias)"
+[capabilities.primal_announce.input_schema]
+type = "object"
+required = ["capabilities"]
+
 [capabilities.capability_discover]
 method = "capability.discover"
 domain = "capability.discovery"
+stability = "stable"
 description = "Report own capabilities for socket scanning"
 [capabilities.capability_discover.input_schema]
 type = "object"
@@ -173,6 +205,7 @@ type = "object"
 [capabilities.capabilities_list]
 method = "capabilities.list"
 domain = "capability.discovery"
+stability = "stable"
 description = "List per-method cost/dependency detail for PathwayLearner scheduling (canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1)"
 [capabilities.capabilities_list.input_schema]
 type = "object"
@@ -180,15 +213,18 @@ type = "object"
 [capabilities.capability_list_alias]
 method = "capability.list"
 domain = "capability.discovery"
+stability = "stable"
 description = "Alias for capabilities.list — retained for ecosystem backward compatibility"
 [capabilities.capability_list_alias.input_schema]
 type = "object"
 
 # --- Health domain (PRIMAL_IPC_PROTOCOL v3.0 — canonical, NON-NEGOTIABLE) ---
+# stability: stable — health triad is frozen
 
 [capabilities.health_check]
 method = "health.check"
 domain = "health.probe"
+stability = "stable"
 description = "Full health check — canonical per SEMANTIC_METHOD_NAMING_STANDARD"
 [capabilities.health_check.input_schema]
 type = "object"
@@ -196,6 +232,7 @@ type = "object"
 [capabilities.health_liveness]
 method = "health.liveness"
 domain = "health.probe"
+stability = "stable"
 description = "Liveness probe — returns ok if process is alive"
 [capabilities.health_liveness.input_schema]
 type = "object"
@@ -203,6 +240,7 @@ type = "object"
 [capabilities.health_readiness]
 method = "health.readiness"
 domain = "health.probe"
+stability = "stable"
 description = "Readiness probe — returns ok if ready to accept requests"
 [capabilities.health_readiness.input_schema]
 type = "object"
@@ -212,15 +250,18 @@ type = "object"
 [capabilities.identity_get]
 method = "identity.get"
 domain = "identity.self"
+stability = "stable"
 description = "Returns primal identity, domain, version, transport, and protocol"
 [capabilities.identity_get.input_schema]
 type = "object"
 
 # --- System domain (backward-compat aliases — prefer health.*) ---
+# stability: stable — aliases, frozen
 
 [capabilities.system_health]
 method = "system.health"
 domain = "system.monitoring"
+stability = "stable"
 description = "Alias for health.check (backward compat — prefer health.check)"
 [capabilities.system_health.input_schema]
 type = "object"
@@ -228,6 +269,7 @@ type = "object"
 [capabilities.system_status]
 method = "system.status"
 domain = "system.monitoring"
+stability = "stable"
 description = "Alias for health.check (backward compat — prefer health.check)"
 [capabilities.system_status.input_schema]
 type = "object"
@@ -235,6 +277,7 @@ type = "object"
 [capabilities.system_metrics]
 method = "system.metrics"
 domain = "system.monitoring"
+stability = "stable"
 description = "Server metrics (requests, errors, latency)"
 [capabilities.system_metrics.input_schema]
 type = "object"
@@ -242,24 +285,29 @@ type = "object"
 [capabilities.system_ping]
 method = "system.ping"
 domain = "system.monitoring"
+stability = "stable"
 description = "Connectivity test — alias for health.liveness pong variant"
 [capabilities.system_ping.input_schema]
 type = "object"
 
 # --- Discovery domain ---
+# stability: stable
 
 [capabilities.discovery_peers]
 method = "discovery.peers"
 domain = "discovery.network"
+stability = "stable"
 description = "Scan socket directories for running primals"
 [capabilities.discovery_peers.input_schema]
 type = "object"
 
 # --- Tool domain ---
+# stability: evolving — MCP tool surface actively expanding
 
 [capabilities.tool_execute]
 method = "tool.execute"
 domain = "tool.orchestration"
+stability = "evolving"
 description = "Execute MCP tools (local + remote announced)"
 [capabilities.tool_execute.input_schema]
 type = "object"
@@ -274,15 +322,18 @@ description = "Tool arguments"
 [capabilities.tool_list]
 method = "tool.list"
 domain = "tool.discovery"
+stability = "evolving"
 description = "List available tools (local built-ins + remote announced)"
 [capabilities.tool_list.input_schema]
 type = "object"
 
 # --- Context domain (Phase 4) ---
+# stability: evolving — session semantics under refinement
 
 [capabilities.context_create]
 method = "context.create"
 domain = "context.management"
+stability = "evolving"
 description = "Create a new context session"
 [capabilities.context_create.input_schema]
 type = "object"
@@ -296,6 +347,7 @@ description = "Initial metadata for the context"
 [capabilities.context_update]
 method = "context.update"
 domain = "context.management"
+stability = "evolving"
 description = "Update an existing context with new data"
 [capabilities.context_update.input_schema]
 type = "object"
@@ -310,6 +362,7 @@ description = "Data to merge into context state"
 [capabilities.context_summarize]
 method = "context.summarize"
 domain = "context.management"
+stability = "evolving"
 description = "Summarize a context session"
 [capabilities.context_summarize.input_schema]
 type = "object"
@@ -319,10 +372,12 @@ type = "string"
 description = "Context ID to summarize"
 
 # --- Provider domain (spring capability registration) ---
+# stability: evolving — spring registration protocol expanding
 
 [capabilities.provider_register]
 method = "provider.register"
 domain = "provider.registration"
+stability = "evolving"
 description = "Register a spring as a capability provider for routing"
 [capabilities.provider_register.input_schema]
 type = "object"
@@ -343,6 +398,7 @@ type = "string"
 [capabilities.provider_list]
 method = "provider.list"
 domain = "provider.registration"
+stability = "evolving"
 description = "List all registered capability providers"
 [capabilities.provider_list.input_schema]
 type = "object"
@@ -350,6 +406,7 @@ type = "object"
 [capabilities.provider_deregister]
 method = "provider.deregister"
 domain = "provider.registration"
+stability = "evolving"
 description = "Remove a registered provider"
 [capabilities.provider_deregister.input_schema]
 type = "object"
@@ -358,10 +415,12 @@ required = ["provider_id"]
 type = "string"
 
 # --- BTSP domain (Phase 3 - encrypted channel) ---
+# stability: evolving — cipher negotiation protocol advancing
 
 [capabilities.btsp_negotiate]
 method = "btsp.negotiate"
 domain = "btsp.security"
+stability = "evolving"
 description = "Negotiate cipher for BTSP Phase 3 encrypted channel upgrade"
 [capabilities.btsp_negotiate.input_schema]
 type = "object"
@@ -377,10 +436,12 @@ type = "string"
 description = "Bond type (e.g. Covalent)"
 
 # --- Lifecycle domain (Phase 2 - biomeOS) ---
+# stability: stable — ecosystem registration contract frozen
 
 [capabilities.lifecycle_register]
 method = "lifecycle.register"
 domain = "lifecycle.ecosystem"
+stability = "stable"
 description = "Register with ecosystem orchestrator"
 [capabilities.lifecycle_register.input_schema]
 type = "object"
@@ -388,15 +449,29 @@ type = "object"
 [capabilities.lifecycle_status]
 method = "lifecycle.status"
 domain = "lifecycle.ecosystem"
+stability = "stable"
 description = "Heartbeat status report to ecosystem orchestrator"
 [capabilities.lifecycle_status.input_schema]
 type = "object"
 
+# --- Signal domain (Neural API composition collapse) ---
+# stability: evolving — composition planning under active evolution
+
+[capabilities.signal_plan]
+method = "signal.plan"
+domain = "signal.composition"
+stability = "evolving"
+description = "Plan signal composition for Neural API collapse"
+[capabilities.signal_plan.input_schema]
+type = "object"
+
 # --- Graph domain (primalSpring BYOB) ---
+# stability: evolving — composition graph format under refinement
 
 [capabilities.graph_parse]
 method = "graph.parse"
 domain = "graph.coordination"
+stability = "evolving"
 description = "Parse a BYOB deployment graph TOML into structured representation"
 [capabilities.graph_parse.input_schema]
 type = "object"
@@ -408,6 +483,7 @@ description = "TOML-encoded deployment graph"
 [capabilities.graph_validate]
 method = "graph.validate"
 domain = "graph.coordination"
+stability = "evolving"
 description = "Structurally validate a BYOB deployment graph"
 [capabilities.graph_validate.input_schema]
 type = "object"

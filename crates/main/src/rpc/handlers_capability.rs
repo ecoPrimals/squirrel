@@ -119,6 +119,8 @@ impl JsonRpcServer {
         Ok(serde_json::json!({
             "primal": niche::PRIMAL_ID,
             "version": niche::PRIMAL_VERSION,
+            "capabilities": methods,
+            "count": methods.len(),
             "methods": methods,
             "provided_capabilities": provided_capabilities,
             "consumed_capabilities": niche::CONSUMED_CAPABILITIES,

@@ -50,6 +50,10 @@ prop_compose! {
             max_tokens,
             temperature: temp_tenths.map(|t| f32::from(t) / 10.0),
             stream,
+            mode: None,
+            tool_schema: None,
+            tools: None,
+            context: None,
         }
     }
 }

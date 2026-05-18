@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,213 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 3.5 MB
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,089 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 3.5 MB | **Methods**: 38 registered
 
 ---
 
@@ -157,6 +157,34 @@ squirrel/
 ├── specs/                    # Specifications
 └── justfile                  # Build automation (just ci/test/clippy/coverage)
 ```
+
+---
+
+## Degradation Behavior
+
+When Squirrel is unavailable, downstream consumers degrade as follows:
+
+| Domain | Degradation | Severity |
+|--------|-------------|----------|
+| `ai.*` / `inference.*` | AI queries fail; consumers fall back to offline heuristics or cached responses | HIGH |
+| `tool.*` | MCP tool routing unavailable; local tools still execute if consumer has them | MEDIUM |
+| `context.*` | Context sessions unavailable; consumers operate stateless | LOW |
+| `capabilities.*` / `identity.get` | Capability discovery fails; static configurations or cached responses used | LOW |
+| `graph.*` | BYOB graph parsing unavailable; pre-validated graphs still deploy | LOW |
+| `provider.*` | Spring registration queued; springs retry on reconnect | LOW |
+
+**Standalone mode**: Squirrel operates fully without other primals. AI routing degrades
+to local-only providers. Compute delegation falls back to `LocalProcessProvider`.
+Storage endpoint resolution uses defaults. No primal dependency is hard-gated.
+
+## Stadial Pairing
+
+| Downstream Partner | Integration Surface | Validation |
+|-------------------|---------------------|------------|
+| esotericWebb | `ai.query`, `tool.execute`, `context.*` — agentic AI for game narratives | AI provider availability, tool routing |
+| projectFOUNDATION | `ai.query`, `inference.*` — AI-assisted thread analysis | Inference endpoint discovery, model selection |
+| neuralSpring | `inference.register_provider` — inference backend registration | Provider lifecycle, UDS timeout (120s) |
+| all springs | `capabilities.list`, `identity.get` — discovery substrate | Canonical envelope shape compliance |
 
 ---
 
