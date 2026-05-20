@@ -1,11 +1,12 @@
-# squirrel — sporePrint Validation Summary
++++
+title = "squirrel Validation Summary"
+description = "AI inference routing, context management, capability discovery, signal composition. 7,089+ tests, 38 IPC methods, 90% coverage."
+date = 2026-05-20
 
-**Primal**: squirrel
-**Version**: 0.1.0
-**Domain**: Intelligence — AI inference routing, context management, capability discovery, signal composition
-**License**: AGPL-3.0-or-later
-
----
+[taxonomies]
+primals = ["squirrel"]
+springs = []
++++
 
 ## Status
 
@@ -52,7 +53,7 @@
 ## Composition Role
 
 Squirrel is the **intelligence router** for all compositions requiring AI inference:
-- Tower atomic member (bearDog + songbird + squirrel + skunkBat)
+- Meta-tier member (biomeOS + squirrel + petalTongue)
 - Provides inference routing to any composition needing LLM/embedding access
 - Delegates compute to neuralSpring providers, routes via capability discovery
 - Context management for multi-turn conversations across compositions
