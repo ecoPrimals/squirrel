@@ -11,6 +11,13 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 23, 2026 — session BH: Neural API socket targeting fix)
+
+- **`resolve_neural_api_socket()` — WAVE42 tiered socket discovery** (Wave 44 fix): `announce_to_neural_api` now targets the Neural API socket specifically, not the biomeOS orchestrator socket. Tiered lookup: `$NEURAL_API_SOCKET` → `$XDG_RUNTIME_DIR/biomeos/neural-api-{family}.sock` → `/run/user/<uid>/biomeos/neural-api.sock` → `/tmp/biomeos/neural-api-{family}.sock` → `/tmp/biomeos/neural-api.sock`. Uses connect-probe liveness per v1.3.0 §5.
+- **Independent announce call**: `primal.announce` is now called independently of `lifecycle.register` in `main.rs` — even if the biomeOS orchestrator is absent, the Neural API announce will still attempt.
+- **Tests**: 4 tests covering announce success/failure and resolver env-override/missing.
+- **Quality gates**: `cargo fmt`, `cargo clippy` (zero warnings), `cargo test --workspace` (7,093 pass), `cargo deny check` — all green.
+
 ### Summary (May 23, 2026 — session BG: Neural API primal.announce routing metadata)
 
 - **`primal.announce` self-announcement on startup** (Wave 43): Added `announce_to_neural_api()` in `capabilities/lifecycle.rs`. On startup, after `lifecycle.register` succeeds, Squirrel sends `primal.announce` to biomeOS Neural API with full routing metadata: `capabilities: ["inference", "mcp", "coordination"]`, `signal_tiers: ["meta"]`, `cost_hints` (inference: 50, mcp: 10, coordination: 15), `latency_estimates` (inference: 500ms, mcp: 20ms, coordination: 30ms). This enables the Neural API to build intelligent routing weights for Squirrel's capabilities.

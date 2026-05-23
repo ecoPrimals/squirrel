@@ -353,13 +353,6 @@ async fn run_server(
         {
             info!("Registered with ecosystem orchestrator");
 
-            // Neural API primal.announce with routing metadata (Wave 43)
-            squirrel::capabilities::lifecycle::announce_to_neural_api(
-                &biomeos_socket,
-                &socket_path,
-            )
-            .await;
-
             // Start heartbeat (30s interval)
             let _heartbeat = squirrel::capabilities::lifecycle::spawn_heartbeat(
                 biomeos_socket,
@@ -372,6 +365,10 @@ async fn run_server(
     } else {
         info!("No ecosystem orchestrator socket found — standalone mode");
     }
+
+    // Neural API primal.announce with routing metadata (Wave 43/44)
+    // Independent of lifecycle registration — targets neural-api socket specifically
+    squirrel::capabilities::lifecycle::announce_to_neural_api(&socket_path).await;
 
     // Service-mesh registration via discovery socket
     let shutdown_rx_discovery = shutdown_tx.subscribe();

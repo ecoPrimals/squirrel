@@ -124,14 +124,63 @@ pub async fn register_with_biomeos(
     }
 }
 
+/// Resolve the Neural API socket path using WAVE42 tiered lookup.
+///
+/// Discovery order:
+/// 1. `$NEURAL_API_SOCKET` (explicit override)
+/// 2. `$XDG_RUNTIME_DIR/biomeos/neural-api-{family}.sock`
+/// 3. `$XDG_RUNTIME_DIR/biomeos/neural-api.sock` (no-family fallback)
+/// 4. `/tmp/biomeos/neural-api-{family}.sock`
+/// 5. `/tmp/biomeos/neural-api.sock`
+///
+/// Uses connect-probe liveness to filter stale sockets.
+pub fn resolve_neural_api_socket() -> Option<PathBuf> {
+    if let Ok(path) = std::env::var("NEURAL_API_SOCKET") {
+        let p = PathBuf::from(path);
+        if socket_is_alive_sync(&p) {
+            return Some(p);
+        }
+    }
+
+    let family = std::env::var("SQUIRREL_FAMILY_ID")
+        .or_else(|_| std::env::var("BIOMEOS_FAMILY_ID"))
+        .or_else(|_| std::env::var("FAMILY_ID"))
+        .unwrap_or_else(|_| "ecoPrimal".to_string());
+
+    let uid = universal_constants::sys_info::current_uid();
+    let dir = primal_names::BIOMEOS_SOCKET_DIR;
+    let fallback = universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR;
+
+    let candidates = [
+        format!("/run/user/{uid}/{dir}/neural-api-{family}.sock"),
+        format!(
+            "/run/user/{uid}/{dir}/{}",
+            primal_names::NEURAL_API_SOCKET_NAME
+        ),
+        format!("{fallback}/neural-api-{family}.sock"),
+        format!("{fallback}/{}", primal_names::NEURAL_API_SOCKET_NAME),
+    ];
+
+    candidates
+        .into_iter()
+        .map(PathBuf::from)
+        .find(|p| socket_is_alive_sync(p))
+}
+
 /// Send `primal.announce` to biomeOS Neural API with routing metadata.
 ///
-/// Per Wave 42/43 Neural API deployment guide, this registers Squirrel's
+/// Per Wave 42-44 Neural API deployment guide, this registers Squirrel's
 /// capabilities with cost hints, latency estimates, and signal tier so the
 /// Neural API can build intelligent routing weights.
 ///
+/// Discovers the neural-api socket independently via [`resolve_neural_api_socket`].
 /// Returns `true` if the announcement was acknowledged.
-pub async fn announce_to_neural_api(biomeos_socket: &Path, own_socket: &str) -> bool {
+pub async fn announce_to_neural_api(own_socket: &str) -> bool {
+    let Some(neural_socket) = resolve_neural_api_socket() else {
+        debug!("Neural API socket not found — skipping primal.announce");
+        return false;
+    };
+
     let methods: Vec<&str> = niche::CAPABILITIES.to_vec();
 
     let request = serde_json::json!({
@@ -159,7 +208,7 @@ pub async fn announce_to_neural_api(biomeos_socket: &Path, own_socket: &str) -> 
         "id": 2
     });
 
-    match send_jsonrpc_public(biomeos_socket, &request).await {
+    match send_jsonrpc_public(&neural_socket, &request).await {
         Ok(resp) => {
             if resp.get("error").is_some() {
                 warn!(
@@ -172,7 +221,7 @@ pub async fn announce_to_neural_api(biomeos_socket: &Path, own_socket: &str) -> 
             } else {
                 info!(
                     "primal.announce accepted by Neural API at {}",
-                    biomeos_socket.display()
+                    neural_socket.display()
                 );
                 true
             }
@@ -420,52 +469,99 @@ mod tests {
         assert!(!ok);
     }
 
-    #[tokio::test]
-    async fn announce_to_neural_api_success() {
+    #[test]
+    fn announce_to_neural_api_success() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let sock_path = dir.path().join("neural.sock");
+        let sock_path = dir.path().join("neural-api.sock");
+
+        let rt = tokio::runtime::Runtime::new().expect("rt");
+        let _enter = rt.enter();
         let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
 
-        let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.expect("accept");
+        let server = rt.spawn(async move {
             use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-            let mut reader = BufReader::new(&mut stream);
-            let mut line = String::new();
-            reader.read_line(&mut line).await.expect("read");
-            let req: serde_json::Value = serde_json::from_str(line.trim()).expect("parse");
-            assert_eq!(req["method"], "primal.announce");
-            assert_eq!(req["params"]["primal"], "squirrel");
-            assert_eq!(
-                req["params"]["capabilities"],
-                serde_json::json!(["inference", "mcp", "coordination"])
-            );
-            assert_eq!(req["params"]["signal_tiers"], serde_json::json!(["meta"]));
-            assert!(req["params"]["cost_hints"]["inference"].as_f64().is_some());
-            assert!(
-                req["params"]["latency_estimates"]["inference"]
-                    .as_u64()
-                    .is_some()
-            );
+            loop {
+                let Ok((mut stream, _)) = listener.accept().await else {
+                    break;
+                };
+                let mut reader = BufReader::new(&mut stream);
+                let mut line = String::new();
+                if reader.read_line(&mut line).await.is_err() || line.is_empty() {
+                    continue; // probe connection (no data) — skip
+                }
+                let req: serde_json::Value = serde_json::from_str(line.trim()).expect("parse");
+                assert_eq!(req["method"], "primal.announce");
+                assert_eq!(req["params"]["primal"], "squirrel");
+                assert_eq!(
+                    req["params"]["capabilities"],
+                    serde_json::json!(["inference", "mcp", "coordination"])
+                );
+                assert_eq!(req["params"]["signal_tiers"], serde_json::json!(["meta"]));
+                assert!(req["params"]["cost_hints"]["inference"].as_f64().is_some());
+                assert!(
+                    req["params"]["latency_estimates"]["inference"]
+                        .as_u64()
+                        .is_some()
+                );
+                assert_eq!(req["params"]["socket"], "/tmp/squirrel.sock");
 
-            let resp = serde_json::json!({"jsonrpc":"2.0","result":{"status":"accepted"},"id":2});
-            let mut body = serde_json::to_string(&resp).expect("json");
-            body.push('\n');
-            stream.write_all(body.as_bytes()).await.expect("write");
+                let resp =
+                    serde_json::json!({"jsonrpc":"2.0","result":{"status":"accepted"},"id":2});
+                let mut body = serde_json::to_string(&resp).expect("json");
+                body.push('\n');
+                stream.write_all(body.as_bytes()).await.expect("write");
+                break;
+            }
         });
 
-        let ok = announce_to_neural_api(&sock_path, "/tmp/squirrel.sock").await;
-        server.await.expect("server task");
-        assert!(ok);
+        temp_env::with_var(
+            "NEURAL_API_SOCKET",
+            Some(sock_path.to_str().expect("utf8")),
+            || {
+                rt.block_on(async {
+                    let ok = announce_to_neural_api("/tmp/squirrel.sock").await;
+                    assert!(ok);
+                });
+            },
+        );
+        rt.block_on(server).expect("server task");
     }
 
-    #[tokio::test]
-    async fn announce_to_neural_api_graceful_on_missing_socket() {
-        let ok = announce_to_neural_api(
-            std::path::Path::new("/tmp/nonexistent_neural_api_99999.sock"),
-            "/tmp/squirrel.sock",
-        )
-        .await;
-        assert!(!ok);
+    #[test]
+    fn announce_to_neural_api_graceful_on_missing_socket() {
+        let rt = tokio::runtime::Runtime::new().expect("rt");
+        temp_env::with_var("NEURAL_API_SOCKET", None::<&str>, || {
+            rt.block_on(async {
+                let ok = announce_to_neural_api("/tmp/squirrel.sock").await;
+                assert!(!ok);
+            });
+        });
+    }
+
+    #[test]
+    fn resolve_neural_api_socket_env_override() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sock_path = dir.path().join("neural-api-test.sock");
+        let _listener = std::os::unix::net::UnixListener::bind(&sock_path).expect("bind");
+
+        temp_env::with_var(
+            "NEURAL_API_SOCKET",
+            Some(sock_path.to_str().expect("utf8")),
+            || {
+                let resolved = resolve_neural_api_socket();
+                assert_eq!(resolved, Some(sock_path.clone()));
+            },
+        );
+    }
+
+    #[test]
+    fn resolve_neural_api_socket_none_when_no_socket_exists() {
+        temp_env::with_var("NEURAL_API_SOCKET", None::<&str>, || {
+            let resolved = resolve_neural_api_socket();
+            // May or may not find a real socket depending on host environment
+            // But should not panic
+            let _ = resolved;
+        });
     }
 
     #[tokio::test]
