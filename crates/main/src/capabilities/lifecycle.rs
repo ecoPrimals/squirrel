@@ -124,6 +124,66 @@ pub async fn register_with_biomeos(
     }
 }
 
+/// Send `primal.announce` to biomeOS Neural API with routing metadata.
+///
+/// Per Wave 42/43 Neural API deployment guide, this registers Squirrel's
+/// capabilities with cost hints, latency estimates, and signal tier so the
+/// Neural API can build intelligent routing weights.
+///
+/// Returns `true` if the announcement was acknowledged.
+pub async fn announce_to_neural_api(biomeos_socket: &Path, own_socket: &str) -> bool {
+    let methods: Vec<&str> = niche::CAPABILITIES.to_vec();
+
+    let request = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "primal.announce",
+        "params": {
+            "primal": niche::PRIMAL_ID,
+            "version": niche::PRIMAL_VERSION,
+            "socket": own_socket,
+            "capabilities": ["inference", "mcp", "coordination"],
+            "methods": methods,
+            "domain": niche::DOMAIN,
+            "signal_tiers": ["meta"],
+            "cost_hints": {
+                "inference": 50.0,
+                "mcp": 10.0,
+                "coordination": 15.0
+            },
+            "latency_estimates": {
+                "inference": 500,
+                "mcp": 20,
+                "coordination": 30
+            }
+        },
+        "id": 2
+    });
+
+    match send_jsonrpc_public(biomeos_socket, &request).await {
+        Ok(resp) => {
+            if resp.get("error").is_some() {
+                warn!(
+                    "primal.announce rejected: {:?}",
+                    resp.get("error")
+                        .and_then(|e| e.get("message"))
+                        .and_then(|m| m.as_str())
+                );
+                false
+            } else {
+                info!(
+                    "primal.announce accepted by Neural API at {}",
+                    biomeos_socket.display()
+                );
+                true
+            }
+        }
+        Err(e) => {
+            debug!("primal.announce failed (Neural API may not be running): {e}");
+            false
+        }
+    }
+}
+
 /// Spawn a background heartbeat task that sends `lifecycle.status` every `interval`.
 ///
 /// The task runs until `shutdown_rx` receives a signal.
@@ -357,6 +417,54 @@ mod tests {
 
         let ok = register_with_biomeos(&sock_path, "/x", &[]).await;
         server.await.expect("server");
+        assert!(!ok);
+    }
+
+    #[tokio::test]
+    async fn announce_to_neural_api_success() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sock_path = dir.path().join("neural.sock");
+        let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
+
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.expect("accept");
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            let mut reader = BufReader::new(&mut stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.expect("read");
+            let req: serde_json::Value = serde_json::from_str(line.trim()).expect("parse");
+            assert_eq!(req["method"], "primal.announce");
+            assert_eq!(req["params"]["primal"], "squirrel");
+            assert_eq!(
+                req["params"]["capabilities"],
+                serde_json::json!(["inference", "mcp", "coordination"])
+            );
+            assert_eq!(req["params"]["signal_tiers"], serde_json::json!(["meta"]));
+            assert!(req["params"]["cost_hints"]["inference"].as_f64().is_some());
+            assert!(
+                req["params"]["latency_estimates"]["inference"]
+                    .as_u64()
+                    .is_some()
+            );
+
+            let resp = serde_json::json!({"jsonrpc":"2.0","result":{"status":"accepted"},"id":2});
+            let mut body = serde_json::to_string(&resp).expect("json");
+            body.push('\n');
+            stream.write_all(body.as_bytes()).await.expect("write");
+        });
+
+        let ok = announce_to_neural_api(&sock_path, "/tmp/squirrel.sock").await;
+        server.await.expect("server task");
+        assert!(ok);
+    }
+
+    #[tokio::test]
+    async fn announce_to_neural_api_graceful_on_missing_socket() {
+        let ok = announce_to_neural_api(
+            std::path::Path::new("/tmp/nonexistent_neural_api_99999.sock"),
+            "/tmp/squirrel.sock",
+        )
+        .await;
         assert!(!ok);
     }
 

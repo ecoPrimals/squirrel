@@ -11,6 +11,13 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 23, 2026 — session BG: Neural API primal.announce routing metadata)
+
+- **`primal.announce` self-announcement on startup** (Wave 43): Added `announce_to_neural_api()` in `capabilities/lifecycle.rs`. On startup, after `lifecycle.register` succeeds, Squirrel sends `primal.announce` to biomeOS Neural API with full routing metadata: `capabilities: ["inference", "mcp", "coordination"]`, `signal_tiers: ["meta"]`, `cost_hints` (inference: 50, mcp: 10, coordination: 15), `latency_estimates` (inference: 500ms, mcp: 20ms, coordination: 30ms). This enables the Neural API to build intelligent routing weights for Squirrel's capabilities.
+- **Graceful degradation**: If Neural API is not running, the announce fails silently at `debug` level — standalone mode unaffected.
+- **Tests**: 2 new tests (`announce_to_neural_api_success`, `announce_to_neural_api_graceful_on_missing_socket`).
+- **Quality gates**: `cargo fmt`, `cargo clippy` (zero warnings), `cargo test --workspace` (7,091 pass), `cargo deny check` — all green.
+
 ### Summary (May 18, 2026 — session BF: stale socket detection + cleanup)
 
 - **Connect-probe liveness for discovery** (`CAPABILITY_BASED_DISCOVERY_STANDARD` v1.3.0 §5): Added `socket_is_alive()` async helper (50ms timeout connect-probe) to `capabilities/discovery.rs`. Discovery paths that previously used `path.exists()` now use connect-probe to filter stale sockets left after ungraceful shutdowns. Applies to: env-var provider discovery, discovery-service socket validation, biomeOS/discovery socket lookup in `lifecycle.rs` and `discovery_service.rs` (sync variant using `std::os::unix::net::UnixStream::connect`).
