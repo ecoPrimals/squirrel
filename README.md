@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,089 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 3.5 MB | **Methods**: 38 registered
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,093 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 3.5 MB | **Methods**: 38 registered
 
 ---
 
@@ -37,19 +37,19 @@ See [ORIGIN.md](ORIGIN.md) for the full story of how Squirrel was built using co
 ## Quick Start
 
 ```bash
-# Build
-cargo build --release
+# Build (static musl binary — default target)
+just build-ecobin
 
 # Run (server mode — listens on Unix socket)
-./target/release/squirrel server
+cargo run -p squirrel -- server
 
 # Client (send a JSON-RPC call)
-./target/release/squirrel client --method health.liveness --params '{}'
+cargo run -p squirrel -- client --method health.liveness --params '{}'
 
 # Test
-cargo test --workspace --all-features
+cargo test --workspace --lib --tests
 
-# Full CI gate (fmt + clippy + test + doc)
+# Full CI gate (fmt + clippy + test + deny)
 just ci
 
 # Lint (zero warnings required)
@@ -100,7 +100,7 @@ Runtime registration: any primal can call `inference.register_provider` to dynam
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   7,213 tests passing (0 failures) | ~1,001 `.rs` files | ~326k lines | zero Box<dyn Error> in prod
+Fitness:   7,093 tests passing (0 failures) | ~1,001 `.rs` files | ~326k lines | zero Box<dyn Error> in prod
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation

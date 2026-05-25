@@ -65,7 +65,7 @@ pub struct JsonRpcServer {
     /// Service name for Universal Transport discovery
     pub(crate) service_name: String,
 
-    #[allow(dead_code)]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) socket_path: String,
 
     /// Server metrics

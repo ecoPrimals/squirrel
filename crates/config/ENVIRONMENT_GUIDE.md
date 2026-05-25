@@ -464,7 +464,7 @@ ENV SQUIRREL_HTTP_PORT=8080
 # ENV DATABASE_URL=...
 # ENV OPENAI_API_KEY=...
 
-COPY --from=builder /app/target/release/squirrel /usr/local/bin/
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/squirrel /usr/local/bin/
 
 CMD ["squirrel"]
 ```

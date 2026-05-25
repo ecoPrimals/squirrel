@@ -7,18 +7,22 @@ Architectural specifications and design documents for the Squirrel AI Coordinati
 
 ```
 specs/
-├── active/         # Active specifications (MCP protocol, universal patterns, ecosystem)
-├── current/        # Current status and deployment guide
-└── development/    # Development standards (testing, security, codebase structure)
+├── active/         # Active specifications (universal patterns)
+├── development/    # Development standards (AI guide)
+├── historical/     # Gen2 specs preserved as fossil record (MCP, deployment, testing)
+└── SOCKET_REGISTRY_SPEC.md
 ```
 
-Pre-alpha specs (gRPC, RBAC, resilience) are preserved as fossil record in
+Pre-alpha specs (gRPC, RBAC, resilience) are preserved in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/`.
+
+Gen2-era specs (MCP protocol, WebSocket transport, deployment guide) were moved to
+`historical/` as part of Wave 49 ecosystem tightening (May 2026).
 
 ## Architecture
 
 - **IPC**: JSON-RPC 2.0 over Unix sockets (default), tarpc binary protocol (optional)
-- **Transport**: Automatic fallback — Unix sockets -> Named pipes -> TCP
+- **Transport**: Automatic fallback — Unix sockets → Named pipes → TCP
 - **AI**: Vendor-agnostic, capability-based provider routing
 - **Pattern**: TRUE PRIMAL (self-knowledge only, runtime discovery)
 
@@ -26,12 +30,12 @@ Pre-alpha specs (gRPC, RBAC, resilience) are preserved as fossil record in
 
 | Spec | Location | Status |
 |------|----------|--------|
-| MCP Protocol | `active/mcp-protocol/MCP_SPECIFICATION.md` | historical |
-| Universal Patterns | `active/UNIVERSAL_PATTERNS_SPECIFICATION.md` | historical |
-| Ecosystem Integration | `active/UNIVERSAL_SQUIRREL_ECOSYSTEM_SPEC.md` | reference |
-| Socket Registry | `SOCKET_REGISTRY_SPEC.md` | reference |
-| Deployment | `current/DEPLOYMENT_GUIDE.md` | current |
-| Testing | `development/TESTING.md` | reference |
-| Security | `development/SECURITY.md` | reference |
+| Universal Patterns | `active/UNIVERSAL_PATTERNS_SPECIFICATION.md` | active |
+| Socket Registry | `SOCKET_REGISTRY_SPEC.md` | active |
+| AI Development | `development/AI_DEVELOPMENT_GUIDE.md` | active |
+| MCP Protocol (gen2) | `historical/mcp-protocol/` | archived |
+| Deployment (gen2) | `historical/DEPLOYMENT_GUIDE.md` | archived |
+| Testing (gen2) | `historical/TESTING.md` | archived |
+| Security (gen2) | `historical/SECURITY.md` | archived |
 
-Most `active/mcp-protocol/` specs are gen2-era (2024-2025) and marked `historical`. See `README.md` and `CURRENT_STATUS.md` for the authoritative current state.
+See `README.md` and `CURRENT_STATUS.md` at repo root for the authoritative current state.
