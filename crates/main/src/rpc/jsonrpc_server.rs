@@ -169,9 +169,11 @@ impl JsonRpcServer {
         // SQ-01: On Linux, also bind a filesystem socket at the biomeOS standard
         // path. Abstract namespace sockets are invisible to readdir()-based
         // discovery used by biomeOS socket scanning.
+        // Uses self.socket_path (resolved from --socket CLI / config / env)
+        // so the launcher's expected path is honoured.
         #[cfg(target_os = "linux")]
         {
-            let fs_path = super::unix_socket::get_socket_path(&super::unix_socket::get_node_id());
+            let fs_path = self.socket_path.clone();
             if let Err(e) = super::unix_socket::prepare_socket_path(&fs_path) {
                 warn!(
                     "Failed to prepare filesystem socket {}: {} (abstract-only mode)",

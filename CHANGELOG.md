@@ -11,6 +11,13 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 27, 2026 — session BI: Wave 54 filesystem socket path fix)
+
+- **SQ-01 filesystem socket now uses `--socket` CLI path** (Wave 54 fix): The JSON-RPC server's SQ-01 dual-socket binding previously re-derived the filesystem socket path from env vars, ignoring the `--socket` CLI argument passed by the NUCLEUS launcher. Now `self.socket_path` (resolved from `--socket` → config → env → XDG fallback) is used directly, so `squirrel-{FAMILY_ID}.sock` appears at the path the launcher expects.
+- **Root cause**: `jsonrpc_server.rs` line 174 called `get_socket_path(&get_node_id())` instead of using the already-resolved `self.socket_path`. The primary listener (abstract socket `\0squirrel`) was always healthy, but the filesystem companion socket that biomeOS/launcher discover via `readdir()` was bound at a different (env-derived) path than the one the launcher specified.
+- **Impact**: Fixes "socket not at expected name" on southGate NUCLEUS deployments where the launcher passes `--socket $XDG_RUNTIME_DIR/biomeos/squirrel-$FAMILY_ID.sock`.
+- **Quality gates**: `cargo fmt`, `cargo clippy` (zero warnings), `cargo test -p squirrel` (2,258 pass), `cargo deny check` — all green.
+
 ### Summary (May 23, 2026 — session BH: Neural API socket targeting fix)
 
 - **`resolve_neural_api_socket()` — WAVE42 tiered socket discovery** (Wave 44 fix): `announce_to_neural_api` now targets the Neural API socket specifically, not the biomeOS orchestrator socket. Tiered lookup: `$NEURAL_API_SOCKET` → `$XDG_RUNTIME_DIR/biomeos/neural-api-{family}.sock` → `/run/user/<uid>/biomeos/neural-api.sock` → `/tmp/biomeos/neural-api-{family}.sock` → `/tmp/biomeos/neural-api.sock`. Uses connect-probe liveness per v1.3.0 §5.
