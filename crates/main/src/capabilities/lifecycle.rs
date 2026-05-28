@@ -16,6 +16,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::sync::watch;
 use tracing::{debug, info, warn};
+use universal_constants::env_vars;
 
 use crate::niche;
 use crate::primal_names;
@@ -40,8 +41,8 @@ fn socket_is_alive_sync(path: &Path) -> bool {
 /// Checks standard locations without hardcoding a primal name.
 /// Uses connect-probe liveness (§5) to filter stale sockets.
 pub fn find_biomeos_socket() -> Option<PathBuf> {
-    let socket_env =
-        std::env::var("ECOSYSTEM_ORCHESTRATOR_SOCKET").or_else(|_| std::env::var("BIOMEOS_SOCKET"));
+    let socket_env = std::env::var(env_vars::ecosystem::ECOSYSTEM_ORCHESTRATOR_SOCKET)
+        .or_else(|_| std::env::var(env_vars::ecosystem::BIOMEOS_SOCKET));
     if let Ok(path) = socket_env {
         let p = PathBuf::from(path);
         if socket_is_alive_sync(&p) {
@@ -135,16 +136,16 @@ pub async fn register_with_biomeos(
 ///
 /// Uses connect-probe liveness to filter stale sockets.
 pub fn resolve_neural_api_socket() -> Option<PathBuf> {
-    if let Ok(path) = std::env::var("NEURAL_API_SOCKET") {
+    if let Ok(path) = std::env::var(env_vars::ecosystem::NEURAL_API_SOCKET) {
         let p = PathBuf::from(path);
         if socket_is_alive_sync(&p) {
             return Some(p);
         }
     }
 
-    let family = std::env::var("SQUIRREL_FAMILY_ID")
-        .or_else(|_| std::env::var("BIOMEOS_FAMILY_ID"))
-        .or_else(|_| std::env::var("FAMILY_ID"))
+    let family = std::env::var(env_vars::squirrel::FAMILY_ID)
+        .or_else(|_| std::env::var(env_vars::ecosystem::BIOMEOS_FAMILY_ID))
+        .or_else(|_| std::env::var(env_vars::ecosystem::FAMILY_ID))
         .unwrap_or_else(|_| "ecoPrimal".to_string());
 
     let uid = universal_constants::sys_info::current_uid();

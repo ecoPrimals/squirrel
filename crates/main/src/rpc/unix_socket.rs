@@ -30,6 +30,7 @@
 
 use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
+use universal_constants::env_vars;
 
 /// Resolve a socket path for IPC binding, manifest registration, and SQ-01 filesystem bind.
 ///
@@ -72,15 +73,15 @@ impl SocketConfig {
     #[must_use]
     pub fn from_env() -> Self {
         Self {
-            squirrel_socket: std::env::var("SQUIRREL_SOCKET").ok(),
-            biomeos_socket_path: std::env::var("BIOMEOS_SOCKET_PATH").ok(),
-            primal_socket: std::env::var("PRIMAL_SOCKET").ok(),
-            family_id: std::env::var("SQUIRREL_FAMILY_ID")
-                .or_else(|_| std::env::var("BIOMEOS_FAMILY_ID"))
-                .or_else(|_| std::env::var("FAMILY_ID"))
+            squirrel_socket: std::env::var(env_vars::squirrel::SOCKET).ok(),
+            biomeos_socket_path: std::env::var(env_vars::ecosystem::BIOMEOS_SOCKET_PATH).ok(),
+            primal_socket: std::env::var(env_vars::primal::SOCKET).ok(),
+            family_id: std::env::var(env_vars::squirrel::FAMILY_ID)
+                .or_else(|_| std::env::var(env_vars::ecosystem::BIOMEOS_FAMILY_ID))
+                .or_else(|_| std::env::var(env_vars::ecosystem::FAMILY_ID))
                 .ok(),
-            node_id: std::env::var("SQUIRREL_NODE_ID").ok(),
-            biomeos_insecure: std::env::var("BIOMEOS_INSECURE")
+            node_id: std::env::var(env_vars::squirrel::NODE_ID).ok(),
+            biomeos_insecure: std::env::var(env_vars::ecosystem::BIOMEOS_INSECURE)
                 .ok()
                 .map(|v| v == "1" || v == "true"),
         }

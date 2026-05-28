@@ -11,6 +11,16 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 28, 2026 — session BJ: Wave 58 env var centralization)
+
+- **`env_vars` module expansion — 316 env var constants** (Wave 58): Expanded `crates/universal-constants/src/env_vars.rs` from 20 constants to 316, organized into domain modules: `squirrel`, `ecosystem`, `ai` (with `openai`/`anthropic`/`ollama`/`gemini`/`huggingface`/`local` sub-modules), `mcp`, `network`, `discovery`, `security`, `primals`, `primal`, `btsp`, `compute`, `storage`, `database`, `monitoring`, `logging`, `performance`, `sandbox`, `http`, `ipc`, `deploy`, `task`, `session`, `limits`, `flags`, `sys`. Backward-compatible flat re-exports preserved.
+- **SDK `infrastructure/config.rs` migrated** (audit ask): All 29 `env::var("...")` sites in `crates/sdk/src/infrastructure/config.rs` now use `env_vars::mcp::*`, `env_vars::logging::*`, `env_vars::network::*`, `env_vars::http::*`, `env_vars::performance::*` constants.
+- **Plugin sandbox config migrated**: `crates/sdk/src/infrastructure/plugin_config.rs` — 6 sandbox env var sites use `env_vars::sandbox::*`.
+- **Core socket path code migrated**: `crates/main/src/rpc/unix_socket.rs` `SocketConfig::from_env()` — 6 sites using `env_vars::squirrel::*`, `env_vars::ecosystem::*`, `env_vars::primal::*`.
+- **Lifecycle module migrated**: `crates/main/src/capabilities/lifecycle.rs` — 5 sites using `env_vars::ecosystem::*`, `env_vars::squirrel::*`.
+- **Remaining**: ~400 raw `env::var("...")` sites across ~80 files — incremental migration at team cadence.
+- **Quality gates**: `cargo fmt`, `cargo clippy --workspace` (zero warnings), `cargo test -p universal-constants --lib` (117 pass), `cargo test -p squirrel --lib` (2,244 pass), `cargo test -p squirrel-sdk --lib` (362 pass), `cargo deny check` — all green.
+
 ### Summary (May 27, 2026 — session BI: Wave 54 filesystem socket path fix)
 
 - **SQ-01 filesystem socket now uses `--socket` CLI path** (Wave 54 fix): The JSON-RPC server's SQ-01 dual-socket binding previously re-derived the filesystem socket path from env vars, ignoring the `--socket` CLI argument passed by the NUCLEUS launcher. Now `self.socket_path` (resolved from `--socket` → config → env → XDG fallback) is used directly, so `squirrel-{FAMILY_ID}.sock` appears at the path the launcher expects.

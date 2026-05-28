@@ -98,32 +98,40 @@ impl SandboxConfig {
     /// Load sandbox configuration from environment variables
     pub fn from_env() -> Self {
         Self {
-            network_access: std::env::var("SANDBOX_NETWORK_ACCESS")
+            network_access: std::env::var(universal_constants::env_vars::sandbox::NETWORK_ACCESS)
                 .unwrap_or_else(|_| "false".to_string())
                 .parse()
                 .unwrap_or(false),
-            file_system_access: std::env::var("SANDBOX_FILE_SYSTEM_ACCESS")
-                .unwrap_or_else(|_| String::new())
-                .split(',')
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_string())
-                .collect(),
-            memory_limit_mb: std::env::var("SANDBOX_MEMORY_LIMIT_MB")
+            file_system_access: std::env::var(
+                universal_constants::env_vars::sandbox::FILE_SYSTEM_ACCESS,
+            )
+            .unwrap_or_else(|_| String::new())
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+            .collect(),
+            memory_limit_mb: std::env::var(universal_constants::env_vars::sandbox::MEMORY_LIMIT_MB)
                 .unwrap_or_else(|_| "128".to_string())
                 .parse()
                 .unwrap_or(128),
-            cpu_limit_percent: std::env::var("SANDBOX_CPU_LIMIT_PERCENT")
-                .unwrap_or_else(|_| "5".to_string())
-                .parse()
-                .unwrap_or(5),
-            execution_timeout_seconds: std::env::var("SANDBOX_EXECUTION_TIMEOUT_SECONDS")
-                .unwrap_or_else(|_| "10".to_string())
-                .parse()
-                .unwrap_or(10),
-            security_level: match std::env::var("SANDBOX_SECURITY_LEVEL")
-                .unwrap_or_else(|_| "restricted".to_string())
-                .to_lowercase()
-                .as_str()
+            cpu_limit_percent: std::env::var(
+                universal_constants::env_vars::sandbox::CPU_LIMIT_PERCENT,
+            )
+            .unwrap_or_else(|_| "5".to_string())
+            .parse()
+            .unwrap_or(5),
+            execution_timeout_seconds: std::env::var(
+                universal_constants::env_vars::sandbox::EXECUTION_TIMEOUT_SECONDS,
+            )
+            .unwrap_or_else(|_| "10".to_string())
+            .parse()
+            .unwrap_or(10),
+            security_level: match std::env::var(
+                universal_constants::env_vars::sandbox::SECURITY_LEVEL,
+            )
+            .unwrap_or_else(|_| "restricted".to_string())
+            .to_lowercase()
+            .as_str()
             {
                 "standard" => SecurityLevel::Standard,
                 "enhanced" => SecurityLevel::Enhanced,
