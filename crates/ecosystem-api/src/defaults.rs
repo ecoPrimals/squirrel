@@ -8,6 +8,7 @@
 use std::env;
 
 use universal_constants::builders::localhost_http;
+use universal_constants::env_vars;
 use universal_constants::network::{DEFAULT_SECURITY_PORT, get_service_port, get_socket_path};
 
 /// Default ecosystem service endpoints with environment override support.
@@ -47,19 +48,13 @@ impl DefaultEndpoints {
     /// resolved via [`get_socket_path`](universal_constants::network::get_socket_path) for service `"discovery"`.
     #[must_use]
     pub fn service_mesh_endpoint() -> String {
-        env::var("DISCOVERY_ENDPOINT")
-            .or_else(|_| env::var("SERVICE_MESH_ENDPOINT"))
-            .or_else(|_| {
-                // Legacy — prefer DISCOVERY_ENDPOINT / SERVICE_MESH_ENDPOINT
-                env::var("SONGBIRD_ENDPOINT")
-            })
+        env::var(env_vars::discovery::ENDPOINT)
+            .or_else(|_| env::var(env_vars::network::SERVICE_MESH_ENDPOINT))
+            .or_else(|_| env::var(env_vars::primals::SONGBIRD_ENDPOINT))
             .unwrap_or_else(|_| {
-                let port = env::var("DISCOVERY_PORT")
-                    .or_else(|_| env::var("SERVICE_MESH_PORT"))
-                    .or_else(|_| {
-                        // Legacy — prefer DISCOVERY_PORT / SERVICE_MESH_PORT
-                        env::var("SONGBIRD_PORT")
-                    })
+                let port = env::var(env_vars::discovery::PORT)
+                    .or_else(|_| env::var(env_vars::network::SERVICE_MESH_PORT))
+                    .or_else(|_| env::var(env_vars::primals::SONGBIRD_PORT))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("discovery"));
@@ -77,19 +72,13 @@ impl DefaultEndpoints {
     /// 5. Default: `universal_constants::network::get_service_port("http")`
     #[must_use]
     pub fn compute_endpoint() -> String {
-        env::var("COMPUTE_SERVICE_ENDPOINT")
-            .or_else(|_| env::var("COMPUTE_ENDPOINT"))
-            .or_else(|_| {
-                // Legacy env var — prefer COMPUTE_SERVICE_ENDPOINT / COMPUTE_ENDPOINT
-                env::var("TOADSTOOL_ENDPOINT")
-            })
+        env::var(env_vars::compute::SERVICE_ENDPOINT)
+            .or_else(|_| env::var(env_vars::compute::ENDPOINT))
+            .or_else(|_| env::var(env_vars::primals::TOADSTOOL_ENDPOINT))
             .unwrap_or_else(|_| {
-                let port = env::var("COMPUTE_PORT")
-                    .or_else(|_| env::var("COMPUTE_SERVICE_PORT"))
-                    .or_else(|_| {
-                        // Legacy env var — prefer COMPUTE_PORT / COMPUTE_SERVICE_PORT
-                        env::var("TOADSTOOL_PORT")
-                    })
+                let port = env::var(env_vars::compute::PORT)
+                    .or_else(|_| env::var(env_vars::compute::SERVICE_PORT))
+                    .or_else(|_| env::var(env_vars::primals::TOADSTOOL_PORT))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("http"));
@@ -107,19 +96,12 @@ impl DefaultEndpoints {
     /// 5. Default: `universal_constants::network::get_service_port("admin")`
     #[must_use]
     pub fn storage_endpoint() -> String {
-        env::var("STORAGE_SERVICE_ENDPOINT")
-            .or_else(|_| env::var("STORAGE_ENDPOINT"))
-            .or_else(|_| {
-                // Legacy env var — prefer STORAGE_SERVICE_ENDPOINT / STORAGE_ENDPOINT
-                env::var("NESTGATE_ENDPOINT")
-            })
+        env::var(env_vars::network::STORAGE_ENDPOINT)
+            .or_else(|_| env::var(env_vars::primals::NESTGATE_ENDPOINT))
             .unwrap_or_else(|_| {
-                let port = env::var("STORAGE_PORT")
-                    .or_else(|_| env::var("STORAGE_SERVICE_PORT"))
-                    .or_else(|_| {
-                        // Legacy env var — prefer STORAGE_PORT / STORAGE_SERVICE_PORT
-                        env::var("NESTGATE_PORT")
-                    })
+                let port = env::var(env_vars::network::STORAGE_PORT)
+                    .or_else(|_| env::var(env_vars::network::STORAGE_SERVICE_PORT))
+                    .or_else(|_| env::var(env_vars::primals::NESTGATE_PORT))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("admin"));
@@ -137,10 +119,10 @@ impl DefaultEndpoints {
     /// 4. Default: <http://localhost:8443>
     #[must_use]
     pub fn security_service_endpoint() -> String {
-        env::var("SECURITY_SERVICE_ENDPOINT")
-            .or_else(|_| env::var("SECURITY_AUTH_SERVICE_ENDPOINT"))
+        env::var(env_vars::network::SECURITY_ENDPOINT)
+            .or_else(|_| env::var(env_vars::security::AUTH_SERVICE_ENDPOINT))
             .unwrap_or_else(|_| {
-                let port = env::var("SECURITY_AUTHENTICATION_PORT")
+                let port = env::var(env_vars::security::AUTHENTICATION_PORT)
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or(DEFAULT_SECURITY_PORT);
@@ -151,21 +133,21 @@ impl DefaultEndpoints {
     /// Get development bind address from environment or default
     #[must_use]
     pub fn dev_bind_address() -> String {
-        env::var("DEV_BIND_ADDRESS")
+        env::var(env_vars::network::DEV_BIND_ADDRESS)
             .unwrap_or_else(|_| universal_constants::network::LOCALHOST_IPV4.to_string())
     }
 
     /// Get discovery endpoint from environment or default
     #[must_use]
     pub fn discovery_endpoint() -> String {
-        env::var("DISCOVERY_ENDPOINT")
+        env::var(env_vars::discovery::ENDPOINT)
             .unwrap_or_else(|_| format!("{}/api/v1/discovery", Self::service_mesh_endpoint()))
     }
 
     /// Get registration endpoint from environment or default
     #[must_use]
     pub fn registration_endpoint() -> String {
-        env::var("REGISTRATION_ENDPOINT")
+        env::var(env_vars::discovery::REGISTRATION_ENDPOINT)
             .unwrap_or_else(|_| format!("{}/api/v1/register", Self::service_mesh_endpoint()))
     }
 

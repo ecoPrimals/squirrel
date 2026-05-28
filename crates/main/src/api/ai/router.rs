@@ -211,7 +211,10 @@ impl AiRouter {
                 // 1.7: Auto-discover inference endpoints from environment
                 // neuralSpring (or any inference primal) advertises via
                 // INFERENCE_ENDPOINT / AI_INFERENCE_ENDPOINT env var.
-                for env_key in ["INFERENCE_ENDPOINT", "AI_INFERENCE_ENDPOINT"] {
+                for env_key in [
+                    universal_constants::env_vars::ai::INFERENCE_ENDPOINT,
+                    universal_constants::env_vars::ai::AI_INFERENCE_ENDPOINT,
+                ] {
                     if let Ok(endpoint) = std::env::var(env_key) {
                         info!(
                             "🔍 Inference endpoint discovered via {env_key}: {endpoint}"
@@ -267,7 +270,9 @@ impl AiRouter {
 
                 // 2. Check for Unix socket providers (other primals)
                 // BIOME OS RECOMMENDATION: Use AI_PROVIDER_SOCKETS hint (simple & fast)
-                if let Ok(socket_paths) = std::env::var("AI_PROVIDER_SOCKETS") {
+                if let Ok(socket_paths) =
+                    std::env::var(universal_constants::env_vars::ai::PROVIDER_SOCKETS)
+                {
                     info!("🎯 Using AI_PROVIDER_SOCKETS hint: {}", socket_paths);
                     for socket_path in socket_paths.split(',') {
                         let socket_path = socket_path.trim();
@@ -377,9 +382,9 @@ impl AiRouter {
     /// Returns `None` if no env var is explicitly set (does NOT fall back to
     /// a default — the socket scan in step 3 handles implicit discovery).
     fn resolve_local_ai_endpoint() -> Option<String> {
-        std::env::var("LOCAL_AI_ENDPOINT")
-            .or_else(|_| std::env::var("OLLAMA_ENDPOINT"))
-            .or_else(|_| std::env::var("OLLAMA_URL"))
+        std::env::var(universal_constants::env_vars::ai::local::ENDPOINT)
+            .or_else(|_| std::env::var(universal_constants::env_vars::ai::ollama::ENDPOINT))
+            .or_else(|_| std::env::var(universal_constants::env_vars::ai::ollama::URL))
             .ok()
     }
 

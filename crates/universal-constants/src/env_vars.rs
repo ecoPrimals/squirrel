@@ -193,6 +193,10 @@ pub mod ai {
     pub const REQUEST_TIMEOUT_MS: &str = "AI_REQUEST_TIMEOUT_MS";
     /// AI intelligence interval (seconds)
     pub const INTELLIGENCE_INTERVAL_SECS: &str = "AI_INTELLIGENCE_INTERVAL_SECS";
+    /// Inference endpoint (generic, primal-agnostic)
+    pub const INFERENCE_ENDPOINT: &str = "INFERENCE_ENDPOINT";
+    /// AI inference endpoint (prefixed variant)
+    pub const AI_INFERENCE_ENDPOINT: &str = "AI_INFERENCE_ENDPOINT";
 
     /// `OpenAI` provider
     pub mod openai {
@@ -453,6 +457,8 @@ pub mod discovery {
     pub const ENDPOINT: &str = "DISCOVERY_ENDPOINT";
     /// Discovery port
     pub const PORT: &str = "DISCOVERY_PORT";
+    /// Registration endpoint
+    pub const REGISTRATION_ENDPOINT: &str = "REGISTRATION_ENDPOINT";
     /// Discovery auth token
     pub const AUTH_TOKEN: &str = "DISCOVERY_AUTH_TOKEN";
     /// Discovery batch size
