@@ -168,7 +168,7 @@ impl UniversalSecurityClient {
 
         // Create primal request
         let primal_request = PrimalRequest::new(
-            "squirrel",
+            crate::niche::PRIMAL_ID,
             &provider.provider_id,
             "security_operation",
             serde_json::to_value(&request).map_err(|e| {

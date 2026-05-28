@@ -198,9 +198,9 @@ impl CapabilityRegistry {
 
         Self {
             primal: PrimalInfo {
-                name: "squirrel".to_string(),
+                name: crate::niche::PRIMAL_ID.to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
-                domain: "ai".to_string(),
+                domain: crate::niche::DOMAIN.to_string(),
                 license: "AGPL-3.0-only".to_string(),
                 transport: "unix_socket".to_string(),
                 protocol: universal_constants::protocol::JSONRPC_PROTOCOL_ID.to_string(),

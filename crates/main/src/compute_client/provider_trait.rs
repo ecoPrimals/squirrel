@@ -30,7 +30,7 @@
 //! - Nomad (HashiCorp)
 //! - AWS ECS/Fargate
 //! - Local process execution
-//! - Toadstool (ecoPrimals compute primal)
+//! - ecoPrimals compute primal (discovered via capability routing)
 
 use crate::compute_client::types::{ComputeCapabilityType, ResourceRequirements};
 use serde::{Deserialize, Serialize};
@@ -146,7 +146,7 @@ pub struct WorkloadExecutionResult {
 pub trait ComputeProvider: Send + Sync {
     /// Provider name (for logging/debugging)
     ///
-    /// Examples: "kubernetes", "docker", "nomad", "toadstool", "local"
+    /// Examples: "kubernetes", "docker", "nomad", "remote", "local"
     fn provider_name(&self) -> &str;
 
     /// Get available compute capabilities
@@ -216,25 +216,25 @@ pub trait ComputeProvider: Send + Sync {
 /// # Detection Order
 ///
 /// 1. `COMPUTE_PROVIDER_TYPE` env: explicit type ("local", "remote")
-/// 2. `COMPUTE_ENDPOINT` / `COMPUTE_SERVICE_ENDPOINT` / `TOADSTOOL_ENDPOINT` env:
+/// 2. `COMPUTE_SERVICE_ENDPOINT` / `COMPUTE_ENDPOINT` env:
 ///    resolve endpoint and create [`RemoteComputeProvider`] for IPC delegation
 /// 3. Fall back to [`LocalProcessProvider`] (development only)
 ///
-/// In composition, when toadStool is present, step 2 produces a remote
-/// provider that delegates `compute.execute` via JSON-RPC IPC.
+/// In composition, the compute primal is discovered via capability-based
+/// resolution — no primal names are hardcoded.
 pub async fn auto_detect_compute_provider() -> ComputeResult<Box<ComputeBackend>> {
     use tracing::{debug, info};
+    use universal_constants::env_vars;
 
     // 1. Explicit provider type from environment
-    if let Ok(provider_type) = std::env::var("COMPUTE_PROVIDER_TYPE") {
+    if let Ok(provider_type) = std::env::var(env_vars::compute::PROVIDER_TYPE) {
         info!(provider = %provider_type, "Compute provider type specified via env");
         return create_compute_from_type(&provider_type, None).await;
     }
 
     // 2. Capability-based: resolve compute primal endpoint from env
-    let endpoint = std::env::var("COMPUTE_SERVICE_ENDPOINT")
-        .or_else(|_| std::env::var("COMPUTE_ENDPOINT"))
-        .or_else(|_| std::env::var("TOADSTOOL_ENDPOINT"))
+    let endpoint = std::env::var(env_vars::compute::SERVICE_ENDPOINT)
+        .or_else(|_| std::env::var(env_vars::compute::ENDPOINT))
         .ok();
 
     if let Some(ref ep) = endpoint {
@@ -249,18 +249,18 @@ pub async fn auto_detect_compute_provider() -> ComputeResult<Box<ComputeBackend>
 
 /// Create compute provider from type string.
 ///
-/// - `"local"` — development stub (always available, rejects `execute_workload`)
-/// - `"remote"` — delegates to compute primal via JSON-RPC at `endpoint`
+/// - `"local"` — development fallback (always available, rejects `execute_workload`)
+/// - `"remote"` / `"capability"` — delegates to compute primal via JSON-RPC at `endpoint`
 async fn create_compute_from_type(
     provider_type: &str,
     endpoint: Option<&str>,
 ) -> ComputeResult<Box<ComputeBackend>> {
     match provider_type.to_lowercase().as_str() {
         "local" => Ok(Box::new(ComputeBackend::Local(LocalProcessProvider::new()))),
-        "remote" | "capability" | "toadstool" => {
+        "remote" | "capability" => {
             let ep = endpoint.ok_or_else(|| {
                 ComputeProviderError::NotAvailable(
-                    "Remote compute requires an endpoint (set COMPUTE_ENDPOINT)".into(),
+                    "Remote compute requires an endpoint (set COMPUTE_ENDPOINT or COMPUTE_SERVICE_ENDPOINT)".into(),
                 )
             })?;
             Ok(Box::new(ComputeBackend::Remote(
@@ -440,9 +440,9 @@ fn num_cpus() -> u32 {
 }
 
 /// Remote compute provider that delegates workloads to a compute primal
-/// (e.g. toadStool) via JSON-RPC IPC over Unix socket or TCP.
+/// via JSON-RPC IPC over Unix socket or TCP.
 ///
-/// Translates Squirrel's `WorkloadExecutionSpec` into toadStool's
+/// Translates Squirrel's `WorkloadExecutionSpec` into the compute primal's
 /// `compute.execute` JSON-RPC call (`JsonWorkloadSubmission` wire format).
 pub struct RemoteComputeProvider {
     endpoint: String,
@@ -907,7 +907,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("COMPUTE_PROVIDER_TYPE", None::<&str>),
-                ("COMPUTE_ENDPOINT", Some("unix:///tmp/toadstool.sock")),
+                ("COMPUTE_ENDPOINT", Some("unix:///tmp/compute.sock")),
             ],
             || {
                 let rt = tokio::runtime::Builder::new_current_thread()
@@ -917,28 +917,6 @@ mod tests {
                 let provider = rt
                     .block_on(auto_detect_compute_provider())
                     .expect("remote provider creation should succeed");
-                assert_eq!(provider.provider_name(), "remote");
-            },
-        );
-    }
-
-    #[test]
-    fn auto_detect_with_toadstool_endpoint_creates_remote() {
-        temp_env::with_vars(
-            [
-                ("COMPUTE_PROVIDER_TYPE", None::<&str>),
-                ("COMPUTE_ENDPOINT", None::<&str>),
-                ("COMPUTE_SERVICE_ENDPOINT", None::<&str>),
-                ("TOADSTOOL_ENDPOINT", Some("unix:///run/toadstool/ipc.sock")),
-            ],
-            || {
-                let rt = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .expect("rt");
-                let provider = rt
-                    .block_on(auto_detect_compute_provider())
-                    .expect("remote provider from TOADSTOOL_ENDPOINT should succeed");
                 assert_eq!(provider.provider_name(), "remote");
             },
         );

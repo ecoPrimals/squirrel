@@ -111,7 +111,7 @@ impl SquirrelRpc for TarpcRpcServer {
         match self.jsonrpc.handle_discover_capabilities().await {
             Ok(v) => Self::json_to_capability_discover_result(&v),
             Err(_) => CapabilityDiscoverResult {
-                primal: "squirrel".to_string(),
+                primal: crate::niche::PRIMAL_ID.to_string(),
                 capabilities: vec![],
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 metadata: HashMap::new(),

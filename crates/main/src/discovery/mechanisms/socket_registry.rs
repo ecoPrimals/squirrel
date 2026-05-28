@@ -75,15 +75,16 @@ impl SocketRegistryDiscovery {
             return p.clone();
         }
 
-        if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
+        let socket_dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
+        if let Ok(runtime_dir) = std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR)
+        {
             return PathBuf::from(runtime_dir)
-                .join("biomeos")
+                .join(socket_dir)
                 .join("socket-registry.json");
         }
 
-        // Fallback: /run/user/<uid>/biomeos/socket-registry.json
         let uid = universal_constants::sys_info::current_uid();
-        PathBuf::from(format!("/run/user/{uid}/biomeos/socket-registry.json"))
+        PathBuf::from(format!("/run/user/{uid}/{socket_dir}/socket-registry.json"))
     }
 
     /// Read and parse the socket registry file
