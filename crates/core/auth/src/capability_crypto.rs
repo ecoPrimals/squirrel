@@ -56,12 +56,12 @@ fn push_unique_path(paths: &mut Vec<PathBuf>, path: PathBuf) {
 fn candidate_crypto_signing_socket_paths() -> Vec<PathBuf> {
     let mut paths = Vec::new();
 
-    if let Ok(p) = std::env::var("SECURITY_SOCKET")
+    if let Ok(p) = std::env::var(universal_constants::env_vars::security::SOCKET)
         && !p.is_empty()
     {
         push_unique_path(&mut paths, PathBuf::from(p));
     }
-    if let Ok(p) = std::env::var("BEARDOG_SOCKET")
+    if let Ok(p) = std::env::var(universal_constants::env_vars::primals::BEARDOG_SOCKET)
         && !p.is_empty()
     {
         push_unique_path(&mut paths, PathBuf::from(p));
@@ -117,8 +117,9 @@ impl CapabilityCryptoProvider {
             return Ok(Arc::clone(endpoint));
         }
 
-        // Strategy 1: Environment variable (highest priority)
-        if let Ok(endpoint) = std::env::var("CRYPTO_SIGNING_ENDPOINT") {
+        if let Ok(endpoint) =
+            std::env::var(universal_constants::env_vars::primals::CRYPTO_SIGNING_ENDPOINT)
+        {
             info!(
                 "✅ Discovered crypto.signing via CRYPTO_SIGNING_ENDPOINT: {}",
                 endpoint
@@ -128,7 +129,8 @@ impl CapabilityCryptoProvider {
             return Ok(endpoint_arc);
         }
 
-        if let Ok(endpoint) = std::env::var("CRYPTO_ENDPOINT") {
+        if let Ok(endpoint) = std::env::var(universal_constants::env_vars::primals::CRYPTO_ENDPOINT)
+        {
             info!("✅ Discovered crypto via CRYPTO_ENDPOINT: {}", endpoint);
             let endpoint_arc: Arc<str> = Arc::from(endpoint.as_str());
             self.endpoint = Some(Arc::clone(&endpoint_arc));
@@ -400,7 +402,7 @@ pub struct CapabilityCryptoConfig {
 impl Default for CapabilityCryptoConfig {
     fn default() -> Self {
         Self {
-            endpoint: std::env::var("CRYPTO_ENDPOINT").ok(),
+            endpoint: std::env::var(universal_constants::env_vars::primals::CRYPTO_ENDPOINT).ok(),
             discovery_timeout_ms: Some(500),
         }
     }

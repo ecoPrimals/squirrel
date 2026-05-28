@@ -26,20 +26,21 @@ pub struct RetryEnvParams {
 /// Read retry timing from environment variables with primal → IPC → default precedence.
 #[must_use]
 pub fn retry_env_params() -> RetryEnvParams {
-    let max_retries = std::env::var("SQUIRREL_RETRY_MAX_ATTEMPTS")
-        .or_else(|_| std::env::var("IPC_RETRY_MAX_ATTEMPTS"))
+    use universal_constants::env_vars;
+    let max_retries = std::env::var(env_vars::squirrel::RETRY_MAX_ATTEMPTS)
+        .or_else(|_| std::env::var(env_vars::ipc::RETRY_MAX_ATTEMPTS))
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(3);
 
-    let base_delay_ms: u64 = std::env::var("SQUIRREL_RETRY_BASE_DELAY_MS")
-        .or_else(|_| std::env::var("IPC_RETRY_BASE_DELAY_MS"))
+    let base_delay_ms: u64 = std::env::var(env_vars::squirrel::RETRY_BASE_DELAY_MS)
+        .or_else(|_| std::env::var(env_vars::ipc::RETRY_BASE_DELAY_MS))
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(100);
 
-    let max_delay_ms: u64 = std::env::var("SQUIRREL_RETRY_MAX_DELAY_MS")
-        .or_else(|_| std::env::var("IPC_RETRY_MAX_DELAY_MS"))
+    let max_delay_ms: u64 = std::env::var(env_vars::squirrel::RETRY_MAX_DELAY_MS)
+        .or_else(|_| std::env::var(env_vars::ipc::RETRY_MAX_DELAY_MS))
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(5000);

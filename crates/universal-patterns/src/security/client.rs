@@ -393,8 +393,8 @@ mod tests {
         config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
-        let endpoint_str = std::env::var("SECURITY_ENDPOINT")
-            .or_else(|_| std::env::var("BEARDOG_ENDPOINT"))
+        let endpoint_str = std::env::var(universal_constants::env_vars::security::ENDPOINT)
+            .or_else(|_| std::env::var(universal_constants::env_vars::primals::BEARDOG_ENDPOINT))
             .unwrap_or_else(|_| {
                 universal_constants::deployment::endpoints::security_service_base()
             });
@@ -413,8 +413,8 @@ mod tests {
         config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
-        let endpoint_str = std::env::var("SECURITY_ENDPOINT")
-            .or_else(|_| std::env::var("BEARDOG_ENDPOINT"))
+        let endpoint_str = std::env::var(universal_constants::env_vars::security::ENDPOINT)
+            .or_else(|_| std::env::var(universal_constants::env_vars::primals::BEARDOG_ENDPOINT))
             .unwrap_or_else(|_| {
                 universal_constants::deployment::endpoints::security_service_base()
             });
@@ -435,8 +435,8 @@ mod tests {
         config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
-        let endpoint_str = std::env::var("SECURITY_ENDPOINT")
-            .or_else(|_| std::env::var("BEARDOG_ENDPOINT"))
+        let endpoint_str = std::env::var(universal_constants::env_vars::security::ENDPOINT)
+            .or_else(|_| std::env::var(universal_constants::env_vars::primals::BEARDOG_ENDPOINT))
             .unwrap_or_else(|_| {
                 universal_constants::deployment::endpoints::security_service_base()
             });
@@ -468,8 +468,8 @@ mod tests {
         config.auth_method = AuthMethod::SecurityProvider {
             service_id: "test-service".to_string(),
         };
-        let endpoint_str = std::env::var("SECURITY_ENDPOINT")
-            .or_else(|_| std::env::var("BEARDOG_ENDPOINT"))
+        let endpoint_str = std::env::var(universal_constants::env_vars::security::ENDPOINT)
+            .or_else(|_| std::env::var(universal_constants::env_vars::primals::BEARDOG_ENDPOINT))
             .unwrap_or_else(|_| {
                 universal_constants::deployment::endpoints::security_service_base()
             });

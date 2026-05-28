@@ -199,12 +199,13 @@ fn get_enabled_features() -> Vec<String> {
 /// println!("SDK Version: {}", info["version"]);
 /// ```
 pub fn build_info() -> serde_json::Value {
+    use universal_constants::env_vars;
     json!({
         "version": version(),
-        "build_timestamp": std::env::var("BUILD_TIMESTAMP").unwrap_or_else(|_| "unknown".to_string()),
-        "git_hash": std::env::var("GIT_HASH").unwrap_or_else(|_| "unknown".to_string()),
-        "target": std::env::var("TARGET").unwrap_or_else(|_| "unknown".to_string()),
-        "profile": std::env::var("PROFILE").unwrap_or_else(|_| "unknown".to_string()),
+        "build_timestamp": std::env::var(env_vars::deploy::BUILD_TIMESTAMP).unwrap_or_else(|_| "unknown".to_string()),
+        "git_hash": std::env::var(env_vars::deploy::GIT_HASH).unwrap_or_else(|_| "unknown".to_string()),
+        "target": std::env::var(env_vars::deploy::TARGET).unwrap_or_else(|_| "unknown".to_string()),
+        "profile": std::env::var(env_vars::deploy::PROFILE).unwrap_or_else(|_| "unknown".to_string()),
         "features": get_enabled_features()
     })
 }
@@ -348,12 +349,15 @@ pub struct SdkMetadata {
 
 /// Get SDK metadata
 pub fn metadata() -> SdkMetadata {
+    use universal_constants::env_vars;
     SdkMetadata {
         version: version(),
-        build_timestamp: std::env::var("BUILD_TIMESTAMP").unwrap_or_else(|_| "unknown".to_string()),
-        git_hash: std::env::var("GIT_HASH").unwrap_or_else(|_| "unknown".to_string()),
-        target: std::env::var("TARGET").unwrap_or_else(|_| "unknown".to_string()),
-        profile: std::env::var("PROFILE").unwrap_or_else(|_| "unknown".to_string()),
+        build_timestamp: std::env::var(env_vars::deploy::BUILD_TIMESTAMP)
+            .unwrap_or_else(|_| "unknown".to_string()),
+        git_hash: std::env::var(env_vars::deploy::GIT_HASH)
+            .unwrap_or_else(|_| "unknown".to_string()),
+        target: std::env::var(env_vars::deploy::TARGET).unwrap_or_else(|_| "unknown".to_string()),
+        profile: std::env::var(env_vars::deploy::PROFILE).unwrap_or_else(|_| "unknown".to_string()),
         features: enabled_features(),
     }
 }

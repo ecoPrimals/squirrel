@@ -60,16 +60,12 @@ pub type BeardogSecurityCoordinator = SecurityCoordinator;
 impl SecurityCoordinator {
     /// Discover optimal security service endpoint
     pub async fn discover_security_endpoint() -> Result<String> {
-        // Try to discover security service through capability registry
-        if let Ok(endpoint) = std::env::var("SECURITY_SERVICE_ENDPOINT") {
+        use universal_constants::env_vars;
+        if let Ok(endpoint) = std::env::var(env_vars::security::SERVICE_ENDPOINT) {
             return Ok(endpoint);
         }
 
-        // Multi-tier default fallback
-        // 1. SECURITY_SERVICE_ENDPOINT (checked above)
-        // 2. SECURITY_AUTHENTICATION_PORT (port override)
-        // 3. Default: use universal_constants DEFAULT_SECURITY_PORT
-        let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
+        let port = std::env::var(env_vars::security::AUTHENTICATION_PORT)
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
             .unwrap_or(universal_constants::network::DEFAULT_SECURITY_PORT);
@@ -94,15 +90,14 @@ impl SecurityCoordinator {
     pub fn new() -> Self {
         use universal_constants::network::get_service_port;
 
-        // Try environment variables in priority order
-        let endpoint = if let Ok(endpoint) = std::env::var("SECURITY_SERVICE_ENDPOINT") {
+        use universal_constants::env_vars;
+        let endpoint = if let Ok(endpoint) = std::env::var(env_vars::security::SERVICE_ENDPOINT) {
             info!(
                 "Using security endpoint from SECURITY_SERVICE_ENDPOINT: {}",
                 endpoint
             );
             endpoint
-        } else if let Ok(socket) = std::env::var("SECURITY_SOCKET") {
-            // TRUE PRIMAL: Use capability-based env var, not primal-specific
+        } else if let Ok(socket) = std::env::var(env_vars::security::SOCKET) {
             info!(
                 "Using security Unix socket from SECURITY_SOCKET: {}",
                 socket
@@ -121,8 +116,8 @@ impl SecurityCoordinator {
                 format!("unix://{standard_socket}")
             } else {
                 // Fallback to HTTP with port discovery
-                let port = std::env::var("SECURITY_PORT")
-                    .or_else(|_| std::env::var("SECURITY_AUTHENTICATION_PORT"))
+                let port = std::env::var(env_vars::security::PORT)
+                    .or_else(|_| std::env::var(env_vars::security::AUTHENTICATION_PORT))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("security"));

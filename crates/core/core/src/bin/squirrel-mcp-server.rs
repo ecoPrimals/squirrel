@@ -102,7 +102,7 @@ async fn main() -> Result<()> {
     .await;
 
     // Start API server
-    let bind_addr = std::env::var("BIND_ADDR")
+    let bind_addr = std::env::var(universal_constants::env_vars::network::BIND_ADDR)
         .unwrap_or_else(|_| universal_constants::network::default_api_bind_addr());
     let bind_addr_clone = bind_addr.clone();
     info!("🌐 Starting API server on {}", bind_addr);
@@ -170,36 +170,37 @@ struct SquirrelConfig {
 /// Load configuration from environment and files
 fn load_configuration() -> SquirrelConfig {
     // Create monitoring configuration with monitoring service delegation
+    use universal_constants::env_vars;
     let monitoring_config = MonitoringConfig {
-        enabled: std::env::var("MONITORING_ENABLED")
+        enabled: std::env::var(env_vars::monitoring::ENABLED)
             .unwrap_or_else(|_| "true".to_string())
             .parse()
             .unwrap_or(true),
-        require_provider: std::env::var("MONITORING_REQUIRE_PROVIDER")
+        require_provider: std::env::var(env_vars::monitoring::REQUIRE_PROVIDER)
             .unwrap_or_else(|_| "false".to_string())
             .parse()
             .unwrap_or(false),
-        monitoring_service_config: std::env::var("DISCOVERY_ENDPOINT")
-            .or_else(|_| std::env::var("SERVICE_MESH_ENDPOINT"))
-            .or_else(|_| std::env::var("SONGBIRD_ENDPOINT"))
+        monitoring_service_config: std::env::var(env_vars::discovery::ENDPOINT)
+            .or_else(|_| std::env::var(env_vars::network::SERVICE_MESH_ENDPOINT))
+            .or_else(|_| std::env::var(env_vars::primals::SONGBIRD_ENDPOINT))
             .ok()
             .map(|endpoint| MonitoringServiceConfig {
                 endpoint,
                 service_name: "squirrel-mcp".to_string(),
-                auth_token: std::env::var("MONITORING_AUTH_TOKEN")
-                    .or_else(|_| std::env::var("DISCOVERY_AUTH_TOKEN"))
-                    .or_else(|_| std::env::var("SONGBIRD_AUTH_TOKEN"))
+                auth_token: std::env::var(env_vars::monitoring::AUTH_TOKEN)
+                    .or_else(|_| std::env::var(env_vars::discovery::AUTH_TOKEN))
+                    .or_else(|_| std::env::var(env_vars::primals::SONGBIRD_AUTH_TOKEN))
                     .ok(),
-                batch_size: std::env::var("MONITORING_BATCH_SIZE")
-                    .or_else(|_| std::env::var("DISCOVERY_BATCH_SIZE"))
-                    .or_else(|_| std::env::var("SONGBIRD_BATCH_SIZE"))
+                batch_size: std::env::var(env_vars::monitoring::BATCH_SIZE)
+                    .or_else(|_| std::env::var(env_vars::discovery::BATCH_SIZE))
+                    .or_else(|_| std::env::var(env_vars::primals::SONGBIRD_BATCH_SIZE))
                     .unwrap_or_else(|_| "100".to_string())
                     .parse()
                     .unwrap_or(100),
                 flush_interval: std::time::Duration::from_secs(
-                    std::env::var("MONITORING_FLUSH_INTERVAL")
-                        .or_else(|_| std::env::var("DISCOVERY_FLUSH_INTERVAL"))
-                        .or_else(|_| std::env::var("SONGBIRD_FLUSH_INTERVAL"))
+                    std::env::var(env_vars::monitoring::FLUSH_INTERVAL)
+                        .or_else(|_| std::env::var(env_vars::discovery::FLUSH_INTERVAL))
+                        .or_else(|_| std::env::var(env_vars::primals::SONGBIRD_FLUSH_INTERVAL))
                         .unwrap_or_else(|_| "30".to_string())
                         .parse()
                         .unwrap_or(30),
