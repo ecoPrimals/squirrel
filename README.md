@@ -100,7 +100,7 @@ Runtime registration: any primal can call `inference.register_provider` to dynam
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   7,093 tests passing (0 failures) | ~1,001 `.rs` files | ~326k lines | zero Box<dyn Error> in prod
+Fitness:   7,095 tests passing (0 failures) | ~1,001 `.rs` files | ~326k lines | zero Box<dyn Error> in prod
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation

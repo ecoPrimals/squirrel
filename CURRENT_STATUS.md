@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: May 28, 2026 (Wave 59 env centralization)
+**Last Updated**: May 28, 2026 (Wave 59 env centralization COMPLETE)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -277,6 +277,14 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
 
 ## Changes Since Last Handoff (April 28, 2026)
+
+### May 28, 2026 session BB (Wave 59 — env centralization COMPLETE)
+
+- **~105 env var sites centralized** across 62 files: config, discovery, security, monitoring, AI providers, session, ecosystem, MCP, CLI, transport, federation, SDK, BTSP, rate limiting
+- **New constants**: `CLIENT_IP_ADDRESS`, `CLIENT_USER_AGENT`, `UI_HOST`, `TEST_BIOMEOS_OPT_PORT`, `GENERIC_BIND_ADDRESS`
+- **0 raw `env::var("...")` in application code** — all production files migrated; 40 remaining are `universal-constants` infrastructure (source-of-truth env reading) + test fixtures
+- **Wave 59 P4 RESOLVED**: env centralization complete for Squirrel (12/13 primals done)
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,095 / 0 failures)
 
 ### May 28, 2026 session BA (Wave 59 — env var centralization SDK layer)
 

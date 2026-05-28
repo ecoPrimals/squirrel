@@ -1,6 +1,6 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal composition. 7,089+ tests, 38 IPC methods, 90% coverage."
+description = "AI inference routing, context management, capability discovery, signal composition. 7,095+ tests, 38 IPC methods, 90% coverage."
 date = 2026-05-20
 
 [taxonomies]
