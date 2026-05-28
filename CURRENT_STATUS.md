@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: May 28, 2026 (deep debt session 2)
+**Last Updated**: May 28, 2026 (Wave 59 env centralization)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -277,6 +277,21 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
 
 ## Changes Since Last Handoff (April 28, 2026)
+
+### May 28, 2026 session BA (Wave 59 — env var centralization SDK layer)
+
+- **~146 env var sites centralized** across 12 files in the SDK config layer: `ai-tools/config/{defaults,core}.rs`, `cli/mcp/config.rs`, `biomeos_integration/types.rs`, `discovery/self_knowledge.rs`, `rpc/btsp_handshake/mod.rs`, `federation/service.rs`, `config/unified/{timeouts,types/defaults,types/impls}.rs`, `ipc_routed_providers.rs`
+- **New constants**: `mcp::GRPC_PORT`, `security::FAMILY_SEED`, `federation::{NODES, CPU_USAGE, MEMORY_USAGE, QUEUE_LENGTH}`
+- **Wave 59 P4 status**: ~200 raw `env::var` sites remaining (down from ~346 at start of session)
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,095 / 0 failures), `deny` ✓
+
+### May 28, 2026 session B9 (deep debt — hardcoding elimination + env centralization)
+
+- **Hardcoded primal names eliminated**: 17 files migrated from `"squirrel"` literals to `niche::PRIMAL_ID` / `universal_constants::identity::PRIMAL_ID`
+- **89 env var sites centralized**: `config/environment.rs` (60), `ecosystem-api/defaults.rs` (24), `api/ai/router.rs` (5)
+- **PrimalType::Squirrel capability** evolved: `"squirrel"` → `"inference"` (domain-based)
+- **5,417 lines of orphan test code removed**
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,095 / 0 failures), `deny` ✓
 
 ### May 7, 2026 session AZ (primalSpring Phase 60 audit — E2E inference parity)
 
