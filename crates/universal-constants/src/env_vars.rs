@@ -403,6 +403,22 @@ pub mod network {
     pub const DEV_BIND_ADDRESS: &str = "DEV_BIND_ADDRESS";
     /// Dev server host
     pub const DEV_SERVER_HOST: &str = "DEV_SERVER_HOST";
+    /// Storage capability endpoint (capability-first naming)
+    pub const STORAGE_ENDPOINT: &str = "STORAGE_ENDPOINT";
+    /// Storage capability port
+    pub const STORAGE_PORT: &str = "STORAGE_PORT";
+    /// Storage service port
+    pub const STORAGE_SERVICE_PORT: &str = "STORAGE_SERVICE_PORT";
+    /// Security capability endpoint (capability-first naming)
+    pub const SECURITY_ENDPOINT: &str = "SECURITY_ENDPOINT";
+    /// Security capability port
+    pub const SECURITY_PORT: &str = "SECURITY_PORT";
+    /// Security service port
+    pub const SECURITY_SERVICE_PORT: &str = "SECURITY_SERVICE_PORT";
+    /// Service mesh endpoint (capability-first naming)
+    pub const SERVICE_MESH_ENDPOINT: &str = "SERVICE_MESH_ENDPOINT";
+    /// Service mesh port
+    pub const SERVICE_MESH_PORT: &str = "SERVICE_MESH_PORT";
 }
 
 // ============================================================================
@@ -757,6 +773,10 @@ pub mod http {
     pub const USER_AGENT: &str = "HTTP_USER_AGENT";
     /// HTTP capability socket
     pub const CAPABILITY_SOCKET: &str = "HTTP_CAPABILITY_SOCKET";
+    /// Web UI URL override
+    pub const WEB_UI_URL: &str = "WEB_UI_URL";
+    /// Web UI port override
+    pub const WEB_UI_PORT: &str = "WEB_UI_PORT";
 }
 
 // ============================================================================

@@ -9,6 +9,7 @@ use tracing::warn;
 use universal_constants::capabilities;
 use universal_constants::config_helpers;
 use universal_constants::deployment::ports;
+use universal_constants::env_vars;
 use universal_constants::network::{BIND_ALL_INTERFACES, LOCALHOST_IPV4};
 use universal_constants::timeouts;
 
@@ -55,7 +56,7 @@ impl Environment {
     /// Get environment from `MCP_ENV` variable
     #[must_use]
     pub fn from_env() -> Self {
-        match env::var("MCP_ENV")
+        match env::var(env_vars::mcp::ENV)
             .unwrap_or_else(|_| "development".to_string())
             .as_str()
         {
@@ -100,7 +101,7 @@ impl FromStr for Environment {
             "staging" => Ok(Self::Staging),
             "production" | "prod" => Ok(Self::Production),
             _ => Err(EnvironmentError::InvalidValue {
-                variable: "MCP_ENV".to_string(),
+                variable: env_vars::mcp::ENV.to_string(),
                 value: s.to_string(),
             }),
         }
@@ -128,26 +129,21 @@ impl NetworkConfig {
     /// # Errors
     /// Returns `EnvironmentError` if required environment variables have invalid values.
     pub fn from_env() -> Result<Self, EnvironmentError> {
-        // Network configuration with environment-aware defaults
-        let host = env::var("MCP_HOST").unwrap_or_else(|_| {
-            if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                BIND_ALL_INTERFACES.to_string() // Bind to all interfaces in production
+        let host = env::var(env_vars::mcp::HOST).unwrap_or_else(|_| {
+            if env::var(env_vars::mcp::ENVIRONMENT).unwrap_or_default() == "production" {
+                BIND_ALL_INTERFACES.to_string()
             } else {
-                LOCALHOST_IPV4.to_string() // Localhost for development
+                LOCALHOST_IPV4.to_string()
             }
         });
 
-        let port = config_helpers::get_port("MCP_PORT", ports::api_gateway());
+        let port = config_helpers::get_port(env_vars::mcp::PORT, ports::api_gateway());
 
-        // Web UI configuration with environment awareness
-        // Production: Resolved at runtime via ecosystem registry capability discovery.
-        // Use WEB_UI_URL env var to override; otherwise discovered via ecosystem UI capability.
-        let _web_ui_url = env::var("WEB_UI_URL").unwrap_or_else(|_| {
-            if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
+        let _web_ui_url = env::var(env_vars::http::WEB_UI_URL).unwrap_or_else(|_| {
+            if env::var(env_vars::mcp::ENVIRONMENT).unwrap_or_default() == "production" {
                 format!("discovered://{}", capabilities::ECOSYSTEM_CAPABILITY)
             } else {
-                // Multi-tier dev UI resolution
-                let port = env::var("WEB_UI_PORT")
+                let port = env::var(env_vars::http::WEB_UI_PORT)
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(ports::biomeos_ui);
@@ -155,10 +151,9 @@ impl NetworkConfig {
             }
         });
 
-        let cors_origins = env::var("MCP_CORS_ORIGINS")
+        let cors_origins = env::var(env_vars::mcp::CORS_ORIGINS)
             .unwrap_or_else(|_| {
-                // Multi-tier CORS origins resolution
-                let port = env::var("WEB_UI_PORT")
+                let port = env::var(env_vars::http::WEB_UI_PORT)
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(ports::biomeos_ui);
@@ -168,19 +163,19 @@ impl NetworkConfig {
             .map(|s| s.trim().to_string())
             .collect();
 
-        let request_timeout_ms = env::var("MCP_REQUEST_TIMEOUT_MS")
+        let request_timeout_ms = env::var(env_vars::mcp::REQUEST_TIMEOUT_MS)
             .unwrap_or_else(|_| "30000".to_string())
             .parse::<u64>()
             .map_err(|e| EnvironmentError::ParseError {
-                variable: "MCP_REQUEST_TIMEOUT_MS".to_string(),
+                variable: env_vars::mcp::REQUEST_TIMEOUT_MS.to_string(),
                 error: e.to_string(),
             })?;
 
-        let max_connections = env::var("MCP_MAX_CONNECTIONS")
+        let max_connections = env::var(env_vars::mcp::MAX_CONNECTIONS)
             .unwrap_or_else(|_| "100".to_string())
             .parse::<u32>()
             .map_err(|e| EnvironmentError::ParseError {
-                variable: "MCP_MAX_CONNECTIONS".to_string(),
+                variable: env_vars::mcp::MAX_CONNECTIONS.to_string(),
                 error: e.to_string(),
             })?;
 
@@ -220,7 +215,7 @@ impl Environment {
     /// Get database configuration with environment overrides
     #[must_use]
     pub fn get_database_config(&self) -> DatabaseConfig {
-        let database_url = std::env::var("DATABASE_URL").map_or_else(
+        let database_url = std::env::var(env_vars::database::URL).map_or_else(
             |_| {
                 match self {
                     Self::Production => {
@@ -231,13 +226,13 @@ impl Environment {
                     }
                     Self::Staging => {
                         warn!("DATABASE_URL not set in staging, using fallback");
-                        std::env::var("DATABASE_URL_STAGING").unwrap_or_else(|_| {
+                        std::env::var(env_vars::database::URL_STAGING).unwrap_or_else(|_| {
                             warn!("ERROR: Neither DATABASE_URL nor DATABASE_URL_STAGING is set");
                             std::process::exit(1);
                         })
                     }
                     Self::Testing => "sqlite::memory:".to_string(),
-                    Self::Development => std::env::var("DATABASE_URL_DEV")
+                    Self::Development => std::env::var(env_vars::database::URL_DEV)
                         .unwrap_or_else(|_| "sqlite::memory:".to_string()),
                 }
             },
@@ -249,12 +244,12 @@ impl Environment {
             },
         );
 
-        let max_connections = env::var("DATABASE_MAX_CONNECTIONS")
+        let max_connections = env::var(env_vars::database::MAX_CONNECTIONS)
             .unwrap_or_else(|_| "10".to_string())
             .parse::<u32>()
             .unwrap_or(10);
 
-        let timeout_seconds = env::var("DATABASE_TIMEOUT_SECS")
+        let timeout_seconds = env::var(env_vars::database::TIMEOUT_SECS)
             .ok()
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or_else(|| timeouts::DEFAULT_DATABASE_TIMEOUT.as_secs());
@@ -292,24 +287,20 @@ impl AIProviderConfig {
     /// # Errors
     /// Returns `EnvironmentError` if required environment variables have invalid values.
     pub fn from_env() -> Result<Self, EnvironmentError> {
-        let openai_api_key = env::var("OPENAI_API_KEY").ok();
-        let openai_endpoint =
-            env::var("OPENAI_ENDPOINT").unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
+        let openai_api_key = env::var(env_vars::ai::openai::API_KEY).ok();
+        let openai_endpoint = env::var(env_vars::ai::openai::ENDPOINT)
+            .unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
 
-        let anthropic_api_key = env::var("ANTHROPIC_API_KEY").ok();
-        let anthropic_endpoint = env::var("ANTHROPIC_ENDPOINT")
+        let anthropic_api_key = env::var(env_vars::ai::anthropic::API_KEY).ok();
+        let anthropic_endpoint = env::var(env_vars::ai::anthropic::ENDPOINT)
             .unwrap_or_else(|_| "https://api.anthropic.com/v1".to_string());
 
         // Multi-tier local AI server endpoint resolution (vendor-agnostic)
-        // 1. LOCAL_AI_ENDPOINT (agnostic)
-        // 2. OLLAMA_ENDPOINT (backward compat)
-        // 3. Port override via LOCAL_AI_PORT / OLLAMA_PORT
-        // 4. Default: http://localhost:11434
-        let local_server_endpoint = env::var("LOCAL_AI_ENDPOINT")
-            .or_else(|_| env::var("OLLAMA_ENDPOINT"))
+        let local_server_endpoint = env::var(env_vars::ai::local::ENDPOINT)
+            .or_else(|_| env::var(env_vars::ai::ollama::ENDPOINT))
             .unwrap_or_else(|_| {
-                let port = env::var("LOCAL_AI_PORT")
-                    .or_else(|_| env::var("OLLAMA_PORT"))
+                let port = env::var(env_vars::ai::local::PORT)
+                    .or_else(|_| env::var(env_vars::ai::ollama::PORT))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(ports::ollama);
@@ -317,13 +308,13 @@ impl AIProviderConfig {
             });
 
         let default_model =
-            env::var("MCP_DEFAULT_MODEL").unwrap_or_else(|_| "gpt-3.5-turbo".to_string());
+            env::var(env_vars::mcp::DEFAULT_MODEL).unwrap_or_else(|_| "gpt-3.5-turbo".to_string());
 
-        let request_timeout_ms = env::var("AI_REQUEST_TIMEOUT_MS")
+        let request_timeout_ms = env::var(env_vars::ai::REQUEST_TIMEOUT_MS)
             .unwrap_or_else(|_| "30000".to_string())
             .parse::<u64>()
             .map_err(|e| EnvironmentError::ParseError {
-                variable: "AI_REQUEST_TIMEOUT_MS".to_string(),
+                variable: env_vars::ai::REQUEST_TIMEOUT_MS.to_string(),
                 error: e.to_string(),
             })?;
 
@@ -367,54 +358,65 @@ pub struct EcosystemConfig {
 
 impl Default for EcosystemConfig {
     fn default() -> Self {
-        // Multi-tier ecosystem endpoint defaults with port-only overrides
-        let storage_endpoint = std::env::var("STORAGE_ENDPOINT")
-            .or_else(|_| std::env::var("NESTGATE_ENDPOINT"))
+        let storage_endpoint = std::env::var(env_vars::network::STORAGE_ENDPOINT)
+            .or_else(|_| std::env::var(env_vars::primals::NESTGATE_ENDPOINT))
             .unwrap_or_else(|_| {
-                let port = std::env::var("STORAGE_PORT")
-                    .or_else(|_| std::env::var("NESTGATE_PORT"))
+                let port = std::env::var(env_vars::network::STORAGE_PORT)
+                    .or_else(|_| std::env::var(env_vars::primals::NESTGATE_PORT))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| {
-                        config_helpers::get_port("STORAGE_SERVICE_PORT", ports::storage_service())
+                        config_helpers::get_port(
+                            env_vars::network::STORAGE_SERVICE_PORT,
+                            ports::storage_service(),
+                        )
                     });
                 format!("http://localhost:{port}")
             });
 
-        let security_endpoint = std::env::var("SECURITY_ENDPOINT")
-            .or_else(|_| std::env::var("BEARDOG_ENDPOINT"))
+        let security_endpoint = std::env::var(env_vars::network::SECURITY_ENDPOINT)
+            .or_else(|_| std::env::var(env_vars::primals::BEARDOG_ENDPOINT))
             .unwrap_or_else(|_| {
-                let port = std::env::var("SECURITY_PORT")
-                    .or_else(|_| std::env::var("SECURITY_AUTHENTICATION_PORT"))
+                let port = std::env::var(env_vars::network::SECURITY_PORT)
+                    .or_else(|_| std::env::var(env_vars::security::AUTHENTICATION_PORT))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| {
-                        config_helpers::get_port("SECURITY_SERVICE_PORT", ports::security_service())
+                        config_helpers::get_port(
+                            env_vars::network::SECURITY_SERVICE_PORT,
+                            ports::security_service(),
+                        )
                     });
                 format!("http://localhost:{port}")
             });
 
-        let compute_endpoint = std::env::var("COMPUTE_ENDPOINT")
-            .or_else(|_| std::env::var("TOADSTOOL_ENDPOINT"))
+        let compute_endpoint = std::env::var(env_vars::compute::ENDPOINT)
+            .or_else(|_| std::env::var(env_vars::primals::TOADSTOOL_ENDPOINT))
             .unwrap_or_else(|_| {
-                let port = std::env::var("COMPUTE_PORT")
-                    .or_else(|_| std::env::var("TOADSTOOL_PORT"))
+                let port = std::env::var(env_vars::compute::PORT)
+                    .or_else(|_| std::env::var(env_vars::primals::TOADSTOOL_PORT))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| {
-                        config_helpers::get_port("COMPUTE_SERVICE_PORT", ports::compute_service())
+                        config_helpers::get_port(
+                            env_vars::compute::SERVICE_PORT,
+                            ports::compute_service(),
+                        )
                     });
                 format!("http://localhost:{port}")
             });
 
-        let service_mesh_endpoint = std::env::var("SERVICE_MESH_ENDPOINT")
-            .or_else(|_| std::env::var("BIOMEOS_ENDPOINT"))
+        let service_mesh_endpoint = std::env::var(env_vars::network::SERVICE_MESH_ENDPOINT)
+            .or_else(|_| std::env::var(env_vars::ecosystem::BIOMEOS_ENDPOINT))
             .unwrap_or_else(|_| {
-                let port = std::env::var("BIOMEOS_PORT")
+                let port = std::env::var(env_vars::ecosystem::BIOMEOS_PORT)
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| {
-                        config_helpers::get_port("SERVICE_MESH_PORT", ports::service_mesh())
+                        config_helpers::get_port(
+                            env_vars::network::SERVICE_MESH_PORT,
+                            ports::service_mesh(),
+                        )
                     });
                 format!("http://localhost:{port}")
             });
@@ -435,24 +437,22 @@ impl EcosystemConfig {
     /// # Errors
     /// Returns `EnvironmentError` if required environment variables have invalid values.
     pub fn from_env() -> Result<Self, EnvironmentError> {
-        // Capability-based endpoint resolution (TRUE PRIMAL pattern).
-        // Production defaults use discovered://{capability} - actual endpoints are resolved
-        // at runtime via ecosystem registry capability discovery.
-        // Canonical env vars: STORAGE_*, SECURITY_*, COMPUTE_*.
-        // Deprecated fallbacks (NESTGATE_*, BEARDOG_*, TOADSTOOL_*) remain in the chain for existing deployments.
-        let storage_endpoint = env::var("STORAGE_ENDPOINT")
-            .or_else(|_| env::var("NESTGATE_ENDPOINT"))
+        let is_production =
+            env::var(env_vars::mcp::ENVIRONMENT).unwrap_or_default() == "production";
+
+        let storage_endpoint = env::var(env_vars::network::STORAGE_ENDPOINT)
+            .or_else(|_| env::var(env_vars::primals::NESTGATE_ENDPOINT))
             .unwrap_or_else(|_| {
-                if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
+                if is_production {
                     format!("discovered://{}", capabilities::STORAGE_CAPABILITY)
                 } else {
-                    let port = env::var("STORAGE_PORT")
-                        .or_else(|_| env::var("NESTGATE_PORT"))
+                    let port = env::var(env_vars::network::STORAGE_PORT)
+                        .or_else(|_| env::var(env_vars::primals::NESTGATE_PORT))
                         .ok()
                         .and_then(|p| p.parse::<u16>().ok())
                         .unwrap_or_else(|| {
                             config_helpers::get_port(
-                                "STORAGE_SERVICE_PORT",
+                                env_vars::network::STORAGE_SERVICE_PORT,
                                 ports::storage_service(),
                             )
                         });
@@ -460,19 +460,19 @@ impl EcosystemConfig {
                 }
             });
 
-        let security_endpoint = env::var("SECURITY_ENDPOINT")
-            .or_else(|_| env::var("BEARDOG_ENDPOINT"))
+        let security_endpoint = env::var(env_vars::network::SECURITY_ENDPOINT)
+            .or_else(|_| env::var(env_vars::primals::BEARDOG_ENDPOINT))
             .unwrap_or_else(|_| {
-                if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
+                if is_production {
                     format!("discovered://{}", capabilities::SECURITY_CAPABILITY)
                 } else {
-                    let port = env::var("SECURITY_PORT")
-                        .or_else(|_| env::var("SECURITY_AUTHENTICATION_PORT"))
+                    let port = env::var(env_vars::network::SECURITY_PORT)
+                        .or_else(|_| env::var(env_vars::security::AUTHENTICATION_PORT))
                         .ok()
                         .and_then(|p| p.parse::<u16>().ok())
                         .unwrap_or_else(|| {
                             config_helpers::get_port(
-                                "SECURITY_SERVICE_PORT",
+                                env_vars::network::SECURITY_SERVICE_PORT,
                                 ports::security_service(),
                             )
                         });
@@ -480,19 +480,19 @@ impl EcosystemConfig {
                 }
             });
 
-        let compute_endpoint = env::var("COMPUTE_ENDPOINT")
-            .or_else(|_| env::var("TOADSTOOL_ENDPOINT"))
+        let compute_endpoint = env::var(env_vars::compute::ENDPOINT)
+            .or_else(|_| env::var(env_vars::primals::TOADSTOOL_ENDPOINT))
             .unwrap_or_else(|_| {
-                if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
+                if is_production {
                     format!("discovered://{}", capabilities::COMPUTE_CAPABILITY)
                 } else {
-                    let port = env::var("COMPUTE_PORT")
-                        .or_else(|_| env::var("TOADSTOOL_PORT"))
+                    let port = env::var(env_vars::compute::PORT)
+                        .or_else(|_| env::var(env_vars::primals::TOADSTOOL_PORT))
                         .ok()
                         .and_then(|p| p.parse::<u16>().ok())
                         .unwrap_or_else(|| {
                             config_helpers::get_port(
-                                "COMPUTE_SERVICE_PORT",
+                                env_vars::compute::SERVICE_PORT,
                                 ports::compute_service(),
                             )
                         });
@@ -500,27 +500,29 @@ impl EcosystemConfig {
                 }
             });
 
-        let biomeos_endpoint = env::var("BIOMEOS_ENDPOINT")
-            .or_else(|_| env::var("SERVICE_MESH_ENDPOINT"))
+        let biomeos_endpoint = env::var(env_vars::ecosystem::BIOMEOS_ENDPOINT)
+            .or_else(|_| env::var(env_vars::network::SERVICE_MESH_ENDPOINT))
             .unwrap_or_else(|_| {
-                if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
+                if is_production {
                     format!("discovered://{}", capabilities::SERVICE_MESH_CAPABILITY)
                 } else {
-                    let port = env::var("BIOMEOS_PORT")
+                    let port = env::var(env_vars::ecosystem::BIOMEOS_PORT)
                         .ok()
                         .and_then(|p| p.parse::<u16>().ok())
                         .unwrap_or_else(|| {
-                            config_helpers::get_port("SERVICE_MESH_PORT", ports::service_mesh())
+                            config_helpers::get_port(
+                                env_vars::network::SERVICE_MESH_PORT,
+                                ports::service_mesh(),
+                            )
                         });
                     format!("http://localhost:{port}")
                 }
             });
 
-        let service_timeout_ms = env::var("ECOSYSTEM_SERVICE_TIMEOUT_MS")
+        let service_timeout_ms = env::var(env_vars::ecosystem::ECOSYSTEM_SERVICE_TIMEOUT_MS)
             .ok()
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or_else(|| {
-                // 10_000 ms fits in u64; allow for const conversion
                 #[expect(
                     clippy::cast_possible_truncation,
                     reason = "DEFAULT_OPERATION_TIMEOUT.as_millis() fits u64"
@@ -591,34 +593,30 @@ impl EnvironmentConfig {
     /// # Errors
     /// Returns `EnvironmentError` if any configuration value is invalid.
     pub fn validate(&self) -> Result<(), EnvironmentError> {
-        // Validate port range
         if self.network.port == 0 {
             return Err(EnvironmentError::InvalidValue {
-                variable: "MCP_PORT".to_string(),
+                variable: env_vars::mcp::PORT.to_string(),
                 value: self.network.port.to_string(),
             });
         }
 
-        // Validate timeout values
         if self.network.request_timeout_ms == 0 {
             return Err(EnvironmentError::InvalidValue {
-                variable: "MCP_REQUEST_TIMEOUT_MS".to_string(),
+                variable: env_vars::mcp::REQUEST_TIMEOUT_MS.to_string(),
                 value: self.network.request_timeout_ms.to_string(),
             });
         }
 
-        // Validate database configuration
         if self.database.connection_string.is_empty() {
             return Err(EnvironmentError::InvalidValue {
-                variable: "DATABASE_URL".to_string(),
+                variable: env_vars::database::URL.to_string(),
                 value: "empty".to_string(),
             });
         }
 
-        // Validate AI provider endpoints
         if self.ai_providers.openai_endpoint.is_empty() {
             return Err(EnvironmentError::InvalidValue {
-                variable: "OPENAI_ENDPOINT".to_string(),
+                variable: env_vars::ai::openai::ENDPOINT.to_string(),
                 value: "empty".to_string(),
             });
         }
