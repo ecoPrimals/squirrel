@@ -11,6 +11,18 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (May 28, 2026 — session BK: Deep Debt Hardcoding Elimination)
+
+- **Cross-primal hardcoding eliminated**: Removed `"toadstool"` from compute provider match arm and `TOADSTOOL_ENDPOINT` env fallback — compute primal discovered via capability-based `COMPUTE_ENDPOINT`/`COMPUTE_SERVICE_ENDPOINT` (no primal name hardcoding)
+- **Self-identity constants**: Replaced 25+ `"squirrel"` string literals with `niche::PRIMAL_ID` or `universal_constants::identity::PRIMAL_ID` across 17 production files (compute_client, storage_client, security_client, tarpc_dispatch, capabilities, universal_adapters, config, doctor, ecosystem registry, transport)
+- **PrimalType capability fix**: `PrimalType::Squirrel::capability()` now returns `"inference"` (capability domain) instead of `"squirrel"` (primal name)
+- **Environment centralization continued**: Migrated 89 additional env var sites across `config/environment.rs` (60 sites), `ecosystem-api/defaults.rs` (24 sites), and `ai/router.rs` (5 sites) to use `env_vars` constants
+- **New env_vars constants**: Added 14 new constants (network service endpoints, http/web UI, AI inference, discovery registration)
+- **Socket discovery**: `ipc_client/discovery.rs` and `socket_registry.rs` now use `BIOMEOS_SOCKET_SUBDIR` and `env_vars::sys::XDG_RUNTIME_DIR` constants
+- **SecurePluginStub documented**: Clarified as intentional security boundary (not a mock)
+- **Quality gates**: `cargo fmt`, `cargo clippy --workspace` (zero warnings), 2,243 squirrel tests + 118 ecosystem-api + 117 universal-constants pass, `cargo deny check` clean
+- **4 commits pushed**: `57c0ec5a`, `f1272d2a`, `c62eb017`, `15048b5f`
+
 ### Summary (May 28, 2026 — session BJ: Wave 58 env var centralization)
 
 - **`env_vars` module expansion — 316 env var constants** (Wave 58): Expanded `crates/universal-constants/src/env_vars.rs` from 20 constants to 316, organized into domain modules: `squirrel`, `ecosystem`, `ai` (with `openai`/`anthropic`/`ollama`/`gemini`/`huggingface`/`local` sub-modules), `mcp`, `network`, `discovery`, `security`, `primals`, `primal`, `btsp`, `compute`, `storage`, `database`, `monitoring`, `logging`, `performance`, `sandbox`, `http`, `ipc`, `deploy`, `task`, `session`, `limits`, `flags`, `sys`. Backward-compatible flat re-exports preserved.
