@@ -216,7 +216,7 @@ impl UniversalStorageAdapter {
             "backup_type": "ai_data",
             "includes": ["ai_contexts", "model_cache", "coordination_logs"],
             "metadata": {
-                "coordinator": "squirrel",
+                "coordinator": crate::niche::PRIMAL_ID,
                 "backup_strategy": "ai_optimized"
             }
         });

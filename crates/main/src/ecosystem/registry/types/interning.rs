@@ -113,7 +113,7 @@ pub fn intern_registry_string(s: &str) -> Arc<str> {
         primal_names::NESTGATE => Arc::from(primal_names::NESTGATE),
         primal_names::BIOMEOS => Arc::from(primal_names::BIOMEOS),
         // Capability constants -> capability names (for discovery, NOT primal names)
-        n if n == capabilities::SELF_PRIMAL_NAME => Arc::from("squirrel"),
+        n if n == capabilities::SELF_PRIMAL_NAME => Arc::from(crate::niche::PRIMAL_ID),
         n if n == capabilities::SERVICE_MESH_CAPABILITY => {
             Arc::from(capabilities::SERVICE_MESH_CAPABILITY)
         }

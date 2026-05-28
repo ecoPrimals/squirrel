@@ -341,10 +341,9 @@ impl UniversalTransport {
     pub(crate) fn get_socket_path(service_name: &str, config: &TransportConfig) -> PathBuf {
         use crate::federation::cross_platform::CrossPlatform;
 
-        let base_dir = config
-            .socket_base_dir
-            .clone()
-            .unwrap_or_else(|| CrossPlatform::get_runtime_dir("squirrel"));
+        let base_dir = config.socket_base_dir.clone().unwrap_or_else(|| {
+            CrossPlatform::get_runtime_dir(universal_constants::identity::PRIMAL_ID)
+        });
 
         base_dir.join(format!("{}.sock", service_name))
     }

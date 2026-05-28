@@ -40,7 +40,7 @@ impl PrimalType {
         }
     }
 
-    /// Get capability for discovery (use when discovering OTHER primals by capability)
+    /// Get capability domain for discovery (use when discovering primals by capability)
     #[must_use]
     pub const fn capability(&self) -> &'static str {
         match self {
@@ -48,7 +48,7 @@ impl PrimalType {
             Self::Songbird => "service-mesh",
             Self::BearDog => "security",
             Self::NestGate => "storage",
-            Self::Squirrel => "squirrel",
+            Self::Squirrel => "inference",
             Self::BiomeOS => "ecosystem",
             Self::Any => "any",
         }
@@ -226,7 +226,7 @@ mod tests {
             (PrimalType::Songbird, "songbird", "service-mesh"),
             (PrimalType::BearDog, "beardog", "security"),
             (PrimalType::NestGate, "nestgate", "storage"),
-            (PrimalType::Squirrel, "squirrel", "squirrel"),
+            (PrimalType::Squirrel, "squirrel", "inference"),
             (PrimalType::BiomeOS, "biomeos", "ecosystem"),
             (PrimalType::Any, "any", "any"),
         ];

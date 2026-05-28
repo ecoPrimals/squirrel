@@ -394,7 +394,7 @@ impl EcosystemService {
     fn unregister_from_ecosystem() {
         let family_id = std::env::var("FAMILY_ID").ok();
         if let Err(e) = universal_patterns::manifest_discovery::remove_manifest(
-            "squirrel",
+            universal_constants::identity::PRIMAL_ID,
             family_id.as_deref(),
         ) {
             tracing::warn!("Failed to remove primal manifest during unregister: {e}");

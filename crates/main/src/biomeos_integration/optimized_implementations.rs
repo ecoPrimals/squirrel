@@ -91,11 +91,10 @@ impl OptimizedServiceRegistration {
     ) -> EcosystemServiceRegistration {
         self.metrics.record_operation();
 
-        // Use cached strings for common values
         let _primal_type_str = self
             .static_strings
-            .get("squirrel")
-            .unwrap_or_else(|| Arc::from("squirrel"));
+            .get(crate::niche::PRIMAL_ID)
+            .unwrap_or_else(|| Arc::from(crate::niche::PRIMAL_ID));
         let _api_version = self
             .static_strings
             .get("ecosystem/v1")

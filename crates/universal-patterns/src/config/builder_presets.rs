@@ -15,7 +15,7 @@ impl ConfigBuilder {
     /// Create a configuration builder for Squirrel (AI coordinator)
     pub fn squirrel() -> Self {
         Self::new()
-            .name("squirrel")
+            .name(universal_constants::identity::PRIMAL_ID)
             .primal_type(PrimalType::Coordinator)
             .description("AI coordination and MCP protocol management")
             .port(8080)

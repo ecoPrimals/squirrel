@@ -133,7 +133,7 @@ impl UniversalPrimalEcosystem {
 
         if let Some(best_storage) = matches.first() {
             let request = PrimalRequest::new(
-                "squirrel",
+                crate::niche::PRIMAL_ID,
                 &best_storage.service.service_id,
                 "store",
                 serde_json::json!({
@@ -180,7 +180,7 @@ impl UniversalPrimalEcosystem {
 
         if let Some(best_storage) = matches.first() {
             let request = PrimalRequest::new(
-                "squirrel",
+                crate::niche::PRIMAL_ID,
                 &best_storage.service.service_id,
                 "retrieve",
                 serde_json::json!({
@@ -245,7 +245,7 @@ impl UniversalPrimalEcosystem {
 
         if let Some(best_compute) = matches.first() {
             let request = PrimalRequest::new(
-                "squirrel",
+                crate::niche::PRIMAL_ID,
                 &best_compute.service.service_id,
                 "execute",
                 computation_request,
@@ -293,7 +293,7 @@ impl UniversalPrimalEcosystem {
 
         if let Some(best_security) = matches.first() {
             let request = PrimalRequest::new(
-                "squirrel",
+                crate::niche::PRIMAL_ID,
                 &best_security.service.service_id,
                 operation,
                 payload,

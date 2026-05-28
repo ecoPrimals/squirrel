@@ -221,7 +221,7 @@ impl UniversalComputeAdapter {
             "scaling_factor": factor,
             "trigger": "ai_coordinator_request",
             "metadata": {
-                "requested_by": "squirrel",
+                "requested_by": crate::niche::PRIMAL_ID,
                 "optimization_goal": "ai_performance"
             }
         });

@@ -100,7 +100,7 @@ impl UniversalOrchestrationAdapter {
             "workflow_type": workflow_type,
             "orchestration_service": orchestration_service.name,
             "participating_services": participants,
-            "coordinator": "squirrel",
+            "coordinator": crate::niche::PRIMAL_ID,
             "ai_enhanced": true,
             "execution_plan": {
                 "phases": ["discovery", "coordination", "execution", "monitoring"],

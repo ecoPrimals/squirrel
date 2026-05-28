@@ -152,7 +152,7 @@ impl Default for RegistrySecurityConfig {
             tls_enabled: true,
             mtls_required: false,
             auth_token: None,
-            trust_domain: "squirrel".to_string(),
+            trust_domain: crate::niche::PRIMAL_ID.to_string(),
             certificate_path: None,
             key_path: None,
         }

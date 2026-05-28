@@ -111,7 +111,7 @@ impl ConfigLoader {
                 // Graceful fallback to current directory
                 std::env::current_dir().unwrap_or_else(|_| PathBuf::from("./data"))
             })
-            .join("squirrel");
+            .join(universal_constants::identity::PRIMAL_ID);
 
         self.config.system.data_dir.clone_from(&data_dir);
         self.config.system.plugin_dir = data_dir.join("plugins");

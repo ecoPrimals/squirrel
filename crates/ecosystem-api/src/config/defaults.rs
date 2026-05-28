@@ -74,7 +74,7 @@ impl ConfigDefaults {
     pub fn production() -> UniversalConfig {
         UniversalConfig {
             service: ServiceConfig {
-                name: "squirrel".to_string(),
+                name: universal_constants::identity::PRIMAL_ID.to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 description: "Production Squirrel AI primal".to_string(),
                 bind_address: BIND_ALL_INTERFACES.to_string(),

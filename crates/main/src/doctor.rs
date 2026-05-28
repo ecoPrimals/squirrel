@@ -278,9 +278,10 @@ fn check_discovered_services() -> HealthCheck {
 fn check_unix_socket() -> HealthCheck {
     let start = Instant::now();
 
-    let socket_path = universal_constants::network::get_socket_path("squirrel")
-        .to_string_lossy()
-        .into_owned();
+    let socket_path =
+        universal_constants::network::get_socket_path(universal_constants::identity::PRIMAL_ID)
+            .to_string_lossy()
+            .into_owned();
 
     HealthCheck {
         name: "Unix Socket",
@@ -298,9 +299,10 @@ fn check_unix_socket() -> HealthCheck {
 fn check_rpc_server() -> HealthCheck {
     let start = Instant::now();
 
-    let socket_path = universal_constants::network::get_socket_path("squirrel")
-        .to_string_lossy()
-        .into_owned();
+    let socket_path =
+        universal_constants::network::get_socket_path(universal_constants::identity::PRIMAL_ID)
+            .to_string_lossy()
+            .into_owned();
 
     HealthCheck {
         name: "RPC Server",

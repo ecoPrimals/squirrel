@@ -190,14 +190,15 @@ impl ConfigLoader {
 
     /// Load from default search paths
     fn load_from_default_paths() -> Result<SquirrelConfig> {
-        // Search paths in order
+        let id = crate::niche::PRIMAL_ID;
+        let config_file = format!("{id}.toml");
         let search_paths = vec![
-            PathBuf::from("squirrel.toml"),
-            PathBuf::from("config/squirrel.toml"),
+            PathBuf::from(&config_file),
+            PathBuf::from(format!("config/{config_file}")),
             dirs::config_dir()
-                .map(|p| p.join("squirrel").join("squirrel.toml"))
+                .map(|p| p.join(id).join(&config_file))
                 .unwrap_or_default(),
-            PathBuf::from("/etc/squirrel/squirrel.toml"),
+            PathBuf::from(format!("/etc/{id}/{config_file}")),
         ];
 
         for path in search_paths {
