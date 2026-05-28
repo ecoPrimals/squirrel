@@ -34,7 +34,10 @@ impl UniversalSecurityService for LocalSecurityProvider {
                 methods: vec![
                     AuthMethod::None,
                     AuthMethod::Token {
-                        token_file: std::env::var("SECURITY_TOKEN_FILE").map_or_else(
+                        token_file: std::env::var(
+                            universal_constants::env_vars::security::TOKEN_FILE,
+                        )
+                        .map_or_else(
                             |_| {
                                 universal_constants::network::get_socket_dir()
                                     .join("security.token")

@@ -35,7 +35,9 @@ impl UniversalPrimalEcosystem {
 
         // CAPABILITY-BASED: Build discovery list from environment configuration
         // Users can set SERVICE_DISCOVERY_PORTS="8080,8081,8082" to customize
-        let discovery_ports = if let Ok(ports_str) = std::env::var("SERVICE_DISCOVERY_PORTS") {
+        let discovery_ports = if let Ok(ports_str) =
+            std::env::var(universal_constants::env_vars::discovery::SERVICE_DISCOVERY_PORTS)
+        {
             tracing::info!("Using custom service discovery ports from environment");
             ports_str
                 .split(',')
@@ -66,8 +68,9 @@ impl UniversalPrimalEcosystem {
         };
 
         // Determine discovery host (default to localhost, configurable)
-        let discovery_host = std::env::var("SERVICE_DISCOVERY_HOST")
-            .unwrap_or_else(|_| network::DEFAULT_LOCALHOST.to_string());
+        let discovery_host =
+            std::env::var(universal_constants::env_vars::discovery::SERVICE_DISCOVERY_HOST)
+                .unwrap_or_else(|_| network::DEFAULT_LOCALHOST.to_string());
 
         tracing::debug!(
             "Scanning {} ports on {} for service capabilities",

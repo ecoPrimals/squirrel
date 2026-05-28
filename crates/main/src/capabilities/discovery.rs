@@ -324,17 +324,20 @@ async fn try_registry_query(
     // Neural API provides capability.discover for finding providers
     info!("🧠 Checking Neural API for capability: {}", capability);
 
-    let neural_api_socket = std::env::var("NEURAL_API_SOCKET").ok().or_else(|| {
-        let uid = universal_constants::sys_info::current_uid();
-        let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
-        let sock = crate::primal_names::NEURAL_API_SOCKET_NAME;
-        let fallback = universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR;
-        let paths = [
-            format!("/run/user/{uid}/{dir}/{sock}"),
-            format!("{fallback}/{sock}"),
-        ];
-        paths.into_iter().find(|p| Path::new(p).exists())
-    });
+    let neural_api_socket =
+        std::env::var(universal_constants::env_vars::ecosystem::NEURAL_API_SOCKET)
+            .ok()
+            .or_else(|| {
+                let uid = universal_constants::sys_info::current_uid();
+                let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
+                let sock = crate::primal_names::NEURAL_API_SOCKET_NAME;
+                let fallback = universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR;
+                let paths = [
+                    format!("/run/user/{uid}/{dir}/{sock}"),
+                    format!("{fallback}/{sock}"),
+                ];
+                paths.into_iter().find(|p| Path::new(p).exists())
+            });
 
     if let Some(socket_path) = neural_api_socket {
         info!("🧠 Found Neural API socket: {}", socket_path);
@@ -364,7 +367,9 @@ async fn try_registry_query(
     }
 
     // Fallback: Legacy registry (for backward compatibility)
-    if let Ok(registry_socket) = std::env::var("CAPABILITY_REGISTRY_SOCKET") {
+    if let Ok(registry_socket) =
+        std::env::var(universal_constants::env_vars::discovery::CAPABILITY_REGISTRY_SOCKET)
+    {
         let registry_path = PathBuf::from(registry_socket);
 
         if registry_path.exists() {
@@ -604,7 +609,7 @@ async fn query_registry(
 fn get_socket_directories() -> Vec<PathBuf> {
     // Exclusive override: when SOCKET_SCAN_DIR is set, scan ONLY that directory.
     // This enables deterministic test isolation and custom deployment topologies.
-    if let Ok(dir) = std::env::var("SOCKET_SCAN_DIR") {
+    if let Ok(dir) = std::env::var(universal_constants::env_vars::discovery::SOCKET_SCAN_DIR) {
         let dirs = vec![PathBuf::from(dir)];
         debug!("Socket scan directories (exclusive override): {:?}", dirs);
         return dirs;
@@ -620,7 +625,7 @@ fn get_socket_directories() -> Vec<PathBuf> {
     }
 
     // Priority 2: XDG Runtime Directory with biomeos subdirectory
-    if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
+    if let Ok(runtime_dir) = std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR) {
         let xdg_biomeos = PathBuf::from(format!("{runtime_dir}/biomeos"));
         if xdg_biomeos.exists() {
             dirs.push(xdg_biomeos);

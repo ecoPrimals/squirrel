@@ -291,14 +291,20 @@ impl Default for ExporterConfig {
         // 1. METRICS_EXPORTER_ENDPOINT (full endpoint)
         // 2. METRICS_EXPORTER_PORT or METRICS_PORT (port override)
         // 3. Default: use get_service_port("metrics") for discovery
-        let endpoint = std::env::var("METRICS_EXPORTER_ENDPOINT").unwrap_or_else(|_| {
-            let port = std::env::var("METRICS_EXPORTER_PORT")
-                .or_else(|_| std::env::var("METRICS_PORT"))
-                .ok()
-                .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or_else(|| get_service_port("metrics"));
-            http_url(DEFAULT_LOCALHOST, port, "/metrics")
-        });
+        let endpoint =
+            std::env::var(universal_constants::env_vars::monitoring::METRICS_EXPORTER_ENDPOINT)
+                .unwrap_or_else(|_| {
+                    let port = std::env::var(
+                        universal_constants::env_vars::monitoring::METRICS_EXPORTER_PORT,
+                    )
+                    .or_else(|_| {
+                        std::env::var(universal_constants::env_vars::monitoring::METRICS_PORT)
+                    })
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or_else(|| get_service_port("metrics"));
+                    http_url(DEFAULT_LOCALHOST, port, "/metrics")
+                });
 
         Self {
             name: "default".to_string(),

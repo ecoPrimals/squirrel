@@ -380,10 +380,10 @@ mod tests {
             "Test Service".to_string(),
             ServiceType::AI,
             vec![ServiceEndpoint::new(
-                std::env::var("MCP_ENDPOINT")
+                std::env::var(universal_constants::env_vars::mcp::ENDPOINT)
                     .unwrap_or_else(|_| "http://127.0.0.1:8444".to_string()),
                 "http".to_string(),
-                std::env::var("MCP_PORT")
+                std::env::var(universal_constants::env_vars::mcp::PORT)
                     .ok()
                     .and_then(|p| p.parse().ok())
                     .unwrap_or(8080),

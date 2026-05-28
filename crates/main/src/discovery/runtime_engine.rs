@@ -119,10 +119,13 @@ impl RuntimeDiscoveryEngine {
         }
 
         // Stage 5: Try external service registry (if configured)
-        if let Ok(registry_endpoint) = std::env::var("SERVICE_REGISTRY_ENDPOINT") {
+        if let Ok(registry_endpoint) =
+            std::env::var(universal_constants::env_vars::discovery::SERVICE_REGISTRY_ENDPOINT)
+        {
             debug!("Stage 5: Trying service registry for '{}'", capability);
             let registry_type =
-                std::env::var("SERVICE_REGISTRY_TYPE").unwrap_or_else(|_| "consul".to_string());
+                std::env::var(universal_constants::env_vars::discovery::SERVICE_REGISTRY_TYPE)
+                    .unwrap_or_else(|_| "consul".to_string());
 
             let reg_type = match registry_type.to_lowercase().as_str() {
                 "consul" => crate::discovery::mechanisms::RegistryType::Consul,

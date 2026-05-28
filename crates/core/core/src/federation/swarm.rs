@@ -21,8 +21,8 @@ impl SwarmManager for FederationService {
         // In a real implementation, this would actually spawn a new process or container
         // For now, we simulate the instance creation
 
-        let node_ip = std::env::var("NODE_IP")
-            .or_else(|_| std::env::var("MCP_HOST"))
+        let node_ip = std::env::var(universal_constants::env_vars::deploy::NODE_IP)
+            .or_else(|_| std::env::var(universal_constants::env_vars::mcp::HOST))
             .unwrap_or_else(|_| "localhost".to_string());
         let instance = SquirrelInstance {
             id: instance_id.clone(),

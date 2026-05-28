@@ -61,14 +61,14 @@ fn socket_is_alive_sync(path: &Path) -> bool {
 /// Returns `None` if no discovery service socket is found at any standard location.
 /// Uses connect-probe liveness check to filter stale sockets.
 pub fn discover_socket() -> Option<PathBuf> {
-    if let Ok(path) = std::env::var("DISCOVERY_SOCKET") {
+    if let Ok(path) = std::env::var(universal_constants::env_vars::discovery::SOCKET) {
         let p = PathBuf::from(path);
         if socket_is_alive_sync(&p) {
             return Some(p);
         }
     }
 
-    if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
+    if let Ok(xdg) = std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR) {
         let p = PathBuf::from(xdg)
             .join(primal_names::BIOMEOS_SOCKET_DIR)
             .join(primal_names::DISCOVERY_SOCKET_NAME);

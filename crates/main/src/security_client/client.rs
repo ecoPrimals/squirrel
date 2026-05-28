@@ -398,11 +398,15 @@ impl UniversalSecurityClient {
             security_context: SecurityContext {
                 user_id: identity.to_string(),
                 session_id: Uuid::new_v4().to_string(),
-                ip_address: std::env::var("CLIENT_IP_ADDRESS")
-                    .or_else(|_| std::env::var("SERVICE_IP"))
-                    .unwrap_or_else(|_| "127.0.0.1".to_string()),
-                user_agent: std::env::var("CLIENT_USER_AGENT")
-                    .unwrap_or_else(|_| "UniversalSecurityClient".to_string()),
+                ip_address: std::env::var(
+                    universal_constants::env_vars::network::CLIENT_IP_ADDRESS,
+                )
+                .or_else(|_| std::env::var(universal_constants::env_vars::network::SERVICE_IP))
+                .unwrap_or_else(|_| "127.0.0.1".to_string()),
+                user_agent: std::env::var(
+                    universal_constants::env_vars::network::CLIENT_USER_AGENT,
+                )
+                .unwrap_or_else(|_| "UniversalSecurityClient".to_string()),
                 clearance_level: "standard".to_string(),
                 additional_context: HashMap::new(),
             },

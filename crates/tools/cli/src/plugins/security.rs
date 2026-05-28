@@ -88,14 +88,15 @@ impl SecurePluginLoader {
     /// Plugin directories are read from `SQUIRREL_PLUGIN_DIRS` (colon-separated)
     /// with sensible defaults when the variable is absent.
     pub fn new() -> Self {
-        let allowed_directories = std::env::var("SQUIRREL_PLUGIN_DIRS")
-            .map(|v| v.split(':').map(String::from).collect())
-            .unwrap_or_else(|_| {
-                vec![
-                    "./plugins".to_string(),
-                    "/usr/local/lib/squirrel/plugins".to_string(),
-                ]
-            });
+        let allowed_directories =
+            std::env::var(universal_constants::env_vars::squirrel::PLUGIN_DIRS)
+                .map(|v| v.split(':').map(String::from).collect())
+                .unwrap_or_else(|_| {
+                    vec![
+                        "./plugins".to_string(),
+                        "/usr/local/lib/squirrel/plugins".to_string(),
+                    ]
+                });
         Self {
             allowed_directories,
             verify_signatures: true,

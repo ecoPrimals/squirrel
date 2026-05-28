@@ -133,17 +133,18 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
     /// 4. Port override (`ECOSYSTEM_PORT` > `BIOMEOS_PORT`)
     /// 5. Default: `http://localhost:5000/path`
     pub fn get_biomeos_endpoints(&self) -> Result<serde_json::Value, PrimalError> {
+        use universal_constants::env_vars;
         let build_endpoint = |cap_var: &str, legacy_var: &str, path: &str| -> String {
             std::env::var(cap_var)
                 .or_else(|_| std::env::var(legacy_var))
                 .or_else(|_| {
-                    std::env::var("ECOSYSTEM_ENDPOINT")
-                        .or_else(|_| std::env::var("BIOMEOS_ENDPOINT"))
+                    std::env::var(env_vars::ecosystem::ECOSYSTEM_ENDPOINT)
+                        .or_else(|_| std::env::var(env_vars::ecosystem::BIOMEOS_ENDPOINT))
                         .map(|e| format!("{e}{path}"))
                 })
                 .unwrap_or_else(|_| {
-                    let port = std::env::var("ECOSYSTEM_PORT")
-                        .or_else(|_| std::env::var("BIOMEOS_PORT"))
+                    let port = std::env::var(env_vars::ecosystem::ECOSYSTEM_PORT)
+                        .or_else(|_| std::env::var(env_vars::ecosystem::BIOMEOS_PORT))
                         .ok()
                         .and_then(|p| p.parse::<u16>().ok())
                         .unwrap_or(universal_constants::network::DEFAULT_BIOMEOS_PORT);
@@ -698,8 +699,9 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
     /// Convenience method to access endpoints from trait
     #[must_use]
     pub fn endpoints(&self) -> PrimalEndpoints {
-        let host = std::env::var("SERVICE_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-        let port = std::env::var("SERVICE_PORT")
+        let host = std::env::var(universal_constants::env_vars::network::SERVICE_HOST)
+            .unwrap_or_else(|_| "0.0.0.0".to_string());
+        let port = std::env::var(universal_constants::env_vars::network::SERVICE_PORT)
             .ok()
             .and_then(|p| p.parse().ok())
             .unwrap_or_else(|| universal_constants::network::get_service_port("websocket"));

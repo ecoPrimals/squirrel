@@ -44,10 +44,13 @@ impl EcosystemManager {
             user_id: crate::niche::PRIMAL_ID.to_string(),
             device_id: uuid::Uuid::new_v4().to_string(),
             network_location: crate::universal::NetworkLocation {
-                region: std::env::var("DEPLOYMENT_REGION")
+                region: std::env::var(universal_constants::env_vars::deploy::REGION)
                     .unwrap_or_else(|_| "default".to_string()),
-                data_center: std::env::var("DATA_CENTER").ok(),
-                availability_zone: std::env::var("AVAILABILITY_ZONE").ok(),
+                data_center: std::env::var(universal_constants::env_vars::deploy::DATA_CENTER).ok(),
+                availability_zone: std::env::var(
+                    universal_constants::env_vars::deploy::AVAILABILITY_ZONE,
+                )
+                .ok(),
                 ip_address: None, // Discovered at runtime via capability-based discovery
                 subnet: None,
                 network_id: None,

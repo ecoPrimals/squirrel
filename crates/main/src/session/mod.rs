@@ -28,12 +28,13 @@ pub struct SessionConfig {
 
 impl Default for SessionConfig {
     fn default() -> Self {
-        let timeout_secs = std::env::var("SESSION_TIMEOUT_SECS")
+        use universal_constants::env_vars;
+        let timeout_secs = std::env::var(env_vars::session::TIMEOUT_SECS)
             .ok()
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(300); // Default 5 minutes
 
-        let max_connections = std::env::var("SESSION_MAX_CONNECTIONS")
+        let max_connections = std::env::var(env_vars::session::MAX_CONNECTIONS)
             .ok()
             .and_then(|s| s.parse::<u32>().ok())
             .unwrap_or(100);

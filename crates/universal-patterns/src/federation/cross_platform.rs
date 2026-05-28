@@ -144,7 +144,9 @@ impl CrossPlatform {
         #[cfg(target_os = "linux")]
         {
             // XDG_RUNTIME_DIR on Linux
-            if let Ok(xdg_runtime) = std::env::var("XDG_RUNTIME_DIR") {
+            if let Ok(xdg_runtime) =
+                std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR)
+            {
                 std::path::PathBuf::from(xdg_runtime).join(app_name)
             } else {
                 std::path::PathBuf::from("/tmp").join(app_name)
@@ -154,7 +156,7 @@ impl CrossPlatform {
         #[cfg(target_os = "windows")]
         {
             // TEMP on Windows
-            if let Ok(temp) = std::env::var("TEMP") {
+            if let Ok(temp) = std::env::var(universal_constants::env_vars::sys::TEMP) {
                 return std::path::PathBuf::from(temp).join(app_name);
             }
             return std::path::PathBuf::from("C:\\Temp").join(app_name);

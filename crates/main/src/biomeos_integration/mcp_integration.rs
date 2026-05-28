@@ -599,10 +599,12 @@ impl ResourceCoordination {
                 strategy: "round_robin".to_string(),
                 weights: HashMap::new(),
                 health_check_interval: std::time::Duration::from_secs(
-                    std::env::var("HEALTH_CHECK_INTERVAL_SECS")
-                        .ok()
-                        .and_then(|s| s.parse::<u64>().ok())
-                        .unwrap_or(30),
+                    std::env::var(
+                        universal_constants::env_vars::monitoring::HEALTH_CHECK_INTERVAL_SECS,
+                    )
+                    .ok()
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(30),
                 ),
                 failover_rules: Vec::new(),
             },

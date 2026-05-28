@@ -119,7 +119,7 @@ pub fn find_provider_config(provider_id: &str) -> Option<HttpAiProviderConfig> {
 /// Format: Comma-separated list of provider IDs
 /// Example: "anthropic,openai" or "anthropic" or "openai,gemini"
 pub fn get_enabled_http_providers() -> Vec<HttpAiProviderConfig> {
-    match std::env::var("AI_HTTP_PROVIDERS") {
+    match std::env::var(universal_constants::env_vars::ai::HTTP_PROVIDERS) {
         Ok(providers_str) => {
             let all_configs = get_http_provider_configs();
             providers_str

@@ -235,42 +235,40 @@ impl ConfigLoader {
 
     /// Apply environment variable overrides
     fn apply_env_overrides(config: &mut SquirrelConfig) -> Result<()> {
-        // Server overrides
-        if let Ok(socket) = std::env::var("SQUIRREL_SOCKET") {
+        use universal_constants::env_vars;
+
+        if let Ok(socket) = std::env::var(env_vars::squirrel::SOCKET) {
             config.server.socket = Some(socket);
         }
-        if let Ok(bind) = std::env::var("SQUIRREL_BIND") {
+        if let Ok(bind) = std::env::var(env_vars::squirrel::BIND) {
             config.server.bind = bind;
-        } else if let Ok(ipc_host) = std::env::var("SQUIRREL_IPC_HOST") {
+        } else if let Ok(ipc_host) = std::env::var(env_vars::squirrel::IPC_HOST) {
             config.server.bind = ipc_host;
         }
-        if let Ok(port) = std::env::var("SQUIRREL_PORT") {
+        if let Ok(port) = std::env::var(env_vars::squirrel::PORT) {
             config.server.port = port.parse().context("Invalid SQUIRREL_PORT value")?;
         }
-        if let Ok(daemon) = std::env::var("SQUIRREL_DAEMON") {
+        if let Ok(daemon) = std::env::var(env_vars::squirrel::DAEMON) {
             config.server.daemon = daemon.parse().context("Invalid SQUIRREL_DAEMON value")?;
         }
 
-        // AI overrides
-        if let Ok(sockets) = std::env::var("AI_PROVIDER_SOCKETS") {
+        if let Ok(sockets) = std::env::var(env_vars::ai::PROVIDER_SOCKETS) {
             config.ai.provider_sockets = Some(sockets);
         }
-        if let Ok(enabled) = std::env::var("SQUIRREL_AI_ENABLED") {
+        if let Ok(enabled) = std::env::var(env_vars::squirrel::AI_ENABLED) {
             config.ai.enabled = enabled
                 .parse()
                 .context("Invalid SQUIRREL_AI_ENABLED value")?;
         }
 
-        // Logging overrides
-        if let Ok(level) = std::env::var("SQUIRREL_LOG_LEVEL") {
+        if let Ok(level) = std::env::var(env_vars::squirrel::LOG_LEVEL) {
             config.logging.level = level;
         }
-        if let Ok(json) = std::env::var("SQUIRREL_LOG_JSON") {
+        if let Ok(json) = std::env::var(env_vars::squirrel::LOG_JSON) {
             config.logging.json = json.parse().context("Invalid SQUIRREL_LOG_JSON value")?;
         }
 
-        // Discovery overrides
-        if let Ok(registry) = std::env::var("SQUIRREL_REGISTRY_SOCKET") {
+        if let Ok(registry) = std::env::var(env_vars::squirrel::REGISTRY_SOCKET) {
             config.discovery.registry_socket = Some(registry);
         }
 

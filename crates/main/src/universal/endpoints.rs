@@ -52,16 +52,17 @@ impl Default for PrimalEndpoints {
         // Get bind address from environment (for service registration)
         // In production: 0.0.0.0, in development: localhost
         // NOTE: This is SQUIRREL'S listening address, not other primals' endpoints
-        let bind_host = std::env::var("SQUIRREL_HOST").unwrap_or_else(|_| {
-            if std::env::var("ENVIRONMENT")
-                .unwrap_or_else(|_| "development".to_string())
-                .eq_ignore_ascii_case("production")
-            {
-                network::DEFAULT_BIND_ADDRESS.to_string()
-            } else {
-                network::DEFAULT_LOCALHOST.to_string()
-            }
-        });
+        let bind_host = std::env::var(universal_constants::env_vars::squirrel::HOST)
+            .unwrap_or_else(|_| {
+                if std::env::var(universal_constants::env_vars::deploy::ENVIRONMENT)
+                    .unwrap_or_else(|_| "development".to_string())
+                    .eq_ignore_ascii_case("production")
+                {
+                    network::DEFAULT_BIND_ADDRESS.to_string()
+                } else {
+                    network::DEFAULT_LOCALHOST.to_string()
+                }
+            });
 
         let base_url = format!("http://{bind_host}:{http_port}");
 

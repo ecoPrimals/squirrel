@@ -141,6 +141,8 @@ pub mod ecosystem {
     pub const BIOMEOS_SOCKET_PATH: &str = "BIOMEOS_SOCKET_PATH";
     /// biomeOS socket (discovery)
     pub const BIOMEOS_SOCKET: &str = "BIOMEOS_SOCKET";
+    /// Test biomeOS optimized port
+    pub const TEST_BIOMEOS_OPT_PORT: &str = "TEST_BIOMEOS_OPT_PORT";
     /// biomeOS insecure mode flag
     pub const BIOMEOS_INSECURE: &str = "BIOMEOS_INSECURE";
     /// biomeOS endpoint
@@ -379,6 +381,8 @@ pub mod network {
     pub const PORT: &str = "PORT";
     /// Generic bind addr
     pub const BIND_ADDR: &str = "BIND_ADDR";
+    /// Generic bind address (non-prefixed)
+    pub const GENERIC_BIND_ADDRESS: &str = "BIND_ADDRESS";
     /// Server bind address
     pub const SERVER_BIND_ADDRESS: &str = "SERVER_BIND_ADDRESS";
     /// Server port
@@ -405,6 +409,12 @@ pub mod network {
     pub const SERVICE_ADDRESS: &str = "SERVICE_ADDRESS";
     /// Service IP
     pub const SERVICE_IP: &str = "SERVICE_IP";
+    /// Client IP address
+    pub const CLIENT_IP_ADDRESS: &str = "CLIENT_IP_ADDRESS";
+    /// Client user agent
+    pub const CLIENT_USER_AGENT: &str = "CLIENT_USER_AGENT";
+    /// UI host
+    pub const UI_HOST: &str = "UI_HOST";
     /// Dev bind address
     pub const DEV_BIND_ADDRESS: &str = "DEV_BIND_ADDRESS";
     /// Dev server host

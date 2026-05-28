@@ -87,10 +87,10 @@ impl DelegatedJwtClient {
                 .to_string_lossy()
                 .into_owned();
 
-        let key_id =
-            env::var("JWT_KEY_ID").unwrap_or_else(|_| identity::JWT_SIGNING_KEY_ID.to_string());
+        let key_id = env::var(universal_constants::env_vars::security::JWT_KEY_ID)
+            .unwrap_or_else(|_| identity::JWT_SIGNING_KEY_ID.to_string());
 
-        let expiry_hours = env::var("JWT_EXPIRY_HOURS")
+        let expiry_hours = env::var(universal_constants::env_vars::security::JWT_EXPIRY_HOURS)
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(24);

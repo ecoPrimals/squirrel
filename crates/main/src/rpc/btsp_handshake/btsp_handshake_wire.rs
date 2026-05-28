@@ -22,7 +22,7 @@ const DEFAULT_HANDSHAKE_TIMEOUT_MS: u64 = 1500;
 pub fn handshake_timeout() -> std::time::Duration {
     static CACHED: std::sync::OnceLock<std::time::Duration> = std::sync::OnceLock::new();
     *CACHED.get_or_init(|| {
-        let ms = std::env::var("BTSP_HANDSHAKE_TIMEOUT_MS")
+        let ms = std::env::var(universal_constants::env_vars::btsp::HANDSHAKE_TIMEOUT_MS)
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(DEFAULT_HANDSHAKE_TIMEOUT_MS);

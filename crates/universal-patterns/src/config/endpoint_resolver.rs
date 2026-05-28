@@ -239,12 +239,13 @@ impl EndpointResolver {
 
         // Try standard biomeOS path
         // Use nix crate for safe getuid() or std::env for portable solution
-        let uid = std::env::var("UID")
+        let uid = std::env::var(universal_constants::env_vars::sys::UID)
             .ok()
             .and_then(|s| s.parse::<u32>().ok())
             .unwrap_or_else(|| {
                 // Fallback: try to get UID from XDG_RUNTIME_DIR path
-                if let Ok(xdg_runtime) = std::env::var("XDG_RUNTIME_DIR")
+                if let Ok(xdg_runtime) =
+                    std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR)
                     && let Some(uid_str) = xdg_runtime.strip_prefix("/run/user/")
                     && let Some(uid_part) = uid_str.split('/').next()
                     && let Ok(uid) = uid_part.parse::<u32>()
@@ -267,7 +268,8 @@ impl EndpointResolver {
         }
 
         // Try XDG runtime directory
-        if let Ok(xdg_runtime) = std::env::var("XDG_RUNTIME_DIR") {
+        if let Ok(xdg_runtime) = std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR)
+        {
             let xdg_path = PathBuf::from(format!("{}/biomeos/{}.sock", xdg_runtime, name));
             if xdg_path.exists() {
                 debug!("Found Unix socket in XDG runtime: {}", xdg_path.display());

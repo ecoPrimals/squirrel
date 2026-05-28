@@ -246,10 +246,11 @@ pub fn validate_plugin_id(id: &str) -> PluginResult<String> {
         });
     }
 
-    let max_length = std::env::var("PERF_MAX_PLUGIN_ID_LENGTH")
-        .unwrap_or_else(|_| "64".to_string())
-        .parse()
-        .unwrap_or(64);
+    let max_length =
+        std::env::var(universal_constants::env_vars::performance::MAX_PLUGIN_ID_LENGTH)
+            .unwrap_or_else(|_| "64".to_string())
+            .parse()
+            .unwrap_or(64);
 
     if id.len() > max_length {
         return Err(PluginError::ValidationError {

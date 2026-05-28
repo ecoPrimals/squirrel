@@ -108,7 +108,7 @@ pub fn is_alive(manifest: &PrimalManifest) -> bool {
 }
 
 fn manifest_directory() -> PathBuf {
-    if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
+    if let Ok(xdg) = std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR) {
         PathBuf::from(xdg).join("ecoPrimals")
     } else {
         PathBuf::from("/tmp/ecoPrimals-manifests")

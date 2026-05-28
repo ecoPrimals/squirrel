@@ -96,9 +96,10 @@ pub fn discover_tcp_endpoint(service_name: &str) -> IoResult<IpcEndpoint> {
 ///
 /// Returns paths to check for TCP discovery files in XDG-compliant order.
 pub fn get_tcp_discovery_file_candidates(service_name: &str) -> Vec<PathBuf> {
+    use universal_constants::env_vars;
     let discovery_dirs = [
-        std::env::var("XDG_RUNTIME_DIR").ok(),
-        std::env::var("HOME")
+        std::env::var(env_vars::sys::XDG_RUNTIME_DIR).ok(),
+        std::env::var(env_vars::sys::HOME)
             .ok()
             .map(|h| format!("{}/.local/share", h)),
         Some("/tmp".to_string()),
@@ -119,7 +120,7 @@ pub fn get_socket_paths(service_name: &str) -> Vec<PathBuf> {
     let mut paths = Vec::new();
 
     // XDG_RUNTIME_DIR/biomeos/{service}.sock (ecosystem convention)
-    if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
+    if let Ok(runtime_dir) = std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR) {
         paths.push(PathBuf::from(format!(
             "{}/{}/{}.sock",
             runtime_dir,
@@ -158,8 +159,8 @@ pub fn write_tcp_discovery_file(service_name: &str, addr: &std::net::SocketAddr)
 
     // XDG-compliant discovery directories (in order of preference)
     let discovery_dirs = [
-        std::env::var("XDG_RUNTIME_DIR").ok(),
-        std::env::var("HOME")
+        std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR).ok(),
+        std::env::var(universal_constants::env_vars::sys::HOME)
             .ok()
             .map(|h| format!("{}/.local/share", h)),
         Some("/tmp".to_string()),

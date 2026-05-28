@@ -185,7 +185,7 @@ impl ConfigLoader {
     /// Auto-detect and load configuration
     pub fn auto_load() -> Result<PrimalConfig, ConfigError> {
         // Try to determine primal name from environment or current directory
-        let primal_name = env::var("PRIMAL_NAME").or_else(|_| {
+        let primal_name = env::var(universal_constants::env_vars::primal::NAME).or_else(|_| {
             env::current_dir()
                 .ok()
                 .and_then(|dir| {

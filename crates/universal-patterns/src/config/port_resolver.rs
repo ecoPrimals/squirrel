@@ -155,7 +155,8 @@ impl<D: ServiceDiscovery> PortResolver<D> {
     ///
     /// Priority: environment variable → constants
     pub fn resolve_host(&self) -> String {
-        std::env::var("BIND_ADDRESS").unwrap_or_else(|_| network::DEFAULT_LOCALHOST.to_string())
+        std::env::var(universal_constants::env_vars::network::GENERIC_BIND_ADDRESS)
+            .unwrap_or_else(|_| network::DEFAULT_LOCALHOST.to_string())
     }
 
     /// Resolve full endpoint (scheme + host + port)

@@ -107,13 +107,14 @@ impl AnthropicAdapter {
         note = "Use discover_ai_providers() for automatic provider discovery"
     )]
     pub fn new() -> Result<Self, PrimalError> {
-        let api_key = std::env::var("ANTHROPIC_API_KEY")
+        let api_key = std::env::var(universal_constants::env_vars::ai::anthropic::API_KEY)
             .map_err(|_| PrimalError::ConfigError("ANTHROPIC_API_KEY not set".to_string()))?;
 
         // NUCLEUS FIX (Feb 3, 2026): Use haiku as default (available on most API keys)
         // Can be overridden per-request via the model field
-        let default_model = std::env::var("ANTHROPIC_DEFAULT_MODEL")
-            .unwrap_or_else(|_| "claude-3-haiku-20240307".to_string());
+        let default_model =
+            std::env::var(universal_constants::env_vars::ai::anthropic::DEFAULT_MODEL)
+                .unwrap_or_else(|_| "claude-3-haiku-20240307".to_string());
 
         Ok(Self {
             api_key,

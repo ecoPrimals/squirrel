@@ -318,7 +318,7 @@ pub fn validate_environment_requirements() -> Result<(), String> {
             })?;
 
             // Validate JWT secret length
-            if let Ok(secret) = env::var("SQUIRREL_JWT_SECRET")
+            if let Ok(secret) = env::var(universal_constants::env_vars::squirrel::JWT_SECRET)
                 && secret.len() < 32
             {
                 return Err(

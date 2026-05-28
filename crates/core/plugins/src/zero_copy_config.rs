@@ -64,8 +64,10 @@ impl ZeroCopyPluginConfig {
                 allowed_hosts: {
                     let localhost = universal_constants::network::DEFAULT_LOCALHOST.to_string();
                     vec![
-                        std::env::var("MCP_HOST").unwrap_or_else(|_| localhost.clone()),
-                        std::env::var("SECURITY_HOST").unwrap_or_else(|_| localhost.clone()),
+                        std::env::var(universal_constants::env_vars::mcp::HOST)
+                            .unwrap_or_else(|_| localhost.clone()),
+                        std::env::var(universal_constants::env_vars::security::HOST)
+                            .unwrap_or_else(|_| localhost.clone()),
                         localhost,
                     ]
                 },

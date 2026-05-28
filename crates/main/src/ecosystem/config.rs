@@ -78,21 +78,24 @@ impl Default for EcosystemConfig {
         Self {
             service_id: Arc::from(format!("primal-squirrel-{}", Uuid::new_v4())),
             service_name: "Squirrel AI Primal".to_string(),
-            service_host: std::env::var("SQUIRREL_HOST")
+            service_host: std::env::var(universal_constants::env_vars::squirrel::HOST)
                 .unwrap_or_else(|_| "localhost".to_string()),
-            service_port: std::env::var("SQUIRREL_PORT")
+            service_port: std::env::var(universal_constants::env_vars::squirrel::PORT)
                 .ok()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(8002),
-            service_mesh_endpoint: std::env::var("SERVICE_MESH_ENDPOINT").unwrap_or_else(|_| {
+            service_mesh_endpoint: std::env::var(
+                universal_constants::env_vars::network::SERVICE_MESH_ENDPOINT,
+            )
+            .unwrap_or_else(|_| {
                 use universal_constants::network::get_service_port;
-                let port = std::env::var("SERVICE_MESH_PORT")
+                let port = std::env::var(universal_constants::env_vars::network::SERVICE_MESH_PORT)
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("service_mesh"));
                 format!("http://localhost:{port}")
             }),
-            biome_id: std::env::var("BIOME_ID").ok(),
+            biome_id: std::env::var(universal_constants::env_vars::ecosystem::BIOME_ID).ok(),
             registry_config: EcosystemRegistryConfig::default(),
             resource_requirements: ResourceSpec::default(),
             security_config: SecurityConfig::default(),

@@ -22,10 +22,10 @@ pub fn socket_status() -> String {
 }
 
 fn discover_socket_path() -> String {
-    if let Ok(p) = std::env::var("SQUIRREL_SOCKET") {
+    if let Ok(p) = std::env::var(universal_constants::env_vars::squirrel::SOCKET) {
         return p;
     }
-    if let Ok(p) = std::env::var("BIOMEOS_SOCKET_PATH") {
+    if let Ok(p) = std::env::var(universal_constants::env_vars::ecosystem::BIOMEOS_SOCKET_PATH) {
         return p;
     }
     universal_constants::network::get_socket_dir()

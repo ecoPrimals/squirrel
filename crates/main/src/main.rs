@@ -238,7 +238,7 @@ async fn run_server(
 
     // Daemon mode: re-exec as a detached child with stdio closed.
     // The child sees SQUIRREL_DAEMONIZED=1 and skips re-exec.
-    if daemon && std::env::var("SQUIRREL_DAEMONIZED").is_err() {
+    if daemon && std::env::var(universal_constants::env_vars::squirrel::DAEMONIZED).is_err() {
         return daemonize_reexec();
     }
 
@@ -264,7 +264,7 @@ async fn run_server(
             .collect(),
         pid: Some(std::process::id()),
         started_at: Some(chrono::Utc::now().to_rfc3339()),
-        family_id: std::env::var("FAMILY_ID").ok(),
+        family_id: std::env::var(universal_constants::env_vars::ecosystem::FAMILY_ID).ok(),
     };
     if let Err(e) = universal_patterns::manifest_discovery::write_manifest(&manifest) {
         warn!("Failed to write primal manifest: {e}");
@@ -294,8 +294,8 @@ async fn run_server(
 
     // Resolve TCP port: CLI --port takes precedence, then SQUIRREL_PORT env
     let tcp_port: Option<u16> = port.or_else(|| {
-        std::env::var("SQUIRREL_PORT")
-            .or_else(|_| std::env::var("SQUIRREL_SERVER_PORT"))
+        std::env::var(universal_constants::env_vars::squirrel::PORT)
+            .or_else(|_| std::env::var(universal_constants::env_vars::squirrel::SERVER_PORT))
             .ok()
             .and_then(|p| p.parse().ok())
     });
@@ -393,7 +393,7 @@ async fn run_server(
 
     info!("Press Ctrl+C to stop");
 
-    let family_id = std::env::var("FAMILY_ID").ok();
+    let family_id = std::env::var(universal_constants::env_vars::ecosystem::FAMILY_ID).ok();
     tokio::select! {
         _ = signal_task => {
             info!("Shutting down gracefully...");

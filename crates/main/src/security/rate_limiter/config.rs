@@ -42,7 +42,9 @@ impl RateLimitConfig {
     /// Parse whitelist from `SQUIRREL_RATE_LIMIT_WHITELIST` (comma-separated IPs),
     /// falling back to loopback addresses when the variable is absent.
     fn default_whitelist() -> Vec<IpAddr> {
-        if let Ok(env_val) = std::env::var("SQUIRREL_RATE_LIMIT_WHITELIST") {
+        if let Ok(env_val) =
+            std::env::var(universal_constants::env_vars::squirrel::RATE_LIMIT_WHITELIST)
+        {
             return env_val
                 .split(',')
                 .filter_map(|s| s.trim().parse::<IpAddr>().ok())

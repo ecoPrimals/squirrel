@@ -49,9 +49,13 @@ pub struct NetworkLocation {
 impl Default for NetworkLocation {
     fn default() -> Self {
         Self {
-            region: std::env::var("DEPLOYMENT_REGION").unwrap_or_else(|_| "us-west-2".to_string()),
-            data_center: std::env::var("DATA_CENTER").ok(),
-            availability_zone: std::env::var("AVAILABILITY_ZONE").ok(),
+            region: std::env::var(universal_constants::env_vars::deploy::REGION)
+                .unwrap_or_else(|_| "us-west-2".to_string()),
+            data_center: std::env::var(universal_constants::env_vars::deploy::DATA_CENTER).ok(),
+            availability_zone: std::env::var(
+                universal_constants::env_vars::deploy::AVAILABILITY_ZONE,
+            )
+            .ok(),
             ip_address: None,
             subnet: None,
             network_id: None,

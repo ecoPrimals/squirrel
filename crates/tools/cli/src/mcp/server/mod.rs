@@ -36,24 +36,26 @@ fn safe_lock<'a, T>(mutex: &'a Mutex<T>, context: &str) -> MCPResult<std::sync::
 
 /// Get default host for the MCP server (environment-aware)
 pub fn default_host() -> String {
+    use universal_constants::env_vars;
     use universal_constants::network::{BIND_ALL_INTERFACES, LOCALHOST_IPV4};
 
-    let is_production = std::env::var("ENVIRONMENT")
+    let is_production = std::env::var(env_vars::deploy::ENVIRONMENT)
         .unwrap_or_else(|_| "development".to_string())
         .eq_ignore_ascii_case("production");
 
     if is_production {
-        std::env::var("MCP_HOST").unwrap_or_else(|_| BIND_ALL_INTERFACES.to_string())
+        std::env::var(env_vars::mcp::HOST).unwrap_or_else(|_| BIND_ALL_INTERFACES.to_string())
     } else {
-        std::env::var("MCP_HOST").unwrap_or_else(|_| LOCALHOST_IPV4.to_string())
+        std::env::var(env_vars::mcp::HOST).unwrap_or_else(|_| LOCALHOST_IPV4.to_string())
     }
 }
 
 /// Get default port for the MCP server (configurable)
 pub fn default_port() -> u16 {
+    use universal_constants::env_vars;
     use universal_constants::network::DEFAULT_CLI_MCP_PORT;
 
-    std::env::var("MCP_PORT")
+    std::env::var(env_vars::mcp::PORT)
         .ok()
         .and_then(|p| p.parse().ok())
         .unwrap_or(DEFAULT_CLI_MCP_PORT)

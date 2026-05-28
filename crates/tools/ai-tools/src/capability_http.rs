@@ -46,8 +46,10 @@ impl Default for HttpClientConfig {
         Self {
             // Default path from environment or discovery
             // NO "songbird" in the name - could be any HTTP provider!
-            socket_path: std::env::var("HTTP_CAPABILITY_SOCKET")
-                .or_else(|_| std::env::var("NETWORK_HTTP_SOCKET"))
+            socket_path: std::env::var(universal_constants::env_vars::http::CAPABILITY_SOCKET)
+                .or_else(|_| {
+                    std::env::var(universal_constants::env_vars::network::NETWORK_HTTP_SOCKET)
+                })
                 .unwrap_or_else(|_| {
                     universal_constants::network::get_socket_path("http")
                         .to_string_lossy()

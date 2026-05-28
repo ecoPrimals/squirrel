@@ -154,11 +154,12 @@ fn check_binary() -> HealthCheck {
 
 /// Check configuration
 fn check_configuration() -> HealthCheck {
+    use universal_constants::env_vars;
     let start = Instant::now();
 
-    let squirrel_port = std::env::var("SQUIRREL_PORT").ok();
-    let squirrel_socket = std::env::var("SQUIRREL_SOCKET").ok();
-    let ai_provider_sockets = std::env::var("AI_PROVIDER_SOCKETS").ok();
+    let squirrel_port = std::env::var(env_vars::squirrel::PORT).ok();
+    let squirrel_socket = std::env::var(env_vars::squirrel::SOCKET).ok();
+    let ai_provider_sockets = std::env::var(env_vars::ai::PROVIDER_SOCKETS).ok();
 
     let status = if ai_provider_sockets.is_none() {
         HealthStatus::Warning
@@ -187,14 +188,15 @@ fn check_configuration() -> HealthCheck {
 
 /// Check AI providers
 fn check_ai_providers(comprehensive: bool) -> HealthCheck {
+    use universal_constants::env_vars;
     let start = Instant::now();
 
-    let openai_key = std::env::var("OPENAI_API_KEY").ok();
-    let huggingface_key = std::env::var("HUGGINGFACE_API_KEY").ok();
-    let local_ai_url = std::env::var("LOCAL_AI_ENDPOINT")
-        .or_else(|_| std::env::var("OLLAMA_URL"))
+    let openai_key = std::env::var(env_vars::ai::openai::API_KEY).ok();
+    let huggingface_key = std::env::var(env_vars::ai::huggingface::API_KEY).ok();
+    let local_ai_url = std::env::var(env_vars::ai::local::ENDPOINT)
+        .or_else(|_| std::env::var(env_vars::ai::ollama::URL))
         .ok();
-    let ai_provider_sockets = std::env::var("AI_PROVIDER_SOCKETS").ok();
+    let ai_provider_sockets = std::env::var(env_vars::ai::PROVIDER_SOCKETS).ok();
 
     let provider_count = [
         openai_key.is_some(),
@@ -237,8 +239,11 @@ fn check_ai_providers(comprehensive: bool) -> HealthCheck {
 fn check_discovered_services() -> HealthCheck {
     let start = Instant::now();
 
-    let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
-        .or_else(|_| std::env::var("UID").map(|uid| format!("/run/user/{uid}")))
+    let runtime_dir = std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR)
+        .or_else(|_| {
+            std::env::var(universal_constants::env_vars::sys::UID)
+                .map(|uid| format!("/run/user/{uid}"))
+        })
         .unwrap_or_else(|_| "/tmp".to_string());
 
     let mut discovered = Vec::new();

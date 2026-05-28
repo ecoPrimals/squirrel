@@ -55,12 +55,15 @@ impl AIProviderSelection {
         match request.task_type.as_str() {
             "local" | "private" => {
                 // Prefer a local provider if available, but let the router decide
-                Ok(std::env::var("AI_DEFAULT_PROVIDER").unwrap_or_else(|_| "auto".to_string()))
+                Ok(
+                    std::env::var(universal_constants::env_vars::ai::DEFAULT_PROVIDER)
+                        .unwrap_or_else(|_| "auto".to_string()),
+                )
             }
-            _ => {
-                // Use environment preference or auto-select
-                Ok(std::env::var("AI_DEFAULT_PROVIDER").unwrap_or_else(|_| "auto".to_string()))
-            }
+            _ => Ok(
+                std::env::var(universal_constants::env_vars::ai::DEFAULT_PROVIDER)
+                    .unwrap_or_else(|_| "auto".to_string()),
+            ),
         }
     }
 }

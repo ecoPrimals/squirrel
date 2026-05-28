@@ -78,16 +78,17 @@ fn default_log_level() -> String {
 }
 
 fn default_output_format() -> String {
-    std::env::var("CLI_OUTPUT_FORMAT").unwrap_or_else(|_| "text".to_string())
+    std::env::var(universal_constants::env_vars::mcp::cli::OUTPUT_FORMAT)
+        .unwrap_or_else(|_| "text".to_string())
 }
 
 fn default_mcp_host() -> String {
-    std::env::var("CLI_MCP_HOST")
+    std::env::var(universal_constants::env_vars::mcp::cli::HOST)
         .unwrap_or_else(|_| crate::mcp::config::DEFAULT_DEV_HOST.to_string())
 }
 
 fn default_mcp_port() -> u16 {
-    std::env::var("CLI_MCP_PORT")
+    std::env::var(universal_constants::env_vars::mcp::cli::PORT)
         .ok()
         .and_then(|s| s.parse::<u16>().ok())
         .unwrap_or(9000)

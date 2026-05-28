@@ -229,7 +229,9 @@ pub async fn auto_detect_registry() -> DiscoveryResult<ServiceRegistryBackend> {
     use tracing::{debug, info};
 
     // 1. Check environment variable
-    if let Ok(registry_type) = std::env::var("SERVICE_REGISTRY_TYPE") {
+    if let Ok(registry_type) =
+        std::env::var(universal_constants::env_vars::discovery::SERVICE_REGISTRY_TYPE)
+    {
         info!("Service registry type specified: {}", registry_type);
         return create_registry_from_type(&registry_type).await;
     }
@@ -241,7 +243,7 @@ pub async fn auto_detect_registry() -> DiscoveryResult<ServiceRegistryBackend> {
     }
 
     // 3. Detect Consul
-    if std::env::var("CONSUL_HTTP_ADDR").is_ok() {
+    if std::env::var(universal_constants::env_vars::discovery::CONSUL_HTTP_ADDR).is_ok() {
         debug!("Detected Consul environment");
         return create_registry_from_type("consul").await;
     }

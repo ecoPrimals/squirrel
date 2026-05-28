@@ -61,14 +61,14 @@ fn get_plugin_directories() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
 
     // Check for SQUIRREL_PLUGIN_PATH environment variable
-    if let Ok(plugin_path) = env::var("SQUIRREL_PLUGIN_PATH") {
+    if let Ok(plugin_path) = env::var(universal_constants::env_vars::squirrel::PLUGIN_PATH) {
         for path in plugin_path.split(':') {
             dirs.push(PathBuf::from(path));
         }
     }
 
     // Add user's home directory plugin path
-    if let Ok(home_dir) = env::var("HOME") {
+    if let Ok(home_dir) = env::var(universal_constants::env_vars::sys::HOME) {
         let user_plugin_dir = Path::new(&home_dir).join(DEFAULT_PLUGIN_DIR);
         dirs.push(user_plugin_dir);
     }

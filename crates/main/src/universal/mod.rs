@@ -68,7 +68,7 @@ pub const VERSION: &str = "1.0.0";
 pub fn init() -> Result<(), PrimalError> {
     // Configure tracing via subscriber if RUST_LOG is unset, avoiding
     // `std::env::set_var` which is unsafe in edition 2024.
-    if std::env::var("RUST_LOG").is_err() {
+    if std::env::var(universal_constants::env_vars::logging::RUST_LOG).is_err() {
         tracing_subscriber::fmt()
             .with_env_filter("info")
             .try_init()

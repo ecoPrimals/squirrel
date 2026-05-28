@@ -84,7 +84,9 @@ impl DiscoveryOps {
         }
 
         // 2. Try SERVICE_DISCOVERY environment variable for dynamic discovery
-        if let Ok(discovery_url) = std::env::var("SERVICE_DISCOVERY_URL") {
+        if let Ok(discovery_url) =
+            std::env::var(universal_constants::env_vars::discovery::SERVICE_DISCOVERY_URL)
+        {
             tracing::debug!(
                 "Using service discovery at {} for {:?}",
                 discovery_url,
@@ -95,7 +97,7 @@ impl DiscoveryOps {
         }
 
         // 3. Try configuration file
-        if let Ok(config_path) = std::env::var("SQUIRREL_CONFIG")
+        if let Ok(config_path) = std::env::var(universal_constants::env_vars::squirrel::CONFIG)
             && let Ok(endpoint) = Self::read_endpoint_from_config(&config_path, primal_type)
         {
             tracing::debug!("Using config file {} for {:?}", config_path, primal_type);

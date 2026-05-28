@@ -72,22 +72,24 @@ impl Default for SecurityProviderConfig {
     fn default() -> Self {
         // TRUE PRIMAL: Use capability-based discovery, not hardcoded primal names
         // Endpoint will be discovered at runtime via SECURITY_SERVICE_ENDPOINT or capability discovery
-        let endpoint = std::env::var("SECURITY_SERVICE_ENDPOINT").unwrap_or_else(|_| {
-            // Fallback to standard socket path if available
-            let uid = universal_constants::sys_info::current_uid();
-            let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
-            let standard_socket = format!("/run/user/{uid}/{dir}/security.sock");
-            if std::path::Path::new(&standard_socket).exists() {
-                format!("unix://{standard_socket}")
-            } else {
-                // Last resort: use localhost with standard port (capability-based discovery)
-                let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
-                    .ok()
-                    .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(universal_constants::network::DEFAULT_SECURITY_PORT);
-                universal_constants::builders::localhost_http(port)
-            }
-        });
+        let endpoint = std::env::var(universal_constants::env_vars::security::SERVICE_ENDPOINT)
+            .unwrap_or_else(|_| {
+                // Fallback to standard socket path if available
+                let uid = universal_constants::sys_info::current_uid();
+                let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
+                let standard_socket = format!("/run/user/{uid}/{dir}/security.sock");
+                if std::path::Path::new(&standard_socket).exists() {
+                    format!("unix://{standard_socket}")
+                } else {
+                    // Last resort: use localhost with standard port (capability-based discovery)
+                    let port =
+                        std::env::var(universal_constants::env_vars::security::AUTHENTICATION_PORT)
+                            .ok()
+                            .and_then(|p| p.parse::<u16>().ok())
+                            .unwrap_or(universal_constants::network::DEFAULT_SECURITY_PORT);
+                    universal_constants::builders::localhost_http(port)
+                }
+            });
 
         Self {
             provider_type: "security.authentication".to_string(), // Capability-based, not primal name
@@ -204,13 +206,15 @@ impl Default for SecurityServiceConfig {
         // 2. SECURITY_AUTHENTICATION_PORT (port override)
         // 3. Default: http://localhost:8443
         let security_service_endpoint =
-            std::env::var("SECURITY_SERVICE_ENDPOINT").unwrap_or_else(|_| {
-                let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
-                    .ok()
-                    .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(universal_constants::network::DEFAULT_SECURITY_PORT);
-                universal_constants::builders::localhost_http(port)
-            });
+            std::env::var(universal_constants::env_vars::security::SERVICE_ENDPOINT)
+                .unwrap_or_else(|_| {
+                    let port =
+                        std::env::var(universal_constants::env_vars::security::AUTHENTICATION_PORT)
+                            .ok()
+                            .and_then(|p| p.parse::<u16>().ok())
+                            .unwrap_or(universal_constants::network::DEFAULT_SECURITY_PORT);
+                    universal_constants::builders::localhost_http(port)
+                });
 
         Self {
             security_service_endpoint,

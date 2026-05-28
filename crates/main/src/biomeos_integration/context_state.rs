@@ -376,7 +376,7 @@ impl ContextAnalytics {
                 total_accesses: 0,
                 unique_sessions: 0,
                 average_session_duration: Duration::from_secs(
-                    std::env::var("AVERAGE_SESSION_DURATION_SECS")
+                    std::env::var(universal_constants::env_vars::session::AVERAGE_DURATION_SECS)
                         .ok()
                         .and_then(|s| s.parse::<u64>().ok())
                         .unwrap_or(300),

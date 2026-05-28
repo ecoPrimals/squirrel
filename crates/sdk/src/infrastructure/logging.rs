@@ -113,12 +113,13 @@ impl From<SerializableLoggerConfig> for LoggerConfig {
 
 impl Default for LoggerConfig {
     fn default() -> Self {
-        let max_entries = std::env::var("LOG_MAX_ENTRIES")
+        use universal_constants::env_vars;
+        let max_entries = std::env::var(env_vars::logging::MAX_ENTRIES)
             .unwrap_or_else(|_| "1000".to_string())
             .parse()
             .unwrap_or(1000);
 
-        let min_level = match std::env::var("LOG_LEVEL")
+        let min_level = match std::env::var(env_vars::logging::LEVEL)
             .unwrap_or_else(|_| "info".to_string())
             .to_lowercase()
             .as_str()
@@ -132,12 +133,12 @@ impl Default for LoggerConfig {
 
         Self {
             min_level,
-            include_location: std::env::var("LOG_INCLUDE_LOCATION")
+            include_location: std::env::var(env_vars::logging::INCLUDE_LOCATION)
                 .unwrap_or_else(|_| "false".to_string())
                 .parse()
                 .unwrap_or(false),
             max_entries,
-            send_to_host: std::env::var("LOG_SEND_TO_HOST")
+            send_to_host: std::env::var(env_vars::logging::SEND_TO_HOST)
                 .unwrap_or_else(|_| "true".to_string())
                 .parse()
                 .unwrap_or(true),

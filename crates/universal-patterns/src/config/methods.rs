@@ -212,31 +212,32 @@ impl PrimalConfig {
 impl UniversalPrimalConfig {
     /// Load universal configuration from environment variables
     pub fn from_env() -> Self {
+        use universal_constants::env_vars;
         let mut config = Self::default();
 
-        if let Ok(discovery) = std::env::var("PRIMAL_AUTO_DISCOVERY") {
+        if let Ok(discovery) = std::env::var(env_vars::discovery::PRIMAL_AUTO_DISCOVERY) {
             config.auto_discovery_enabled = discovery.parse().unwrap_or(true);
         }
 
-        if let Ok(max_per_type) = std::env::var("PRIMAL_MAX_INSTANCES_PER_TYPE")
+        if let Ok(max_per_type) = std::env::var(env_vars::primal::MAX_INSTANCES_PER_TYPE)
             && let Ok(num) = max_per_type.parse::<usize>()
         {
             config.multi_instance.max_instances_per_type = num;
         }
 
-        if let Ok(max_per_user) = std::env::var("PRIMAL_MAX_INSTANCES_PER_USER")
+        if let Ok(max_per_user) = std::env::var(env_vars::primal::MAX_INSTANCES_PER_USER)
             && let Ok(num) = max_per_user.parse::<usize>()
         {
             config.multi_instance.max_instances_per_user = num;
         }
 
-        if let Ok(port_start) = std::env::var("PRIMAL_PORT_RANGE_START")
+        if let Ok(port_start) = std::env::var(env_vars::primal::PORT_RANGE_START)
             && let Ok(start) = port_start.parse::<u16>()
         {
             config.port_management.port_range.start = start;
         }
 
-        if let Ok(port_end) = std::env::var("PRIMAL_PORT_RANGE_END")
+        if let Ok(port_end) = std::env::var(env_vars::primal::PORT_RANGE_END)
             && let Ok(end) = port_end.parse::<u16>()
         {
             config.port_management.port_range.end = end;

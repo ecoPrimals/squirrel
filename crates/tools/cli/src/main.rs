@@ -140,8 +140,8 @@ async fn main() {
             "status" => {
                 let pid = std::process::id();
                 let rss_kb = read_proc_rss_kb();
-                let env_name =
-                    std::env::var("SQUIRREL_ENV").unwrap_or_else(|_| "development".into());
+                let env_name = std::env::var(universal_constants::env_vars::squirrel::ENV)
+                    .unwrap_or_else(|_| "development".into());
                 let socket_info = squirrel_cli::status::socket_status();
 
                 if use_json_output {

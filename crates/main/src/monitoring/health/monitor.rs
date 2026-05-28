@@ -256,7 +256,7 @@ impl HealthMonitor {
         socket_paths.push(crate::rpc::unix_socket::get_socket_path(
             &crate::rpc::unix_socket::get_node_id(),
         ));
-        if let Ok(extra) = std::env::var("AI_PROVIDER_SOCKETS") {
+        if let Ok(extra) = std::env::var(universal_constants::env_vars::ai::PROVIDER_SOCKETS) {
             for p in extra.split(',') {
                 let p = p.trim();
                 if !p.is_empty() {
@@ -264,8 +264,8 @@ impl HealthMonitor {
                 }
             }
         }
-        if let Ok(p) =
-            std::env::var("DISCOVERY_SOCKET").or_else(|_| std::env::var("SONGBIRD_SOCKET"))
+        if let Ok(p) = std::env::var(universal_constants::env_vars::discovery::SOCKET)
+            .or_else(|_| std::env::var(universal_constants::env_vars::primals::SONGBIRD_SOCKET))
             && !p.is_empty()
         {
             socket_paths.push(p);

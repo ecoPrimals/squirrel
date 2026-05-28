@@ -41,8 +41,8 @@ impl EcosystemService {
     /// Returns an error if the service cannot be constructed.
     pub fn new(config: EcosystemConfig, monitoring: Arc<MonitoringService>) -> Result<Self> {
         let service_id = format!("squirrel-{}", uuid::Uuid::new_v4());
-        let node_id =
-            std::env::var("NODE_ID").unwrap_or_else(|_| format!("node-{}", uuid::Uuid::new_v4()));
+        let node_id = std::env::var(universal_constants::env_vars::ecosystem::NODE_ID)
+            .unwrap_or_else(|_| format!("node-{}", uuid::Uuid::new_v4()));
 
         let state = Arc::new(EcosystemState {
             service_id,
@@ -314,7 +314,7 @@ impl EcosystemService {
     /// 3. Default: `http://{discovered_host}:{discovered_port}`
     #[must_use]
     pub fn get_endpoint(&self) -> String {
-        std::env::var("SQUIRREL_MCP_ENDPOINT").unwrap_or_else(|_| {
+        std::env::var(universal_constants::env_vars::squirrel::MCP_ENDPOINT).unwrap_or_else(|_| {
             let port = universal_constants::network::squirrel_primal_port();
             let host = universal_constants::config_helpers::get_host(
                 "SQUIRREL_HOST",
@@ -392,7 +392,7 @@ impl EcosystemService {
     /// instance. Socket-level cleanup (biomeOS heartbeat, Songbird) is handled by
     /// the signal handler in `main.rs`.
     fn unregister_from_ecosystem() {
-        let family_id = std::env::var("FAMILY_ID").ok();
+        let family_id = std::env::var(universal_constants::env_vars::ecosystem::FAMILY_ID).ok();
         if let Err(e) = universal_patterns::manifest_discovery::remove_manifest(
             universal_constants::identity::PRIMAL_ID,
             family_id.as_deref(),

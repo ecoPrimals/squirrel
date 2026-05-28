@@ -318,10 +318,11 @@ impl SquirrelBiomeOSIntegration {
         // Start AI intelligence background task
         let ai_intelligence = self.ai_intelligence.clone();
         tokio::spawn(async move {
-            let interval_secs = std::env::var("AI_INTELLIGENCE_INTERVAL_SECS")
-                .ok()
-                .and_then(|s| s.parse::<u64>().ok())
-                .unwrap_or(30);
+            let interval_secs =
+                std::env::var(universal_constants::env_vars::ai::INTELLIGENCE_INTERVAL_SECS)
+                    .ok()
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(30);
 
             let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs));
             ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -343,10 +344,11 @@ impl SquirrelBiomeOSIntegration {
         // Start MCP coordination background task
         let mcp_integration = self.mcp_integration.clone();
         tokio::spawn(async move {
-            let interval_secs = std::env::var("MCP_COORDINATION_INTERVAL_SECS")
-                .ok()
-                .and_then(|s| s.parse::<u64>().ok())
-                .unwrap_or(45);
+            let interval_secs =
+                std::env::var(universal_constants::env_vars::mcp::COORDINATION_INTERVAL_SECS)
+                    .ok()
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(45);
 
             let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs));
             ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -368,10 +370,12 @@ impl SquirrelBiomeOSIntegration {
         // Start context management background task
         let context_state = self.context_state.clone();
         tokio::spawn(async move {
-            let interval_secs = std::env::var("CONTEXT_MANAGEMENT_INTERVAL_SECS")
-                .ok()
-                .and_then(|s| s.parse::<u64>().ok())
-                .unwrap_or(45);
+            let interval_secs = std::env::var(
+                universal_constants::env_vars::session::CONTEXT_MANAGEMENT_INTERVAL_SECS,
+            )
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(45);
 
             let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs));
             ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);

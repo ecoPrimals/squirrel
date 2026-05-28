@@ -90,15 +90,17 @@ impl Default for EcosystemRegistryConfig {
     fn default() -> Self {
         use universal_constants::network::get_service_port;
 
-        let service_mesh_endpoint = std::env::var("ECOSYSTEM_SERVICE_MESH_ENDPOINT")
-            .or_else(|_| std::env::var("SERVICE_MESH_ENDPOINT"))
-            .unwrap_or_else(|_| {
-                let port = std::env::var("SERVICE_MESH_PORT")
-                    .ok()
-                    .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or_else(|| get_service_port("service_mesh"));
-                format!("http://localhost:{port}")
-            });
+        use universal_constants::env_vars;
+        let service_mesh_endpoint =
+            std::env::var(env_vars::ecosystem::ECOSYSTEM_SERVICE_MESH_ENDPOINT)
+                .or_else(|_| std::env::var(env_vars::network::SERVICE_MESH_ENDPOINT))
+                .unwrap_or_else(|_| {
+                    let port = std::env::var(env_vars::network::SERVICE_MESH_PORT)
+                        .ok()
+                        .and_then(|p| p.parse::<u16>().ok())
+                        .unwrap_or_else(|| get_service_port("service_mesh"));
+                    format!("http://localhost:{port}")
+                });
 
         Self {
             service_mesh_endpoint,
