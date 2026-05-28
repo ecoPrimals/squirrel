@@ -8,6 +8,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
+use universal_constants::env_vars;
 
 /// Configuration for AI tools
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,27 +83,26 @@ impl AIToolsConfig {
     ///
     /// Propagates I/O, TOML parse errors, and invalid numeric env values.
     pub fn from_env() -> crate::error::Result<Self> {
-        let mut config = if let Ok(config_path) = env::var("SQUIRREL_AI_CONFIG") {
+        let mut config = if let Ok(config_path) = env::var(env_vars::squirrel::AI_CONFIG) {
             let config_str = std::fs::read_to_string(config_path)?;
             toml::from_str(&config_str)?
         } else {
             Self::default()
         };
 
-        // Override with environment variables
-        if let Ok(default_provider) = env::var("SQUIRREL_DEFAULT_AI_PROVIDER") {
+        if let Ok(default_provider) = env::var(env_vars::squirrel::DEFAULT_AI_PROVIDER) {
             config.default_provider = default_provider;
         }
 
-        if let Ok(timeout) = env::var("SQUIRREL_AI_REQUEST_TIMEOUT") {
+        if let Ok(timeout) = env::var(env_vars::squirrel::AI_REQUEST_TIMEOUT) {
             config.request_timeout = timeout.parse()?;
         }
 
-        if let Ok(retries) = env::var("SQUIRREL_AI_MAX_RETRIES") {
+        if let Ok(retries) = env::var(env_vars::squirrel::AI_MAX_RETRIES) {
             config.max_retries = retries.parse()?;
         }
 
-        if let Ok(logging) = env::var("SQUIRREL_AI_ENABLE_LOGGING") {
+        if let Ok(logging) = env::var(env_vars::squirrel::AI_ENABLE_LOGGING) {
             config.enable_logging = logging.parse()?;
         }
 
@@ -114,63 +114,60 @@ impl AIToolsConfig {
 
     /// Load provider configurations from environment variables
     fn load_provider_configs(&mut self) {
-        // OpenAI configuration
-        if let Ok(api_key) = env::var("OPENAI_API_KEY") {
+        if let Ok(api_key) = env::var(env_vars::ai::openai::API_KEY) {
             let provider_config = ProviderConfig {
                 provider_type: "openai".to_string(),
                 api_key: Some(api_key),
-                base_url: env::var("OPENAI_BASE_URL").ok(),
-                default_model: env::var("OPENAI_DEFAULT_MODEL").ok(),
+                base_url: env::var(env_vars::ai::openai::BASE_URL).ok(),
+                default_model: env::var(env_vars::ai::openai::DEFAULT_MODEL).ok(),
                 settings: HashMap::new(),
             };
             self.providers.insert("openai".to_string(), provider_config);
         }
 
-        // Anthropic configuration
-        if let Ok(api_key) = env::var("ANTHROPIC_API_KEY") {
+        if let Ok(api_key) = env::var(env_vars::ai::anthropic::API_KEY) {
             let provider_config = ProviderConfig {
                 provider_type: "anthropic".to_string(),
                 api_key: Some(api_key),
-                base_url: env::var("ANTHROPIC_BASE_URL").ok(),
-                default_model: env::var("ANTHROPIC_DEFAULT_MODEL").ok(),
+                base_url: env::var(env_vars::ai::anthropic::BASE_URL).ok(),
+                default_model: env::var(env_vars::ai::anthropic::DEFAULT_MODEL).ok(),
                 settings: HashMap::new(),
             };
             self.providers
                 .insert("anthropic".to_string(), provider_config);
         }
 
-        // Google/Gemini configuration
-        if let Ok(api_key) = env::var("GEMINI_API_KEY") {
+        if let Ok(api_key) = env::var(env_vars::ai::gemini::API_KEY) {
             let provider_config = ProviderConfig {
                 provider_type: "gemini".to_string(),
                 api_key: Some(api_key),
-                base_url: env::var("GEMINI_BASE_URL").ok(),
-                default_model: env::var("GEMINI_DEFAULT_MODEL").ok(),
+                base_url: env::var(env_vars::ai::gemini::BASE_URL).ok(),
+                default_model: env::var(env_vars::ai::gemini::DEFAULT_MODEL).ok(),
                 settings: HashMap::new(),
             };
             self.providers.insert("gemini".to_string(), provider_config);
         }
 
-        // Local AI server configuration (agnostic: works with Ollama, llama.cpp, vLLM, etc.)
-        // Checks agnostic env vars first, then falls back to legacy vendor-specific ones
-        if env::var("LOCAL_AI_HOST").is_ok()
-            || env::var("LOCAL_AI_URL").is_ok()
-            || env::var("OLLAMA_HOST").is_ok()
-            || env::var("OLLAMA_URL").is_ok()
+        if env::var(env_vars::ai::local::HOST).is_ok()
+            || env::var(env_vars::ai::local::URL).is_ok()
+            || env::var(env_vars::ai::ollama::HOST).is_ok()
+            || env::var(env_vars::ai::ollama::URL).is_ok()
         {
             let mut settings = HashMap::new();
-            if let Ok(host) = env::var("LOCAL_AI_HOST").or_else(|_| env::var("OLLAMA_HOST")) {
+            if let Ok(host) = env::var(env_vars::ai::local::HOST)
+                .or_else(|_| env::var(env_vars::ai::ollama::HOST))
+            {
                 settings.insert("host".to_string(), serde_json::Value::String(host));
             }
 
             let provider_config = ProviderConfig {
                 provider_type: "local-server".to_string(),
                 api_key: None,
-                base_url: env::var("LOCAL_AI_URL")
-                    .or_else(|_| env::var("OLLAMA_URL"))
+                base_url: env::var(env_vars::ai::local::URL)
+                    .or_else(|_| env::var(env_vars::ai::ollama::URL))
                     .ok(),
-                default_model: env::var("LOCAL_AI_DEFAULT_MODEL")
-                    .or_else(|_| env::var("OLLAMA_DEFAULT_MODEL"))
+                default_model: env::var(env_vars::ai::local::DEFAULT_MODEL)
+                    .or_else(|_| env::var(env_vars::ai::ollama::DEFAULT_MODEL))
                     .ok(),
                 settings,
             };

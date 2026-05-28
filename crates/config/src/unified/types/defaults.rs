@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 
 use super::service::ServiceRegistryType;
+use universal_constants::env_vars;
 use universal_constants::network::{get_bind_address, get_service_port};
 
 // Default value functions
@@ -14,23 +15,22 @@ pub fn default_instance_id() -> String {
 }
 
 pub fn default_log_level() -> String {
-    std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string())
+    std::env::var(env_vars::logging::RUST_LOG).unwrap_or_else(|_| "info".to_string())
 }
 
-// Database defaults
 pub fn default_database_url() -> String {
-    std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite::memory:".to_string())
+    std::env::var(env_vars::database::URL).unwrap_or_else(|_| "sqlite::memory:".to_string())
 }
 
 pub fn default_max_db_connections() -> u32 {
-    std::env::var("DB_MAX_CONNECTIONS")
+    std::env::var(env_vars::database::DB_MAX_CONNECTIONS)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(10)
 }
 
 pub fn default_db_timeout() -> u64 {
-    std::env::var("DB_TIMEOUT")
+    std::env::var(env_vars::database::DB_TIMEOUT)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(30)
@@ -78,25 +78,25 @@ pub fn default_plugin_dir() -> PathBuf {
 }
 
 pub fn default_bind_address() -> String {
-    std::env::var("SQUIRREL_BIND_ADDRESS").unwrap_or_else(|_| get_bind_address())
+    std::env::var(env_vars::squirrel::BIND_ADDRESS).unwrap_or_else(|_| get_bind_address())
 }
 
 pub fn default_http_port() -> u16 {
-    std::env::var("SQUIRREL_HTTP_PORT")
+    std::env::var(env_vars::squirrel::HTTP_PORT)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or_else(|| get_service_port("websocket"))
 }
 
 pub fn default_websocket_port() -> u16 {
-    std::env::var("SQUIRREL_WEBSOCKET_PORT")
+    std::env::var(env_vars::squirrel::WEBSOCKET_PORT)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or_else(|| get_service_port("http"))
 }
 
 pub fn default_grpc_port() -> u16 {
-    std::env::var("SQUIRREL_GRPC_PORT")
+    std::env::var(env_vars::squirrel::GRPC_PORT)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or_else(|| get_service_port("admin"))

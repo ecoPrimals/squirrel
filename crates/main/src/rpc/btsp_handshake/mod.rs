@@ -99,7 +99,9 @@ pub fn is_btsp_required() -> bool {
 /// 6. Well-known basename under [`universal_constants::network::get_socket_dir`] using
 ///    [`SECURITY_CAPABILITY_SOCKET_STEM`] for on-disk layout compatibility with the security stack
 fn discover_btsp_provider() -> Result<PathBuf, BtspError> {
-    if let Ok(path) = std::env::var("BTSP_PROVIDER_SOCKET") {
+    use universal_constants::env_vars;
+
+    if let Ok(path) = std::env::var(env_vars::btsp::PROVIDER_SOCKET) {
         let p = PathBuf::from(&path);
         if p.exists() {
             debug!(path = %p.display(), "BTSP provider from env");
@@ -108,7 +110,7 @@ fn discover_btsp_provider() -> Result<PathBuf, BtspError> {
         warn!(path = %path, "BTSP_PROVIDER_SOCKET set but socket does not exist");
     }
 
-    if let Ok(path) = std::env::var("BTSP_CAPABILITY_SOCKET")
+    if let Ok(path) = std::env::var(env_vars::btsp::CAPABILITY_SOCKET)
         && !path.is_empty()
     {
         let p = PathBuf::from(&path);
@@ -119,7 +121,7 @@ fn discover_btsp_provider() -> Result<PathBuf, BtspError> {
         warn!(path = %p.display(), "BTSP_CAPABILITY_SOCKET set but socket does not exist");
     }
 
-    if let Ok(path) = std::env::var("SECURITY_SOCKET")
+    if let Ok(path) = std::env::var(env_vars::security::SOCKET)
         && !path.is_empty()
     {
         let p = PathBuf::from(path);
@@ -129,7 +131,7 @@ fn discover_btsp_provider() -> Result<PathBuf, BtspError> {
         }
     }
 
-    if let Ok(path) = std::env::var("BEARDOG_SOCKET")
+    if let Ok(path) = std::env::var(env_vars::primals::BEARDOG_SOCKET)
         && !path.is_empty()
     {
         let p = PathBuf::from(path);
@@ -210,8 +212,9 @@ where
 
 /// Read `FAMILY_SEED` (or `BEARDOG_FAMILY_SEED` fallback) and return base64-encoded.
 fn resolve_family_seed() -> Result<String, BtspError> {
-    let raw = std::env::var("FAMILY_SEED")
-        .or_else(|_| std::env::var("BEARDOG_FAMILY_SEED"))
+    use universal_constants::env_vars;
+    let raw = std::env::var(env_vars::security::FAMILY_SEED)
+        .or_else(|_| std::env::var(env_vars::primals::BEARDOG_FAMILY_SEED))
         .map_err(|_| {
             BtspError::Protocol("FAMILY_SEED or BEARDOG_FAMILY_SEED must be set for BTSP".into())
         })?;

@@ -32,14 +32,15 @@ impl Default for SecurityConfig {
             enabled: true,
             require_authentication: true,
             enable_authorization: true,
-            jwt_secret: std::env::var("JWT_SECRET").ok(),
+            jwt_secret: std::env::var(universal_constants::env_vars::security::JWT_SECRET).ok(),
             token_expiration_secs: default_token_expiration(),
             api_keys: vec![],
             allowed_origins: vec!["*".to_string()],
             tls_enabled: false,
-            tls_cert_path: std::env::var("TLS_CERT_PATH").ok(),
-            tls_key_path: std::env::var("TLS_KEY_PATH").ok(),
-            ca_cert_path: std::env::var("CA_CERT_PATH").ok(),
+            tls_cert_path: std::env::var(universal_constants::env_vars::security::TLS_CERT_PATH)
+                .ok(),
+            tls_key_path: std::env::var(universal_constants::env_vars::security::TLS_KEY_PATH).ok(),
+            ca_cert_path: std::env::var(universal_constants::env_vars::security::CA_CERT_PATH).ok(),
             mtls_enabled: false,
             encryption_default_format: default_encryption_format(),
             enable_audit: true,
@@ -112,14 +113,19 @@ impl Default for SquirrelUnifiedConfig {
                 enabled: true,
                 require_authentication: true,
                 enable_authorization: true,
-                jwt_secret: std::env::var("JWT_SECRET").ok(),
+                jwt_secret: std::env::var(universal_constants::env_vars::security::JWT_SECRET).ok(),
                 token_expiration_secs: default_token_expiration(),
                 api_keys: vec![],
                 allowed_origins: vec!["*".to_string()],
                 tls_enabled: false,
-                tls_cert_path: std::env::var("TLS_CERT_PATH").ok(),
-                tls_key_path: std::env::var("TLS_KEY_PATH").ok(),
-                ca_cert_path: std::env::var("CA_CERT_PATH").ok(),
+                tls_cert_path: std::env::var(
+                    universal_constants::env_vars::security::TLS_CERT_PATH,
+                )
+                .ok(),
+                tls_key_path: std::env::var(universal_constants::env_vars::security::TLS_KEY_PATH)
+                    .ok(),
+                ca_cert_path: std::env::var(universal_constants::env_vars::security::CA_CERT_PATH)
+                    .ok(),
                 mtls_enabled: false,
                 // Consolidated fields (Nov 9, 2025)
                 encryption_default_format: default_encryption_format(),

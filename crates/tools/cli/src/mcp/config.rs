@@ -101,24 +101,21 @@ impl Default for MCPClientConfig {
 impl MCPServerConfig {
     /// Create configuration from environment variables
     pub fn from_env() -> Self {
+        use universal_constants::env_vars;
         let mut config = Self::default();
 
-        // Host configuration
-        if let Ok(host) = std::env::var("MCP_HOST") {
+        if let Ok(host) = std::env::var(env_vars::mcp::HOST) {
             config.host = host;
         }
 
-        // Port configuration
-        if let Ok(port) = std::env::var("MCP_PORT")
+        if let Ok(port) = std::env::var(env_vars::mcp::PORT)
             && let Ok(port_num) = port.parse::<u16>()
         {
             config.port = port_num;
         }
 
-        // Environment
-        if let Ok(env) = std::env::var("ENVIRONMENT") {
+        if let Ok(env) = std::env::var(env_vars::deploy::ENVIRONMENT) {
             config.environment = env;
-            // Auto-adjust host for production
             if config.environment.eq_ignore_ascii_case("production")
                 && config.host == DEFAULT_DEV_HOST
             {
@@ -126,29 +123,25 @@ impl MCPServerConfig {
             }
         }
 
-        // Max connections
-        if let Ok(max_conn) = std::env::var("MCP_MAX_CONNECTIONS")
+        if let Ok(max_conn) = std::env::var(env_vars::mcp::MAX_CONNECTIONS)
             && let Ok(max_connections) = max_conn.parse::<usize>()
         {
             config.max_connections = max_connections;
         }
 
-        // Connection timeout
-        if let Ok(timeout) = std::env::var("MCP_CONNECTION_TIMEOUT_SECS")
+        if let Ok(timeout) = std::env::var(env_vars::mcp::CONNECTION_TIMEOUT_SECS)
             && let Ok(secs) = timeout.parse::<u64>()
         {
             config.connection_timeout = Duration::from_secs(secs);
         }
 
-        // Heartbeat interval
-        if let Ok(interval) = std::env::var("MCP_HEARTBEAT_INTERVAL_SECS")
+        if let Ok(interval) = std::env::var(env_vars::mcp::HEARTBEAT_INTERVAL_SECS)
             && let Ok(secs) = interval.parse::<u64>()
         {
             config.heartbeat_interval = Duration::from_secs(secs);
         }
 
-        // Debug logging
-        if let Ok(debug) = std::env::var("MCP_DEBUG") {
+        if let Ok(debug) = std::env::var(env_vars::mcp::DEBUG) {
             config.debug_logging = debug.eq_ignore_ascii_case("true") || debug == "1";
         }
 
@@ -157,14 +150,15 @@ impl MCPServerConfig {
 
     /// Get appropriate default host for environment
     fn default_host_for_env() -> String {
-        let is_production = std::env::var("ENVIRONMENT")
+        use universal_constants::env_vars;
+        let is_production = std::env::var(env_vars::deploy::ENVIRONMENT)
             .unwrap_or_else(|_| "development".to_string())
             .eq_ignore_ascii_case("production");
 
         if is_production {
-            std::env::var("MCP_HOST").unwrap_or_else(|_| DEFAULT_PROD_HOST.to_string())
+            std::env::var(env_vars::mcp::HOST).unwrap_or_else(|_| DEFAULT_PROD_HOST.to_string())
         } else {
-            std::env::var("MCP_HOST").unwrap_or_else(|_| DEFAULT_DEV_HOST.to_string())
+            std::env::var(env_vars::mcp::HOST).unwrap_or_else(|_| DEFAULT_DEV_HOST.to_string())
         }
     }
 
@@ -203,41 +197,38 @@ impl MCPServerConfig {
 impl MCPClientConfig {
     /// Create configuration from environment variables
     pub fn from_env() -> Self {
+        use universal_constants::env_vars;
         let mut config = Self::default();
 
-        // Host configuration
-        if let Ok(host) = std::env::var("MCP_CLIENT_HOST") {
+        if let Ok(host) = std::env::var(env_vars::mcp::client::HOST) {
             config.host = host;
-        } else if let Ok(host) = std::env::var("MCP_HOST") {
+        } else if let Ok(host) = std::env::var(env_vars::mcp::HOST) {
             config.host = host;
         }
 
-        // Port configuration
-        if let Ok(port) = std::env::var("MCP_CLIENT_PORT")
+        if let Ok(port) = std::env::var(env_vars::mcp::client::PORT)
             && let Ok(port_num) = port.parse::<u16>()
         {
             config.port = port_num;
-        } else if let Ok(port) = std::env::var("MCP_PORT")
+        } else if let Ok(port) = std::env::var(env_vars::mcp::PORT)
             && let Ok(port_num) = port.parse::<u16>()
         {
             config.port = port_num;
         }
 
-        // Timeouts
-        if let Ok(timeout) = std::env::var("MCP_CLIENT_CONNECT_TIMEOUT_SECS")
+        if let Ok(timeout) = std::env::var(env_vars::mcp::client::CONNECT_TIMEOUT_SECS)
             && let Ok(secs) = timeout.parse::<u64>()
         {
             config.connect_timeout = Duration::from_secs(secs);
         }
 
-        if let Ok(timeout) = std::env::var("MCP_CLIENT_REQUEST_TIMEOUT_SECS")
+        if let Ok(timeout) = std::env::var(env_vars::mcp::client::REQUEST_TIMEOUT_SECS)
             && let Ok(secs) = timeout.parse::<u64>()
         {
             config.request_timeout = Duration::from_secs(secs);
         }
 
-        // Retries
-        if let Ok(retries) = std::env::var("MCP_CLIENT_MAX_RETRIES")
+        if let Ok(retries) = std::env::var(env_vars::mcp::client::MAX_RETRIES)
             && let Ok(max_retries) = retries.parse::<u32>()
         {
             config.max_retries = max_retries;

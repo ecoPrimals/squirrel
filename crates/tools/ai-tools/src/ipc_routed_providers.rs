@@ -75,15 +75,16 @@ impl VendorKind {
     /// - `ANTHROPIC_API_BASE` / `ANTHROPIC_BASE_URL`
     /// - `GEMINI_API_BASE` / `GEMINI_BASE_URL`
     fn base_url(self) -> String {
+        use universal_constants::env_vars;
         match self {
-            Self::OpenAI => std::env::var("OPENAI_API_BASE")
-                .or_else(|_| std::env::var("OPENAI_BASE_URL"))
+            Self::OpenAI => std::env::var(env_vars::ai::openai::API_BASE)
+                .or_else(|_| std::env::var(env_vars::ai::openai::BASE_URL))
                 .unwrap_or_else(|_| "https://api.openai.com".to_string()),
-            Self::Anthropic => std::env::var("ANTHROPIC_API_BASE")
-                .or_else(|_| std::env::var("ANTHROPIC_BASE_URL"))
+            Self::Anthropic => std::env::var(env_vars::ai::anthropic::API_BASE)
+                .or_else(|_| std::env::var(env_vars::ai::anthropic::BASE_URL))
                 .unwrap_or_else(|_| "https://api.anthropic.com".to_string()),
-            Self::Gemini => std::env::var("GEMINI_API_BASE")
-                .or_else(|_| std::env::var("GEMINI_BASE_URL"))
+            Self::Gemini => std::env::var(env_vars::ai::gemini::API_BASE)
+                .or_else(|_| std::env::var(env_vars::ai::gemini::BASE_URL))
                 .unwrap_or_else(|_| "https://generativelanguage.googleapis.com".to_string()),
         }
     }
@@ -105,8 +106,9 @@ impl VendorKind {
 
 /// Ecosystem router service id for [`NeuralHttpClient::discover`].
 fn ipc_service_id() -> String {
-    std::env::var("SQUIRREL_ECOSYSTEM_IPC_SERVICE")
-        .or_else(|_| std::env::var("ECOSYSTEM_ROUTER_SERVICE_ID"))
+    use universal_constants::env_vars;
+    std::env::var(env_vars::squirrel::ECOSYSTEM_IPC_SERVICE)
+        .or_else(|_| std::env::var(env_vars::ecosystem::ECOSYSTEM_ROUTER_SERVICE_ID))
         .unwrap_or_else(|_| "nat0".to_string())
 }
 

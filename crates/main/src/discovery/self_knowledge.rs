@@ -14,6 +14,7 @@ use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
+use universal_constants::env_vars;
 
 fn serialize_arc_str_vec<S>(v: &[Arc<str>], s: S) -> std::result::Result<S::Ok, S::Error>
 where
@@ -106,10 +107,9 @@ impl PrimalSelfKnowledge {
 
         // Discover primal type (from ENV or default)
         let primal_type =
-            env::var("PRIMAL_TYPE").unwrap_or_else(|_| crate::niche::PRIMAL_ID.into());
+            env::var(env_vars::primal::TYPE).unwrap_or_else(|_| crate::niche::PRIMAL_ID.into());
 
-        // Discover name (from ENV or default)
-        let name = env::var("PRIMAL_NAME").unwrap_or_else(|_| {
+        let name = env::var(env_vars::primal::NAME).unwrap_or_else(|_| {
             // Default: Use binary name
             env::current_exe()
                 .ok()
@@ -134,7 +134,7 @@ impl PrimalSelfKnowledge {
             "capability.discover",
         ];
 
-        let capabilities = env::var("PRIMAL_CAPABILITIES").ok().map_or_else(
+        let capabilities = env::var(env_vars::primal::CAPABILITIES).ok().map_or_else(
             || {
                 DEFAULT_CAPABILITIES
                     .iter()
@@ -155,7 +155,9 @@ impl PrimalSelfKnowledge {
             universal_constants::sys_info::hostname().unwrap_or_else(|_| "localhost".to_string());
 
         // Port (if serving)
-        let port = env::var("PRIMAL_PORT").ok().and_then(|p| p.parse().ok());
+        let port = env::var(env_vars::primal::PORT)
+            .ok()
+            .and_then(|p| p.parse().ok());
 
         let identity = PrimalIdentity {
             name,
@@ -258,13 +260,14 @@ impl PrimalSelfKnowledge {
         }
 
         // Stage 5: Try external service registry (if configured)
-        if let Ok(registry_endpoint) = std::env::var("SERVICE_REGISTRY_ENDPOINT") {
+        if let Ok(registry_endpoint) = std::env::var(env_vars::discovery::SERVICE_REGISTRY_ENDPOINT)
+        {
             debug!(
                 "Stage 5: Trying service registry discovery for '{}'",
                 capability
             );
-            let registry_type =
-                std::env::var("SERVICE_REGISTRY_TYPE").unwrap_or_else(|_| "consul".to_string());
+            let registry_type = std::env::var(env_vars::discovery::SERVICE_REGISTRY_TYPE)
+                .unwrap_or_else(|_| "consul".to_string());
 
             let reg_type = match registry_type.to_lowercase().as_str() {
                 "consul" => crate::discovery::mechanisms::RegistryType::Consul,
@@ -375,9 +378,10 @@ impl PrimalSelfKnowledge {
         }
 
         // 3. Announce via service registry (if configured via env var)
-        if let Ok(registry_endpoint) = std::env::var("SERVICE_REGISTRY_ENDPOINT") {
-            let registry_type =
-                std::env::var("SERVICE_REGISTRY_TYPE").unwrap_or_else(|_| "consul".to_string());
+        if let Ok(registry_endpoint) = std::env::var(env_vars::discovery::SERVICE_REGISTRY_ENDPOINT)
+        {
+            let registry_type = std::env::var(env_vars::discovery::SERVICE_REGISTRY_TYPE)
+                .unwrap_or_else(|_| "consul".to_string());
 
             let reg_type = match registry_type.to_lowercase().as_str() {
                 "consul" => crate::discovery::mechanisms::RegistryType::Consul,
@@ -390,8 +394,7 @@ impl PrimalSelfKnowledge {
             let registry =
                 crate::discovery::mechanisms::RegistryDiscovery::new(reg_type, registry_endpoint);
 
-            // Get local IP address (simplified - use first non-loopback)
-            let address = std::env::var("SERVICE_ADDRESS")
+            let address = std::env::var(env_vars::network::SERVICE_ADDRESS)
                 .unwrap_or_else(|_| universal_constants::network::LOCALHOST_IPV4.to_string());
 
             let health_endpoint = Some("/health".to_string());

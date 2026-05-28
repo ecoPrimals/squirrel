@@ -313,16 +313,17 @@ impl Default for EcosystemServiceRegistration {
 
 /// Resolve an ecosystem endpoint: capability-first env > legacy BIOMEOS_ env > port fallback.
 fn resolve_ecosystem_endpoint(capability_env: &str, legacy_env: &str, path: &str) -> String {
+    use universal_constants::env_vars;
     std::env::var(capability_env)
         .or_else(|_| std::env::var(legacy_env))
         .or_else(|_| {
-            std::env::var("ECOSYSTEM_ENDPOINT")
-                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT"))
+            std::env::var(env_vars::ecosystem::ECOSYSTEM_ENDPOINT)
+                .or_else(|_| std::env::var(env_vars::ecosystem::BIOMEOS_ENDPOINT))
                 .map(|e| format!("{e}/{path}"))
         })
         .unwrap_or_else(|_| {
-            let port = std::env::var("ECOSYSTEM_PORT")
-                .or_else(|_| std::env::var("BIOMEOS_PORT"))
+            let port = std::env::var(env_vars::ecosystem::ECOSYSTEM_PORT)
+                .or_else(|_| std::env::var(env_vars::ecosystem::BIOMEOS_PORT))
                 .unwrap_or_else(|_| universal_constants::network::DEFAULT_BIOMEOS_PORT.to_string());
             format!("http://localhost:{port}/{path}")
         })
@@ -330,19 +331,20 @@ fn resolve_ecosystem_endpoint(capability_env: &str, legacy_env: &str, path: &str
 
 impl Default for EcosystemEndpoints {
     fn default() -> Self {
-        let ws = std::env::var("ECOSYSTEM_WEBSOCKET_URL")
-            .or_else(|_| std::env::var("BIOMEOS_WEBSOCKET_URL"))
+        use universal_constants::env_vars;
+        let ws = std::env::var(env_vars::ecosystem::ECOSYSTEM_WEBSOCKET_URL)
+            .or_else(|_| std::env::var(env_vars::ecosystem::BIOMEOS_WEBSOCKET_URL))
             .ok()
             .or_else(|| {
-                std::env::var("ECOSYSTEM_ENDPOINT")
-                    .or_else(|_| std::env::var("BIOMEOS_ENDPOINT"))
+                std::env::var(env_vars::ecosystem::ECOSYSTEM_ENDPOINT)
+                    .or_else(|_| std::env::var(env_vars::ecosystem::BIOMEOS_ENDPOINT))
                     .ok()
                     .map(|e| e.replace("http://", "ws://").replace("https://", "wss://"))
                     .map(|e| format!("{e}/ws"))
             })
             .or_else(|| {
-                std::env::var("ECOSYSTEM_PORT")
-                    .or_else(|_| std::env::var("BIOMEOS_PORT"))
+                std::env::var(env_vars::ecosystem::ECOSYSTEM_PORT)
+                    .or_else(|_| std::env::var(env_vars::ecosystem::BIOMEOS_PORT))
                     .ok()
                     .map(|port| format!("ws://localhost:{port}/ws"))
             })
@@ -398,12 +400,13 @@ impl Default for EcosystemCapabilities {
 
 impl Default for EcosystemSecurity {
     fn default() -> Self {
+        use universal_constants::env_vars;
         Self {
             authentication_method: "ecosystem_jwt".to_string(),
             tls_enabled: true,
             mtls_required: false,
-            trust_domain: std::env::var("SQUIRREL_TRUST_DOMAIN")
-                .or_else(|_| std::env::var("SECURITY_TRUST_DOMAIN"))
+            trust_domain: std::env::var(env_vars::squirrel::TRUST_DOMAIN)
+                .or_else(|_| std::env::var(env_vars::security::TRUST_DOMAIN))
                 .unwrap_or_else(|_| "biome.local".to_string()),
         }
     }
@@ -411,14 +414,19 @@ impl Default for EcosystemSecurity {
 
 impl Default for ResourceRequirements {
     fn default() -> Self {
+        use universal_constants::env_vars;
         Self {
-            cpu: std::env::var("SQUIRREL_RESOURCE_CPU").unwrap_or_else(|_| "4".to_string()),
-            memory: std::env::var("SQUIRREL_RESOURCE_MEMORY").unwrap_or_else(|_| "8Gi".to_string()),
-            storage: std::env::var("SQUIRREL_RESOURCE_STORAGE")
+            cpu: std::env::var(env_vars::squirrel::RESOURCE_CPU)
+                .unwrap_or_else(|_| "4".to_string()),
+            memory: std::env::var(env_vars::squirrel::RESOURCE_MEMORY)
+                .unwrap_or_else(|_| "8Gi".to_string()),
+            storage: std::env::var(env_vars::squirrel::RESOURCE_STORAGE)
                 .unwrap_or_else(|_| "20Gi".to_string()),
-            network: std::env::var("SQUIRREL_RESOURCE_NETWORK")
+            network: std::env::var(env_vars::squirrel::RESOURCE_NETWORK)
                 .unwrap_or_else(|_| "1Gbps".to_string()),
-            gpu: Some(std::env::var("SQUIRREL_RESOURCE_GPU").unwrap_or_else(|_| "1".to_string())),
+            gpu: Some(
+                std::env::var(env_vars::squirrel::RESOURCE_GPU).unwrap_or_else(|_| "1".to_string()),
+            ),
         }
     }
 }

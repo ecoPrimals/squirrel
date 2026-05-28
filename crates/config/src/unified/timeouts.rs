@@ -128,71 +128,73 @@ pub struct TimeoutConfig {
 }
 
 // Default timeout functions that check environment variables
+use universal_constants::env_vars;
+
 fn default_connection_timeout_secs() -> u64 {
-    std::env::var("SQUIRREL_CONNECTION_TIMEOUT_SECS")
+    std::env::var(env_vars::squirrel::CONNECTION_TIMEOUT_SECS)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(30)
 }
 
 fn default_request_timeout_secs() -> u64 {
-    std::env::var("SQUIRREL_REQUEST_TIMEOUT_SECS")
+    std::env::var(env_vars::squirrel::REQUEST_TIMEOUT_SECS)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(60)
 }
 
 fn default_health_check_timeout_secs() -> u64 {
-    std::env::var("SQUIRREL_HEALTH_CHECK_TIMEOUT_SECS")
+    std::env::var(env_vars::squirrel::HEALTH_CHECK_TIMEOUT_SECS)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(5)
 }
 
 fn default_operation_timeout_secs() -> u64 {
-    std::env::var("SQUIRREL_OPERATION_TIMEOUT_SECS")
+    std::env::var(env_vars::squirrel::OPERATION_TIMEOUT_SECS)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(10)
 }
 
 fn default_database_timeout_secs() -> u64 {
-    std::env::var("SQUIRREL_DATABASE_TIMEOUT_SECS")
+    std::env::var(env_vars::squirrel::DATABASE_TIMEOUT_SECS)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(30)
 }
 
 fn default_heartbeat_interval_secs() -> u64 {
-    std::env::var("SQUIRREL_HEARTBEAT_INTERVAL_SECS")
+    std::env::var(env_vars::squirrel::HEARTBEAT_INTERVAL_SECS)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(30)
 }
 
 fn default_discovery_timeout_secs() -> u64 {
-    std::env::var("SQUIRREL_DISCOVERY_TIMEOUT_SECS")
+    std::env::var(env_vars::squirrel::DISCOVERY_TIMEOUT_SECS)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(10)
 }
 
 fn default_ai_inference_timeout_secs() -> u64 {
-    std::env::var("SQUIRREL_AI_INFERENCE_TIMEOUT_SECS")
+    std::env::var(env_vars::squirrel::AI_INFERENCE_TIMEOUT_SECS)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(120)
 }
 
 fn default_plugin_load_timeout_secs() -> u64 {
-    std::env::var("SQUIRREL_PLUGIN_LOAD_TIMEOUT_SECS")
+    std::env::var(env_vars::squirrel::PLUGIN_LOAD_TIMEOUT_SECS)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(15)
 }
 
 fn default_session_timeout_secs() -> u64 {
-    std::env::var("SQUIRREL_SESSION_TIMEOUT_SECS")
+    std::env::var(env_vars::squirrel::SESSION_TIMEOUT_SECS)
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(3600)

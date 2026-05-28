@@ -329,6 +329,8 @@ pub mod mcp {
     pub const HEARTBEAT_INTERVAL_SECS: &str = "MCP_HEARTBEAT_INTERVAL_SECS";
     /// MCP coordination interval (seconds)
     pub const COORDINATION_INTERVAL_SECS: &str = "MCP_COORDINATION_INTERVAL_SECS";
+    /// MCP gRPC port (legacy compat)
+    pub const GRPC_PORT: &str = "MCP_GRPC_PORT";
 
     /// MCP client-specific vars
     pub mod client {
@@ -533,6 +535,8 @@ pub mod security {
     pub const TLS_KEY_PATH: &str = "TLS_KEY_PATH";
     /// CA cert path
     pub const CA_CERT_PATH: &str = "CA_CERT_PATH";
+    /// Family seed for BTSP key derivation
+    pub const FAMILY_SEED: &str = "FAMILY_SEED";
 }
 
 // ============================================================================
@@ -797,6 +801,18 @@ pub mod ipc {
     pub const RETRY_MAX_ATTEMPTS: &str = "IPC_RETRY_MAX_ATTEMPTS";
     /// Retry max delay (ms)
     pub const RETRY_MAX_DELAY_MS: &str = "IPC_RETRY_MAX_DELAY_MS";
+}
+
+/// Federation env vars
+pub mod federation {
+    /// Comma-separated list of federation node endpoints
+    pub const NODES: &str = "FEDERATION_NODES";
+    /// Current CPU usage for load balancing
+    pub const CPU_USAGE: &str = "FEDERATION_CPU_USAGE";
+    /// Current memory usage for load balancing
+    pub const MEMORY_USAGE: &str = "FEDERATION_MEMORY_USAGE";
+    /// Current queue length for load balancing
+    pub const QUEUE_LENGTH: &str = "FEDERATION_QUEUE_LENGTH";
 }
 
 // ============================================================================

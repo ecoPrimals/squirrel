@@ -162,7 +162,7 @@ impl FederationService {
         // This would implement actual node discovery
         // For now, using environment variables or configuration
 
-        if let Ok(nodes_config) = std::env::var("FEDERATION_NODES") {
+        if let Ok(nodes_config) = std::env::var(universal_constants::env_vars::federation::NODES) {
             for node_endpoint in nodes_config.split(',') {
                 match self.probe_federation_node(node_endpoint.trim()) {
                     Ok(node) => {
@@ -385,15 +385,16 @@ impl FederationService {
     /// Real implementation would delegate to service mesh / metrics exporter.
     fn collect_load_metrics(&self) {
         // Use config-based defaults; real metrics would come from metrics exporter
-        let cpu = std::env::var("FEDERATION_CPU_USAGE")
+        use universal_constants::env_vars;
+        let cpu = std::env::var(env_vars::federation::CPU_USAGE)
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(0.0);
-        let memory = std::env::var("FEDERATION_MEMORY_USAGE")
+        let memory = std::env::var(env_vars::federation::MEMORY_USAGE)
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(0.0);
-        let queue_length = std::env::var("FEDERATION_QUEUE_LENGTH")
+        let queue_length = std::env::var(env_vars::federation::QUEUE_LENGTH)
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(0u32);
@@ -550,7 +551,7 @@ impl FederationService {
 
     /// Create configuration for a new instance using universal-constants defaults
     fn create_instance_config(&self, instance_index: u32) -> SquirrelConfig {
-        let base_port = std::env::var("SQUIRREL_PORT")
+        let base_port = std::env::var(universal_constants::env_vars::squirrel::PORT)
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
             .unwrap_or_else(|| get_service_port("websocket"));
@@ -561,7 +562,7 @@ impl FederationService {
             DEFAULT_SQUIRREL_SERVER_PORT.saturating_add(offset)
         };
 
-        let capacity = std::env::var("SQUIRREL_INSTANCE_CAPACITY")
+        let capacity = std::env::var(universal_constants::env_vars::squirrel::INSTANCE_CAPACITY)
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(usize_to_u32_saturating(DEFAULT_MAX_CONNECTIONS));
@@ -656,8 +657,8 @@ impl FederationService {
     ///
     /// Tier: `NODE_IP` -> `MCP_HOST` -> `localhost`
     pub(super) fn resolve_node_host() -> String {
-        std::env::var("NODE_IP")
-            .or_else(|_| std::env::var("MCP_HOST"))
+        std::env::var(universal_constants::env_vars::deploy::NODE_IP)
+            .or_else(|_| std::env::var(universal_constants::env_vars::mcp::HOST))
             .unwrap_or_else(|_| universal_constants::network::DEFAULT_LOCALHOST.to_string())
     }
 

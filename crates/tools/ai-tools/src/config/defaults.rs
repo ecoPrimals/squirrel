@@ -9,6 +9,7 @@ use std::env;
 
 use universal_constants::config_helpers;
 use universal_constants::deployment::ports;
+use universal_constants::env_vars;
 use universal_constants::network::{LOCALHOST_IPV4, get_service_port};
 
 /// Default AI service endpoints with environment override support
@@ -21,14 +22,15 @@ impl DefaultEndpoints {
     /// Checks `LOCAL_AI_ENDPOINT` first, then falls back to legacy vendor-specific env vars.
     #[must_use]
     pub fn local_server_endpoint() -> String {
-        env::var("LOCAL_AI_ENDPOINT")
-            .or_else(|_| env::var("OLLAMA_ENDPOINT"))
-            .or_else(|_| env::var("LLAMACPP_ENDPOINT"))
+        env::var(env_vars::ai::local::ENDPOINT)
+            .or_else(|_| env::var(env_vars::ai::ollama::ENDPOINT))
+            .or_else(|_| env::var(env_vars::ai::local::LLAMACPP_ENDPOINT))
             .unwrap_or_else(|_| {
-                let host = env::var("LOCAL_AI_HOST")
-                    .unwrap_or_else(|_| config_helpers::get_host("LOCAL_AI_HOST", "localhost"));
-                let port = env::var("LOCAL_AI_PORT")
-                    .or_else(|_| env::var("OLLAMA_PORT"))
+                let host = env::var(env_vars::ai::local::HOST).unwrap_or_else(|_| {
+                    config_helpers::get_host(env_vars::ai::local::HOST, "localhost")
+                });
+                let port = env::var(env_vars::ai::local::PORT)
+                    .or_else(|_| env::var(env_vars::ai::ollama::PORT))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(ports::ollama);
@@ -51,11 +53,11 @@ impl DefaultEndpoints {
     /// Get MCP server endpoint from environment or default
     #[must_use]
     pub fn mcp_server_endpoint() -> String {
-        env::var("MCP_SERVER_ENDPOINT").unwrap_or_else(|_| {
-            let host = env::var("MCP_HOST")
-                .unwrap_or_else(|_| config_helpers::get_host("MCP_HOST", "localhost"));
+        env::var(env_vars::mcp::SERVER_ENDPOINT).unwrap_or_else(|_| {
+            let host = env::var(env_vars::mcp::HOST)
+                .unwrap_or_else(|_| config_helpers::get_host(env_vars::mcp::HOST, "localhost"));
             let port = config_helpers::get_port(
-                "MCP_GRPC_PORT",
+                env_vars::mcp::GRPC_PORT,
                 universal_constants::network::DEFAULT_GRPC_PORT,
             );
             format!("{host}:{port}")
@@ -65,22 +67,23 @@ impl DefaultEndpoints {
     /// Get general AI service host from environment or default
     #[must_use]
     pub fn ai_service_host() -> String {
-        env::var("AI_SERVICE_HOST")
-            .or_else(|_| env::var("MCP_HOST"))
+        env::var(env_vars::ai::SERVICE_HOST)
+            .or_else(|_| env::var(env_vars::mcp::HOST))
             .unwrap_or_else(|_| "localhost".to_string())
     }
 
     /// Get development server host from environment or default
     #[must_use]
     pub fn dev_server_host() -> String {
-        env::var("DEV_SERVER_HOST")
-            .unwrap_or_else(|_| config_helpers::get_host("DEV_SERVER_HOST", LOCALHOST_IPV4))
+        env::var(env_vars::network::DEV_SERVER_HOST).unwrap_or_else(|_| {
+            config_helpers::get_host(env_vars::network::DEV_SERVER_HOST, LOCALHOST_IPV4)
+        })
     }
 
     /// Get service discovery port from environment or default
     #[must_use]
     pub fn service_discovery_port() -> u16 {
-        env::var("SERVICE_DISCOVERY_PORT")
+        env::var(env_vars::discovery::PORT)
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
             .unwrap_or_else(|| get_service_port("discovery"))
@@ -89,8 +92,8 @@ impl DefaultEndpoints {
     /// Get CLI MCP host from environment or default
     #[must_use]
     pub fn cli_mcp_host() -> String {
-        env::var("CLI_MCP_HOST")
-            .or_else(|_| env::var("MCP_HOST"))
+        env::var(env_vars::mcp::cli::HOST)
+            .or_else(|_| env::var(env_vars::mcp::HOST))
             .unwrap_or_else(|_| "localhost".to_string())
     }
 
@@ -102,8 +105,8 @@ impl DefaultEndpoints {
     /// 3. Default: <ws://127.0.0.1> with port from `get_service_port("websocket")`
     #[must_use]
     pub fn websocket_server_url() -> String {
-        env::var("MCP_SERVER_URL").unwrap_or_else(|_| {
-            let port = env::var("MCP_SERVER_PORT")
+        env::var(env_vars::mcp::SERVER_URL).unwrap_or_else(|_| {
+            let port = env::var(env_vars::mcp::SERVER_PORT)
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
                 .unwrap_or_else(|| get_service_port("websocket"));
@@ -121,15 +124,18 @@ impl DefaultEndpoints {
     /// 4. Fallback: `SECURITY_SERVICE_PORT` / capability default from [`ports::security_service`]
     #[must_use]
     pub fn security_service_endpoint() -> String {
-        env::var("SECURITY_SERVICE_ENDPOINT")
-            .or_else(|_| env::var("SECURITY_AUTH_SERVICE_ENDPOINT"))
+        env::var(env_vars::security::SERVICE_ENDPOINT)
+            .or_else(|_| env::var(env_vars::security::AUTH_SERVICE_ENDPOINT))
             .unwrap_or_else(|_| {
-                let host = config_helpers::get_host("SECURITY_SERVICE_HOST", "localhost");
-                let port = env::var("SECURITY_AUTHENTICATION_PORT")
+                let host = config_helpers::get_host(env_vars::security::SERVICE_HOST, "localhost");
+                let port = env::var(env_vars::security::AUTHENTICATION_PORT)
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| {
-                        config_helpers::get_port("SECURITY_SERVICE_PORT", ports::security_service())
+                        config_helpers::get_port(
+                            env_vars::network::SECURITY_SERVICE_PORT,
+                            ports::security_service(),
+                        )
                     });
                 format!("http://{host}:{port}")
             })
@@ -148,18 +154,22 @@ impl DefaultEndpoints {
     ///    [`ports::service_mesh`] via `config_helpers::get_port`
     #[must_use]
     pub fn service_mesh_endpoint() -> String {
-        env::var("DISCOVERY_ENDPOINT")
-            .or_else(|_| env::var("SERVICE_MESH_ENDPOINT"))
-            .or_else(|_| env::var("SONGBIRD_ENDPOINT"))
+        env::var(env_vars::discovery::ENDPOINT)
+            .or_else(|_| env::var(env_vars::network::SERVICE_MESH_ENDPOINT))
+            .or_else(|_| env::var(env_vars::primals::SONGBIRD_ENDPOINT))
             .unwrap_or_else(|_| {
-                let host = config_helpers::get_host("SERVICE_MESH_HOST", "localhost");
-                let port = env::var("SERVICE_MESH_PORT")
-                    .or_else(|_| env::var("DISCOVERY_PORT"))
-                    .or_else(|_| env::var("SONGBIRD_PORT"))
+                let host =
+                    config_helpers::get_host(env_vars::network::SERVICE_MESH_ENDPOINT, "localhost");
+                let port = env::var(env_vars::network::SERVICE_MESH_PORT)
+                    .or_else(|_| env::var(env_vars::discovery::PORT))
+                    .or_else(|_| env::var(env_vars::primals::SONGBIRD_PORT))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| {
-                        config_helpers::get_port("SERVICE_MESH_PORT", ports::service_mesh())
+                        config_helpers::get_port(
+                            env_vars::network::SERVICE_MESH_PORT,
+                            ports::service_mesh(),
+                        )
                     });
                 format!("http://{host}:{port}")
             })
@@ -175,13 +185,13 @@ impl DefaultEndpoints {
     /// 5. Fallback: [`ports::compute_service`]
     #[must_use]
     pub fn compute_endpoint() -> String {
-        env::var("COMPUTE_SERVICE_ENDPOINT")
-            .or_else(|_| env::var("COMPUTE_ENDPOINT"))
-            .or_else(|_| env::var("TOADSTOOL_ENDPOINT"))
+        env::var(env_vars::compute::SERVICE_ENDPOINT)
+            .or_else(|_| env::var(env_vars::compute::ENDPOINT))
+            .or_else(|_| env::var(env_vars::primals::TOADSTOOL_ENDPOINT))
             .unwrap_or_else(|_| {
-                let host = config_helpers::get_host("COMPUTE_HOST", "localhost");
-                let port = env::var("COMPUTE_PORT")
-                    .or_else(|_| env::var("TOADSTOOL_PORT"))
+                let host = config_helpers::get_host(env_vars::compute::SERVICE_HOST, "localhost");
+                let port = env::var(env_vars::compute::PORT)
+                    .or_else(|_| env::var(env_vars::primals::TOADSTOOL_PORT))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(ports::compute_service);
@@ -192,8 +202,9 @@ impl DefaultEndpoints {
     /// Get network host from environment or default
     #[must_use]
     pub fn network_host() -> String {
-        env::var("NETWORK_HOST")
-            .unwrap_or_else(|_| config_helpers::get_host("NETWORK_HOST", LOCALHOST_IPV4))
+        env::var(env_vars::network::NETWORK_HOST).unwrap_or_else(|_| {
+            config_helpers::get_host(env_vars::network::NETWORK_HOST, LOCALHOST_IPV4)
+        })
     }
 
     /// Build endpoint URL with host and port
