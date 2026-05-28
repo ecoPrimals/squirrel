@@ -35,7 +35,7 @@ tracing.workspace = true
 
 # AI service clients: anthropic-sdk REMOVED, openai crate REMOVED (unused — AI routing
 # uses IPC / capability discovery, never calls the `openai` SDK directly).
-# Direct HTTP providers use `reqwest` when feature-gated.
+# All HTTP providers use pure-Rust hyper via IPC routing (no reqwest).
 
 # IPC client from universal patterns (primal autonomy - no shared external IPC crates!)
 universal-patterns.workspace = true

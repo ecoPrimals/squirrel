@@ -87,4 +87,4 @@ cargo test
 
 ## License
 
-AGPL-3.0-only — part of the ecoPrimals [scyBorg](../../LICENSE) triple-copyleft framework.
+AGPL-3.0-or-later — part of the ecoPrimals [scyBorg](../../LICENSE) triple-copyleft framework.

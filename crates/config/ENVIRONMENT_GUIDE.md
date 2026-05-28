@@ -400,7 +400,13 @@ config/
 
 ---
 
-## Docker & Container Deployment
+## Docker & Container Deployment (Historical — IPC-First Architecture)
+
+> **Note**: Squirrel now follows the Tower Atomic / IPC-first deployment
+> pattern. Production deploys use Unix domain sockets, not HTTP ports.
+> The examples below are retained for reference but do not reflect the
+> current `ecoBin` deployment model (`just build-ecobin` → static musl
+> binary with UDS binding).
 
 ### Docker Compose
 
