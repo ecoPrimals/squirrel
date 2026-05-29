@@ -119,9 +119,11 @@ pub fn get_socket_path_with(config: &SocketConfig, node_id: &str) -> String {
     }
 
     // Tier 5: Temp directory fallback
-    let fallback_path = format!("/tmp/squirrel-{family_id}-{node_id}.sock");
-    debug!("Socket Path: {fallback_path} (Tier 5 - dev/testing ONLY)");
-    fallback_path
+    let tmp = std::env::temp_dir();
+    let fallback_path = tmp.join(format!("squirrel-{family_id}-{node_id}.sock"));
+    let fallback_str = fallback_path.to_string_lossy().into_owned();
+    debug!("Socket Path: {fallback_str} (Tier 5 - dev/testing ONLY)");
+    fallback_str
 }
 
 /// Get family ID from config or use default.

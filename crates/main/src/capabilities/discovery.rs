@@ -634,7 +634,7 @@ fn get_socket_directories() -> Vec<PathBuf> {
     }
 
     // Priority 3: Fallback to standard temp/run directories (dev/testing)
-    dirs.push(PathBuf::from("/tmp"));
+    dirs.push(std::env::temp_dir());
     dirs.push(PathBuf::from("/var/run"));
 
     debug!("Socket scan directories (in order): {:?}", dirs);

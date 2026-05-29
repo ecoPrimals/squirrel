@@ -315,16 +315,20 @@ pub const BIOMEOS_SOCKET_SUBDIR: &str = "biomeos";
 /// Fallback base directory when `$XDG_RUNTIME_DIR` is not available.
 ///
 /// Used on systems without a user session manager (containers, CI).
+#[deprecated(note = "use get_socket_dir() — avoids hardcoded /tmp (DH-1)")]
 pub const BIOMEOS_SOCKET_FALLBACK_DIR: &str = "/tmp/biomeos";
 
-/// Get the XDG-compliant socket directory for biomeos primals.
+/// Get the socket directory for biomeos primals.
 ///
-/// Returns `$XDG_RUNTIME_DIR/biomeos` if the env var is set,
-/// otherwise falls back to `/tmp/biomeos`.
+/// Resolution: `$BIOMEOS_SOCKET_DIR` → `$XDG_RUNTIME_DIR/biomeos` →
+/// `{temp_dir}/biomeos`.
 #[must_use]
 pub fn get_socket_dir() -> std::path::PathBuf {
+    if let Ok(dir) = std::env::var("BIOMEOS_SOCKET_DIR") {
+        return std::path::PathBuf::from(dir);
+    }
     std::env::var("XDG_RUNTIME_DIR").map_or_else(
-        |_| std::path::PathBuf::from(BIOMEOS_SOCKET_FALLBACK_DIR),
+        |_| std::env::temp_dir().join(BIOMEOS_SOCKET_SUBDIR),
         |xdg| std::path::PathBuf::from(xdg).join(BIOMEOS_SOCKET_SUBDIR),
     )
 }
@@ -333,9 +337,9 @@ pub fn get_socket_dir() -> std::path::PathBuf {
 ///
 /// Discovery order:
 /// 1. `{SERVICE}_SOCKET` env var (e.g. `SQUIRREL_SOCKET`)
-/// 2. `$XDG_RUNTIME_DIR/biomeos/{service}-{family_id}.sock` (with `FAMILY_ID`)
-/// 3. `$XDG_RUNTIME_DIR/biomeos/{service}.sock` (no `FAMILY_ID` set)
-/// 4. `/tmp/biomeos/{service}.sock` (fallback)
+/// 2. `$BIOMEOS_SOCKET_DIR/{service}[-{family_id}].sock`
+/// 3. `$XDG_RUNTIME_DIR/biomeos/{service}[-{family_id}].sock`
+/// 4. `{temp_dir}/biomeos/{service}.sock` (fallback)
 ///
 /// Per `PRIMAL_IPC_PROTOCOL.md`, the standard socket name includes `FAMILY_ID`
 /// when set: `<primal>-${FAMILY_ID}.sock`. This allows multiple primal instances
