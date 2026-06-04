@@ -129,12 +129,8 @@ pub fn get_socket_paths(service_name: &str) -> Vec<PathBuf> {
         )));
     }
 
-    // /tmp/biomeos/{service}.sock (ecosystem fallback)
-    paths.push(PathBuf::from(format!(
-        "{}/{}.sock",
-        universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR,
-        service_name
-    )));
+    // Fallback socket dir (ecosystem fallback)
+    paths.push(universal_constants::network::get_socket_dir().join(format!("{service_name}.sock")));
 
     paths
 }
@@ -249,12 +245,15 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn test_get_socket_paths_includes_tmp() {
+    fn test_get_socket_paths_includes_fallback_dir() {
         let paths = get_socket_paths("myservice");
-        let has_tmp = paths
-            .iter()
-            .any(|p| p.to_string_lossy().starts_with("/tmp/"));
-        assert!(has_tmp, "Should include /tmp/ path");
+        let expected = universal_constants::network::get_socket_dir();
+        let has_fallback = paths.iter().any(|p| p.starts_with(&expected));
+        assert!(
+            has_fallback,
+            "Should include socket dir fallback path (got {:?})",
+            paths
+        );
     }
 
     #[cfg(unix)]

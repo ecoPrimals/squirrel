@@ -16,5 +16,5 @@ pub(super) fn discover_socket(service_id: &str) -> PathBuf {
         }
     }
 
-    PathBuf::from(universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR).join(sock_name)
+    universal_constants::network::get_socket_dir().join(sock_name)
 }

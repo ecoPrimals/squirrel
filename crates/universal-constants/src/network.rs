@@ -324,10 +324,11 @@ pub const BIOMEOS_SOCKET_FALLBACK_DIR: &str = "/tmp/biomeos";
 /// `{temp_dir}/biomeos`.
 #[must_use]
 pub fn get_socket_dir() -> std::path::PathBuf {
-    if let Ok(dir) = std::env::var("BIOMEOS_SOCKET_DIR") {
+    use crate::env_vars;
+    if let Ok(dir) = std::env::var(env_vars::ecosystem::BIOMEOS_SOCKET_DIR) {
         return std::path::PathBuf::from(dir);
     }
-    std::env::var("XDG_RUNTIME_DIR").map_or_else(
+    std::env::var(env_vars::sys::XDG_RUNTIME_DIR).map_or_else(
         |_| std::env::temp_dir().join(BIOMEOS_SOCKET_SUBDIR),
         |xdg| std::path::PathBuf::from(xdg).join(BIOMEOS_SOCKET_SUBDIR),
     )

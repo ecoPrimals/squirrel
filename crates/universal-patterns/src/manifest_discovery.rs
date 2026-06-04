@@ -108,7 +108,7 @@ pub fn is_alive(manifest: &PrimalManifest) -> bool {
 }
 
 fn manifest_directory() -> PathBuf {
-    if let Ok(dir) = std::env::var("BIOMEOS_SOCKET_DIR") {
+    if let Ok(dir) = std::env::var(universal_constants::env_vars::ecosystem::BIOMEOS_SOCKET_DIR) {
         return PathBuf::from(dir).join("..").join("ecoPrimals-manifests");
     }
     if let Ok(xdg) = std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR) {

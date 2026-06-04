@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: May 28, 2026 (Wave 59 env centralization COMPLETE)
+**Last Updated**: June 3, 2026 (Wave 76 parity sprint — freshening)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,095 passing / 0 failures across 22 workspace crates; ~1,004 `.rs` files, ~326k lines |
+| Tests | 7,097 passing / 0 failures across 22 workspace crates; ~1,004 `.rs` files, ~326k lines |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -24,7 +24,7 @@
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors + `anyhow::Result` (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`, `anyhow::Error`) |
 | Crates | 22 workspace members |
-| Files >800 lines (prod) | 0 — all production `.rs` files under 800 lines; max production file ~796L (`security/orchestrator/mod.rs`); largest test file ~370L after split |
+| Files >800 lines (prod) | 2 — `compute_client/provider_trait.rs` (983L), `api/ai/router.rs` (803L); both are trait-heavy API surfaces where splitting would lose cohesion; `env_vars.rs` (1091L) is flat constants registry |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
@@ -277,6 +277,16 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
 
 ## Changes Since Last Handoff (April 28, 2026)
+
+### June 3, 2026 (Wave 76 parity sprint — freshening)
+
+- **Mesh env var coverage**: Added `SONGBIRD_FEDERATION_ENABLED`, `SONGBIRD_FEDERATION_PORT`, `SONGBIRD_FEDERATION_BIND`, `SONGBIRD_PEERS`, `SONGBIRD_SERVICE_CONFIG_PATH` to centralized constants (biomeOS v4.03 rename from `SONGBIRD_MESH_ENABLED`)
+- **BTSP trust env vars**: Added `BTSP_BIRDSONG_KEY_LABEL`, `BTSP_LINEAGE_ROOT_PREFIX`, `BTSP_LINEAGE_MAX_DEPTH` (BearDog Wave 119 S4 auth alignment)
+- **Federation legacy alias**: Added `federation::ENABLED` for backward-compat `FEDERATION_ENABLED` fallback
+- **Deprecated constant migration**: Replaced all `BIOMEOS_SOCKET_FALLBACK_DIR` usages (6 sites) with `get_socket_dir()` — eliminates hardcoded `/tmp` path
+- **Added `BIOMEOS_SOCKET_DIR` constant**: Centralized the socket dir override env var in `ecosystem` module
+- **Clippy zero warnings**: Fixed `#[must_use]` on socket discovery functions
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,097 / 0 failures)
 
 ### May 28, 2026 session BB (Wave 59 — env centralization COMPLETE)
 

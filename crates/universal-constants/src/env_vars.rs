@@ -173,6 +173,8 @@ pub mod ecosystem {
     pub const NODE_ID: &str = "NODE_ID";
     /// Biome ID
     pub const BIOME_ID: &str = "BIOME_ID";
+    /// biomeOS socket directory override
+    pub const BIOMEOS_SOCKET_DIR: &str = "BIOMEOS_SOCKET_DIR";
 }
 
 // ============================================================================
@@ -573,6 +575,16 @@ pub mod primals {
     pub const SONGBIRD_BATCH_SIZE: &str = "SONGBIRD_BATCH_SIZE";
     /// `Songbird` flush interval
     pub const SONGBIRD_FLUSH_INTERVAL: &str = "SONGBIRD_FLUSH_INTERVAL";
+    /// `Songbird` federation enabled (canonical; renamed from `SONGBIRD_MESH_ENABLED` in biomeOS v4.03)
+    pub const SONGBIRD_FEDERATION_ENABLED: &str = "SONGBIRD_FEDERATION_ENABLED";
+    /// `Songbird` federation TCP port (default 7700)
+    pub const SONGBIRD_FEDERATION_PORT: &str = "SONGBIRD_FEDERATION_PORT";
+    /// `Songbird` federation bind address
+    pub const SONGBIRD_FEDERATION_BIND: &str = "SONGBIRD_FEDERATION_BIND";
+    /// `Songbird` peers list (comma-separated host:port for mesh seeding)
+    pub const SONGBIRD_PEERS: &str = "SONGBIRD_PEERS";
+    /// `Songbird` service config path (file-based service discovery override)
+    pub const SONGBIRD_SERVICE_CONFIG_PATH: &str = "SONGBIRD_SERVICE_CONFIG_PATH";
     /// `NestGate` endpoint
     pub const NESTGATE_ENDPOINT: &str = "NESTGATE_ENDPOINT";
     /// `NestGate` port
@@ -629,6 +641,12 @@ pub mod btsp {
     pub const PROVIDER_SOCKET: &str = "BTSP_PROVIDER_SOCKET";
     /// Handshake timeout (ms)
     pub const HANDSHAKE_TIMEOUT_MS: &str = "BTSP_HANDSHAKE_TIMEOUT_MS";
+    /// Birdsong key label for BTSP trust derivation
+    pub const BIRDSONG_KEY_LABEL: &str = "BTSP_BIRDSONG_KEY_LABEL";
+    /// Lineage root prefix for trust chain verification
+    pub const LINEAGE_ROOT_PREFIX: &str = "BTSP_LINEAGE_ROOT_PREFIX";
+    /// Max depth for lineage trust chain traversal
+    pub const LINEAGE_MAX_DEPTH: &str = "BTSP_LINEAGE_MAX_DEPTH";
 }
 
 // ============================================================================
@@ -823,6 +841,8 @@ pub mod federation {
     pub const MEMORY_USAGE: &str = "FEDERATION_MEMORY_USAGE";
     /// Current queue length for load balancing
     pub const QUEUE_LENGTH: &str = "FEDERATION_QUEUE_LENGTH";
+    /// Legacy alias for `SONGBIRD_FEDERATION_ENABLED` (honored as fallback)
+    pub const ENABLED: &str = "FEDERATION_ENABLED";
 }
 
 // ============================================================================
@@ -1035,5 +1055,37 @@ mod tests {
         assert_eq!(primals::SONGBIRD_ENDPOINT, "SONGBIRD_ENDPOINT");
         assert_eq!(primals::NESTGATE_ENDPOINT, "NESTGATE_ENDPOINT");
         assert_eq!(primals::TOADSTOOL_ENDPOINT, "TOADSTOOL_ENDPOINT");
+    }
+
+    #[test]
+    fn songbird_federation_env_vars() {
+        assert_eq!(
+            primals::SONGBIRD_FEDERATION_ENABLED,
+            "SONGBIRD_FEDERATION_ENABLED"
+        );
+        assert_eq!(
+            primals::SONGBIRD_FEDERATION_PORT,
+            "SONGBIRD_FEDERATION_PORT"
+        );
+        assert_eq!(
+            primals::SONGBIRD_FEDERATION_BIND,
+            "SONGBIRD_FEDERATION_BIND"
+        );
+        assert_eq!(primals::SONGBIRD_PEERS, "SONGBIRD_PEERS");
+        assert_eq!(
+            primals::SONGBIRD_SERVICE_CONFIG_PATH,
+            "SONGBIRD_SERVICE_CONFIG_PATH"
+        );
+        assert_eq!(federation::ENABLED, "FEDERATION_ENABLED");
+    }
+
+    #[test]
+    fn btsp_trust_env_vars() {
+        assert_eq!(btsp::CAPABILITY_SOCKET, "BTSP_CAPABILITY_SOCKET");
+        assert_eq!(btsp::PROVIDER_SOCKET, "BTSP_PROVIDER_SOCKET");
+        assert_eq!(btsp::HANDSHAKE_TIMEOUT_MS, "BTSP_HANDSHAKE_TIMEOUT_MS");
+        assert_eq!(btsp::BIRDSONG_KEY_LABEL, "BTSP_BIRDSONG_KEY_LABEL");
+        assert_eq!(btsp::LINEAGE_ROOT_PREFIX, "BTSP_LINEAGE_ROOT_PREFIX");
+        assert_eq!(btsp::LINEAGE_MAX_DEPTH, "BTSP_LINEAGE_MAX_DEPTH");
     }
 }

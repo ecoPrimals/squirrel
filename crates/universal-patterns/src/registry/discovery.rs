@@ -36,10 +36,7 @@ impl Default for DiscoveryConfig {
     fn default() -> Self {
         Self {
             // Ecosystem XDG socket convention for TRUE PRIMAL discovery
-            socket_dirs: vec![
-                universal_constants::network::get_socket_dir(),
-                PathBuf::from(universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR),
-            ],
+            socket_dirs: vec![universal_constants::network::get_socket_dir()],
             socket_patterns: vec![
                 "*.sock".to_string(),
                 "*-nat0.sock".to_string(), // Family-specific sockets

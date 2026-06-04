@@ -40,6 +40,7 @@ fn socket_is_alive_sync(path: &Path) -> bool {
 ///
 /// Checks standard locations without hardcoding a primal name.
 /// Uses connect-probe liveness (§5) to filter stale sockets.
+#[must_use]
 pub fn find_biomeos_socket() -> Option<PathBuf> {
     let socket_env = std::env::var(env_vars::ecosystem::ECOSYSTEM_ORCHESTRATOR_SOCKET)
         .or_else(|_| std::env::var(env_vars::ecosystem::BIOMEOS_SOCKET));
@@ -52,31 +53,21 @@ pub fn find_biomeos_socket() -> Option<PathBuf> {
 
     let uid = universal_constants::sys_info::current_uid();
     let dir = primal_names::BIOMEOS_SOCKET_DIR;
+    let fallback_dir = universal_constants::network::get_socket_dir();
     let candidates = [
-        format!(
+        PathBuf::from(format!(
             "/run/user/{uid}/{dir}/{}",
             primal_names::BIOMEOS_SOCKET_NAME
-        ),
-        format!(
+        )),
+        PathBuf::from(format!(
             "/run/user/{uid}/{dir}/{}",
             primal_names::NEURAL_API_SOCKET_NAME
-        ),
-        format!(
-            "{}/{}",
-            universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR,
-            primal_names::BIOMEOS_SOCKET_NAME
-        ),
-        format!(
-            "{}/{}",
-            universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR,
-            primal_names::NEURAL_API_SOCKET_NAME
-        ),
+        )),
+        fallback_dir.join(primal_names::BIOMEOS_SOCKET_NAME),
+        fallback_dir.join(primal_names::NEURAL_API_SOCKET_NAME),
     ];
 
-    candidates
-        .into_iter()
-        .map(PathBuf::from)
-        .find(|p| socket_is_alive_sync(p))
+    candidates.into_iter().find(|p| socket_is_alive_sync(p))
 }
 
 /// Send `lifecycle.register` to a biomeOS socket.
@@ -135,6 +126,7 @@ pub async fn register_with_biomeos(
 /// 5. `/tmp/biomeos/neural-api.sock`
 ///
 /// Uses connect-probe liveness to filter stale sockets.
+#[must_use]
 pub fn resolve_neural_api_socket() -> Option<PathBuf> {
     if let Ok(path) = std::env::var(env_vars::ecosystem::NEURAL_API_SOCKET) {
         let p = PathBuf::from(path);
@@ -150,22 +142,19 @@ pub fn resolve_neural_api_socket() -> Option<PathBuf> {
 
     let uid = universal_constants::sys_info::current_uid();
     let dir = primal_names::BIOMEOS_SOCKET_DIR;
-    let fallback = universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR;
+    let fallback_dir = universal_constants::network::get_socket_dir();
 
     let candidates = [
-        format!("/run/user/{uid}/{dir}/neural-api-{family}.sock"),
-        format!(
+        PathBuf::from(format!("/run/user/{uid}/{dir}/neural-api-{family}.sock")),
+        PathBuf::from(format!(
             "/run/user/{uid}/{dir}/{}",
             primal_names::NEURAL_API_SOCKET_NAME
-        ),
-        format!("{fallback}/neural-api-{family}.sock"),
-        format!("{fallback}/{}", primal_names::NEURAL_API_SOCKET_NAME),
+        )),
+        fallback_dir.join(format!("neural-api-{family}.sock")),
+        fallback_dir.join(primal_names::NEURAL_API_SOCKET_NAME),
     ];
 
-    candidates
-        .into_iter()
-        .map(PathBuf::from)
-        .find(|p| socket_is_alive_sync(p))
+    candidates.into_iter().find(|p| socket_is_alive_sync(p))
 }
 
 /// Send `primal.announce` to biomeOS Neural API with routing metadata.

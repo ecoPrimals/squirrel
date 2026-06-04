@@ -80,10 +80,10 @@ pub fn discover_socket() -> Option<PathBuf> {
     let uid = universal_constants::sys_info::current_uid();
     let dir = primal_names::BIOMEOS_SOCKET_DIR;
     let sock = primal_names::DISCOVERY_SOCKET_NAME;
-    let fallback = universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR;
+    let fallback = universal_constants::network::get_socket_dir();
     let candidates = [
         format!("/run/user/{uid}/{dir}/{sock}"),
-        format!("{fallback}/{sock}"),
+        format!("{}/{sock}", fallback.display()),
     ];
 
     candidates
