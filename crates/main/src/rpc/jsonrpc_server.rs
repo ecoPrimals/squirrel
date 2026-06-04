@@ -217,10 +217,10 @@ impl JsonRpcServer {
         }
 
         if let Some(port) = self.tcp_port {
-            let addr = format!("127.0.0.1:{port}");
+            let addr = format!("{}:{port}", universal_constants::network::LOCALHOST_IPV4);
             match tokio::net::TcpListener::bind(&addr).await {
                 Ok(tcp_listener) => {
-                    info!("TCP JSON-RPC listener on 127.0.0.1:{port}");
+                    info!("TCP JSON-RPC listener on {addr}");
                     let server = Arc::clone(&self);
                     tokio::spawn(async move {
                         Self::accept_tcp_jsonrpc(server, tcp_listener).await;

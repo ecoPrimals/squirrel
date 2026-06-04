@@ -69,7 +69,6 @@ rand.workspace = true
 
 [dev-dependencies]
 tokio-test = "0.4"
-mockall = "0.11"
 temp-env = "0.3"
 
 [features]

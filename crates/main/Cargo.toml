@@ -124,7 +124,6 @@ gpu-detection = []
 
 [dev-dependencies]
 tokio-test = "0.4"
-mockall = "0.11"
 tempfile = "3.8"
 temp-env = "0.3"  # Env var isolation for tests (avoids cross-test interference)
 pretty_assertions = "1.4"

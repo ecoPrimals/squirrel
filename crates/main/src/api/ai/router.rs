@@ -673,30 +673,47 @@ impl AiRouter {
         }
     }
 
+    /// Get providers matching a capability predicate.
+    async fn providers_for_capability(
+        &self,
+        predicate: impl Fn(&AiProvider) -> bool + Send + Sync,
+        capability: &str,
+        default_reliability: f64,
+    ) -> Result<Vec<ProviderInfo>, PrimalError> {
+        let matching: Vec<_> = {
+            let providers = self.providers.read().await;
+            providers.iter().filter(|p| predicate(p)).cloned().collect()
+        };
+        let mut infos = Vec::with_capacity(matching.len());
+        for provider in &matching {
+            infos.push(Self::provider_to_info(provider, capability, default_reliability).await);
+        }
+        debug!("Found {} {capability} providers", infos.len());
+        Ok(infos)
+    }
+
     /// Get available providers for image generation
     pub(crate) async fn get_image_generation_providers(
         &self,
     ) -> Result<Vec<ProviderInfo>, PrimalError> {
-        let providers = self.providers.read().await;
-        let mut infos = Vec::new();
-        for provider in providers.iter().filter(|p| p.supports_image_generation()) {
-            infos.push(Self::provider_to_info(provider, "image.generation", 0.95).await);
-        }
-        debug!("Found {} image generation providers", infos.len());
-        Ok(infos)
+        self.providers_for_capability(
+            AiProvider::supports_image_generation,
+            "image.generation",
+            0.95,
+        )
+        .await
     }
 
     /// Get available providers for text generation
     pub(crate) async fn get_text_generation_providers(
         &self,
     ) -> Result<Vec<ProviderInfo>, PrimalError> {
-        let providers = self.providers.read().await;
-        let mut infos = Vec::new();
-        for provider in providers.iter().filter(|p| p.supports_text_generation()) {
-            infos.push(Self::provider_to_info(provider, "text.generation", 0.99).await);
-        }
-        debug!("Found {} text generation providers", infos.len());
-        Ok(infos)
+        self.providers_for_capability(
+            AiProvider::supports_text_generation,
+            "text.generation",
+            0.99,
+        )
+        .await
     }
 
     /// List all available providers and their capabilities
