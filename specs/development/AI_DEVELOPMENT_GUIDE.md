@@ -332,7 +332,7 @@ fn bench_model_inference(b: &mut Bencher) {
 ### Internal Documentation
 
 - [MCP Protocol Specification](../active/mcp-protocol/MCP_SPECIFICATION.md)
-- [Capability Registry](../../capability_registry.toml)
+- [Capability Registry](../../config/capability_registry.toml)
 - [CURRENT_STATUS.md](../../CURRENT_STATUS.md)
 
 ### External References

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: June 3, 2026 (Wave 76 deep debt — refactor + hygiene)
+**Last Updated**: June 5, 2026 (Wave 78 parity — registry convention alignment)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -38,7 +38,7 @@
 
 ## JSON-RPC Methods
 
-Source of truth: [`capability_registry.toml`](capability_registry.toml)
+Source of truth: [`config/capability_registry.toml`](config/capability_registry.toml)
 
 | Domain | Methods |
 |--------|---------|
@@ -212,7 +212,7 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 
 | Component | Status |
 |-----------|--------|
-| Capability Registry | `capability_registry.toml` loaded at startup |
+| Capability Registry | `config/capability_registry.toml` loaded at startup |
 | Niche Self-Knowledge | `niche.rs` with capabilities, costs, deps, consumed capabilities |
 | Primal Identity | `universal-constants::identity` — centralized JWT/primal constants |
 | Deploy Graph | `squirrel_deploy.toml` (BYOB pattern) |
@@ -277,6 +277,11 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
 
 ## Changes Since Last Handoff (April 28, 2026)
+
+### June 5, 2026 (Wave 78 parity — registry convention alignment)
+
+- **`capability_registry.toml` moved to `config/`**: Aligns with ecosystem convention (biomeOS, petalTongue, sweetGrass pattern). Updated all `include_str!` compile-time paths, runtime file discovery, and documentation references.
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,098 / 0 failures)
 
 ### June 3, 2026 session B (Wave 76 deep debt — refactor + hygiene)
 

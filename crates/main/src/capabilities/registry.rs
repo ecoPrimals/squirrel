@@ -163,7 +163,7 @@ impl CapabilityRegistry {
     /// Fallback when file load fails: use embedded capability_registry.toml from workspace root.
     /// Single source of truth — no inline hardcoding of capability names.
     fn compiled_defaults() -> Self {
-        const EMBEDDED_REGISTRY: &str = include_str!("../../../../capability_registry.toml");
+        const EMBEDDED_REGISTRY: &str = include_str!("../../../../config/capability_registry.toml");
 
         match toml::from_str::<RawRegistry>(EMBEDDED_REGISTRY) {
             Ok(raw) => {
@@ -282,7 +282,7 @@ mod tests {
         let registry_path = manifest_dir
             .parent()
             .and_then(|p| p.parent())
-            .map(|p| p.join("capability_registry.toml"));
+            .map(|p| p.join("config/capability_registry.toml"));
 
         if let Some(path) = registry_path
             && path.exists()

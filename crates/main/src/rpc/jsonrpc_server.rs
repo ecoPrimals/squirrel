@@ -88,13 +88,13 @@ pub struct JsonRpcServer {
 }
 
 impl JsonRpcServer {
-    /// Load the capability registry from the workspace root or use compiled defaults
+    /// Load the capability registry from the config directory or use compiled defaults
     fn load_registry() -> Arc<crate::capabilities::registry::CapabilityRegistry> {
         let candidates = [
-            std::path::PathBuf::from("capability_registry.toml"),
+            std::path::PathBuf::from("config/capability_registry.toml"),
             std::path::PathBuf::from(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/../../capability_registry.toml"
+                "/../../config/capability_registry.toml"
             )),
         ];
         for path in &candidates {

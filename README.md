@@ -22,7 +22,7 @@ See [ORIGIN.md](ORIGIN.md) for the full story of how Squirrel was built using co
 - Context window management (`context.create` / `context.update` / `context.summarize`)
 - Human dignity evaluation on AI operations (discrimination, manipulation, oversight)
 - Session management and configuration
-- Capability registry ([`capability_registry.toml`](capability_registry.toml))
+- Capability registry ([`config/capability_registry.toml`](config/capability_registry.toml))
 - Deploy graph ([`squirrel_deploy.toml`](squirrel_deploy.toml))
 
 ### Delegates (via capability discovery — no hardcoded primal knowledge)

@@ -565,7 +565,7 @@ mod tests {
 
     #[test]
     fn capability_registry_toml_sync() {
-        let toml_str = include_str!("../../../capability_registry.toml");
+        let toml_str = include_str!("../../../config/capability_registry.toml");
         let toml: toml::Value = toml_str.parse().expect("valid TOML");
         let caps_table = toml
             .get("capabilities")

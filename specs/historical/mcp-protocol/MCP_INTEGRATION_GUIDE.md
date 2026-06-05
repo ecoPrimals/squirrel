@@ -769,7 +769,7 @@ Key points to remember:
 - Add comprehensive logging and metrics
 - Write thorough tests for your integrations
 
-For more information, see the `capability_registry.toml` at the project root and the
+For more information, see `config/capability_registry.toml` and the
 `CURRENT_STATUS.md` for the latest integration status.
 
 ---

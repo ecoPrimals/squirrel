@@ -34,7 +34,7 @@ springs = []
 | `graph` | Dependency graph parsing and validation (primalSpring BYOB) |
 | `lifecycle` | biomeOS lifecycle registration + heartbeat |
 
-## Methods (38 — registered in capability_registry.toml)
+## Methods (38 — registered in config/capability_registry.toml)
 
 - `inference.complete`, `inference.embed`, `inference.models`, `inference.register_provider`, `inference.unregister_provider`
 - `ai.query`, `ai.list_providers`, `ai.complete`, `ai.chat`
