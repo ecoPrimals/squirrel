@@ -240,25 +240,12 @@ impl JsonRpcServer {
         // Accept connections loop (primary transport)
         loop {
             match listener.accept().await {
-                Ok((mut transport, _remote_addr)) => {
+                Ok((transport, _remote_addr)) => {
                     debug!("📥 New connection accepted");
                     let server = Arc::clone(&self);
                     tokio::spawn(async move {
-                        // BTSP Phase 2: handshake when FAMILY_ID is set
-                        match super::btsp_handshake::maybe_handshake(&mut transport).await {
-                            Ok(session) => {
-                                if let Some(ref s) = session {
-                                    debug!(session_id = %s.session_id, "BTSP authenticated");
-                                }
-                            }
-                            Err(e) => {
-                                warn!("BTSP handshake failed, refusing connection: {e}");
-                                return;
-                            }
-                        }
-                        if let Err(e) = server.clone().handle_universal_connection(transport).await
-                        {
-                            error!("Error handling connection: {}", e);
+                        if let Err(e) = Self::handle_uds_connection(server, transport).await {
+                            error!("Error handling connection: {e}");
                         }
                     });
                 }
@@ -282,21 +269,9 @@ impl JsonRpcServer {
                     debug!("📥 Filesystem socket connection accepted");
                     let srv = Arc::clone(&server);
                     tokio::spawn(async move {
-                        let mut transport = UniversalTransport::UnixSocket(stream);
-                        // BTSP Phase 2: handshake when FAMILY_ID is set
-                        match super::btsp_handshake::maybe_handshake(&mut transport).await {
-                            Ok(session) => {
-                                if let Some(ref s) = session {
-                                    debug!(session_id = %s.session_id, "BTSP authenticated (fs)");
-                                }
-                            }
-                            Err(e) => {
-                                warn!("BTSP handshake failed on filesystem socket: {e}");
-                                return;
-                            }
-                        }
-                        if let Err(e) = srv.clone().handle_universal_connection(transport).await {
-                            error!("Error handling filesystem socket connection: {}", e);
+                        let transport = UniversalTransport::UnixSocket(stream);
+                        if let Err(e) = Self::handle_uds_connection(srv, transport).await {
+                            error!("Error handling filesystem socket connection: {e}");
                         }
                     });
                 }
@@ -304,6 +279,41 @@ impl JsonRpcServer {
                     error!("Failed to accept on filesystem socket: {}", e);
                 }
             }
+        }
+    }
+
+    /// Handle a single UDS connection with BTSP auto-detect (PG-14 compliant).
+    ///
+    /// If `maybe_handshake` detects plain JSON-RPC (not BTSP), the consumed first line
+    /// is re-injected into the handler so health probes and unauthenticated requests
+    /// receive proper responses instead of being silently dropped.
+    async fn handle_uds_connection(
+        server: Arc<Self>,
+        mut transport: UniversalTransport,
+    ) -> Result<()> {
+        let first_line =
+            match super::btsp_handshake::maybe_handshake(&mut transport).await {
+                Ok(session) => {
+                    if let Some(ref s) = session {
+                        debug!(session_id = %s.session_id, "BTSP authenticated");
+                    }
+                    None
+                }
+                Err(super::btsp_handshake::BtspError::PlainJsonRpc { first_line }) => {
+                    debug!("PG-14: plain JSON-RPC on BTSP socket — proceeding unauthenticated");
+                    Some(first_line)
+                }
+                Err(e) => {
+                    warn!("BTSP handshake failed, refusing connection: {e}");
+                    return Ok(());
+                }
+            };
+
+        if let Some(line) = first_line {
+            let reader = tokio::io::BufReader::new(transport);
+            server.handle_jsonrpc_with_first_line(reader, line).await
+        } else {
+            server.handle_universal_connection(transport).await
         }
     }
 
