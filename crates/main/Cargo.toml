@@ -8,6 +8,7 @@ description = "Squirrel Universal AI Primal - Main coordination primal"
 repository = "https://github.com/ecoPrimals/squirrel"
 readme = "README.md"
 keywords = ["ecoprimals", "ai", "mcp", "json-rpc"]
+default-run = "squirrel"
 categories = ["development-tools"]
 
 [dependencies]

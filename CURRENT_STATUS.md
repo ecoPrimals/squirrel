@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: June 5, 2026 (Wave 78 parity — registry convention alignment)
+**Last Updated**: June 5, 2026 (Wave 79b — VPS server mode audit)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -278,7 +278,14 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Changes Since Last Handoff (April 28, 2026)
 
-### June 5, 2026 (Wave 78 parity — registry convention alignment)
+### June 5, 2026 session B (Wave 79b — VPS server mode audit)
+
+- **Confirmed `server` subcommand fully operational**: `squirrel server --socket <path>` starts UDS JSON-RPC listener, responds to `health.check`, binds to `$XDG_RUNTIME_DIR/biomeos/squirrel-{FAMILY_ID}.sock`. The reported VPS regression was caused by deploying the wrong binary (`ai_tools_demo` from `crates/tools/ai-tools`) instead of the main `squirrel` binary from `crates/main`.
+- **Added `default-run = "squirrel"`** to `crates/main/Cargo.toml` to prevent binary ambiguity.
+- **Deployment binary**: `squirrel` (from `crates/main`). Subcommands: `server`, `client`, `doctor`, `version`. The `squirrel-cli` and `ai_tools_demo` binaries are development tools, NOT deployable services.
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,098 / 0 failures)
+
+### June 5, 2026 session A (Wave 78 parity — registry convention alignment)
 
 - **`capability_registry.toml` moved to `config/`**: Aligns with ecosystem convention (biomeOS, petalTongue, sweetGrass pattern). Updated all `include_str!` compile-time paths, runtime file discovery, and documentation references.
 - **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,098 / 0 failures)
