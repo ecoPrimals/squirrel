@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: June 5, 2026 (Wave 79b — VPS server mode audit)
+**Last Updated**: June 6, 2026 (Wave 82c — UDS health probe fix)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -277,6 +277,12 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
 
 ## Changes Since Last Handoff (April 28, 2026)
+
+### June 6, 2026 (Wave 82c — UDS health probe fix)
+
+- **Fixed UDS health probes returning empty when FAMILY_ID set**: When `SQUIRREL_FAMILY_ID` is set (production BTSP mode), `maybe_handshake()` consumed the first JSON-RPC line for BTSP detection, then returned `Err(PlainJsonRpc)`. The accept loop dropped the connection without responding. Fix: `PlainJsonRpc` variant now re-injects the consumed line into `handle_jsonrpc_with_first_line()` so PG-14 auto-detect fallback actually works.
+- **Extracted `handle_uds_connection()` helper**: DRYs both accept loops (primary + filesystem socket) and resolves `too_many_lines` clippy warning on `start()`.
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,098 / 0 failures)
 
 ### June 5, 2026 session B (Wave 79b — VPS server mode audit)
 
