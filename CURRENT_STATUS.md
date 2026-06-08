@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: June 6, 2026 (Wave 82c — UDS health probe fix)
+**Last Updated**: June 8, 2026 (Wave 100 — Transport Evolution Phase 1)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -277,6 +277,14 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
 
 ## Changes Since Last Handoff (April 28, 2026)
+
+### June 8, 2026 (Wave 100 — Transport Evolution Phase 1)
+
+- **Accept `TRANSPORT_ENDPOINT` env var**: sourDough `TransportEndpoint` standard. When set as JSON (e.g. `{"transport":"uds","path":"/run/membrane/squirrel.sock"}`), the server binds to that path. Transport decision is now launcher/Tower-injected at Tier 0 priority (above `--socket` CLI).
+- **Socket resolution priority updated**: Tier 0 TRANSPORT_ENDPOINT → Tier 1 --socket → Tier 2 config → Tier 3 env → Tier 4 fallback.
+- **Added `TRANSPORT_ENDPOINT` constant** to `universal-constants::env_vars::ecosystem`.
+- **Audit results**: 0 production TCP self-bind (only `--port` debug mode). 4 outbound TCP connects (AI adapters — Phase 2 target for `connect_transport()`). ~15 UDS connects (correct local IPC).
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,098 / 0 failures)
 
 ### June 6, 2026 (Wave 82c — UDS health probe fix)
 

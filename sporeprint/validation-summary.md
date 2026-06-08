@@ -1,7 +1,7 @@
 +++
 title = "squirrel Validation Summary"
 description = "AI inference routing, context management, capability discovery, signal composition. 7,098+ tests, 38 IPC methods, 90% coverage."
-date = 2026-05-20
+date = 2026-06-08
 
 [taxonomies]
 primals = ["squirrel"]
@@ -19,6 +19,7 @@ springs = []
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced
 - **Coverage**: 90.1% region / 89.6% line (cargo-llvm-cov)
 - **Binary**: 3.5 MB static-pie musl, stripped, BLAKE3 checksummed, zero host paths
+- **Transport**: `TRANSPORT_ENDPOINT` accepted (sourDough standard, Phase 1 complete)
 
 ## Capabilities
 
