@@ -213,11 +213,22 @@ async fn run_server(
     info!("No HTTP server - TRUE PRIMAL!");
 
     // Determine socket path using priority:
-    // 1. CLI --socket argument (HIGHEST PRIORITY)
+    // 0. TRANSPORT_ENDPOINT env (launcher-injected, sourDough standard)
+    // 1. CLI --socket argument
     // 2. config.server.socket (from config file or env)
     // 3. Environment variables (SQUIRREL_SOCKET, BIOMEOS_SOCKET_PATH)
     // 4. Default fallback (XDG or /tmp)
-    let socket_path = if let Some(path) = socket.clone() {
+    let socket_path = if let Ok(endpoint_json) =
+        std::env::var(universal_constants::env_vars::ecosystem::TRANSPORT_ENDPOINT)
+    {
+        if let Some(path) = parse_transport_endpoint_socket(&endpoint_json) {
+            info!("Socket path from TRANSPORT_ENDPOINT: {path}");
+            path
+        } else {
+            warn!("TRANSPORT_ENDPOINT set but not a UDS endpoint — ignoring");
+            resolve_socket_fallback(socket.clone(), &config)
+        }
+    } else if let Some(path) = socket.clone() {
         info!("Socket path from CLI argument: {path}");
         path
     } else if let Some(ref path) = config.server.socket {
@@ -462,5 +473,37 @@ fn print_version(verbose: bool) {
         println!("Transport:      Unix socket / Named pipe / TCP");
         println!("Discovery:      Capability-based runtime");
         println!("License:        AGPL-3.0-or-later");
+    }
+}
+
+/// Parse a sourDough `TransportEndpoint` JSON string into a UDS socket path.
+/// Returns `None` if the endpoint is not a UDS variant.
+fn parse_transport_endpoint_socket(json: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(json).ok()?;
+    let transport = value.get("transport")?.as_str()?;
+    if transport == "uds" {
+        value.get("path")?.as_str().map(String::from)
+    } else {
+        None
+    }
+}
+
+/// Fallback socket path resolution (CLI → config → auto-detect).
+fn resolve_socket_fallback(
+    socket: Option<String>,
+    config: &squirrel::config::SquirrelConfig,
+) -> String {
+    use squirrel::rpc::unix_socket;
+    if let Some(path) = socket {
+        info!("Socket path from CLI argument: {path}");
+        path
+    } else if let Some(ref path) = config.server.socket {
+        info!("Socket path from config: {path}");
+        path.clone()
+    } else {
+        let node_id = unix_socket::get_node_id();
+        let path = unix_socket::get_socket_path(&node_id);
+        info!("Socket path from auto-detection: {path}");
+        path
     }
 }

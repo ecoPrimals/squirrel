@@ -175,6 +175,9 @@ pub mod ecosystem {
     pub const BIOME_ID: &str = "BIOME_ID";
     /// biomeOS socket directory override
     pub const BIOMEOS_SOCKET_DIR: &str = "BIOMEOS_SOCKET_DIR";
+    /// Transport endpoint (JSON-encoded, sourDough `TransportEndpoint` format).
+    /// When set, the primal binds to this endpoint instead of self-selecting transport.
+    pub const TRANSPORT_ENDPOINT: &str = "TRANSPORT_ENDPOINT";
 }
 
 // ============================================================================
