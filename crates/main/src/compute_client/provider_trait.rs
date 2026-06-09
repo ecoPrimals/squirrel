@@ -472,30 +472,15 @@ impl RemoteComputeProvider {
             ComputeProviderError::ProviderError(format!("Failed to serialize request: {e}"))
         })?;
 
-        let response_bytes = if self.endpoint.starts_with("unix://") {
-            let socket_path = self.endpoint.strip_prefix("unix://").ok_or_else(|| {
-                ComputeProviderError::ProviderError("Invalid unix:// endpoint".into())
-            })?;
-            let stream = tokio::net::UnixStream::connect(socket_path)
-                .await
-                .map_err(|e| {
-                    ComputeProviderError::ProviderError(format!(
-                        "Failed to connect to compute primal at {socket_path}: {e}"
-                    ))
-                })?;
-            rpc_roundtrip(stream, &request_bytes).await?
-        } else {
-            let addr = self
-                .endpoint
-                .strip_prefix("http://")
-                .unwrap_or(&self.endpoint);
-            let stream = tokio::net::TcpStream::connect(addr).await.map_err(|e| {
+        let transport_endpoint = endpoint_to_transport(&self.endpoint);
+        let stream = crate::transport::connect_transport(&transport_endpoint)
+            .await
+            .map_err(|e| {
                 ComputeProviderError::ProviderError(format!(
-                    "Failed to connect to compute primal at {addr}: {e}"
+                    "Failed to connect to compute primal at {transport_endpoint}: {e}"
                 ))
             })?;
-            rpc_roundtrip(stream, &request_bytes).await?
-        };
+        let response_bytes = rpc_roundtrip(stream, &request_bytes).await?;
 
         let rpc_response: serde_json::Value =
             serde_json::from_slice(&response_bytes).map_err(|e| {
@@ -547,6 +532,21 @@ where
         .await
         .map_err(|e| ComputeProviderError::ProviderError(format!("Read failed: {e}")))?;
     Ok(buf)
+}
+
+/// Convert a string endpoint (`unix://path`, `http://host:port`, or `host:port`) to a `TransportEndpoint`.
+fn endpoint_to_transport(endpoint: &str) -> crate::transport::TransportEndpoint {
+    if let Some(path) = endpoint.strip_prefix("unix://") {
+        return crate::transport::TransportEndpoint::uds(path);
+    }
+    let addr = endpoint.strip_prefix("http://").unwrap_or(endpoint);
+    if let Some((host, port_str)) = addr.rsplit_once(':')
+        && let Ok(port) = port_str.parse::<u16>()
+    {
+        crate::transport::TransportEndpoint::tcp(host, port)
+    } else {
+        crate::transport::TransportEndpoint::tcp(addr, 80)
+    }
 }
 
 /// Parse a wire status string into a `WorkloadStatus` enum.

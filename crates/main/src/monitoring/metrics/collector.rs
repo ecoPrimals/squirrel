@@ -339,87 +339,52 @@ impl MetricsCollector {
 
         match component {
             "ai_intelligence" => {
-                // Zero-copy: Use static constants instead of allocating strings
                 use crate::monitoring::metric_names::ai_intelligence::{
                     AVG_PROCESSING_TIME, MEMORY_USAGE, REQUESTS_PROCESSED, SUCCESS_RATE,
                 };
-                metrics.insert(REQUESTS_PROCESSED.to_string(), 42.0);
-                metrics.insert(AVG_PROCESSING_TIME.to_string(), 150.0);
-                metrics.insert(SUCCESS_RATE.to_string(), 0.95);
-                metrics.insert(MEMORY_USAGE.to_string(), 256.0);
+                metrics.insert(REQUESTS_PROCESSED.to_string(), 0.0);
+                metrics.insert(AVG_PROCESSING_TIME.to_string(), 0.0);
+                metrics.insert(SUCCESS_RATE.to_string(), 0.0);
+                metrics.insert(MEMORY_USAGE.to_string(),
+                    universal_constants::sys_info::process_rss_mb().unwrap_or(0.0));
             }
             "mcp_integration" => {
                 use crate::monitoring::metric_names::mcp_integration::{
                     CONNECTION_COUNT, MESSAGES_RECEIVED, MESSAGES_SENT, PROTOCOL_ERRORS,
                 };
-                metrics.insert(MESSAGES_SENT.to_string(), 128.0);
-                metrics.insert(MESSAGES_RECEIVED.to_string(), 134.0);
-                metrics.insert(CONNECTION_COUNT.to_string(), 5.0);
-                metrics.insert(PROTOCOL_ERRORS.to_string(), 2.0);
+                metrics.insert(MESSAGES_SENT.to_string(), 0.0);
+                metrics.insert(MESSAGES_RECEIVED.to_string(), 0.0);
+                metrics.insert(CONNECTION_COUNT.to_string(), 0.0);
+                metrics.insert(PROTOCOL_ERRORS.to_string(), 0.0);
             }
             "context_state" => {
                 use crate::monitoring::metric_names::context_state::{
                     ACTIVE_SESSIONS, CACHE_HIT_RATE, CONTEXT_SIZE, PERSISTENCE_LATENCY,
                 };
-                metrics.insert(ACTIVE_SESSIONS.to_string(), 8.0);
-                metrics.insert(CONTEXT_SIZE.to_string(), 1024.0);
-                metrics.insert(CACHE_HIT_RATE.to_string(), 0.87);
-                metrics.insert(PERSISTENCE_LATENCY.to_string(), 25.0);
+                metrics.insert(ACTIVE_SESSIONS.to_string(), 0.0);
+                metrics.insert(CONTEXT_SIZE.to_string(), 0.0);
+                metrics.insert(CACHE_HIT_RATE.to_string(), 0.0);
+                metrics.insert(PERSISTENCE_LATENCY.to_string(), 0.0);
             }
             "agent_deployment" => {
                 use crate::monitoring::metric_names::agent_deployment::{
                     DEPLOYED_AGENTS, DEPLOYMENT_TIME, FAILED_DEPLOYMENTS, RUNNING_AGENTS,
                 };
-                metrics.insert(DEPLOYED_AGENTS.to_string(), 12.0);
-                metrics.insert(RUNNING_AGENTS.to_string(), 10.0);
-                metrics.insert(FAILED_DEPLOYMENTS.to_string(), 1.0);
-                metrics.insert(DEPLOYMENT_TIME.to_string(), 30.0);
+                metrics.insert(DEPLOYED_AGENTS.to_string(), 0.0);
+                metrics.insert(RUNNING_AGENTS.to_string(), 0.0);
+                metrics.insert(FAILED_DEPLOYMENTS.to_string(), 0.0);
+                metrics.insert(DEPLOYMENT_TIME.to_string(), 0.0);
             }
-            // Capability-domain metrics (vendor/primal agnostic)
-            "network" => {
-                use crate::monitoring::metric_names::orchestration::{
-                    HEALTH_CHECKS, LOAD_BALANCER_REQUESTS, ORCHESTRATIONS_ACTIVE,
-                    SERVICE_DISCOVERIES,
-                };
-                metrics.insert(ORCHESTRATIONS_ACTIVE.to_string(), 0.0);
-                metrics.insert(SERVICE_DISCOVERIES.to_string(), 0.0);
-                metrics.insert(LOAD_BALANCER_REQUESTS.to_string(), 0.0);
-                metrics.insert(HEALTH_CHECKS.to_string(), 0.0);
-            }
-            "compute" => {
-                use crate::monitoring::metric_names::compute::{
-                    COMPUTE_JOBS_COMPLETED, COMPUTE_JOBS_QUEUED, COMPUTE_JOBS_RUNNING,
-                    CPU_UTILIZATION,
-                };
-                metrics.insert(COMPUTE_JOBS_QUEUED.to_string(), 0.0);
-                metrics.insert(COMPUTE_JOBS_RUNNING.to_string(), 0.0);
-                metrics.insert(COMPUTE_JOBS_COMPLETED.to_string(), 0.0);
-                metrics.insert(CPU_UTILIZATION.to_string(), 0.0);
-            }
-            "storage" => {
-                use crate::monitoring::metric_names::storage::{
-                    BACKUP_OPERATIONS, REPLICATION_LAG, STORAGE_OPERATIONS, STORAGE_SIZE_GB,
-                };
-                metrics.insert(STORAGE_OPERATIONS.to_string(), 0.0);
-                metrics.insert(STORAGE_SIZE_GB.to_string(), 0.0);
-                metrics.insert(BACKUP_OPERATIONS.to_string(), 0.0);
-                metrics.insert(REPLICATION_LAG.to_string(), 0.0);
-            }
-            "security" => {
-                use crate::monitoring::metric_names::security_metrics::{
-                    AUTHENTICATION_REQUESTS, AUTHORIZATION_CHECKS, SECURITY_VIOLATIONS,
-                    TOKEN_REFRESHES,
-                };
-                metrics.insert(AUTHENTICATION_REQUESTS.to_string(), 0.0);
-                metrics.insert(AUTHORIZATION_CHECKS.to_string(), 0.0);
-                metrics.insert(SECURITY_VIOLATIONS.to_string(), 0.0);
-                metrics.insert(TOKEN_REFRESHES.to_string(), 0.0);
-            }
+            // External capability domains — squirrel does not own these metrics.
+            // Return empty; the owning primal (songBird/toadStool/nestGate/bearDog)
+            // should be queried via its own system.metrics endpoint at runtime.
+            "network" | "compute" | "storage" | "security" => {}
             _ => {
-                // Default metrics for unknown components
                 use crate::monitoring::metric_names::default::{STATUS, UPTIME};
                 metrics.insert(STATUS.to_string(), 1.0);
-                metrics.insert(UPTIME.to_string(), 3600.0);
+                #[expect(clippy::cast_precision_loss, reason = "uptime seconds fits f64")]
+                let uptime = universal_constants::sys_info::uptime_seconds().unwrap_or(0) as f64;
+                metrics.insert(UPTIME.to_string(), uptime);
             }
         }
 
@@ -492,27 +457,45 @@ impl MetricsCollector {
     }
 
     async fn get_disk_usage(&self) -> Result<f64, PrimalError> {
-        Ok(45.2)
+        universal_constants::sys_info::disk_usage_percent("/")
+            .map_err(|e| PrimalError::Internal(format!("disk_usage: {e}")))
     }
 
     async fn get_network_bytes_sent(&self) -> Result<f64, PrimalError> {
-        Ok(1024.0 * 50.0) // 50 KB/s
+        let net = universal_constants::sys_info::network_bytes()
+            .map_err(|e| PrimalError::Internal(format!("network_bytes: {e}")))?;
+        #[expect(clippy::cast_precision_loss, reason = "byte counter display")]
+        Ok(net.tx_bytes as f64)
     }
 
     async fn get_network_bytes_received(&self) -> Result<f64, PrimalError> {
-        Ok(1024.0 * 75.0) // 75 KB/s
+        let net = universal_constants::sys_info::network_bytes()
+            .map_err(|e| PrimalError::Internal(format!("network_bytes: {e}")))?;
+        #[expect(clippy::cast_precision_loss, reason = "byte counter display")]
+        Ok(net.rx_bytes as f64)
     }
 
     async fn get_active_connections(&self) -> Result<u32, PrimalError> {
-        Ok(12)
+        // Count established TCP connections from /proc/net/tcp
+        let content = std::fs::read_to_string("/proc/net/tcp")
+            .unwrap_or_default();
+        // State 01 = ESTABLISHED in /proc/net/tcp
+        let count = content.lines().skip(1)
+            .filter(|line| {
+                line.split_whitespace().nth(3)
+                    .is_some_and(|state| state == "01")
+            })
+            .count();
+        #[expect(clippy::cast_possible_truncation, reason = "TCP connections won't exceed u32")]
+        Ok(count as u32)
     }
 
     async fn get_request_rate(&self) -> Result<f64, PrimalError> {
-        Ok(45.7)
+        Ok(0.0)
     }
 
     async fn get_error_rate(&self) -> Result<f64, PrimalError> {
-        Ok(0.8)
+        Ok(0.0)
     }
 
     async fn get_avg_response_time(&self) -> Result<f64, PrimalError> {

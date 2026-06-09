@@ -204,20 +204,6 @@ impl SecurityCoordinator {
         )
     }
 
-    /// Deprecated: use [`requires_security_provider`].
-    #[deprecated(since = "0.1.0", note = "Use requires_security_provider")]
-    #[must_use]
-    pub const fn requires_security_coordination(&self, request_type: &SecurityRequestType) -> bool {
-        self.requires_security_provider(request_type)
-    }
-
-    /// Deprecated: use [`requires_security_provider`].
-    #[deprecated(since = "0.1.0", note = "Use requires_security_provider")]
-    #[must_use]
-    pub const fn requires_beardog_security(&self, request_type: &SecurityRequestType) -> bool {
-        self.requires_security_provider(request_type)
-    }
-
     /// Authenticate user via discovered security provider (capability-based; not primal-specific)
     pub async fn authenticate_with_security_provider(
         &mut self,
@@ -248,24 +234,6 @@ impl SecurityCoordinator {
             .ok_or_else(|| {
                 PrimalError::SecurityError("Security service authentication failed".to_string())
             })
-    }
-
-    /// Deprecated: use [`authenticate_with_security_provider`].
-    #[deprecated(since = "0.1.0", note = "Use authenticate_with_security_provider")]
-    pub async fn authenticate_with_security_service(
-        &mut self,
-        user_id: &str,
-    ) -> Result<String, PrimalError> {
-        self.authenticate_with_security_provider(user_id).await
-    }
-
-    /// Deprecated: use [`authenticate_with_security_provider`].
-    #[deprecated(since = "0.1.0", note = "Use authenticate_with_security_provider")]
-    pub async fn authenticate_with_beardog(
-        &mut self,
-        user_id: &str,
-    ) -> Result<String, PrimalError> {
-        self.authenticate_with_security_provider(user_id).await
     }
 
     /// Simple health check - much simpler than complex over-engineered system

@@ -410,11 +410,11 @@ impl AiRouter {
         let port = url
             .port()
             .unwrap_or_else(universal_constants::deployment::ports::ollama);
-        let addr = format!("{host}:{port}");
+        let endpoint = crate::transport::TransportEndpoint::tcp(host, port);
 
-        tokio::net::TcpStream::connect(&addr)
+        crate::transport::connect_transport(&endpoint)
             .await
-            .map_err(|e| PrimalError::OperationFailed(format!("Cannot reach {addr}: {e}")))?;
+            .map_err(|e| PrimalError::OperationFailed(format!("Cannot reach {endpoint}: {e}")))?;
 
         // Server is reachable. Prefer a compute-primal Unix socket if present.
         let socket_candidates = [compute_capability_unix_socket()];

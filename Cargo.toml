@@ -78,7 +78,7 @@ semver = "1.0"
 rand = "0.9"
 base64 = "0.22"
 # POSIX helpers without `nix` (libc FFI): rustix uses linux-raw / scoped backends.
-rustix = { version = "1.1", default-features = false, features = ["std", "process", "system"] }
+rustix = { version = "1.1", default-features = false, features = ["std", "process", "system", "fs"] }
 
 # Storage and additional dependencies
 tracing-subscriber = "0.3"

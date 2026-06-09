@@ -209,20 +209,20 @@ impl RemoteInferenceAdapter {
         })
     }
 
-    /// Check HTTP provider health via TCP connect.
+    /// Check HTTP provider health via transport connect.
     async fn http_is_available(&self) -> bool {
         let Some(endpoint) = &self.config.endpoint else {
             return false;
         };
-        let Some(addr) = parse_http_host_port(endpoint) else {
+        let Some(transport_ep) = parse_http_transport_endpoint(endpoint) else {
             return false;
         };
-        tokio::time::timeout(
+        crate::transport::connect_transport_with_timeout(
+            &transport_ep,
             std::time::Duration::from_secs(2),
-            tokio::net::TcpStream::connect(addr),
         )
         .await
-        .is_ok_and(|r| r.is_ok())
+        .is_ok()
     }
 }
 
@@ -382,10 +382,13 @@ async fn send_http_json(
 ) -> Result<serde_json::Value, PrimalError> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-    let addr = parse_http_host_port(url)
+    let transport_ep = parse_http_transport_endpoint(url)
         .ok_or_else(|| PrimalError::Configuration(format!("Invalid HTTP endpoint URL: {url}")))?;
     let path = parse_http_path(url);
-    let host = addr.split(':').next().unwrap_or(&addr);
+    let host = match &transport_ep {
+        crate::transport::TransportEndpoint::Tcp { host, .. } => host.as_str(),
+        _ => "localhost",
+    };
 
     let payload = serde_json::to_string(body)
         .map_err(|e| PrimalError::Internal(format!("JSON serialize: {e}")))?;
@@ -395,13 +398,12 @@ async fn send_http_json(
         payload.len()
     );
 
-    let mut stream = tokio::time::timeout(
+    let mut stream = crate::transport::connect_transport_with_timeout(
+        &transport_ep,
         std::time::Duration::from_secs(5),
-        tokio::net::TcpStream::connect(&addr),
     )
     .await
-    .map_err(|_| PrimalError::Internal(format!("HTTP connect timeout: {addr}")))?
-    .map_err(|e| PrimalError::Internal(format!("HTTP connect to {addr}: {e}")))?;
+    .map_err(|e| PrimalError::Internal(format!("HTTP connect to {transport_ep}: {e}")))?;
 
     stream
         .write_all(request_str.as_bytes())
@@ -429,16 +431,17 @@ async fn send_http_json(
     })
 }
 
-/// Extract `host:port` from an HTTP URL for TCP connect.
-fn parse_http_host_port(url: &str) -> Option<String> {
+/// Parse an HTTP URL into a `TransportEndpoint::Tcp` for connect.
+fn parse_http_transport_endpoint(url: &str) -> Option<crate::transport::TransportEndpoint> {
     let without_scheme = url
         .strip_prefix("http://")
         .or_else(|| url.strip_prefix("https://"))?;
     let host_port = without_scheme.split('/').next()?;
-    if host_port.contains(':') {
-        Some(host_port.to_string())
+    if let Some((host, port_str)) = host_port.rsplit_once(':') {
+        let port = port_str.parse::<u16>().ok()?;
+        Some(crate::transport::TransportEndpoint::tcp(host, port))
     } else {
-        Some(format!("{host_port}:80"))
+        Some(crate::transport::TransportEndpoint::tcp(host_port, 80))
     }
 }
 

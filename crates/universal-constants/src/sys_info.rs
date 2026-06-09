@@ -241,6 +241,81 @@ pub fn system_cpu_usage_percent() -> Result<f64, io::Error> {
     Ok(0.0)
 }
 
+/// Network I/O totals from `/proc/net/dev`.
+#[derive(Debug, Clone, Default)]
+pub struct NetworkBytes {
+    /// Total bytes received across all interfaces
+    pub rx_bytes: u64,
+    /// Total bytes transmitted across all interfaces
+    pub tx_bytes: u64,
+}
+
+/// Read cumulative network byte counters from `/proc/net/dev` (Linux).
+///
+/// # Errors
+///
+/// Returns `io::Error` if `/proc/net/dev` cannot be read.
+#[cfg(target_os = "linux")]
+pub fn network_bytes() -> Result<NetworkBytes, io::Error> {
+    let content = std::fs::read_to_string("/proc/net/dev")?;
+    let mut rx_total: u64 = 0;
+    let mut tx_total: u64 = 0;
+
+    for line in content.lines().skip(2) {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 10 {
+            let iface = parts[0].trim_end_matches(':');
+            if iface == "lo" {
+                continue;
+            }
+            if let Ok(rx) = parts[1].parse::<u64>() {
+                rx_total = rx_total.saturating_add(rx);
+            }
+            if let Ok(tx) = parts[9].parse::<u64>() {
+                tx_total = tx_total.saturating_add(tx);
+            }
+        }
+    }
+
+    Ok(NetworkBytes {
+        rx_bytes: rx_total,
+        tx_bytes: tx_total,
+    })
+}
+
+/// Stub for non-Linux platforms.
+#[cfg(not(target_os = "linux"))]
+pub fn network_bytes() -> Result<NetworkBytes, io::Error> {
+    Ok(NetworkBytes::default())
+}
+
+/// Disk usage percentage for the filesystem containing the given path.
+///
+/// Uses `rustix::fs::statvfs` (pure Rust, no libc FFI).
+///
+/// # Errors
+///
+/// Returns `io::Error` if the statvfs call fails.
+#[cfg(unix)]
+pub fn disk_usage_percent(path: &str) -> Result<f64, io::Error> {
+    let stat = rustix::fs::statvfs(path).map_err(io::Error::other)?;
+
+    #[expect(clippy::cast_precision_loss, reason = "filesystem block counts fit f64 for percentage")]
+    let total = stat.f_blocks as f64 * stat.f_frsize as f64;
+    #[expect(clippy::cast_precision_loss, reason = "filesystem block counts fit f64 for percentage")]
+    let free = stat.f_bfree as f64 * stat.f_frsize as f64;
+    if total == 0.0 {
+        return Ok(0.0);
+    }
+    Ok(((total - free) / total) * 100.0)
+}
+
+/// Stub for non-Unix platforms.
+#[cfg(not(unix))]
+pub fn disk_usage_percent(_path: &str) -> Result<f64, io::Error> {
+    Ok(0.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -348,5 +423,43 @@ mod tests {
     fn test_current_uid() {
         let uid = current_uid();
         assert!(uid < 65534, "UID should be within normal range");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_network_bytes_linux() {
+        let net = network_bytes().expect("network_bytes should succeed on Linux");
+        // A running system with any network activity should have non-zero counters
+        // (at least loopback traffic from localhost test connections)
+        assert!(
+            net.rx_bytes > 0 || net.tx_bytes > 0,
+            "at least one direction should have traffic"
+        );
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    #[test]
+    fn test_network_bytes_non_linux() {
+        let net = network_bytes().expect("network_bytes should return Ok with defaults");
+        assert_eq!(net.rx_bytes, 0);
+        assert_eq!(net.tx_bytes, 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_disk_usage_percent_root() {
+        let usage = disk_usage_percent("/").expect("disk_usage_percent should succeed for /");
+        assert!(
+            (0.0..=100.0).contains(&usage),
+            "disk usage should be 0-100%, got {usage}"
+        );
+        assert!(usage > 0.0, "root filesystem should have some usage");
+    }
+
+    #[cfg(not(unix))]
+    #[test]
+    fn test_disk_usage_percent_non_unix() {
+        let usage = disk_usage_percent("/").expect("should return 0.0 on non-unix");
+        assert_eq!(usage, 0.0);
     }
 }
