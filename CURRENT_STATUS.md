@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: June 8, 2026 (Wave 100 — Transport Evolution Phase 1)
+**Last Updated**: June 8, 2026 (Wave 101 — Transport Phase 2 + Deep Debt)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,098 passing / 0 failures across 22 workspace crates; ~1,004 `.rs` files, ~326k lines |
+| Tests | 7,109 passing / 0 failures across 22 workspace crates; ~1,004 `.rs` files, ~326k lines |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -277,6 +277,14 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
 
 ## Changes Since Last Handoff (April 28, 2026)
+
+### June 8, 2026 (Wave 101 — Transport Phase 2 + Deep Debt)
+
+- **Transport Phase 2 complete**: New `transport` module provides wire-compatible `TransportEndpoint` enum + `connect_transport()`. All 4 outbound TCP callsites (router probe, compute IPC, remote inference health + HTTP) now use `connect_transport` — zero raw `TcpStream::connect` in production paths.
+- **Metrics stubs evolved to real data**: `get_disk_usage()` uses `rustix::fs::statvfs` (pure Rust); `get_network_bytes_*()` reads `/proc/net/dev`; `get_active_connections()` parses `/proc/net/tcp`. External domain metrics (network/compute/storage/security) no longer fabricate fake values — returns empty (honest: squirrel doesn't own those metrics).
+- **Dead deprecated methods removed**: `requires_beardog_security()`, `authenticate_with_beardog()`, `authenticate_with_security_service()`, `requires_security_coordination()` — zero callers, pure dead code.
+- **New `sys_info` helpers**: `network_bytes()`, `disk_usage_percent()` (pure Rust, `/proc` + rustix).
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,109 / 0 failures)
 
 ### June 8, 2026 (Wave 100 — Transport Evolution Phase 1)
 

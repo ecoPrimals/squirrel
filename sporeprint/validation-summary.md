@@ -13,13 +13,13 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: 7,098 passing across 22 workspace crates
+- **Tests**: 7,109 passing across 22 workspace crates
 - **Source**: ~1,001 `.rs` files, ~326k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`)
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced
 - **Coverage**: 90.1% region / 89.6% line (cargo-llvm-cov)
 - **Binary**: 3.5 MB static-pie musl, stripped, BLAKE3 checksummed, zero host paths
-- **Transport**: `TRANSPORT_ENDPOINT` accepted (sourDough standard, Phase 1 complete)
+- **Transport**: Full Phase 2 — `TRANSPORT_ENDPOINT` accepted + `connect_transport()` for all outbound IPC
 
 ## Capabilities
 
