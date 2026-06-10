@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: June 8, 2026 (Wave 101 — Transport Phase 2 + Deep Debt)
+**Last Updated**: June 10, 2026 (Wave 107 — Socket Cleanup)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,109 passing / 0 failures across 22 workspace crates; ~1,004 `.rs` files, ~326k lines |
+| Tests | 7,111 passing / 0 failures across 22 workspace crates; ~1,004 `.rs` files, ~326k lines |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -277,6 +277,12 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
 
 ## Changes Since Last Handoff (April 28, 2026)
+
+### June 10, 2026 (Wave 107 — Socket Cleanup)
+
+- **Eliminated `/tmp` manifest write**: `manifest_directory()` no longer falls back to `/tmp/ecoPrimals-manifests`. Fallback chain: `BIOMEOS_SOCKET_DIR` → `$XDG_RUNTIME_DIR/ecoPrimals` → `$XDG_DATA_HOME/ecoPrimals/manifests` → `~/.local/share/ecoPrimals/manifests`. Unblocks `ProtectSystem=strict` systemd hardening.
+- **Added `XDG_DATA_HOME` constant** to `universal-constants::env_vars::sys`.
+- **Quality gates**: `fmt` ✓, `clippy 0 warnings` ✓, `test` ✓ (7,111 / 0 failures)
 
 ### June 8, 2026 (Wave 101 — Transport Phase 2 + Deep Debt)
 
