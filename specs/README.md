@@ -7,10 +7,12 @@ Architectural specifications and design documents for the Squirrel AI Coordinati
 
 ```
 specs/
-├── active/         # Active specifications (universal patterns)
-├── development/    # Development standards (AI guide)
-├── historical/     # Gen2 specs preserved as fossil record (MCP, deployment, testing)
-└── SOCKET_REGISTRY_SPEC.md
+├── historical/     # All specs preserved as fossil record
+│   ├── mcp-protocol/  # Gen2 MCP protocol docs
+│   ├── AI_DEVELOPMENT_GUIDE.md
+│   ├── UNIVERSAL_PATTERNS_SPECIFICATION.md
+│   └── ...
+└── SOCKET_REGISTRY_SPEC.md  # Active socket discovery standard
 ```
 
 Pre-alpha specs (gRPC, RBAC, resilience) are preserved in
@@ -30,12 +32,12 @@ Gen2-era specs (MCP protocol, WebSocket transport, deployment guide) were moved 
 
 | Spec | Location | Status |
 |------|----------|--------|
-| Universal Patterns | `active/UNIVERSAL_PATTERNS_SPECIFICATION.md` | active |
 | Socket Registry | `SOCKET_REGISTRY_SPEC.md` | active |
-| AI Development | `development/AI_DEVELOPMENT_GUIDE.md` | active |
-| MCP Protocol (gen2) | `historical/mcp-protocol/` | archived |
-| Deployment (gen2) | `historical/DEPLOYMENT_GUIDE.md` | archived |
-| Testing (gen2) | `historical/TESTING.md` | archived |
-| Security (gen2) | `historical/SECURITY.md` | archived |
+| Universal Patterns | `historical/UNIVERSAL_PATTERNS_SPECIFICATION.md` | fossil record |
+| AI Development | `historical/AI_DEVELOPMENT_GUIDE.md` | fossil record |
+| MCP Protocol (gen2) | `historical/mcp-protocol/` | fossil record |
+| Deployment (gen2) | `historical/DEPLOYMENT_GUIDE.md` | fossil record |
+| Testing (gen2) | `historical/TESTING.md` | fossil record |
+| Security (gen2) | `historical/SECURITY.md` | fossil record |
 
 See `README.md` and `CURRENT_STATUS.md` at repo root for the authoritative current state.

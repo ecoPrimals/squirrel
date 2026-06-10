@@ -11,6 +11,16 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (June 10, 2026 — Waves 100-107: Transport Evolution + Socket Cleanup)
+
+- **Transport Evolution Phase 1+2 complete**: Accept `TRANSPORT_ENDPOINT` env var (Tier 0 priority, launcher-injected). New `crates/main/src/transport.rs` module provides wire-compatible `TransportEndpoint` enum + `connect_transport()`. All 4 outbound TCP callsites converted.
+- **Socket cleanup (Wave 107)**: `manifest_directory()` no longer falls back to `/tmp`. Resolution: `BIOMEOS_SOCKET_DIR` → `$XDG_RUNTIME_DIR` → `$XDG_DATA_HOME` → `~/.local/share`. Unblocks `ProtectSystem=strict` systemd hardening.
+- **Deep debt elimination**: Metrics stubs evolved to real `/proc` data (disk, network, connections via pure Rust). External domain metrics return empty (honest). 4 dead deprecated methods removed.
+- **UDS health probe fix (Wave 82c)**: `PlainJsonRpc` variant now re-injects consumed line so PG-14 auto-detect fallback works in BTSP mode.
+- **sys_info expansion**: `network_bytes()`, `disk_usage_percent()` (pure Rust via `/proc` + `rustix::fs::statvfs`).
+- **Quality gates**: 7,111 tests, 0 failures, 0 clippy warnings, 0 unsafe code.
+- **Commits**: `5172ef50` through `fd5b002a` (8 commits, Waves 82c–107)
+
 ### Summary (May 28, 2026 — session BK: Deep Debt Hardcoding Elimination)
 
 - **Cross-primal hardcoding eliminated**: Removed `"toadstool"` from compute provider match arm and `TOADSTOOL_ENDPOINT` env fallback — compute primal discovered via capability-based `COMPUTE_ENDPOINT`/`COMPUTE_SERVICE_ENDPOINT` (no primal name hardcoding)
