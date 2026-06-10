@@ -944,6 +944,8 @@ pub mod sys {
     pub const UID: &str = "UID";
     /// XDG runtime directory
     pub const XDG_RUNTIME_DIR: &str = "XDG_RUNTIME_DIR";
+    /// XDG data home (persistent per-user data, defaults to `~/.local/share`)
+    pub const XDG_DATA_HOME: &str = "XDG_DATA_HOME";
 }
 
 // ============================================================================

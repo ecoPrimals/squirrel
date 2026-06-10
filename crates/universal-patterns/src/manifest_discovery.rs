@@ -108,14 +108,22 @@ pub fn is_alive(manifest: &PrimalManifest) -> bool {
 }
 
 fn manifest_directory() -> PathBuf {
-    if let Ok(dir) = std::env::var(universal_constants::env_vars::ecosystem::BIOMEOS_SOCKET_DIR) {
+    use universal_constants::env_vars;
+
+    if let Ok(dir) = std::env::var(env_vars::ecosystem::BIOMEOS_SOCKET_DIR) {
         return PathBuf::from(dir).join("..").join("ecoPrimals-manifests");
     }
-    if let Ok(xdg) = std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR) {
-        PathBuf::from(xdg).join("ecoPrimals")
-    } else {
-        std::env::temp_dir().join("ecoPrimals-manifests")
+    if let Ok(xdg) = std::env::var(env_vars::sys::XDG_RUNTIME_DIR) {
+        return PathBuf::from(xdg).join("ecoPrimals");
     }
+    if let Ok(data_home) = std::env::var(env_vars::sys::XDG_DATA_HOME) {
+        return PathBuf::from(data_home).join("ecoPrimals").join("manifests");
+    }
+    // XDG default: ~/.local/share/ecoPrimals/manifests (never /tmp)
+    dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("/var/lib"))
+        .join("ecoPrimals")
+        .join("manifests")
 }
 
 fn scan_directory(dir: &Path) -> Vec<PrimalManifest> {
