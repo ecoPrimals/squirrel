@@ -227,11 +227,10 @@ async fn handle_get_plugin_details_and_config() {
         ))
         .await
         .expect("should succeed");
-    assert_eq!(cfg.status, HttpStatus::NotImplemented);
-    assert_eq!(
-        cfg.body.as_ref().expect("should succeed")["error"],
-        "configuration_unavailable"
-    );
+    assert_eq!(cfg.status, HttpStatus::Ok);
+    let body = cfg.body.as_ref().expect("should have body");
+    assert_eq!(body["plugin_id"], id.to_string());
+    assert_eq!(body["name"], "t");
 }
 
 #[tokio::test]

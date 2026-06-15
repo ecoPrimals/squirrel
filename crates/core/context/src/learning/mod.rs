@@ -63,6 +63,8 @@ mod integration_lifecycle_tests;
 #[cfg(test)]
 mod integration_tests;
 #[cfg(test)]
+mod manager_behavior_tests;
+#[cfg(test)]
 mod manager_tests;
 #[cfg(test)]
 mod metrics_tests;

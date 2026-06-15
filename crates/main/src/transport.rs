@@ -204,8 +204,7 @@ pub async fn connect_transport_with_timeout(
 ) -> io::Result<TransportStream> {
     match endpoint {
         TransportEndpoint::Uds { path } => {
-            let stream =
-                tokio::time::timeout(timeout, tokio::net::UnixStream::connect(path)).await;
+            let stream = tokio::time::timeout(timeout, tokio::net::UnixStream::connect(path)).await;
             match stream {
                 Ok(Ok(s)) => Ok(TransportStream::Unix(s)),
                 Ok(Err(e)) => Err(e),
@@ -217,8 +216,7 @@ pub async fn connect_transport_with_timeout(
         }
         TransportEndpoint::Tcp { host, port } => {
             let addr = format!("{host}:{port}");
-            let stream =
-                tokio::time::timeout(timeout, tokio::net::TcpStream::connect(&addr)).await;
+            let stream = tokio::time::timeout(timeout, tokio::net::TcpStream::connect(&addr)).await;
             match stream {
                 Ok(Ok(s)) => Ok(TransportStream::Tcp(s)),
                 Ok(Err(e)) => Err(e),
@@ -233,7 +231,9 @@ pub async fn connect_transport_with_timeout(
             capability,
         } => Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            format!("mesh_relay not directly connectable (peer={peer_id}, cap={capability}) — route via Songbird"),
+            format!(
+                "mesh_relay not directly connectable (peer={peer_id}, cap={capability}) — route via Songbird"
+            ),
         )),
     }
 }
@@ -284,9 +284,7 @@ mod tests {
 
     #[test]
     fn test_from_uri_json() {
-        let ep = TransportEndpoint::from_uri(
-            r#"{"transport":"uds","path":"/tmp/test.sock"}"#,
-        );
+        let ep = TransportEndpoint::from_uri(r#"{"transport":"uds","path":"/tmp/test.sock"}"#);
         assert_eq!(ep, Some(TransportEndpoint::uds("/tmp/test.sock")));
     }
 

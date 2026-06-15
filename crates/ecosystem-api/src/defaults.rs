@@ -42,10 +42,10 @@ impl DefaultEndpoints {
     /// 2. `SERVICE_MESH_ENDPOINT` (service-mesh coordination URL)
     /// 3. `SONGBIRD_ENDPOINT` (deprecated legacy alias)
     /// 4. Port: `DISCOVERY_PORT`, then `SERVICE_MESH_PORT`, then `SONGBIRD_PORT`
-    /// 5. Default: <code>[get_service_port](universal_constants::network::get_service_port)("discovery")</code>
+    /// 5. Default: <code>[get_service_port]("discovery")</code>
     ///
     /// For IPC-first discovery, set `DISCOVERY_SOCKET` (or deprecated `SONGBIRD_SOCKET`); paths are
-    /// resolved via [`get_socket_path`](universal_constants::network::get_socket_path) for service `"discovery"`.
+    /// resolved via [`get_socket_path`] for service `"discovery"`.
     #[must_use]
     pub fn service_mesh_endpoint() -> String {
         env::var(env_vars::discovery::ENDPOINT)

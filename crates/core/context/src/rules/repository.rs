@@ -215,19 +215,14 @@ impl RuleRepository {
         let category_index = self.category_index.read().await;
         let rules = self.rules.read().await;
 
-        let rule_ids = match category_index.get(category) {
-            Some(ids) => ids,
-            None => return Ok(Vec::new()),
+        let Some(rule_ids) = category_index.get(category) else {
+            return Ok(Vec::new());
         };
 
-        let mut result = Vec::new();
-        for id in rule_ids {
-            if let Some(rule) = rules.get(id) {
-                result.push(Arc::clone(rule));
-            }
-        }
-
-        Ok(result)
+        Ok(rule_ids
+            .iter()
+            .filter_map(|id| rules.get(id).map(Arc::clone))
+            .collect())
     }
 
     /// Get rules by pattern
@@ -235,19 +230,14 @@ impl RuleRepository {
         let pattern_index = self.pattern_index.read().await;
         let rules = self.rules.read().await;
 
-        let rule_ids = match pattern_index.get(pattern) {
-            Some(ids) => ids,
-            None => return Ok(Vec::new()),
+        let Some(rule_ids) = pattern_index.get(pattern) else {
+            return Ok(Vec::new());
         };
 
-        let mut result = Vec::new();
-        for id in rule_ids {
-            if let Some(rule) = rules.get(id) {
-                result.push(Arc::clone(rule));
-            }
-        }
-
-        Ok(result)
+        Ok(rule_ids
+            .iter()
+            .filter_map(|id| rules.get(id).map(Arc::clone))
+            .collect())
     }
 
     /// Match a pattern against rule patterns

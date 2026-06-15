@@ -173,13 +173,25 @@ impl PluginManagementAPI {
     }
 
     /// Get plugin configuration
-    pub(super) async fn get_plugin_config(&self, _plugin_id: Uuid) -> Result<WebResponse> {
+    ///
+    /// Returns the plugin's metadata-based configuration including capabilities,
+    /// dependencies, version, and author. In-memory config derived from the
+    /// registered plugin — no external persistence backend required.
+    pub(super) async fn get_plugin_config(&self, plugin_id: Uuid) -> Result<WebResponse> {
+        let plugin = PluginRegistry::get_plugin(self.manager.as_ref(), plugin_id).await?;
+        let metadata = plugin.metadata();
+
         Ok(WebResponse {
-            status: HttpStatus::NotImplemented,
+            status: HttpStatus::Ok,
             headers: HashMap::new(),
             body: Some(serde_json::json!({
-                "error": "configuration_unavailable",
-                "message": "Plugin configuration requires persistence backend (Phase 2)"
+                "plugin_id": plugin_id,
+                "name": metadata.name,
+                "version": metadata.version,
+                "description": metadata.description,
+                "author": metadata.author,
+                "capabilities": metadata.capabilities,
+                "dependencies": metadata.dependencies,
             })),
         })
     }

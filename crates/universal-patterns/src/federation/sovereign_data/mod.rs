@@ -7,8 +7,8 @@
 //! the federation network, ensuring data sovereignty and privacy.
 //!
 //! Organized into focused submodules:
-//! - [`encryption`] — Key management traits and default implementation
-//! - [`access_control`] — Permission management, audit logging, and types
+//! - `encryption` — Key management traits and default implementation
+//! - `access_control` — Permission management, audit logging, and types
 
 mod access_control;
 mod encryption;
@@ -185,13 +185,12 @@ where
 
     async fn retrieve_data(&self, id: DataId) -> FederationResult<SovereignData> {
         let store = self.data_store.read().await;
-        if let Some(data) = store.get(&id) {
-            let mut result = data.clone();
-            result.content = self.decrypt_data(&data.content, &data.encryption).await?;
-            Ok(result)
-        } else {
-            Err(FederationError::PeerNotFound(id.to_string()))
-        }
+        let Some(data) = store.get(&id) else {
+            return Err(FederationError::PeerNotFound(id.to_string()));
+        };
+        let mut result = data.clone();
+        result.content = self.decrypt_data(&data.content, &data.encryption).await?;
+        Ok(result)
     }
 
     async fn delete_data(&self, id: DataId) -> FederationResult<()> {

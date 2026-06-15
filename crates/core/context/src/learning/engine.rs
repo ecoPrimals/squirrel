@@ -295,7 +295,7 @@ impl NeuralNetwork {
         let hidden = self.layers.get(1).copied().unwrap_or(32);
         let output = self.layers.get(2).copied().unwrap_or(6);
         let x = Self::pad_or_trunc(features, input_dim);
-        let b0 = self.biases.first().map(Vec::as_slice).unwrap_or(&[]);
+        let b0 = self.biases.first().map_or(&[] as &[f64], Vec::as_slice);
         let mut h = Vec::with_capacity(hidden);
         for i in 0..hidden {
             let row = self.weights.get(i);
@@ -307,7 +307,7 @@ impl NeuralNetwork {
                 .unwrap_or(0.0);
             h.push(Self::relu(sum));
         }
-        let b1 = self.biases.get(1).map(Vec::as_slice).unwrap_or(&[]);
+        let b1 = self.biases.get(1).map_or(&[] as &[f64], Vec::as_slice);
         let mut logits = Vec::with_capacity(output);
         for k in 0..output {
             let mut sum = 0.0f64;
@@ -598,7 +598,7 @@ impl LearningEngine {
         let mut q_table = self.q_table.write().await;
 
         // Get current Q-value
-        let current_q = q_table.get(&state_action).map(|q| q.value).unwrap_or(0.0);
+        let current_q = q_table.get(&state_action).map_or(0.0, |q| q.value);
 
         // Calculate target Q-value
         let target_q = if experience.done {

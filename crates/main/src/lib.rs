@@ -142,7 +142,10 @@ pub use ecosystem::{
 pub use monitoring::performance::PerformanceTracker;
 pub use optimization::zero_copy;
 pub use primal_provider::SquirrelPrimalProvider;
-#[expect(deprecated, reason = "Re-export for backward compat; use SecurityCoordinator")]
+#[expect(
+    deprecated,
+    reason = "Re-export for backward compat; use SecurityCoordinator"
+)]
 pub use security::BeardogSecurityCoordinator;
 pub use security_client::{
     UniversalSecurityClient, UniversalSecurityRequest, UniversalSecurityResponse,

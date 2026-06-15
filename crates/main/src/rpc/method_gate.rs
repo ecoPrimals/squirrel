@@ -200,7 +200,8 @@ impl MethodGate {
 pub fn classify_method(method: &str) -> MethodVisibility {
     match method {
         // Introspection, health probes, capabilities, discovery, lifecycle.status
-        "health.check"
+        "health"
+        | "health.check"
         | "health.liveness"
         | "health.readiness"
         | "system.health"
@@ -240,6 +241,7 @@ mod tests {
 
     #[test]
     fn health_methods_are_public() {
+        assert_eq!(classify_method("health"), MethodVisibility::Public);
         assert_eq!(classify_method("health.check"), MethodVisibility::Public);
         assert_eq!(classify_method("health.liveness"), MethodVisibility::Public);
         assert_eq!(

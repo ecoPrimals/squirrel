@@ -7,7 +7,7 @@
 //! sandboxing, and error handling to prevent security vulnerabilities.
 //!
 //! **Native code execution:** After validation, [`SecurePluginLoader::load_plugin_secure`]
-//! returns [`SecurePluginStub`], which is the **intentional production implementation** for
+//! returns `SecurePluginStub`, which is the **intentional production implementation** for
 //! this CLI tier: native `.so` execution is disabled; integration happens through the command
 //! registry. This is not a test double — it is a deny-by-default execution policy until an
 //! optional sandboxed runtime (for example WebAssembly) exists.

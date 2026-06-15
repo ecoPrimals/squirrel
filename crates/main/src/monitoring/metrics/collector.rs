@@ -181,24 +181,21 @@ impl MetricsCollector {
 
     /// Get metric definition and metadata
     pub async fn get_metric_info(&self, metric_name: &str) -> Result<MetricInfo, PrimalError> {
-        if let Some(definition) = self.metrics.get(metric_name) {
-            Ok(definition.to_metric_info())
-        } else {
-            Err(PrimalError::NotFoundError(format!(
+        let Some(definition) = self.metrics.get(metric_name) else {
+            return Err(PrimalError::NotFoundError(format!(
                 "Metric '{metric_name}' not found"
-            )))
-        }
+            )));
+        };
+        Ok(definition.to_metric_info())
     }
 
     /// List all registered metrics with their metadata
     pub async fn list_metric_definitions(&self) -> Result<Vec<MetricInfo>, PrimalError> {
-        let mut metric_infos = Vec::new();
-        for entry in self.metrics.iter() {
-            let definition = entry.value();
-            metric_infos.push(definition.to_metric_info());
-        }
-
-        Ok(metric_infos)
+        Ok(self
+            .metrics
+            .iter()
+            .map(|entry| entry.value().to_metric_info())
+            .collect())
     }
 
     /// Search metrics by source
@@ -206,28 +203,22 @@ impl MetricsCollector {
         &self,
         source: &str,
     ) -> Result<Vec<MetricInfo>, PrimalError> {
-        let mut filtered_metrics = Vec::new();
-        for entry in self.metrics.iter() {
-            let definition = entry.value();
-            if definition.source == source {
-                filtered_metrics.push(definition.to_metric_info());
-            }
-        }
-
-        Ok(filtered_metrics)
+        Ok(self
+            .metrics
+            .iter()
+            .filter(|entry| entry.value().source == source)
+            .map(|entry| entry.value().to_metric_info())
+            .collect())
     }
 
     /// Get metrics by unit type (e.g., "bytes", "seconds", "count")
     pub async fn get_metrics_by_unit(&self, unit: &str) -> Result<Vec<MetricInfo>, PrimalError> {
-        let mut filtered_metrics = Vec::new();
-        for entry in self.metrics.iter() {
-            let definition = entry.value();
-            if definition.unit == unit {
-                filtered_metrics.push(definition.to_metric_info());
-            }
-        }
-
-        Ok(filtered_metrics)
+        Ok(self
+            .metrics
+            .iter()
+            .filter(|entry| entry.value().unit == unit)
+            .map(|entry| entry.value().to_metric_info())
+            .collect())
     }
 
     /// Collect all metrics from various sources
@@ -345,8 +336,10 @@ impl MetricsCollector {
                 metrics.insert(REQUESTS_PROCESSED.to_string(), 0.0);
                 metrics.insert(AVG_PROCESSING_TIME.to_string(), 0.0);
                 metrics.insert(SUCCESS_RATE.to_string(), 0.0);
-                metrics.insert(MEMORY_USAGE.to_string(),
-                    universal_constants::sys_info::process_rss_mb().unwrap_or(0.0));
+                metrics.insert(
+                    MEMORY_USAGE.to_string(),
+                    universal_constants::sys_info::process_rss_mb().unwrap_or(0.0),
+                );
             }
             "mcp_integration" => {
                 use crate::monitoring::metric_names::mcp_integration::{
@@ -477,16 +470,21 @@ impl MetricsCollector {
 
     async fn get_active_connections(&self) -> Result<u32, PrimalError> {
         // Count established TCP connections from /proc/net/tcp
-        let content = std::fs::read_to_string("/proc/net/tcp")
-            .unwrap_or_default();
+        let content = std::fs::read_to_string("/proc/net/tcp").unwrap_or_default();
         // State 01 = ESTABLISHED in /proc/net/tcp
-        let count = content.lines().skip(1)
+        let count = content
+            .lines()
+            .skip(1)
             .filter(|line| {
-                line.split_whitespace().nth(3)
+                line.split_whitespace()
+                    .nth(3)
                     .is_some_and(|state| state == "01")
             })
             .count();
-        #[expect(clippy::cast_possible_truncation, reason = "TCP connections won't exceed u32")]
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "TCP connections won't exceed u32"
+        )]
         Ok(count as u32)
     }
 

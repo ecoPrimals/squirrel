@@ -117,7 +117,9 @@ fn manifest_directory() -> PathBuf {
         return PathBuf::from(xdg).join("ecoPrimals");
     }
     if let Ok(data_home) = std::env::var(env_vars::sys::XDG_DATA_HOME) {
-        return PathBuf::from(data_home).join("ecoPrimals").join("manifests");
+        return PathBuf::from(data_home)
+            .join("ecoPrimals")
+            .join("manifests");
     }
     // XDG default: ~/.local/share/ecoPrimals/manifests (never /tmp)
     dirs::data_dir()

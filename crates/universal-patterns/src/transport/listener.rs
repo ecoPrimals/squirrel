@@ -388,7 +388,7 @@ impl UniversalListener {
 
             UniversalListener::Tcp(listener) => {
                 let addr = listener.local_addr()?;
-                Ok(format!("{}", addr))
+                Ok(addr.to_string())
             }
         }
     }

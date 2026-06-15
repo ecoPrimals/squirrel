@@ -19,8 +19,6 @@
 //! ```
 
 use super::adapters::{AiProvider, AiProviderAdapter};
-use super::http_provider_config::get_enabled_http_providers;
-
 use super::constraint_router::select_provider_with_constraints;
 use super::dignity::{DignityCheckRequest, DignityEvaluator};
 use super::selector::{ProviderInfo, ProviderSelector};
@@ -29,7 +27,7 @@ use super::types::{
     TextGenerationResponse,
 };
 use crate::error::PrimalError;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
@@ -69,7 +67,7 @@ fn run_dignity_check(prompt: &str, model: Option<&str>, context: Option<&str>) {
 
 /// Unix socket path for the local compute capability (`COMPUTE_SOCKET` → tiered resolution).
 #[inline]
-fn compute_capability_unix_socket() -> PathBuf {
+pub fn compute_capability_unix_socket() -> PathBuf {
     resolve_capability_unix_socket("COMPUTE_SOCKET", "compute")
 }
 
@@ -87,285 +85,13 @@ impl AiRouter {
     ///
     /// * `_service_mesh_client` - Reserved for future capability registry integration.
     ///   Currently unused; discovery uses env/config/sockets. Pass `None`.
-    ///
-    /// # Returns
-    ///
-    /// New AiRouter with discovered providers
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// let router = AiRouter::new_with_discovery(None).await?;
-    /// ```
-    #[expect(clippy::too_many_lines, reason = "Router dispatch; refactor planned")]
     pub async fn new_with_discovery(
         _service_mesh_client: Option<Arc<dyn std::any::Any + Send + Sync>>,
     ) -> Result<Self, PrimalError> {
-        info!("🔍 Initializing AI router with capability-based discovery...");
+        info!("Initializing AI router with capability-based discovery...");
 
-        let mut providers: Vec<Arc<AiProvider>> = Vec::new();
-
-        // Overall timeout to prevent hangs during provider initialization (10s max)
-        let initialization_result = tokio::time::timeout(
-            std::time::Duration::from_secs(10),
-            async {
-                let mut local_providers: Vec<Arc<AiProvider>> = Vec::new();
-
-                // 1. ✅ VENDOR-AGNOSTIC: Discover HTTP providers from configuration
-                // TRUE PRIMAL: Zero compile-time coupling to specific vendors
-                // Operators control which providers via AI_HTTP_PROVIDERS env var
-                info!("🔍 Discovering HTTP-based AI providers from configuration...");
-
-                let enabled_http_providers = get_enabled_http_providers();
-
-                if enabled_http_providers.is_empty() {
-                    info!("ℹ️  No HTTP providers enabled. Set AI_HTTP_PROVIDERS or API keys to enable.");
-                } else {
-                    info!("📋 Enabled HTTP providers: {}",
-                        enabled_http_providers.iter()
-                            .map(|p| p.provider_id.as_str())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    );
-
-                    for provider_config in enabled_http_providers {
-                        // Try to initialize adapter for this provider
-                        match Self::init_http_provider(&provider_config).await {
-                            Ok(Some(adapter)) => {
-                                info!("✅ {} adapter available (HTTP via capability discovery)",
-                                    provider_config.provider_name);
-                                local_providers.push(adapter);
-                            }
-                            Ok(None) => {
-                                debug!("⚠️  {} adapter not available (check {} + HTTP provider)",
-                                    provider_config.provider_name,
-                                    provider_config.api_key_env);
-                            }
-                            Err(e) => {
-                                warn!("❌ {} adapter initialization failed: {}",
-                                    provider_config.provider_name, e);
-                            }
-                        }
-                    }
-                }
-
-                // 1.5: Discover local AI inference (Ollama, llama.cpp, vLLM)
-                // SQ-02: LOCAL_AI_ENDPOINT → OLLAMA_ENDPOINT → OLLAMA_URL env chain.
-                // Always attempted — local inference coexists with cloud providers.
-                if let Some(endpoint) = Self::resolve_local_ai_endpoint() {
-                    info!("🔍 LOCAL_AI_ENDPOINT resolved: {}", endpoint);
-                    match tokio::time::timeout(
-                        std::time::Duration::from_secs(3),
-                        Self::probe_local_ai_endpoint(&endpoint),
-                    )
-                    .await
-                    {
-                        Ok(Ok(adapter)) => {
-                            info!(
-                                "✅ Local AI inference server discovered at {}",
-                                endpoint
-                            );
-                            local_providers.push(adapter);
-                        }
-                        Ok(Err(e)) => {
-                            debug!(
-                                "⚠️ Local AI endpoint {} not reachable: {}",
-                                endpoint, e
-                            );
-                        }
-                        Err(_) => {
-                            debug!(
-                                "⚠️ Local AI endpoint {} probe timed out (>3s)",
-                                endpoint
-                            );
-                        }
-                    }
-                } else if local_providers.is_empty() {
-                    // 1.6: No explicit env var — probe default Ollama port as last
-                    // resort. AIProviderConfig::from_env() defaults to this endpoint;
-                    // the router should match.
-                    let default_endpoint = universal_constants::deployment::endpoints::ollama();
-                    debug!("🔍 Probing default Ollama endpoint: {}", default_endpoint);
-                    match tokio::time::timeout(
-                        std::time::Duration::from_secs(2),
-                        Self::probe_local_ai_endpoint(&default_endpoint),
-                    )
-                    .await
-                    {
-                        Ok(Ok(adapter)) => {
-                            info!(
-                                "✅ Default Ollama instance discovered at {}",
-                                default_endpoint
-                            );
-                            local_providers.push(adapter);
-                        }
-                        Ok(Err(_)) => {
-                            debug!("ℹ️ No Ollama at default endpoint {}", default_endpoint);
-                        }
-                        Err(_) => {
-                            debug!("ℹ️ Default Ollama probe timed out (>2s)");
-                        }
-                    }
-                }
-
-                // 1.7: Auto-discover inference endpoints from environment
-                // neuralSpring (or any inference primal) advertises via
-                // INFERENCE_ENDPOINT / AI_INFERENCE_ENDPOINT env var.
-                for env_key in [
-                    universal_constants::env_vars::ai::INFERENCE_ENDPOINT,
-                    universal_constants::env_vars::ai::AI_INFERENCE_ENDPOINT,
-                ] {
-                    if let Ok(endpoint) = std::env::var(env_key) {
-                        info!(
-                            "🔍 Inference endpoint discovered via {env_key}: {endpoint}"
-                        );
-                        let config = super::adapters::RemoteProviderConfig {
-                            provider_id: format!("env-{}", env_key.to_lowercase().replace('_', "-")),
-                            socket_path: if endpoint.starts_with("unix://")
-                                || endpoint.starts_with('/')
-                            {
-                                Some(
-                                    endpoint
-                                        .strip_prefix("unix://")
-                                        .unwrap_or(&endpoint)
-                                        .to_string(),
-                                )
-                            } else {
-                                None
-                            },
-                            endpoint: if endpoint.starts_with("http://")
-                                || endpoint.starts_with("https://")
-                            {
-                                Some(endpoint.clone())
-                            } else {
-                                None
-                            },
-                            models: Vec::new(),
-                            supported_tasks: vec![
-                                "text_generation".to_string(),
-                                "inference.complete".to_string(),
-                            ],
-                            supports_streaming: false,
-                            max_context_size: 4096,
-                            quality_tier: Some("standard".to_string()),
-                            cost_per_unit: None,
-                        };
-                        let adapter =
-                            super::adapters::RemoteInferenceAdapter::new(config);
-                        if adapter.is_available().await {
-                            info!(
-                                "✅ Inference provider registered from {env_key}: {endpoint}"
-                            );
-                            local_providers.push(Arc::new(
-                                AiProvider::RemoteInference(adapter),
-                            ));
-                        } else {
-                            debug!(
-                                "⚠️ Inference endpoint from {env_key} not reachable: {endpoint}"
-                            );
-                        }
-                        break;
-                    }
-                }
-
-                // 2. Check for Unix socket providers (other primals)
-                // BIOME OS RECOMMENDATION: Use AI_PROVIDER_SOCKETS hint (simple & fast)
-                if let Ok(socket_paths) =
-                    std::env::var(universal_constants::env_vars::ai::PROVIDER_SOCKETS)
-                {
-                    info!("🎯 Using AI_PROVIDER_SOCKETS hint: {}", socket_paths);
-                    for socket_path in socket_paths.split(',') {
-                        let socket_path = socket_path.trim();
-                        // Per-socket connection timeout (2s max)
-                        match tokio::time::timeout(
-                            std::time::Duration::from_secs(2),
-                            Self::create_universal_adapter_from_path(socket_path)
-                        ).await {
-                            Ok(Ok(adapter)) => {
-                                info!("✅ Connected to provider: {}", socket_path);
-                                local_providers.push(Arc::new(AiProvider::Universal(adapter)));
-                            }
-                            Ok(Err(e)) => {
-                                warn!("⚠️  Failed to connect to {}: {}", socket_path, e);
-                            }
-                            Err(_) => {
-                                warn!("⚠️  Timeout connecting to {} (>2s)", socket_path);
-                            }
-                        }
-                    }
-                }
-
-                // 3. Unix socket scan: probe for local AI inference providers
-                // (`COMPUTE_SOCKET` → tiered capability resolution — no hardcoded paths).
-                if local_providers.is_empty() {
-                    info!("🔍 Scanning for AI compute provider Unix sockets...");
-                    let compute_socket = compute_capability_unix_socket();
-                    let compute_candidates = [compute_socket];
-
-                    for socket_path in &compute_candidates {
-                        let path: &Path = socket_path.as_path();
-                        if !path.exists() {
-                            continue;
-                        }
-                        let socket_path = path.to_string_lossy();
-                        debug!("Probing potential AI provider: {}", socket_path);
-                        match tokio::time::timeout(
-                            std::time::Duration::from_secs(2),
-                            Self::create_universal_adapter_from_path(socket_path.as_ref()),
-                        )
-                        .await
-                        {
-                            Ok(Ok(adapter)) => {
-                                info!("✅ Discovered AI compute provider at {}", socket_path.as_ref());
-                                local_providers.push(Arc::new(AiProvider::Universal(adapter)));
-                                break;
-                            }
-                            Ok(Err(e)) => {
-                                debug!("Socket {} not an AI provider: {}", socket_path, e);
-                            }
-                            Err(_) => {
-                                debug!("Timeout probing {} (>2s)", socket_path);
-                            }
-                        }
-                    }
-                }
-
-                Ok::<Vec<Arc<AiProvider>>, PrimalError>(local_providers)
-            }
-        ).await;
-
-        // Handle initialization timeout gracefully
-        match initialization_result {
-            Ok(Ok(found_providers)) => {
-                providers = found_providers;
-            }
-            Ok(Err(e)) => {
-                error!("❌ AI provider initialization failed: {}", e);
-            }
-            Err(_) => {
-                error!("❌ AI provider initialization timed out (>10s)");
-            }
-        }
-
-        // Summary
-        if providers.is_empty() {
-            warn!("⚠️  No AI providers available!");
-            warn!("⚠️  For local AI (Ollama/llama.cpp/vLLM):");
-            warn!(
-                "     - Set LOCAL_AI_ENDPOINT={} (or your configured Ollama endpoint)",
-                universal_constants::deployment::endpoints::ollama()
-            );
-            warn!("     - Or start Ollama (auto-discovered at default port)");
-            warn!("⚠️  For external AI APIs:");
-            warn!("     - Set ANTHROPIC_API_KEY or OPENAI_API_KEY");
-            warn!("⚠️  For Unix socket providers:");
-            warn!("     - Set AI_PROVIDER_SOCKETS=/tmp/provider.sock");
-        } else {
-            info!(
-                "✅ AI router initialized with {} provider(s) via capability discovery",
-                providers.len()
-            );
-        }
+        let providers = super::router_discovery::discover_providers().await;
+        super::router_discovery::log_discovery_summary(providers.len());
 
         Ok(Self {
             providers: Arc::new(RwLock::new(providers)),
@@ -381,7 +107,7 @@ impl AiRouter {
     /// `LOCAL_AI_ENDPOINT` → `OLLAMA_ENDPOINT` → `OLLAMA_URL`.
     /// Returns `None` if no env var is explicitly set (does NOT fall back to
     /// a default — the socket scan in step 3 handles implicit discovery).
-    fn resolve_local_ai_endpoint() -> Option<String> {
+    pub(crate) fn resolve_local_ai_endpoint() -> Option<String> {
         std::env::var(universal_constants::env_vars::ai::local::ENDPOINT)
             .or_else(|_| std::env::var(universal_constants::env_vars::ai::ollama::ENDPOINT))
             .or_else(|_| std::env::var(universal_constants::env_vars::ai::ollama::URL))
@@ -395,7 +121,9 @@ impl AiRouter {
     /// If it is an HTTP URL, performs a TCP probe to verify the server is
     /// listening and prefers a compute-primal Unix socket (`COMPUTE_SOCKET` /
     /// tiered resolution) when present for local inference.
-    async fn probe_local_ai_endpoint(endpoint: &str) -> Result<Arc<AiProvider>, PrimalError> {
+    pub(crate) async fn probe_local_ai_endpoint(
+        endpoint: &str,
+    ) -> Result<Arc<AiProvider>, PrimalError> {
         // Socket path — delegate directly
         if endpoint.starts_with('/') {
             let adapter = Self::create_universal_adapter_from_path(endpoint).await?;

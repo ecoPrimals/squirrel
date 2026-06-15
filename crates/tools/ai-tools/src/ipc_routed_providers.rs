@@ -327,14 +327,12 @@ impl<D: IpcHttpDelegate + 'static> AIClient for IpcRoutedVendorClient<D> {
                     .map_err(|e| Error::Provider(e.to_string()))?;
                 let v: Value =
                     serde_json::from_str(&resp.body).map_err(|e| Error::Parse(e.to_string()))?;
-                let mut out = Vec::new();
-                if let Some(data) = v["data"].as_array() {
-                    for m in data {
-                        if let Some(id) = m["id"].as_str() {
-                            out.push(id.to_string());
-                        }
-                    }
-                }
+                let out: Vec<String> = v["data"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|m| m["id"].as_str().map(str::to_string))
+                    .collect();
                 Ok(out)
             }
             VendorKind::Anthropic | VendorKind::Gemini => {

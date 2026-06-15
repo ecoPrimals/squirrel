@@ -267,21 +267,10 @@ impl ActionExecutor {
 
         for part in parts {
             if let Some(obj) = current.as_object() {
-                if let Some(value) = obj.get(part) {
-                    current = value;
-                } else {
-                    return None;
-                }
+                current = obj.get(part)?;
             } else if let Some(array) = current.as_array() {
-                if let Ok(index) = part.parse::<usize>() {
-                    if index < array.len() {
-                        current = &array[index];
-                    } else {
-                        return None;
-                    }
-                } else {
-                    return None;
-                }
+                let index = part.parse::<usize>().ok()?;
+                current = array.get(index)?;
             } else {
                 return None;
             }

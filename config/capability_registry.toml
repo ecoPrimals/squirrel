@@ -221,6 +221,14 @@ type = "object"
 # --- Health domain (PRIMAL_IPC_PROTOCOL v3.0 — canonical, NON-NEGOTIABLE) ---
 # stability: stable — health triad is frozen
 
+[capabilities.health]
+method = "health"
+domain = "health.probe"
+stability = "stable"
+description = "Bare health probe — Wave 113 mandatory, returns {status, primal, version}"
+[capabilities.health.input_schema]
+type = "object"
+
 [capabilities.health_check]
 method = "health.check"
 domain = "health.probe"

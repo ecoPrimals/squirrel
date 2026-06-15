@@ -119,9 +119,13 @@ pub mod prelude {
     // Communication systems
     pub use crate::communication::*;
 
-    // Client APIs
+    // Client APIs — named re-exports to avoid `utils` name collision
+    // with `infrastructure::utils` (ambiguous glob re-export).
     #[cfg(feature = "fs")]
-    pub use crate::client::fs::*;
+    pub use crate::client::fs::{
+        DirectoryEntry, FileContent, FileInfo, FileMetadata, FilePermissions, FileSystem,
+        FileUploadHandler, FsProxy, create_download_url,
+    };
 
     // Infrastructure
     pub use crate::infrastructure::*;

@@ -577,12 +577,7 @@ impl ContextAdapter {
     pub async fn list_contexts(&self) -> Result<Vec<AdapterContextData>> {
         let contexts = self.contexts.read().await;
 
-        let mut result = Vec::new();
-        for context in contexts.values() {
-            result.push(context.clone());
-        }
-
-        Ok(result)
+        Ok(contexts.values().cloned().collect())
     }
 
     /// Updates the context configuration

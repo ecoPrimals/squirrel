@@ -50,7 +50,7 @@
 use anyhow::{Context, Result};
 use serde_json::Value;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 use universal_patterns::transport::{UniversalListener, UniversalTransport};
@@ -282,38 +282,190 @@ impl JsonRpcServer {
         }
     }
 
-    /// Handle a single UDS connection with BTSP auto-detect (PG-14 compliant).
+    /// Handle a single UDS connection with riboCipher + BTSP auto-detect.
     ///
-    /// If `maybe_handshake` detects plain JSON-RPC (not BTSP), the consumed first line
-    /// is re-injected into the handler so health probes and unauthenticated requests
-    /// receive proper responses instead of being silently dropped.
+    /// **riboCipher (Wave 113):** Reads the first byte. If `0xEC` (clear signal),
+    /// reads the second byte (protocol type), strips the 2-byte prefix, and
+    /// routes to the appropriate handler. For `0x01` (NDJSON JSON-RPC), proceeds
+    /// directly to JSON-RPC handling, bypassing BTSP.
+    ///
+    /// If the first byte is NOT a riboCipher signal, it is passed through to
+    /// `maybe_handshake` which already handles `{` (JSON-RPC) and `0x00` (BTSP).
+    ///
+    /// If `maybe_handshake` detects plain JSON-RPC (not BTSP), the consumed first
+    /// line is re-injected so health probes receive proper responses.
     async fn handle_uds_connection(
         server: Arc<Self>,
         mut transport: UniversalTransport,
     ) -> Result<()> {
-        let first_line =
-            match super::btsp_handshake::maybe_handshake(&mut transport).await {
-                Ok(session) => {
-                    if let Some(ref s) = session {
-                        debug!(session_id = %s.session_id, "BTSP authenticated");
+        use super::ribocipher_prefix::{
+            BTSP_BINARY, BTSP_JSON_LINE, CLEAR_SIGNAL, MITO_SIGNAL, NDJSON_JSONRPC, NUCLEAR_SIGNAL,
+        };
+        use tokio::io::AsyncReadExt;
+
+        // Read first byte to check for riboCipher signal BEFORE BTSP.
+        let mut first = [0u8; 1];
+        let n = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            transport.read(&mut first),
+        )
+        .await
+        .unwrap_or(Ok(0))
+        .unwrap_or(0);
+
+        if n == 0 {
+            debug!("Client disconnected before sending data (UDS)");
+            return Ok(());
+        }
+
+        match first[0] {
+            CLEAR_SIGNAL => {
+                let mut proto = [0u8; 1];
+                transport
+                    .read_exact(&mut proto)
+                    .await
+                    .context("failed to read riboCipher protocol type byte")?;
+                let protocol_type = proto[0];
+
+                match protocol_type {
+                    NDJSON_JSONRPC => {
+                        debug!("riboCipher clear signal: NDJSON JSON-RPC (0x01)");
+                        server.handle_universal_connection(transport).await
                     }
-                    None
+                    BTSP_BINARY | BTSP_JSON_LINE => {
+                        debug!(
+                            protocol_type,
+                            "riboCipher clear signal: BTSP — proceeding to handshake"
+                        );
+                        Self::run_btsp_then_jsonrpc(server, transport).await
+                    }
+                    other => {
+                        warn!(
+                            protocol_type = other,
+                            "riboCipher clear signal: unsupported protocol type — closing"
+                        );
+                        Ok(())
+                    }
                 }
-                Err(super::btsp_handshake::BtspError::PlainJsonRpc { first_line }) => {
-                    debug!("PG-14: plain JSON-RPC on BTSP socket — proceeding unauthenticated");
-                    Some(first_line)
+            }
+            MITO_SIGNAL | NUCLEAR_SIGNAL => {
+                warn!(
+                    signal_byte = format_args!("0x{:02X}", first[0]),
+                    "riboCipher tier 2/3 not yet implemented — closing"
+                );
+                Ok(())
+            }
+            // Not a riboCipher signal — pass to BTSP auto-detect with the
+            // consumed byte re-injected as if maybe_handshake read it.
+            first_byte => Self::run_btsp_with_first_byte(server, transport, first_byte).await,
+        }
+    }
+
+    /// Run BTSP handshake then fall through to JSON-RPC.
+    async fn run_btsp_then_jsonrpc(
+        server: Arc<Self>,
+        mut transport: UniversalTransport,
+    ) -> Result<()> {
+        let first_line = match super::btsp_handshake::maybe_handshake(&mut transport).await {
+            Ok(session) => {
+                if let Some(ref s) = session {
+                    debug!(session_id = %s.session_id, "BTSP authenticated");
                 }
-                Err(e) => {
-                    warn!("BTSP handshake failed, refusing connection: {e}");
-                    return Ok(());
-                }
-            };
+                None
+            }
+            Err(super::btsp_handshake::BtspError::PlainJsonRpc { first_line }) => {
+                debug!("PG-14: plain JSON-RPC on BTSP socket — proceeding unauthenticated");
+                Some(first_line)
+            }
+            Err(e) => {
+                warn!("BTSP handshake failed, refusing connection: {e}");
+                return Ok(());
+            }
+        };
 
         if let Some(line) = first_line {
             let reader = tokio::io::BufReader::new(transport);
             server.handle_jsonrpc_with_first_line(reader, line).await
         } else {
             server.handle_universal_connection(transport).await
+        }
+    }
+
+    /// Handle a connection where we already consumed the first byte (no riboCipher
+    /// signal detected). Re-inject the byte into the BTSP/JSON-RPC classification.
+    async fn run_btsp_with_first_byte(
+        server: Arc<Self>,
+        transport: UniversalTransport,
+        first_byte: u8,
+    ) -> Result<()> {
+        use super::btsp_handshake;
+
+        if btsp_handshake::is_btsp_required() {
+            // Prod mode: we consumed the byte that maybe_handshake expects.
+            // Reconstruct classification inline (mirrors maybe_handshake logic).
+            match first_byte {
+                b'{' => {
+                    let mut reader = BufReader::new(transport);
+                    let mut rest = String::new();
+                    reader.read_line(&mut rest).await.ok();
+                    let first_line = format!("{}{rest}", '{');
+                    let trimmed = first_line.trim();
+
+                    if trimmed.contains("\"protocol\"") && trimmed.contains("\"btsp\"") {
+                        warn!("raw BTSP JSON-line after no riboCipher signal — PG-14 fallback");
+                    } else {
+                        debug!("PG-14: plain JSON-RPC on BTSP socket (first byte re-injected)");
+                    }
+                    server
+                        .handle_jsonrpc_with_first_line(reader, first_line)
+                        .await
+                }
+                0x00 => {
+                    let mut transport = transport;
+                    super::btsp_handshake::btsp_handshake_server(&mut transport, Some(first_byte))
+                        .await
+                        .map(|_session| ())?;
+                    server.handle_universal_connection(transport).await
+                }
+                other => {
+                    debug!(
+                        first_byte = format_args!("0x{other:02x}"),
+                        "non-BTSP binary preamble on BTSP-guarded socket — closing"
+                    );
+                    Ok(())
+                }
+            }
+        } else {
+            // Dev mode: no BTSP. Re-inject the byte as the start of a JSON-RPC
+            // line and proceed to universal connection handling.
+            let first_char = first_byte as char;
+            if first_char == '{' || first_char == '[' || first_char.is_ascii_whitespace() {
+                let mut reader = BufReader::new(transport);
+                let mut line = String::new();
+                line.push(first_char);
+                reader
+                    .read_line(&mut line)
+                    .await
+                    .context("failed to read rest of first line after re-injected byte")?;
+                let trimmed = line.trim();
+                if trimmed.starts_with("PROTOCOLS:") {
+                    #[cfg(feature = "tarpc-rpc")]
+                    {
+                        return server.handle_protocol_negotiation(reader, &line).await;
+                    }
+                    #[cfg(not(feature = "tarpc-rpc"))]
+                    {
+                        return server.handle_jsonrpc_loop(reader).await;
+                    }
+                }
+                server.handle_jsonrpc_with_first_line(reader, line).await
+            } else {
+                debug!(
+                    first_byte = format_args!("0x{first_byte:02x}"),
+                    "non-JSON first byte in dev mode — closing"
+                );
+                Ok(())
+            }
         }
     }
 
@@ -326,7 +478,7 @@ impl JsonRpcServer {
                     let srv = Arc::clone(&server);
                     tokio::spawn(async move {
                         let transport = UniversalTransport::Tcp(stream);
-                        if let Err(e) = srv.clone().handle_universal_connection(transport).await {
+                        if let Err(e) = srv.handle_universal_connection(transport).await {
                             error!("Error handling TCP JSON-RPC connection: {}", e);
                         }
                     });
@@ -541,52 +693,6 @@ impl JsonRpcServer {
         Ok(())
     }
 
-    /// Handle a client connection (LEGACY - kept for backward compatibility)
-    ///
-    /// Note: New code should use handle_universal_connection() instead.
-    /// This method is kept for any legacy direct Unix socket usage.
-    #[deprecated(note = "Use handle_universal_connection() with UniversalTransport instead")]
-    #[expect(dead_code, reason = "deprecated legacy path; kept for fallback")]
-    async fn handle_connection<S>(&self, stream: S) -> Result<()>
-    where
-        S: AsyncRead + AsyncWrite + Unpin,
-    {
-        let mut reader = BufReader::new(stream);
-        let mut line = String::new();
-
-        loop {
-            line.clear();
-            match reader.read_line(&mut line).await {
-                Ok(0) => {
-                    debug!("Client disconnected");
-                    break;
-                }
-                Ok(_) => {
-                    if let Some(response_json) = self.handle_request_or_batch(&line).await {
-                        let mut out = response_json;
-                        out.push('\n');
-                        reader
-                            .get_mut()
-                            .write_all(out.as_bytes())
-                            .await
-                            .context("Failed to write JSON-RPC response (legacy)")?;
-                        reader
-                            .get_mut()
-                            .flush()
-                            .await
-                            .context("Failed to flush JSON-RPC response (legacy)")?;
-                    }
-                }
-                Err(e) => {
-                    warn!("Error reading from socket: {}", e);
-                    break;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     /// Dispatch a validated JSON-RPC method name (after `normalize_method`).
     pub(crate) async fn dispatch_jsonrpc_method(
         &self,
@@ -632,6 +738,10 @@ impl JsonRpcServer {
             "health.check" | "system.health" | "system.status" => self.handle_health().await,
             "health.liveness" => self.handle_health_liveness().await,
             "health.readiness" => self.handle_health_readiness().await,
+
+            // Bare "health" — Wave 113 mandatory probe method.
+            // Returns minimal {status, primal, version} per overwatch contract.
+            "health" => self.handle_health_bare().await,
 
             // System domain — backward-compat (metrics/ping have no health.* equivalent)
             "system.metrics" => self.handle_metrics().await,

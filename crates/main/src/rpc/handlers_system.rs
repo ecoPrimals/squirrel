@@ -81,6 +81,20 @@ impl JsonRpcServer {
         })
     }
 
+    /// Handle bare `"health"` — Wave 113 mandatory probe method.
+    ///
+    /// Returns the minimal `{status, primal, version}` shape that overwatch /
+    /// cellMembrane / NUCLEUS probes expect. This is intentionally simpler than
+    /// `health.check` (which returns the full tiered health report).
+    pub(crate) async fn handle_health_bare(&self) -> Result<Value, JsonRpcError> {
+        debug!("bare health probe");
+        Ok(serde_json::json!({
+            "status": "healthy",
+            "primal": crate::niche::PRIMAL_ID,
+            "version": env!("CARGO_PKG_VERSION"),
+        }))
+    }
+
     /// Handle `health.liveness` — Wire Standard L1 / PRIMAL_IPC_PROTOCOL v3.0.
     ///
     /// Wire Standard audit checklist: `{status: "alive"}` or `{alive: true}`.
@@ -314,6 +328,44 @@ mod direct_tests {
         assert!(
             v.get("checks").and_then(|c| c.get("capability_registry"))
                 == Some(&serde_json::json!(true))
+        );
+    }
+
+    #[tokio::test]
+    async fn bare_health_returns_wave113_shape() {
+        let server = JsonRpcServer::new("/tmp/sys-bare-health.sock".to_string());
+        let v = server.handle_health_bare().await.expect("should succeed");
+        assert_eq!(
+            v.get("status").and_then(serde_json::Value::as_str),
+            Some("healthy"),
+            "Wave 113 contract: status field"
+        );
+        assert_eq!(
+            v.get("primal").and_then(serde_json::Value::as_str),
+            Some("squirrel"),
+            "Wave 113 contract: primal field"
+        );
+        assert!(
+            v.get("version")
+                .and_then(serde_json::Value::as_str)
+                .is_some(),
+            "Wave 113 contract: version field"
+        );
+    }
+
+    #[tokio::test]
+    async fn bare_health_dispatch_via_jsonrpc() {
+        let server = JsonRpcServer::new("/tmp/sys-bare-dispatch.sock".to_string());
+        let req = r#"{"jsonrpc":"2.0","method":"health","id":1}"#;
+        let resp = server
+            .handle_request_or_batch(req)
+            .await
+            .expect("should produce response");
+        let parsed: serde_json::Value = serde_json::from_str(&resp).expect("valid JSON");
+        let result = parsed.get("result").expect("result field");
+        assert_eq!(
+            result.get("primal").and_then(serde_json::Value::as_str),
+            Some("squirrel")
         );
     }
 

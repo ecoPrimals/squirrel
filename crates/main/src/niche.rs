@@ -72,6 +72,7 @@ pub const CAPABILITIES: &[&str] = &[
     // Self-registration (stadial standard)
     "primal.announce",
     // Health probes — canonical per PRIMAL_IPC_PROTOCOL v3.0
+    "health",
     "health.check",
     "health.liveness",
     "health.readiness",
@@ -150,7 +151,7 @@ pub const SEMANTIC_MAPPINGS: &[(&str, &str)] = &[
     ("health_check", "health.check"),
     ("liveness", "health.liveness"),
     ("readiness", "health.readiness"),
-    ("health", "system.health"),
+    ("health", "health"),
     ("status", "system.status"),
     ("metrics", "system.metrics"),
     ("ping", "system.ping"),
@@ -296,6 +297,7 @@ pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
     ("capability.discover", 1, false),
     ("capability.list", 1, false),
     ("primal.announce", 2, false),
+    ("health", 1, false),
     ("health.check", 1, false),
     ("health.liveness", 1, false),
     ("health.readiness", 2, false),
@@ -343,6 +345,7 @@ pub fn operation_dependencies() -> serde_json::Value {
         "capability.discover": [],
         "capability.list": [],
         "primal.announce": ["capabilities", "primal"],
+        "health": [],
         "health.check": [],
         "health.liveness": [],
         "health.readiness": [],
@@ -417,7 +420,7 @@ pub fn semantic_mappings_json() -> serde_json::Value {
         "health_check":   "health.check",
         "liveness":       "health.liveness",
         "readiness":      "health.readiness",
-        "health":         "system.health",
+        "health":         "health",
         "status":         "system.status",
         "metrics":        "system.metrics",
         "ping":           "system.ping",
@@ -476,9 +479,13 @@ mod tests {
 
     #[test]
     fn capabilities_are_fully_qualified() {
+        // Wave 113 guidestone: bare "health" is the mandatory probe method
+        // and is the sole exception to the domain.method naming rule.
+        const BARE_METHOD_EXCEPTIONS: &[&str] = &["health"];
+
         for cap in CAPABILITIES {
             assert!(
-                cap.contains('.'),
+                cap.contains('.') || BARE_METHOD_EXCEPTIONS.contains(cap),
                 "capability {cap} must be domain.method format"
             );
         }

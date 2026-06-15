@@ -300,9 +300,15 @@ pub fn network_bytes() -> Result<NetworkBytes, io::Error> {
 pub fn disk_usage_percent(path: &str) -> Result<f64, io::Error> {
     let stat = rustix::fs::statvfs(path).map_err(io::Error::other)?;
 
-    #[expect(clippy::cast_precision_loss, reason = "filesystem block counts fit f64 for percentage")]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "filesystem block counts fit f64 for percentage"
+    )]
     let total = stat.f_blocks as f64 * stat.f_frsize as f64;
-    #[expect(clippy::cast_precision_loss, reason = "filesystem block counts fit f64 for percentage")]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "filesystem block counts fit f64 for percentage"
+    )]
     let free = stat.f_bfree as f64 * stat.f_frsize as f64;
     if total == 0.0 {
         return Ok(0.0);

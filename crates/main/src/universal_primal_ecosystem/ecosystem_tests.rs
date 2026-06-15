@@ -233,9 +233,9 @@ async fn send_capability_request_rejects_unknown_scheme() {
 }
 
 #[tokio::test]
-async fn send_capability_request_https_delegates_not_implemented() {
+async fn send_capability_request_https_attempts_tcp_connection() {
     let eco = UniversalPrimalEcosystem::new(PrimalContext::default());
-    let svc = sample_service("http", "https://songbird/proxy", vec!["data-persistence"]);
+    let svc = sample_service("http", "http://127.0.0.1:1", vec!["data-persistence"]);
     let req = PrimalRequest::new(
         "squirrel",
         &svc.service_id,
@@ -244,7 +244,7 @@ async fn send_capability_request_https_delegates_not_implemented() {
         PrimalContext::default(),
     );
     let err = eco.send_capability_request(&svc, req).await.unwrap_err();
-    assert!(matches!(err, PrimalError::NotImplemented(_)));
+    assert!(matches!(err, PrimalError::NetworkError(_)));
 }
 
 #[tokio::test]

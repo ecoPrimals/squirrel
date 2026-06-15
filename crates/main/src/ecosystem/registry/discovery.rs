@@ -124,20 +124,40 @@ impl DiscoveryOps {
         }
     }
 
-    /// Read endpoint from configuration file
+    /// Read endpoint from a TOML configuration file.
     ///
-    /// This enables configuration-driven discovery without environment variables
+    /// Expected format:
+    /// ```toml
+    /// [endpoints]
+    /// security = "https://security.example.com"
+    /// orchestration = "http://localhost:8082"
+    /// ```
     fn read_endpoint_from_config(
-        _config_path: &str,
-        _primal_type: EcosystemPrimalType,
+        config_path: &str,
+        primal_type: EcosystemPrimalType,
     ) -> Result<String, PrimalError> {
-        // Future: Configuration file parsing for service endpoints
-        // Currently uses environment variables and discovery
-        // This would read from TOML/JSON/YAML config file
-        // Example: { "endpoints": { "security": "https://security.example.com" } }
-        Err(PrimalError::NotImplemented(
-            "Configuration file parsing not yet implemented".to_string(),
-        ))
+        let contents = std::fs::read_to_string(config_path).map_err(|e| {
+            PrimalError::Configuration(format!("Cannot read config {config_path}: {e}"))
+        })?;
+        let table: toml::Table = contents.parse().map_err(|e| {
+            PrimalError::Configuration(format!("Invalid TOML in {config_path}: {e}"))
+        })?;
+        let endpoints = table
+            .get("endpoints")
+            .and_then(|v| v.as_table())
+            .ok_or_else(|| {
+                PrimalError::Configuration(format!("No [endpoints] table in {config_path}"))
+            })?;
+        let key = primal_type.capability();
+        endpoints
+            .get(key)
+            .and_then(|v| v.as_str())
+            .map(String::from)
+            .ok_or_else(|| {
+                PrimalError::Configuration(format!(
+                    "No endpoint for capability '{key}' in {config_path}"
+                ))
+            })
     }
 
     /// Get development default endpoints (ONLY for development environment)

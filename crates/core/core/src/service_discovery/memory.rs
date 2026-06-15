@@ -298,19 +298,18 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
         {
             let mut services = self.services.write().await;
 
-            if let Some(service) = services.get_mut(service_id.as_str()) {
-                let old_status = service.health_status.clone();
-                service.health_status = health.clone();
-                service.last_heartbeat = Utc::now();
-
-                if old_status != health {
-                    info!(
-                        "Service {} health changed from {:?} to {:?}",
-                        service_id, old_status, health
-                    );
-                }
-            } else {
+            let Some(service) = services.get_mut(service_id.as_str()) else {
                 return Err(CoreError::ServiceNotFound(service_id));
+            };
+            let old_status = service.health_status.clone();
+            service.health_status = health.clone();
+            service.last_heartbeat = Utc::now();
+
+            if old_status != health {
+                info!(
+                    "Service {} health changed from {:?} to {:?}",
+                    service_id, old_status, health
+                );
             }
         }
 
@@ -322,12 +321,11 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
         {
             let mut services = self.services.write().await;
 
-            if let Some(service) = services.get_mut(service_id.as_str()) {
-                service.last_heartbeat = Utc::now();
-                debug!("Updated heartbeat for service: {}", service_id);
-            } else {
+            let Some(service) = services.get_mut(service_id.as_str()) else {
                 return Err(CoreError::ServiceNotFound(service_id));
-            }
+            };
+            service.last_heartbeat = Utc::now();
+            debug!("Updated heartbeat for service: {}", service_id);
         }
 
         Ok(())

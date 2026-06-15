@@ -12,7 +12,7 @@
 //!
 //! - [`EcosystemIntegration`] - Core trait for ecosystem communication
 //! - [`UniversalPrimalProvider`] - Universal primal provider interface
-//! - [`ServiceMeshClient`](traits::ServiceMeshClient) - Service mesh client trait
+//! - [`ServiceMeshClient`] - Service mesh client trait
 //!
 //! ## Core Types
 //!

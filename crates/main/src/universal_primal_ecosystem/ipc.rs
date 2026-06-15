@@ -99,16 +99,14 @@ impl UniversalPrimalEcosystem {
 
         let result = universal_patterns::extract_rpc_result(&json_rpc_response)
             .map_err(|rpc_err| PrimalError::RemoteError(rpc_err.to_string()))?;
-        let result = &result;
 
-        // Convert to PrimalResponse
         Ok(PrimalResponse {
             request_id: request.request_id,
             response_id: uuid::Uuid::new_v4(),
             status: crate::universal::ResponseStatus::Success,
             success: true,
             data: Some(result.clone()),
-            payload: result.clone(),
+            payload: result,
             timestamp: chrono::Utc::now(),
             processing_time_ms: None,
             duration: None,
@@ -118,25 +116,103 @@ impl UniversalPrimalEcosystem {
         })
     }
 
-    /// Delegate HTTP request via service mesh (concentrated gap strategy).
+    /// Delegate JSON-RPC request to an HTTP endpoint using raw TCP.
     ///
-    /// Squirrel discovers the `http.proxy` capability at runtime rather
-    /// than hardcoding which primal provides it.
+    /// Implements minimal HTTP/1.1 POST without external dependencies (uniBin
+    /// compliant). The request body is a JSON-RPC 2.0 envelope identical to the
+    /// Unix socket path. The endpoint URL is parsed to extract host:port and the
+    /// path component.
     async fn delegate_to_http_proxy(
         &self,
         service: &DiscoveredService,
-        _request: PrimalRequest,
+        request: PrimalRequest,
     ) -> UniversalResult<PrimalResponse> {
-        tracing::warn!(
-            "HTTP request needed for {}. Delegating via 'http.proxy' capability discovery.",
-            service.service_id
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let url = url::Url::parse(&service.endpoint).map_err(|e| {
+            PrimalError::InvalidEndpoint(format!("Bad HTTP URL {}: {e}", service.endpoint))
+        })?;
+
+        let host = url
+            .host_str()
+            .ok_or_else(|| PrimalError::InvalidEndpoint("Missing host".into()))?;
+        let port = url
+            .port()
+            .unwrap_or_else(|| if url.scheme() == "https" { 443 } else { 80 });
+        let path = if url.path().is_empty() {
+            "/"
+        } else {
+            url.path()
+        };
+
+        let json_rpc_body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": request.request_id.to_string(),
+            "method": request.operation,
+            "params": request.payload,
+        });
+        let body_bytes = serde_json::to_vec(&json_rpc_body)
+            .map_err(|e| PrimalError::SerializationError(format!("Serialize request: {e}")))?;
+
+        let http_request = format!(
+            "POST {path} HTTP/1.1\r\n\
+             Host: {host}\r\n\
+             Content-Type: application/json\r\n\
+             Content-Length: {len}\r\n\
+             Connection: close\r\n\
+             \r\n",
+            len = body_bytes.len(),
         );
 
-        Err(PrimalError::NotImplemented(
-            "HTTP delegation via capability discovery not yet implemented. \
-             TRUE PRIMAL pattern: discover 'http.proxy' capability and delegate."
-                .to_string(),
-        ))
+        let addr = format!("{host}:{port}");
+        let mut stream = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            tokio::net::TcpStream::connect(&addr),
+        )
+        .await
+        .map_err(|_| PrimalError::NetworkError(format!("Timeout connecting to {addr}")))?
+        .map_err(|e| PrimalError::NetworkError(format!("TCP connect to {addr}: {e}")))?;
+
+        stream
+            .write_all(http_request.as_bytes())
+            .await
+            .map_err(|e| PrimalError::NetworkError(format!("Write HTTP headers: {e}")))?;
+        stream
+            .write_all(&body_bytes)
+            .await
+            .map_err(|e| PrimalError::NetworkError(format!("Write HTTP body: {e}")))?;
+
+        let mut response_buf = Vec::new();
+        stream
+            .read_to_end(&mut response_buf)
+            .await
+            .map_err(|e| PrimalError::NetworkError(format!("Read HTTP response: {e}")))?;
+
+        let response_str = String::from_utf8_lossy(&response_buf);
+        let body_start = response_str.find("\r\n\r\n").map_or(0, |i| i + 4);
+        let body = &response_buf[body_start..];
+
+        let json_rpc_response: serde_json::Value = serde_json::from_slice(body).map_err(|e| {
+            PrimalError::SerializationError(format!("Deserialize HTTP JSON-RPC response: {e}"))
+        })?;
+
+        let result = universal_patterns::extract_rpc_result(&json_rpc_response)
+            .map_err(|rpc_err| PrimalError::RemoteError(rpc_err.to_string()))?;
+
+        Ok(PrimalResponse {
+            request_id: request.request_id,
+            response_id: uuid::Uuid::new_v4(),
+            status: crate::universal::ResponseStatus::Success,
+            success: true,
+            data: Some(result.clone()),
+            payload: result,
+            timestamp: chrono::Utc::now(),
+            processing_time_ms: None,
+            duration: None,
+            error: None,
+            error_message: None,
+            metadata: std::collections::HashMap::new(),
+        })
     }
 }
 
@@ -183,9 +259,9 @@ mod ipc_tests {
     }
 
     #[tokio::test]
-    async fn send_capability_http_returns_not_implemented() {
+    async fn send_capability_http_attempts_connection() {
         let eco = UniversalPrimalEcosystem::new(crate::universal::PrimalContext::default());
-        let svc = sample_service("https://example.com");
+        let svc = sample_service("http://127.0.0.1:1");
         let req = PrimalRequest::new(
             "a",
             "cap",
@@ -196,8 +272,8 @@ mod ipc_tests {
         let err = eco
             .send_capability_request(&svc, req)
             .await
-            .expect_err("expected not implemented");
-        assert!(matches!(err, PrimalError::NotImplemented(_)));
+            .expect_err("expected network error on unreachable port");
+        assert!(matches!(err, PrimalError::NetworkError(_)));
     }
 
     #[tokio::test]

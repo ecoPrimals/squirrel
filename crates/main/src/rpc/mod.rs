@@ -49,6 +49,7 @@ pub mod jsonrpc_types;
 pub(crate) mod method_gate;
 pub mod protocol;
 pub mod protocol_negotiation;
+pub mod ribocipher_prefix;
 pub mod spring_tools;
 pub mod types;
 pub mod unix_socket;

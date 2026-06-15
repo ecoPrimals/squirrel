@@ -15,9 +15,9 @@
 //!
 //! Each adapter uses composition to transform one interface into another.
 //!
-//! Implement [`Command`](command::Command) and [`CommandAdapter`](registry::CommandAdapter)
+//! Implement [`Command`] and [`CommandAdapter`]
 //! with `impl Future<Output = _> + Send` (no `async_trait` on these traits).
-//! For heterogeneous command storage, use the object-safe [`DynCommand`](command::DynCommand)
+//! For heterogeneous command storage, use the object-safe [`DynCommand`]
 //! bridge (`Pin<Box<dyn Future>>`, same idea as `DynPlugin` in the interfaces crate).
 
 use thiserror::Error;
