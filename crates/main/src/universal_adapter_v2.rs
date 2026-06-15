@@ -432,6 +432,11 @@ impl UniversalClient {
         let request_bytes = serde_json::to_vec(request)
             .map_err(|e| PrimalError::InvalidInput(format!("Failed to serialize: {e}")))?;
 
+        universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut stream)
+            .await
+            .map_err(|e| {
+                PrimalError::NetworkError(format!("Failed to write riboCipher preamble: {e}"))
+            })?;
         stream
             .write_all(&request_bytes)
             .await

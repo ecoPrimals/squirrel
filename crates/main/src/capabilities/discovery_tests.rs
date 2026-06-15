@@ -119,8 +119,12 @@ async fn probe_socket_success_parses_capabilities() {
     let cap_name = "probe.test.cap";
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.expect("accept");
-        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
         let mut stream = stream;
+        stream
+            .read_exact(&mut [0u8; 2])
+            .await
+            .expect("riboCipher preamble");
         let mut line = String::new();
         let mut reader = BufReader::new(&mut stream);
         reader.read_line(&mut line).await.expect("read");
@@ -152,8 +156,12 @@ async fn probe_socket_jsonrpc_error_returns_probe_failed() {
 
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.expect("accept");
-        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
         let mut stream = stream;
+        stream
+            .read_exact(&mut [0u8; 2])
+            .await
+            .expect("riboCipher preamble");
         let mut line = String::new();
         let mut reader = BufReader::new(&mut stream);
         reader.read_line(&mut line).await.expect("read");
@@ -219,8 +227,12 @@ async fn probe_socket_missing_result_returns_probe_failed() {
 
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.expect("accept");
-        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
         let mut stream = stream;
+        stream
+            .read_exact(&mut [0u8; 2])
+            .await
+            .expect("riboCipher preamble");
         let mut line = String::new();
         let mut reader = BufReader::new(&mut stream);
         reader.read_line(&mut line).await.expect("read");
@@ -254,13 +266,17 @@ fn discover_capability_neural_api_happy_path() {
     let listener = tokio::net::UnixListener::bind(&neural_sock).expect("bind neural");
     let prov = provider_sock.clone();
     let server = rt.spawn(async move {
-        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
         let Ok(Ok((stream, _))) =
             tokio::time::timeout(std::time::Duration::from_secs(2), listener.accept()).await
         else {
             return;
         };
         let mut stream = stream;
+        stream
+            .read_exact(&mut [0u8; 2])
+            .await
+            .expect("riboCipher preamble");
         let mut line = String::new();
         let mut reader = BufReader::new(&mut stream);
         reader.read_line(&mut line).await.expect("read");
@@ -318,13 +334,17 @@ fn discover_capability_legacy_registry_socket() {
     let listener = tokio::net::UnixListener::bind(&reg_sock).expect("bind");
     let prov = provider_sock.clone();
     let server = rt.spawn(async move {
-        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
         let Ok(Ok((stream, _))) =
             tokio::time::timeout(std::time::Duration::from_secs(2), listener.accept()).await
         else {
             return;
         };
         let mut stream = stream;
+        stream
+            .read_exact(&mut [0u8; 2])
+            .await
+            .expect("riboCipher preamble");
         let mut line = String::new();
         let mut reader = BufReader::new(&mut stream);
         reader.read_line(&mut line).await.expect("read");

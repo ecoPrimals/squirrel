@@ -5,7 +5,7 @@ use super::*;
 use serde_json::json;
 use std::path::Path;
 use tempfile::tempdir;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixListener;
 
 use crate::api::ai::universal::{
@@ -23,7 +23,11 @@ async fn complete_parses_jsonrpc_success_with_text_and_usage() {
     let sock = dir.path().join("ai.sock");
     let listener = bind_unix_listener(&sock);
     let server = tokio::spawn(async move {
-        let (stream, _) = listener.accept().await.expect("accept");
+        let (mut stream, _) = listener.accept().await.expect("accept");
+        stream
+            .read_exact(&mut [0u8; 2])
+            .await
+            .expect("riboCipher preamble");
         let mut reader = BufReader::new(stream);
         let mut line = String::new();
         reader.read_line(&mut line).await.expect("read req");
@@ -75,7 +79,11 @@ async fn complete_accepts_content_instead_of_text() {
     let sock = dir.path().join("ai2.sock");
     let listener = bind_unix_listener(&sock);
     let server = tokio::spawn(async move {
-        let (stream, _) = listener.accept().await.expect("accept");
+        let (mut stream, _) = listener.accept().await.expect("accept");
+        stream
+            .read_exact(&mut [0u8; 2])
+            .await
+            .expect("riboCipher preamble");
         let mut reader = BufReader::new(stream);
         let mut line = String::new();
         reader.read_line(&mut line).await.ok();
@@ -118,7 +126,11 @@ async fn complete_maps_finish_reason_to_stop_reason() {
     let sock = dir.path().join("ai3.sock");
     let listener = bind_unix_listener(&sock);
     let server = tokio::spawn(async move {
-        let (stream, _) = listener.accept().await.expect("accept");
+        let (mut stream, _) = listener.accept().await.expect("accept");
+        stream
+            .read_exact(&mut [0u8; 2])
+            .await
+            .expect("riboCipher preamble");
         let mut reader = BufReader::new(stream);
         let mut line = String::new();
         reader.read_line(&mut line).await.ok();
@@ -161,7 +173,11 @@ async fn complete_errors_when_result_has_no_text_or_content() {
     let sock = dir.path().join("ai4.sock");
     let listener = bind_unix_listener(&sock);
     let server = tokio::spawn(async move {
-        let (stream, _) = listener.accept().await.expect("accept");
+        let (mut stream, _) = listener.accept().await.expect("accept");
+        stream
+            .read_exact(&mut [0u8; 2])
+            .await
+            .expect("riboCipher preamble");
         let mut reader = BufReader::new(stream);
         let mut line = String::new();
         reader.read_line(&mut line).await.ok();
@@ -201,7 +217,11 @@ async fn complete_surfaces_jsonrpc_error_response() {
     let sock = dir.path().join("ai5.sock");
     let listener = bind_unix_listener(&sock);
     let server = tokio::spawn(async move {
-        let (stream, _) = listener.accept().await.expect("accept");
+        let (mut stream, _) = listener.accept().await.expect("accept");
+        stream
+            .read_exact(&mut [0u8; 2])
+            .await
+            .expect("riboCipher preamble");
         let mut reader = BufReader::new(stream);
         let mut line = String::new();
         reader.read_line(&mut line).await.ok();
@@ -241,7 +261,11 @@ async fn complete_includes_messages_in_params() {
     let sock = dir.path().join("ai6.sock");
     let listener = bind_unix_listener(&sock);
     let server = tokio::spawn(async move {
-        let (stream, _) = listener.accept().await.expect("accept");
+        let (mut stream, _) = listener.accept().await.expect("accept");
+        stream
+            .read_exact(&mut [0u8; 2])
+            .await
+            .expect("riboCipher preamble");
         let mut reader = BufReader::new(stream);
         let mut line = String::new();
         reader.read_line(&mut line).await.expect("read");

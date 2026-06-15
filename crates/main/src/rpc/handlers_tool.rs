@@ -130,6 +130,13 @@ impl JsonRpcServer {
         request_line.push('\n');
 
         let (reader, mut writer) = tokio::io::split(stream);
+        universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut writer)
+            .await
+            .map_err(|e| JsonRpcError {
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("Failed to write riboCipher preamble: {e}"),
+                data: None,
+            })?;
         writer
             .write_all(request_line.as_bytes())
             .await

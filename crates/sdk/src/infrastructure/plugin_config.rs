@@ -286,9 +286,21 @@ impl PluginConfig {
         (sandbox_config.memory_limit_mb as usize) * 1024 * 1024
     }
 
-    /// Check if path access is allowed
-    pub fn is_path_allowed(&self, _path: &str) -> bool {
-        true
+    /// Check if path access is allowed by this plugin's declared permissions.
+    ///
+    /// Returns `true` only if the plugin has a `FileSystemRead` or
+    /// `FileSystemWrite` permission whose prefix matches the requested path.
+    /// If the plugin declares no filesystem permissions, all paths are denied.
+    pub fn is_path_allowed(&self, path: &str) -> bool {
+        if self.permissions.is_empty() {
+            return false;
+        }
+        self.permissions.iter().any(|perm| match perm {
+            Permission::FileSystemRead(prefix) | Permission::FileSystemWrite(prefix) => {
+                path.starts_with(prefix.as_str())
+            }
+            _ => false,
+        })
     }
 
     /// Get a setting value by key

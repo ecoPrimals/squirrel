@@ -11,6 +11,22 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (June 15, 2026 — Wave 114: Outbound riboCipher + Security Hardening)
+
+- **Outbound riboCipher signal compliance**: All 10+ UDS client paths now send `[0xEC, 0x01]` preamble before JSON-RPC payloads. Canonical `write_ndjson_preamble()` in new `universal-patterns/src/transport/ribocipher.rs` module. `main/src/rpc/ribocipher_prefix.rs` re-exports from canonical location (no duplication). squirrel is now **fully bidirectional** riboCipher compliant (inbound accept + outbound signal).
+- **Security: `is_path_allowed` enforced**: Evolved from permissive `true` stub to permission-based validation — checks `FileSystemRead`/`FileSystemWrite` prefixes from plugin manifest. Default-deny when no permissions declared.
+- **Fabricated data removed**: `get_plugin_logs` no longer returns hardcoded fake log entries — returns honest empty collection with Phase 2 note.
+- **Monitoring fix**: `record_performance` RPC now includes actual `PerformanceMetrics` payload (was silently dropping metrics parameter).
+- **Lint consistency**: Last 2 `#[allow(clippy::too_many_lines)]` migrated to `#[expect(..., reason)]`.
+- **12 test mocks updated** to strip riboCipher preamble, validating the full outbound signal pipeline.
+- **Quality gates**: 7,236 tests, 0 failures, 0 clippy warnings, 0 doc warnings, 0 unsafe code.
+
+### Summary (June 14, 2026 — Wave 113: Compliance + Deep Idiomatic Rust Evolution)
+
+- **Wave 113 compliance**: `health` bare method + inbound riboCipher prefix acceptance shipped. 14 idiomatic Rust improvements (let-else, `?`, iterator chains, `map_or`, redundant clone removal). Smart refactoring of 4 large files (router.rs 821→548L, builder.rs 796→383L, jsonrpc_server.rs 824→777L). HTTP IPC delegation + config endpoint parsing evolved from stubs. `get_plugin_config` returns real metadata.
+- **Quality gates**: 7,234 tests, 0 failures, 0 clippy warnings, 0 doc warnings, 90.1% coverage.
+- **Commits**: `0648bd66`
+
 ### Summary (June 10, 2026 — Waves 100-107: Transport Evolution + Socket Cleanup)
 
 - **Transport Evolution Phase 1+2 complete**: Accept `TRANSPORT_ENDPOINT` env var (Tier 0 priority, launcher-injected). New `crates/main/src/transport.rs` module provides wire-compatible `TransportEndpoint` enum + `connect_transport()`. All 4 outbound TCP callsites converted.

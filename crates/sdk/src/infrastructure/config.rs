@@ -543,11 +543,20 @@ mod tests {
 
     #[test]
     fn test_path_validation() {
-        let config = PluginConfig::default();
+        use crate::plugin::Permission;
 
-        // Simplified path validation since sandbox config was removed
-        assert!(config.is_path_allowed("./workspace/file.txt"));
-        assert!(config.is_path_allowed("./other/file.txt"));
+        let config = PluginConfig::default();
+        assert!(
+            !config.is_path_allowed("./workspace/file.txt"),
+            "no permissions → deny"
+        );
+
+        let config_with_perms = PluginConfig {
+            permissions: vec![Permission::FileSystemRead("./workspace".to_string())],
+            ..PluginConfig::default()
+        };
+        assert!(config_with_perms.is_path_allowed("./workspace/file.txt"));
+        assert!(!config_with_perms.is_path_allowed("./other/file.txt"));
     }
 
     #[test]

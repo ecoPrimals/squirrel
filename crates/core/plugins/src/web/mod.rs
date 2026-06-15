@@ -229,6 +229,10 @@ impl<R: PluginRegistry> PluginManagementInterface<R> {
     }
 
     /// Get plugin logs
+    ///
+    /// Returns an empty log collection. Structured log aggregation requires
+    /// a runtime log sink (Phase 2) — until then, this endpoint is honest
+    /// about having no data rather than returning fabricated entries.
     #[expect(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
@@ -236,29 +240,15 @@ impl<R: PluginRegistry> PluginManagementInterface<R> {
     async fn get_plugin_logs(&self, _path: &str) -> Result<WebResponse> {
         use std::collections::HashMap;
 
-        let logs = vec![
-            serde_json::json!({
-                "timestamp": "2024-01-20T10:30:00Z",
-                "level": "INFO",
-                "message": "Plugin initialized successfully",
-                "plugin": "Security Scanner"
-            }),
-            serde_json::json!({
-                "timestamp": "2024-01-20T10:29:45Z",
-                "level": "DEBUG",
-                "message": "Loading plugin configuration",
-                "plugin": "Security Scanner"
-            }),
-        ];
-
         Ok(WebResponse {
             status: HttpStatus::Ok,
             headers: HashMap::new(),
             body: Some(serde_json::json!({
-                "logs": logs,
-                "total": logs.len(),
+                "logs": [],
+                "total": 0,
                 "page": 1,
-                "per_page": 50
+                "per_page": 50,
+                "note": "Log aggregation requires runtime log sink (Phase 2)"
             })),
         })
     }

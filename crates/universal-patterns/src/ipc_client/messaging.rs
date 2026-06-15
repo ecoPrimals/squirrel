@@ -29,6 +29,13 @@ impl IpcClient {
         let request_bytes =
             serde_json::to_vec(&request).context("Failed to serialize JSON-RPC request")?;
 
+        crate::transport::ribocipher::write_ndjson_preamble(&mut stream)
+            .await
+            .map_err(|e| IpcClientError::Io {
+                phase: IpcErrorPhase::Write,
+                source: e,
+            })?;
+
         stream
             .write_all(&request_bytes)
             .await

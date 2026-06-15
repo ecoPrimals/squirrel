@@ -180,14 +180,13 @@ impl OpenAiAdapter {
         request_bytes.push(b'\n');
 
         let (read_half, mut write_half) = stream.into_split();
+        universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut write_half).await?;
         write_half.write_all(&request_bytes).await?;
 
-        // Read response
         let mut reader = BufReader::new(read_half);
         let mut response_line = String::new();
         reader.read_line(&mut response_line).await?;
 
-        // Parse JSON-RPC response
         let rpc_response: serde_json::Value = serde_json::from_str(&response_line)?;
 
         universal_patterns::extract_rpc_result(&rpc_response).map_err(|rpc_err| {

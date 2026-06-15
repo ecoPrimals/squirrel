@@ -97,6 +97,8 @@ fn spawn_mock_neural_spring(
             };
             let flag = Arc::clone(&saw_inference_complete);
             tokio::spawn(async move {
+                use tokio::io::AsyncReadExt;
+                let _ = stream.read_exact(&mut [0u8; 2]).await;
                 let mut reader = BufReader::new(&mut stream);
                 let mut line = String::new();
                 if reader.read_line(&mut line).await.unwrap_or(0) == 0 {

@@ -55,6 +55,7 @@
 mod client;
 mod discovery;
 mod listener;
+pub mod ribocipher;
 mod types;
 
 // Re-export all public types and functions

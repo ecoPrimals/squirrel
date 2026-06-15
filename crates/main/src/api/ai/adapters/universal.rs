@@ -195,7 +195,11 @@ impl UniversalAiAdapter {
                 ))
             })?;
 
-        // Send request
+        universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut stream)
+            .await
+            .map_err(|e| {
+                PrimalError::NetworkError(format!("Failed to send riboCipher preamble: {e}"))
+            })?;
         stream
             .write_all(&request_json)
             .await

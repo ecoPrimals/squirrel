@@ -407,17 +407,18 @@ pub async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, Disc
         "id": Uuid::new_v4().to_string(),
     });
 
-    // Send request
     let mut request_str = serde_json::to_string(&request)?;
     request_str.push('\n');
 
     let (read_half, mut write_half) = stream.into_split();
+    universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut write_half)
+        .await
+        .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?;
     write_half
         .write_all(request_str.as_bytes())
         .await
         .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?;
 
-    // Read response (with timeout)
     let mut reader = BufReader::new(read_half);
     let mut response_line = String::new();
 
@@ -518,6 +519,7 @@ async fn query_registry(
     request_str.push('\n');
 
     let (read_half, mut write_half) = stream.into_split();
+    universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut write_half).await?;
     write_half.write_all(request_str.as_bytes()).await?;
 
     let mut reader = BufReader::new(read_half);

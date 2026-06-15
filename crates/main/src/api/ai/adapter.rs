@@ -143,6 +143,9 @@ impl UniversalAiAdapter {
         request_str.push('\n');
 
         let (read_half, mut write_half) = stream.into_split();
+        universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut write_half)
+            .await
+            .map_err(|e| PrimalError::NetworkError(format!("riboCipher preamble error: {e}")))?;
         write_half
             .write_all(request_str.as_bytes())
             .await

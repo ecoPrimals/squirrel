@@ -360,6 +360,7 @@ pub(crate) async fn send_jsonrpc_with_timeout(
     line.push('\n');
 
     let (reader, mut writer) = tokio::io::split(stream);
+    universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut writer).await?;
     writer.write_all(line.as_bytes()).await?;
     writer.flush().await?;
 
@@ -417,7 +418,11 @@ mod tests {
 
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.expect("accept");
-            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+            stream
+                .read_exact(&mut [0u8; 2])
+                .await
+                .expect("riboCipher preamble");
             let mut reader = BufReader::new(&mut stream);
             let mut line = String::new();
             reader.read_line(&mut line).await.expect("read");
@@ -440,7 +445,11 @@ mod tests {
 
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.expect("accept");
-            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+            stream
+                .read_exact(&mut [0u8; 2])
+                .await
+                .expect("riboCipher preamble");
             let mut reader = BufReader::new(&mut stream);
             let mut line = String::new();
             reader.read_line(&mut line).await.expect("read");
@@ -469,15 +478,18 @@ mod tests {
         let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
 
         let server = rt.spawn(async move {
-            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
             loop {
                 let Ok((mut stream, _)) = listener.accept().await else {
                     break;
                 };
+                if stream.read_exact(&mut [0u8; 2]).await.is_err() {
+                    continue;
+                }
                 let mut reader = BufReader::new(&mut stream);
                 let mut line = String::new();
                 if reader.read_line(&mut line).await.is_err() || line.is_empty() {
-                    continue; // probe connection (no data) — skip
+                    continue;
                 }
                 let req: serde_json::Value = serde_json::from_str(line.trim()).expect("parse");
                 assert_eq!(req["method"], "primal.announce");

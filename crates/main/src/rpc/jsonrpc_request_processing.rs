@@ -110,7 +110,10 @@ impl JsonRpcServer {
         self.handle_single_request_object(obj, start_time).await
     }
 
-    #[allow(clippy::too_many_lines)]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "single dispatch point — splitting would fragment request lifecycle"
+    )]
     async fn handle_single_request_object(
         &self,
         obj: &serde_json::Map<String, Value>,

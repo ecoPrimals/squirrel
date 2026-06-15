@@ -73,7 +73,13 @@ impl UniversalPrimalEcosystem {
             PrimalError::SerializationError(format!("Failed to serialize request: {e}"))
         })?;
 
-        // Send request
+        // riboCipher preamble (Wave 113 outbound compliance)
+        universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut stream)
+            .await
+            .map_err(|e| {
+                PrimalError::NetworkError(format!("Failed to write riboCipher preamble: {e}"))
+            })?;
+
         stream
             .write_all(&request_bytes)
             .await

@@ -1,7 +1,7 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal composition. 7,234+ tests, 39 IPC methods, 90% coverage."
-date = 2026-06-14
+description = "AI inference routing, context management, capability discovery, signal composition. 7,236+ tests, 39 IPC methods, 90% coverage."
+date = 2026-06-15
 
 [taxonomies]
 primals = ["squirrel"]
@@ -13,14 +13,14 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: 7,234 passing across 22 workspace crates
+- **Tests**: 7,236 passing across 22 workspace crates
 - **Source**: ~1,010 `.rs` files, ~328k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`)
 - **Docs**: 0 warnings (`-D warnings`)
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced
 - **Coverage**: 90.1% region / 89.6% line (cargo-llvm-cov; 90.09% combined)
 - **Binary**: 3.5 MB static-pie musl, stripped, BLAKE3 checksummed, zero host paths
-- **Transport**: Full Phase 2 — `TRANSPORT_ENDPOINT` accepted + `connect_transport()` for all outbound IPC + riboCipher prefix detection on UDS
+- **Transport**: Full Phase 2 — `TRANSPORT_ENDPOINT` accepted + `connect_transport()` for all outbound IPC + riboCipher prefix on all UDS (inbound accept + outbound `[0xEC, 0x01]` preamble)
 - **HTTP IPC**: Raw TCP JSON-RPC delegation (zero external HTTP deps, uniBin compliant)
 
 ## Capabilities

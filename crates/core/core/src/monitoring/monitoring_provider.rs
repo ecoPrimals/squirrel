@@ -125,16 +125,12 @@ impl MonitoringProvider for MonitoringServiceProvider {
         .await
     }
 
-    async fn record_performance(
-        &self,
-        component: &str,
-        _metrics: PerformanceMetrics,
-    ) -> Result<()> {
+    async fn record_performance(&self, component: &str, metrics: PerformanceMetrics) -> Result<()> {
         let component = component.to_string();
         tracing::debug!(component = %component, "monitoring.record_performance");
         self.try_rpc(
             "monitoring.record_performance",
-            json!({ "component": component }),
+            json!({ "component": component, "metrics": metrics }),
         )
         .await
     }

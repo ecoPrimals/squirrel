@@ -148,6 +148,9 @@ impl SpringToolDiscovery {
         request_line.push('\n');
 
         let (reader, mut writer) = tokio::io::split(stream);
+        universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut writer)
+            .await
+            .map_err(PrimalError::Io)?;
         writer
             .write_all(request_line.as_bytes())
             .await
@@ -289,8 +292,12 @@ mod tests {
         let path_str = sock_path.to_str().expect("utf8").to_string();
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.expect("accept");
-            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
             let mut stream = stream;
+            stream
+                .read_exact(&mut [0u8; 2])
+                .await
+                .expect("riboCipher preamble");
             let mut line = String::new();
             let mut reader = BufReader::new(&mut stream);
             reader.read_line(&mut line).await.expect("read req");
@@ -335,8 +342,12 @@ mod tests {
         let path_str = sock_path.to_str().expect("utf8").to_string();
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.expect("accept");
-            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
             let mut stream = stream;
+            stream
+                .read_exact(&mut [0u8; 2])
+                .await
+                .expect("riboCipher preamble");
             let mut line = String::new();
             let mut reader = BufReader::new(&mut stream);
             reader.read_line(&mut line).await.expect("read");
