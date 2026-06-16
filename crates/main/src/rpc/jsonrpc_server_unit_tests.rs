@@ -11,7 +11,7 @@ use crate::rpc::jsonrpc_types::normalize_method;
 use anyhow::Context;
 use serde_json::{Value, json};
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use universal_patterns::transport::UniversalTransport;
 
 #[test]
@@ -829,5 +829,116 @@ async fn universal_connection_invalid_protocol_request_falls_back_to_jsonrpc() {
     );
     let client = reader.into_inner();
     client.shutdown().await.expect("shutdown");
+    let _ = jh.await;
+}
+
+// -----------------------------------------------------------------------
+// riboCipher signal acceptance (UDS) — Eukaryotic genetics model
+// -----------------------------------------------------------------------
+
+/// UDS loopback pair routed through `handle_uds_connection` (riboCipher + BTSP auto-detect).
+async fn uds_server_transport() -> (
+    tokio::task::JoinHandle<anyhow::Result<()>>,
+    tokio::net::UnixStream,
+) {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let sock = dir.path().join("ribo.sock");
+    let listener = tokio::net::UnixListener::bind(&sock).expect("bind");
+    let server = Arc::new(JsonRpcServer::new(sock.to_str().expect("utf8").to_string()));
+    let jh = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.context("accept")?;
+        let transport = UniversalTransport::UnixSocket(stream);
+        JsonRpcServer::handle_uds_connection(server, transport).await
+    });
+    let client = tokio::net::UnixStream::connect(&sock)
+        .await
+        .expect("connect");
+    std::mem::forget(dir);
+    (jh, client)
+}
+
+#[tokio::test]
+async fn uds_clear_signal_ndjson_health_roundtrip() {
+    let (jh, mut client) = uds_server_transport().await;
+    client.write_all(&[0xEC, 0x01]).await.expect("preamble");
+    client
+        .write_all(br#"{"jsonrpc":"2.0","method":"health","id":1}"#)
+        .await
+        .expect("rpc");
+    client.write_all(b"\n").await.expect("newline");
+    client.flush().await.expect("flush");
+    client.shutdown().await.expect("shutdown");
+
+    let mut buf = Vec::new();
+    client.read_to_end(&mut buf).await.expect("read");
+    let v: Value = serde_json::from_slice(&buf).expect("json");
+    assert_eq!(
+        v.pointer("/result/status").and_then(Value::as_str),
+        Some("healthy")
+    );
+    let _ = jh.await;
+}
+
+#[tokio::test]
+async fn uds_mito_signal_ndjson_health_roundtrip() {
+    let (jh, mut client) = uds_server_transport().await;
+    client.write_all(&[0xED, 0x01]).await.expect("preamble");
+    client
+        .write_all(br#"{"jsonrpc":"2.0","method":"health","id":1}"#)
+        .await
+        .expect("rpc");
+    client.write_all(b"\n").await.expect("newline");
+    client.flush().await.expect("flush");
+    client.shutdown().await.expect("shutdown");
+
+    let mut buf = Vec::new();
+    client.read_to_end(&mut buf).await.expect("read");
+    let v: Value = serde_json::from_slice(&buf).expect("json");
+    assert_eq!(
+        v.pointer("/result/status").and_then(Value::as_str),
+        Some("healthy"),
+        "mito-beacon (0xED) should be accepted identically to clear (0xEC): {v}"
+    );
+    let _ = jh.await;
+}
+
+#[tokio::test]
+async fn uds_nuclear_signal_closes_gracefully() {
+    let (jh, mut client) = uds_server_transport().await;
+    client.write_all(&[0xEE]).await.expect("nuclear byte");
+    client.flush().await.expect("flush");
+
+    let mut buf = Vec::new();
+    let _ = client.read_to_end(&mut buf).await;
+    assert!(
+        buf.is_empty(),
+        "nuclear signal should close cleanly (no response)"
+    );
+    let res = jh.await.expect("join");
+    assert!(
+        res.is_ok(),
+        "server should not error on nuclear signal: {res:?}"
+    );
+}
+
+#[tokio::test]
+async fn uds_raw_json_still_works_without_prefix() {
+    let (jh, mut client) = uds_server_transport().await;
+    client
+        .write_all(br#"{"jsonrpc":"2.0","method":"system.ping","id":1}"#)
+        .await
+        .expect("rpc");
+    client.write_all(b"\n").await.expect("newline");
+    client.flush().await.expect("flush");
+    client.shutdown().await.expect("shutdown");
+
+    let mut buf = Vec::new();
+    client.read_to_end(&mut buf).await.expect("read");
+    let v: Value = serde_json::from_slice(&buf).expect("json");
+    assert_eq!(
+        v.pointer("/result/pong").and_then(Value::as_bool),
+        Some(true),
+        "raw JSON without riboCipher prefix should still work: {v}"
+    );
     let _ = jh.await;
 }

@@ -284,16 +284,15 @@ impl JsonRpcServer {
 
     /// Handle a single UDS connection with riboCipher + BTSP auto-detect.
     ///
-    /// **riboCipher (Wave 113):** Reads the first byte. If `0xEC` (clear signal),
-    /// reads the second byte (protocol type), strips the 2-byte prefix, and
-    /// routes to the appropriate handler. For `0x01` (NDJSON JSON-RPC), proceeds
-    /// directly to JSON-RPC handling, bypassing BTSP.
+    /// **Eukaryotic genetics model (Wave 114):** Reads the first byte and
+    /// classifies by stream:
     ///
-    /// If the first byte is NOT a riboCipher signal, it is passed through to
-    /// `maybe_handshake` which already handles `{` (JSON-RPC) and `0x00` (BTSP).
-    ///
-    /// If `maybe_handshake` detects plain JSON-RPC (not BTSP), the consumed first
-    /// line is re-injected so health probes receive proper responses.
+    /// - `0xEC` / `0xED` — **MitoBeacon** (shared access). Reads the second
+    ///   byte (protocol type) and routes: `0x01` → NDJSON JSON-RPC, `0x02`/`0x03`
+    ///   → BTSP handshake.
+    /// - `0xEE` — **Nuclear Lineage** (per-user). Requires BearDog key material;
+    ///   not yet implemented — closes gracefully.
+    /// - Anything else — passed to `maybe_handshake` for BTSP/JSON auto-detect.
     async fn handle_uds_connection(
         server: Arc<Self>,
         mut transport: UniversalTransport,
@@ -319,7 +318,14 @@ impl JsonRpcServer {
         }
 
         match first[0] {
-            CLEAR_SIGNAL => {
+            // MitoBeacon stream — both clear (0xEC) and mito-obfuscated (0xED)
+            // carry shared/copyable relay credentials and route identically.
+            signal @ (CLEAR_SIGNAL | MITO_SIGNAL) => {
+                let tier = if signal == CLEAR_SIGNAL {
+                    "clear"
+                } else {
+                    "mito"
+                };
                 let mut proto = [0u8; 1];
                 transport
                     .read_exact(&mut proto)
@@ -329,30 +335,29 @@ impl JsonRpcServer {
 
                 match protocol_type {
                     NDJSON_JSONRPC => {
-                        debug!("riboCipher clear signal: NDJSON JSON-RPC (0x01)");
+                        debug!(tier, "riboCipher MitoBeacon: NDJSON JSON-RPC (0x01)");
                         server.handle_universal_connection(transport).await
                     }
                     BTSP_BINARY | BTSP_JSON_LINE => {
                         debug!(
-                            protocol_type,
-                            "riboCipher clear signal: BTSP — proceeding to handshake"
+                            tier,
+                            protocol_type, "riboCipher MitoBeacon: BTSP — proceeding to handshake"
                         );
                         Self::run_btsp_then_jsonrpc(server, transport).await
                     }
                     other => {
                         warn!(
+                            tier,
                             protocol_type = other,
-                            "riboCipher clear signal: unsupported protocol type — closing"
+                            "riboCipher MitoBeacon: unsupported protocol type — closing"
                         );
                         Ok(())
                     }
                 }
             }
-            MITO_SIGNAL | NUCLEAR_SIGNAL => {
-                warn!(
-                    signal_byte = format_args!("0x{:02X}", first[0]),
-                    "riboCipher tier 2/3 not yet implemented — closing"
-                );
+            // Nuclear Lineage — per-user, requires BearDog key material (Wave 115+).
+            NUCLEAR_SIGNAL => {
+                warn!("riboCipher Nuclear Lineage (0xEE) not yet implemented — closing");
                 Ok(())
             }
             // Not a riboCipher signal — pass to BTSP auto-detect with the

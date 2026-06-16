@@ -11,6 +11,13 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (June 16, 2026 — Wave 114: Eukaryotic Genetics-Layer Wiring)
+
+- **MitoBeacon acceptance (0xED)**: Server accept loop now handles `0xED` (mito-obfuscated) identically to `0xEC` (clear signal). Both are MitoBeacon stream — shared/copyable relay credentials. `0xEE` (Nuclear Lineage) closes gracefully (Wave 115+). This was the soft-blocker for 7/11 primals rejecting the mito-beacon signal on live NUCLEUS.
+- **Eukaryotic riboCipher module**: `SignalResult` enum evolved from `Clear/UnsupportedTier` to `MitoBeacon{signal,protocol_type}/NuclearLineage`. New `is_mito_beacon()` classifier + `write_mito_ndjson_preamble()` outbound helper. Docs updated for two-stream eukaryotic model.
+- **4 UDS server integration tests**: Clear signal, mito-beacon, nuclear lineage graceful close, raw JSON backward compat — all through `handle_uds_connection`.
+- **Quality gates**: 7,242 tests, 0 failures, 0 clippy warnings, 0 doc warnings, 0 unsafe code.
+
 ### Summary (June 15, 2026 — Wave 114: Outbound riboCipher + Security Hardening)
 
 - **Outbound riboCipher signal compliance**: All 10+ UDS client paths now send `[0xEC, 0x01]` preamble before JSON-RPC payloads. Canonical `write_ndjson_preamble()` in new `universal-patterns/src/transport/ribocipher.rs` module. `main/src/rpc/ribocipher_prefix.rs` re-exports from canonical location (no duplication). squirrel is now **fully bidirectional** riboCipher compliant (inbound accept + outbound signal).
