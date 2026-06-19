@@ -73,28 +73,29 @@ pub struct EcosystemConfig {
 
 impl Default for EcosystemConfig {
     fn default() -> Self {
+        use universal_constants::config_helpers;
+        use universal_constants::env_vars;
+        use universal_constants::network::{self, get_service_port};
         use uuid::Uuid;
 
         Self {
             service_id: Arc::from(format!("primal-squirrel-{}", Uuid::new_v4())),
             service_name: "Squirrel AI Primal".to_string(),
-            service_host: std::env::var(universal_constants::env_vars::squirrel::HOST)
-                .unwrap_or_else(|_| "localhost".to_string()),
-            service_port: std::env::var(universal_constants::env_vars::squirrel::PORT)
+            service_host: config_helpers::get_host(
+                env_vars::squirrel::HOST,
+                network::DEFAULT_LOCALHOST,
+            ),
+            service_port: std::env::var(env_vars::squirrel::PORT)
                 .ok()
                 .and_then(|p| p.parse().ok())
-                .unwrap_or(8002),
-            service_mesh_endpoint: std::env::var(
-                universal_constants::env_vars::network::SERVICE_MESH_ENDPOINT,
-            )
-            .unwrap_or_else(|_| {
-                use universal_constants::network::get_service_port;
-                let port = std::env::var(universal_constants::env_vars::network::SERVICE_MESH_PORT)
-                    .ok()
-                    .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or_else(|| get_service_port("service_mesh"));
-                format!("http://localhost:{port}")
-            }),
+                .unwrap_or_else(network::squirrel_primal_port),
+            service_mesh_endpoint: network::discover_peer_http_origin(
+                env_vars::network::SERVICE_MESH_ENDPOINT,
+                env_vars::discovery::SERVICE_MESH_HOST,
+                env_vars::network::SERVICE_MESH_PORT,
+                network::DEFAULT_LOCALHOST,
+                get_service_port("service_mesh"),
+            ),
             biome_id: std::env::var(universal_constants::env_vars::ecosystem::BIOME_ID).ok(),
             registry_config: EcosystemRegistryConfig::default(),
             resource_requirements: ResourceSpec::default(),
@@ -123,9 +124,9 @@ impl EcosystemConfig {
     /// Create configuration from environment variables
     ///
     /// Uses environment variables with sensible defaults:
-    /// - `SQUIRREL_HOST` (default: localhost)
-    /// - `SQUIRREL_PORT` (default: 8002)
-    /// - `SERVICE_MESH_ENDPOINT` (default: http://localhost:8001)
+    /// - `SQUIRREL_HOST` (default: localhost via `DEFAULT_LOCALHOST`)
+    /// - `SQUIRREL_PORT` (default: `squirrel_primal_port()` / 9010)
+    /// - `SERVICE_MESH_ENDPOINT` (default: capability discovery via `discover_peer_http_origin`)
     /// - `BIOME_ID` (optional)
     #[must_use]
     pub fn from_env() -> Self {

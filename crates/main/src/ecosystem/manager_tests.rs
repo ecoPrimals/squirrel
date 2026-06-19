@@ -174,7 +174,10 @@ mod tests {
 
         assert!(!config.service_id.is_empty());
         assert!(!config.service_name.is_empty());
-        assert_eq!(config.service_port, 8002);
+        assert_eq!(
+            config.service_port,
+            universal_constants::network::squirrel_primal_port()
+        );
     }
 
     #[tokio::test]

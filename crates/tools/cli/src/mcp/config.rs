@@ -9,15 +9,16 @@
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 use std::time::Duration;
+use universal_constants::network::{BIND_ALL_INTERFACES, DEFAULT_CLI_MCP_PORT, LOCALHOST_IPV4};
 
 /// Default TCP port for the MCP server.
 ///
 /// Aligned with `server::default_port()` and ecosystem service mesh conventions.
-pub const DEFAULT_MCP_PORT: u16 = 8444;
+pub const DEFAULT_MCP_PORT: u16 = DEFAULT_CLI_MCP_PORT;
 /// Default bind host for development MCP servers.
-pub const DEFAULT_DEV_HOST: &str = "127.0.0.1";
+pub const DEFAULT_DEV_HOST: &str = LOCALHOST_IPV4;
 /// Default bind host for production MCP servers.
-pub const DEFAULT_PROD_HOST: &str = "0.0.0.0";
+pub const DEFAULT_PROD_HOST: &str = BIND_ALL_INTERFACES;
 /// Default MCP client request timeout in seconds.
 pub const DEFAULT_CLIENT_TIMEOUT_SECS: u64 = 30;
 /// Default MCP connection establishment timeout in seconds.

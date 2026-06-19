@@ -67,8 +67,10 @@ impl BiomeManifestParser {
     #[must_use]
     #[expect(clippy::too_many_lines, reason = "Manifest parsing; refactor planned")]
     pub fn generate_template() -> BiomeManifest {
-        let ui_host = std::env::var(universal_constants::env_vars::network::UI_HOST)
-            .unwrap_or_else(|_| "localhost".to_string());
+        let ui_host = universal_constants::config_helpers::get_host(
+            universal_constants::env_vars::network::UI_HOST,
+            universal_constants::network::DEFAULT_LOCALHOST,
+        );
 
         BiomeManifest {
             metadata: BiomeMetadata {

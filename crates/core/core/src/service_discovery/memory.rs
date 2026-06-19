@@ -15,7 +15,6 @@ use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 use super::ServiceDiscovery;
-// Removed: use squirrel_mcp_config::get_service_endpoints;
 use crate::CoreResult;
 use crate::error::CoreError;
 use crate::service_discovery::types::{
@@ -295,22 +294,21 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
         health: ServiceHealthStatus,
     ) -> CoreResult<()> {
         let service_id = service_id.to_string();
-        {
-            let mut services = self.services.write().await;
+        let mut services = self.services.write().await;
 
-            let Some(service) = services.get_mut(service_id.as_str()) else {
-                return Err(CoreError::ServiceNotFound(service_id));
-            };
-            let old_status = service.health_status.clone();
-            service.health_status = health.clone();
-            service.last_heartbeat = Utc::now();
+        let Some(service) = services.get_mut(service_id.as_str()) else {
+            return Err(CoreError::ServiceNotFound(service_id));
+        };
+        let old_status = service.health_status.clone();
+        service.health_status = health.clone();
+        service.last_heartbeat = Utc::now();
+        drop(services);
 
-            if old_status != health {
-                info!(
-                    "Service {} health changed from {:?} to {:?}",
-                    service_id, old_status, health
-                );
-            }
+        if old_status != health {
+            info!(
+                "Service {} health changed from {:?} to {:?}",
+                service_id, old_status, health
+            );
         }
 
         Ok(())
@@ -318,15 +316,14 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
 
     async fn heartbeat(&self, service_id: &str) -> CoreResult<()> {
         let service_id = service_id.to_string();
-        {
-            let mut services = self.services.write().await;
+        let mut services = self.services.write().await;
 
-            let Some(service) = services.get_mut(service_id.as_str()) else {
-                return Err(CoreError::ServiceNotFound(service_id));
-            };
-            service.last_heartbeat = Utc::now();
-            debug!("Updated heartbeat for service: {}", service_id);
-        }
+        let Some(service) = services.get_mut(service_id.as_str()) else {
+            return Err(CoreError::ServiceNotFound(service_id));
+        };
+        service.last_heartbeat = Utc::now();
+        debug!("Updated heartbeat for service: {}", service_id);
+        drop(services);
 
         Ok(())
     }

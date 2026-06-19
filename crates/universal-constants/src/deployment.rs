@@ -152,11 +152,11 @@ pub mod ports {
             .unwrap_or(5432)
     }
 
-    /// Squirrel main server port (HTTP API)
+    /// Squirrel main server port (JSON-RPC / IPC)
     ///
     /// **Environment**: `SQUIRREL_PORT` (this primal), then `SQUIRREL_SERVER_PORT`\
     /// **Default**: `9010`\
-    /// **Usage**: Squirrel HTTP API server (CLI `server` default)
+    /// **Usage**: Squirrel JSON-RPC server (CLI `server` default, TCP fallback)
     #[must_use]
     pub fn squirrel_server() -> u16 {
         crate::network::squirrel_primal_port()

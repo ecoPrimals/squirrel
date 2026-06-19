@@ -112,8 +112,8 @@ impl OptimizedServiceRegistration {
             std::env::var(universal_constants::env_vars::ecosystem::TEST_BIOMEOS_OPT_PORT)
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8080);
-        let base_url = format!("http://localhost:{test_port}");
+                .unwrap_or_else(|| universal_constants::network::get_service_port("http"));
+        let base_url = universal_constants::builders::localhost_http(test_port);
         let endpoints = crate::ecosystem::ServiceEndpoints {
             primary: base_url.clone(),
             secondary: vec![
@@ -136,7 +136,9 @@ impl OptimizedServiceRegistration {
             service_id: Arc::from(service_id.clone()),
             name: service_id.clone(),
             description: format!("Ecosystem integration for {service_id}"),
-            primal_type: crate::ecosystem::EcosystemPrimalType::Squirrel, // Use enum directly
+            capability_id: Some(Arc::from(crate::niche::DOMAIN)),
+            #[expect(deprecated, reason = "serde backward compat")]
+            primal_type: crate::ecosystem::EcosystemPrimalType::Squirrel,
             biome_id: Some(biome_id.map_or_else(
                 || "default-biome".to_string(),
                 std::string::ToString::to_string,
@@ -390,6 +392,7 @@ pub fn register_with_ecosystem(
 
     EcosystemServiceRegistration {
         service_id: Arc::from(service_id.to_string()),
+        capability_id: Some(Arc::from(crate::niche::DOMAIN)),
         name: service_id.to_string(),
         description: format!("Ecosystem integration for {service_id}"),
         primal_type,

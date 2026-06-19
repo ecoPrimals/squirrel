@@ -176,7 +176,7 @@ pub trait UniversalSecurityService: Send + Sync {
     /// Initialize the security service
     #[allow(
         dead_code,
-        reason = "trait contract: concrete adapters implement; only exercised in integration tests"
+        reason = "trait contract: concrete adapters implement; integration tests only"
     )]
     async fn initialize(&mut self, config: SecurityServiceConfig) -> Result<(), SecurityError>;
 }

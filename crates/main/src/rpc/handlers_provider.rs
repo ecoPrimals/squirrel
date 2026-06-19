@@ -36,7 +36,10 @@ impl JsonRpcServer {
     ///
     /// Optional fields: `endpoint` (HTTP URL), `priority` (0–255, default 50),
     /// `metadata` (arbitrary JSON object).
-    #[expect(clippy::too_many_lines, reason = "complex validation + registration pipeline — splitting would lose transactional context")]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "complex validation + registration pipeline — splitting would lose transactional context"
+    )]
     pub(crate) async fn handle_provider_register(
         &self,
         params: Option<Value>,

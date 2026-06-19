@@ -315,23 +315,101 @@ impl PerformanceTracker {
         Ok(trends)
     }
 
-    /// Collect performance summary
+    /// Collect performance summary from real system metrics.
+    ///
+    /// Reads `/proc/self/stat` for CPU, `/proc/self/statm` for memory,
+    /// `/proc/self/io` for disk I/O, and `/proc/net/dev` for network I/O.
+    /// Falls back to zero values on non-Linux or if reads fail.
     async fn collect_performance_summary(&self) -> Result<PerformanceSummary, PrimalError> {
-        // In a real implementation, these would come from actual system monitoring
-        // For now, we'll use simulated values with some variation
+        let (cpu_usage, memory_usage, disk_io, network_io) =
+            tokio::task::spawn_blocking(Self::read_proc_metrics)
+                .await
+                .unwrap_or((0.0, 0.0, 0.0, 0.0));
 
-        let base_time = Utc::now();
-        let time_factor = (base_time.timestamp_millis() % 10000) as f64 / 10000.0;
+        let metrics = self.metrics.read().await;
+        let avg_response_time = metrics
+            .get("response_time")
+            .map_or(0.0, |m| m.average_value);
+        let requests_per_second = metrics
+            .get("requests_per_second")
+            .map_or(0.0, |m| m.current_value);
+        let error_rate = metrics.get("error_rate").map_or(0.0, |m| m.current_value);
 
         Ok(PerformanceSummary {
-            cpu_usage: 25.0 + (time_factor * 20.0),
-            memory_usage: 40.0 + (time_factor * 15.0),
-            network_io: 1024.0 * (50.0 + time_factor * 30.0),
-            disk_io: 1024.0 * (20.0 + time_factor * 10.0),
-            avg_response_time: 120.0 + (time_factor * 50.0),
-            requests_per_second: 45.0 + (time_factor * 25.0),
-            error_rate: 0.5 + (time_factor * 1.0),
+            cpu_usage,
+            memory_usage,
+            network_io,
+            disk_io,
+            avg_response_time,
+            requests_per_second,
+            error_rate,
         })
+    }
+
+    /// Read real metrics from /proc (Linux only). Returns (cpu%, mem%, disk_bytes, net_bytes).
+    fn read_proc_metrics() -> (f64, f64, f64, f64) {
+        let cpu = Self::read_proc_cpu().unwrap_or(0.0);
+        let mem = Self::read_proc_memory().unwrap_or(0.0);
+        let disk = Self::read_proc_disk_io().unwrap_or(0.0);
+        let net = Self::read_proc_net_io().unwrap_or(0.0);
+        (cpu, mem, disk, net)
+    }
+
+    fn read_proc_cpu() -> Option<f64> {
+        let stat = std::fs::read_to_string("/proc/self/stat").ok()?;
+        let fields: Vec<&str> = stat.split_whitespace().collect();
+        let utime: f64 = fields.get(13)?.parse().ok()?;
+        let stime: f64 = fields.get(14)?.parse().ok()?;
+        let total_ticks = utime + stime;
+        let uptime_str = std::fs::read_to_string("/proc/uptime").ok()?;
+        let uptime: f64 = uptime_str.split_whitespace().next()?.parse().ok()?;
+        let clk_tck = 100.0_f64; // sysconf(_SC_CLK_TCK) standard on Linux
+        let cpu_seconds = total_ticks / clk_tck;
+        Some((cpu_seconds / uptime * 100.0).min(100.0))
+    }
+
+    fn read_proc_memory() -> Option<f64> {
+        let statm = std::fs::read_to_string("/proc/self/statm").ok()?;
+        let rss_pages: f64 = statm.split_whitespace().nth(1)?.parse().ok()?;
+        let page_size = 4096.0_f64;
+        let rss_bytes = rss_pages * page_size;
+        let meminfo = std::fs::read_to_string("/proc/meminfo").ok()?;
+        let total_kb: f64 = meminfo
+            .lines()
+            .find(|l| l.starts_with("MemTotal:"))?
+            .split_whitespace()
+            .nth(1)?
+            .parse()
+            .ok()?;
+        Some((rss_bytes / (total_kb * 1024.0) * 100.0).min(100.0))
+    }
+
+    fn read_proc_disk_io() -> Option<f64> {
+        let io = std::fs::read_to_string("/proc/self/io").ok()?;
+        let mut read_bytes = 0.0_f64;
+        let mut write_bytes = 0.0_f64;
+        for line in io.lines() {
+            if let Some(val) = line.strip_prefix("read_bytes: ") {
+                read_bytes = val.trim().parse().unwrap_or(0.0);
+            } else if let Some(val) = line.strip_prefix("write_bytes: ") {
+                write_bytes = val.trim().parse().unwrap_or(0.0);
+            }
+        }
+        Some(read_bytes + write_bytes)
+    }
+
+    fn read_proc_net_io() -> Option<f64> {
+        let dev = std::fs::read_to_string("/proc/net/dev").ok()?;
+        let mut total: f64 = 0.0;
+        for line in dev.lines().skip(2) {
+            let fields: Vec<&str> = line.split_whitespace().collect();
+            if fields.len() >= 10 {
+                let rx: f64 = fields.get(1)?.parse().unwrap_or(0.0);
+                let tx: f64 = fields.get(9)?.parse().unwrap_or(0.0);
+                total += rx + tx;
+            }
+        }
+        Some(total)
     }
 
     /// Collect component performance metrics
@@ -609,9 +687,11 @@ mod tests {
         let tracker = PerformanceTracker::new();
 
         let summary = tracker.get_summary().await.expect("should succeed");
-        assert!(summary.cpu_usage > 0.0);
-        assert!(summary.memory_usage > 0.0);
-        assert!(summary.avg_response_time > 0.0);
+        // Real /proc metrics — CPU and memory should be non-negative
+        assert!(summary.cpu_usage >= 0.0);
+        assert!(summary.memory_usage >= 0.0);
+        // avg_response_time is 0.0 on a fresh tracker (no recorded metrics yet)
+        assert!(summary.avg_response_time >= 0.0);
     }
 
     #[tokio::test]
@@ -648,7 +728,6 @@ mod tests {
     async fn test_metric_retrieval() {
         let tracker = PerformanceTracker::new();
 
-        // Track performance to create metrics
         tracker.track_performance().await.expect("should succeed");
 
         let metric = tracker
@@ -656,7 +735,10 @@ mod tests {
             .await
             .expect("should succeed");
         assert_eq!(metric.name, "cpu_usage");
-        assert!(metric.current_value > 0.0);
+        assert!(
+            metric.current_value >= 0.0,
+            "real /proc CPU must be non-negative"
+        );
         assert!(metric.sample_count > 0);
     }
 }

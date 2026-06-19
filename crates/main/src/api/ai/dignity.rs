@@ -7,6 +7,41 @@
 //! prevention, human oversight, manipulation prevention, and right to explanation.
 
 use std::fmt;
+use tracing::{info, warn};
+
+/// Environment variable controlling dignity check enforcement (`warn` | `enforce` | `audit`).
+pub const DIGNITY_ENFORCEMENT_ENV: &str = "SQUIRREL_DIGNITY_ENFORCEMENT";
+
+/// How failed dignity checks are handled at the router boundary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DignityEnforcementLevel {
+    /// Log a warning and allow the request (default).
+    #[default]
+    WarnOnly,
+    /// Block the request and surface an error to the caller.
+    Enforce,
+    /// Emit a structured audit event and allow the request.
+    AuditLog,
+}
+
+impl DignityEnforcementLevel {
+    /// Read enforcement level from [`DIGNITY_ENFORCEMENT_ENV`]; defaults to [`WarnOnly`].
+    pub fn from_env() -> Self {
+        std::env::var(DIGNITY_ENFORCEMENT_ENV)
+            .ok()
+            .as_deref()
+            .map_or(Self::WarnOnly, Self::parse)
+    }
+
+    /// Parse env value: `"warn"`, `"enforce"`, or `"audit"` (unknown values → warn).
+    pub fn parse(value: &str) -> Self {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "enforce" => Self::Enforce,
+            "audit" => Self::AuditLog,
+            _ => Self::WarnOnly,
+        }
+    }
+}
 
 /// Request payload for dignity evaluation.
 #[derive(Debug, Clone)]
@@ -183,17 +218,67 @@ impl DignityEvaluator {
 #[derive(Debug, Clone)]
 pub struct DignityGuard {
     evaluator: DignityEvaluator,
+    enforcement_level: DignityEnforcementLevel,
 }
 
 impl DignityGuard {
-    /// Create a new dignity guard.
+    /// Create a guard with warn-only enforcement (matches legacy router behavior).
     pub const fn new() -> Self {
+        Self::with_enforcement(DignityEnforcementLevel::WarnOnly)
+    }
+
+    /// Create a guard with the given enforcement level.
+    pub const fn with_enforcement(enforcement_level: DignityEnforcementLevel) -> Self {
         Self {
             evaluator: DignityEvaluator,
+            enforcement_level,
         }
     }
 
-    /// Run dignity check; returns `Ok(())` if passed, `Err(DignityViolation)` if failed.
+    /// Apply dignity checks using the configured enforcement level.
+    pub fn guard(&self, request: &DignityCheckRequest<'_>) -> Result<(), DignityViolation> {
+        let result = self.evaluator.evaluate_request(request);
+        if result.passed {
+            if matches!(self.enforcement_level, DignityEnforcementLevel::AuditLog) {
+                info!(
+                    target: "dignity.audit",
+                    passed = true,
+                    prompt_len = request.prompt.len(),
+                    model = ?request.model,
+                    context = ?request.context,
+                    "Dignity audit: all checks passed"
+                );
+            }
+            return Ok(());
+        }
+
+        match self.enforcement_level {
+            DignityEnforcementLevel::WarnOnly => {
+                warn!(
+                    "Dignity check failed (wateringHole/sovereignty guard): {}",
+                    result.explanation
+                );
+                Ok(())
+            }
+            DignityEnforcementLevel::AuditLog => {
+                info!(
+                    target: "dignity.audit",
+                    passed = false,
+                    flag_count = result.flags.len(),
+                    flags = ?result.flags,
+                    explanation = %result.explanation,
+                    prompt_len = request.prompt.len(),
+                    model = ?request.model,
+                    context = ?request.context,
+                    "Dignity audit: check failed"
+                );
+                Ok(())
+            }
+            DignityEnforcementLevel::Enforce => Err(DignityViolation { result }),
+        }
+    }
+
+    /// Run dignity check; always blocks on failure regardless of enforcement level.
     pub fn check_and_route(
         &self,
         request: &DignityCheckRequest<'_>,
@@ -371,6 +456,79 @@ mod tests {
         assert!(!err.result.passed);
         assert!(!err.result.flags.is_empty());
         assert!(err.to_string().contains("Dignity check failed"));
+    }
+
+    // --- DignityEnforcementLevel ---
+
+    #[test]
+    fn enforcement_level_parse_values() {
+        assert_eq!(
+            DignityEnforcementLevel::parse("warn"),
+            DignityEnforcementLevel::WarnOnly
+        );
+        assert_eq!(
+            DignityEnforcementLevel::parse("enforce"),
+            DignityEnforcementLevel::Enforce
+        );
+        assert_eq!(
+            DignityEnforcementLevel::parse("audit"),
+            DignityEnforcementLevel::AuditLog
+        );
+        assert_eq!(
+            DignityEnforcementLevel::parse("unknown"),
+            DignityEnforcementLevel::WarnOnly
+        );
+    }
+
+    #[test]
+    fn enforcement_level_from_env_defaults_to_warn() {
+        temp_env::with_var(DIGNITY_ENFORCEMENT_ENV, None::<&str>, || {
+            assert_eq!(
+                DignityEnforcementLevel::from_env(),
+                DignityEnforcementLevel::WarnOnly
+            );
+        });
+    }
+
+    #[test]
+    fn enforcement_level_from_env_reads_enforce() {
+        temp_env::with_var(DIGNITY_ENFORCEMENT_ENV, Some("enforce"), || {
+            assert_eq!(
+                DignityEnforcementLevel::from_env(),
+                DignityEnforcementLevel::Enforce
+            );
+        });
+    }
+
+    // --- DignityGuard::guard (enforcement modes) ---
+
+    #[test]
+    fn guard_warn_only_allows_failed_check() {
+        let guard = DignityGuard::with_enforcement(DignityEnforcementLevel::WarnOnly);
+        let request = make_request("Should we hire this applicant?", None, None);
+        assert!(guard.guard(&request).is_ok());
+    }
+
+    #[test]
+    fn guard_audit_log_allows_failed_check() {
+        let guard = DignityGuard::with_enforcement(DignityEnforcementLevel::AuditLog);
+        let request = make_request("Should we hire this applicant?", None, None);
+        assert!(guard.guard(&request).is_ok());
+    }
+
+    #[test]
+    fn guard_enforce_blocks_failed_check() {
+        let guard = DignityGuard::with_enforcement(DignityEnforcementLevel::Enforce);
+        let request = make_request("Should we hire this applicant?", None, None);
+        let err = guard.guard(&request).unwrap_err();
+        assert!(!err.result.passed);
+    }
+
+    #[test]
+    fn guard_enforce_allows_clean_prompt() {
+        let guard = DignityGuard::with_enforcement(DignityEnforcementLevel::Enforce);
+        let request = make_request("Summarize this article.", Some("mistral"), None);
+        assert!(guard.guard(&request).is_ok());
     }
 
     // --- Edge cases ---

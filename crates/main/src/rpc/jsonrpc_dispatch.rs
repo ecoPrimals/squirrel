@@ -19,20 +19,23 @@ impl JsonRpcServer {
     ) -> Result<Value, JsonRpcError> {
         let method = normalize_method(original_method);
         match method {
-            // Inference domain — CANONICAL per SEMANTIC_METHOD_NAMING_STANDARD v2.0 §7
-            "inference.complete" | "ai.query" | "ai.complete" | "ai.chat" => {
-                self.handle_inference_complete(params).await
+            // AI domain — semantic names (preferred)
+            "ai.query" | "ai.complete" | "ai.chat" | "signal.plan" => {
+                self.handle_query_ai(params).await
             }
+            "ai.list_providers" => self.handle_list_providers(params).await,
+
+            // Inference domain — vendor-agnostic wire standard
+            "inference.complete" => self.handle_inference_complete(params).await,
             "inference.embed" => self.handle_inference_embed(params).await,
             "inference.models" => self.handle_inference_models(params).await,
             "inference.register_provider" => self.handle_inference_register_provider(params).await,
             "inference.unregister_provider" => {
                 self.handle_inference_unregister_provider(params).await
             }
-            "ai.list_providers" => self.handle_list_providers(params).await,
 
             // Capabilities domain — SEMANTIC_METHOD_NAMING_STANDARD v2.1
-            "capabilities.announce" | "capability.announce" => {
+            "capabilities.announce" | "capability.announce" | "primal.announce" => {
                 self.handle_announce_capabilities(params).await
             }
             "capabilities.discover" | "capability.discover" => {
@@ -50,6 +53,9 @@ impl JsonRpcServer {
             "health.liveness" => self.handle_health_liveness().await,
             "health.readiness" => self.handle_health_readiness().await,
 
+            // Bare "health" — Wave 113 mandatory probe method.
+            "health" => self.handle_health_bare().await,
+
             // System domain — backward-compat
             "system.metrics" => self.handle_metrics().await,
             "system.ping" => self.handle_ping().await,
@@ -66,12 +72,12 @@ impl JsonRpcServer {
             "context.update" => self.handle_context_update(params).await,
             "context.summarize" => self.handle_context_summarize(params).await,
 
-            // Provider domain — spring capability registration
+            // Provider registration — springs register capabilities with Squirrel
             "provider.register" => self.handle_provider_register(params).await,
             "provider.list" => self.handle_provider_list().await,
             "provider.deregister" => self.handle_provider_deregister(params).await,
 
-            // BTSP domain — Phase 3 encrypted channel negotiation
+            // BTSP Phase 3 — encrypted transport negotiation
             "btsp.negotiate" => self.handle_btsp_negotiate(params).await,
 
             // Lifecycle domain — biomeOS registration

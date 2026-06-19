@@ -81,9 +81,12 @@ impl TransportEndpoint {
     /// Whether this endpoint is local (same-host, no network hop).
     #[must_use]
     pub fn is_local(&self) -> bool {
+        use universal_constants::network::{DEFAULT_LOCALHOST, LOCALHOST_IPV4};
         match self {
             Self::Uds { .. } => true,
-            Self::Tcp { host, .. } => host == "127.0.0.1" || host == "::1" || host == "localhost",
+            Self::Tcp { host, .. } => {
+                host == LOCALHOST_IPV4 || host == "::1" || host == DEFAULT_LOCALHOST
+            }
             Self::MeshRelay { .. } => false,
         }
     }

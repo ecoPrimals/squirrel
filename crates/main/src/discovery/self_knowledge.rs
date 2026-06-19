@@ -151,8 +151,8 @@ impl PrimalSelfKnowledge {
         let instance_id = format!("{}-{}", name, std::process::id());
 
         // Host
-        let host =
-            universal_constants::sys_info::hostname().unwrap_or_else(|_| "localhost".to_string());
+        let host = universal_constants::sys_info::hostname()
+            .unwrap_or_else(|_| universal_constants::network::DEFAULT_LOCALHOST.to_string());
 
         // Port (if serving)
         let port = env::var(env_vars::primal::PORT)

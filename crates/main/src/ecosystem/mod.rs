@@ -8,9 +8,9 @@
 //! Each primal is completely standalone and communicates through standardized APIs.
 //!
 //! ## Architecture Principles
-//! - Pure capability-based service discovery
+//! - Pure capability-based service discovery (TRUE PRIMAL)
 //! - No hard dependencies between primals
-//! - Standardized HTTP/REST API communication
+//! - JSON-RPC 2.0 over Unix domain sockets (IPC-first)
 //! - Each primal can function independently
 //! - Dynamic service registration and health monitoring
 

@@ -65,7 +65,6 @@ impl UniversalSecurityClient {
             config,
             providers: Arc::new(DashMap::new()),
             context,
-            // Removed ai_metadata: AISecurityMetadata::default(),
         }
     }
 
@@ -402,7 +401,7 @@ impl UniversalSecurityClient {
                     universal_constants::env_vars::network::CLIENT_IP_ADDRESS,
                 )
                 .or_else(|_| std::env::var(universal_constants::env_vars::network::SERVICE_IP))
-                .unwrap_or_else(|_| "127.0.0.1".to_string()),
+                .unwrap_or_else(|_| universal_constants::network::LOCALHOST_IPV4.to_string()),
                 user_agent: std::env::var(
                     universal_constants::env_vars::network::CLIENT_USER_AGENT,
                 )

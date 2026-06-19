@@ -8,7 +8,6 @@ use super::manager::{
 };
 use super::metrics::LearningStats;
 use crate::learning::test_helpers;
-use serde_json::json;
 use std::sync::Arc;
 
 // ============================================================================

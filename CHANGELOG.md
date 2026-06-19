@@ -11,6 +11,29 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (June 19, 2026 — Wave 116: TRUE PRIMAL Evolution + Capability-Based Architecture)
+
+- **TRUE PRIMAL compliance**: `niche::DEPENDENCIES` (named primal IDs) → `niche::REQUIRED_CAPABILITIES` (capability-based). Squirrel now declares what it *needs* (security, service-mesh, compute, storage, coordination, ui) not *who* provides it. Legacy `DEPENDENCIES` deprecated with migration note. New `COORDINATION_CAPABILITY` and `UI_CAPABILITY` constants in `universal-constants/capabilities.rs`.
+- **`EcosystemServiceRegistration` evolved**: New `capability_id: Option<Arc<str>>` field enables capability-based service identification. All production constructors populate this field. `primal_type` kept for serde backward compat with `#[expect(deprecated)]`.
+- **Real system metrics**: `performance.rs` now reads from `/proc/self/stat` (CPU), `/proc/self/statm` (memory), `/proc/self/io` (disk I/O), `/proc/net/dev` (network I/O) instead of simulated sine-wave values. Falls back gracefully on non-Linux.
+- **Security health evolved**: `check_discovered_endpoints` now probes real capability-discovery socket registry for `crypto.*`/`auth.*` providers instead of returning simulated success.
+- **Lint hygiene**: `#[allow(dead_code)]` → removed (was on trait method where lint doesn't fire). `#[expect(deprecated)]` annotations on all production `EcosystemPrimalType` use sites.
+- **7,394 tests passing** (up from 7,292): 102 new tests from TRUE PRIMAL evolution + capability verification.
+
+### Summary (June 19, 2026 — Wave 116: Deep Debt Cleanup + Provider Registry Wiring)
+
+- **P0 build fixes**: `cargo check --all-features` now passes (was broken by missing `auth::AuthService` module). Created complete standalone `AuthService` with session management — evolves from missing stub to production implementation. Fixed clippy `-D warnings` failure (deprecated constant in test). Fixed license violations: `ai-tools/README.md` MIT→AGPL-3.0-or-later, `capabilities/registry.rs` hardcoded string→`niche::LICENSE`, `universal-error/README.md` AGPL-3.0-only→or-later.
+- **Provider registry LIVE**: `provider.register`, `provider.list`, `provider.deregister` fully wired — springs can now register capabilities and socket paths with Squirrel at runtime via JSON-RPC. Uses `InMemoryServiceRegistry` with deterministic UUID upsert semantics. 7 new tests.
+- **BTSP Phase 3 LIVE**: `btsp.negotiate` handler wired to real `btsp_encrypted_framing` module — ChaCha20-Poly1305 AEAD session key derivation via HKDF-SHA256, nonce management, encrypted frame I/O. `btsp_sessions` and `btsp_session_keys` on `JsonRpcServer`. 7+17 new tests.
+- **Hardcoding evolved**: 14 production files migrated from literal `127.0.0.1`/`localhost`/port numbers to capability-based discovery (`discover_peer_http_origin()`, `get_service_port()`, `config_helpers::get_host()`).
+- **Large files refactored**: `env_vars.rs` (979L) → `env_vars/` module tree (36 files, max 107L). `jsonrpc_server.rs` dispatch extracted to `jsonrpc_dispatch.rs`. Zero production files >800 lines.
+- **DignityGuard configurable**: `SQUIRREL_DIGNITY_ENFORCEMENT` env var (warn/enforce/audit). Enforce mode blocks failing requests; audit mode emits structured tracing events.
+- **Stale protocol constants deprecated**: `DEFAULT_WEBSOCKET_PORT`, `DEFAULT_GRPC_PORT` with migration guidance.
+- **CI hardened**: `cargo deny check` added as supply-chain audit step.
+- **Clippy fixes**: `significant_drop_tightening` in `squirrel-core`, unused imports in context learning tests, `wildcard_in_or_patterns` in dignity parser.
+- **SPDX compliance**: CC-BY-SA-4.0 header added to `specs/SOCKET_REGISTRY_SPEC.md`.
+- **Quality gates**: 7,292 tests, 0 failures, 0 clippy warnings, 0 doc warnings, 90.14% region coverage. `--all-features` clean.
+
 ### Summary (June 16, 2026 — Wave 114: Eukaryotic Genetics-Layer Wiring)
 
 - **MitoBeacon acceptance (0xED)**: Server accept loop now handles `0xED` (mito-obfuscated) identically to `0xEC` (clear signal). Both are MitoBeacon stream — shared/copyable relay credentials. `0xEE` (Nuclear Lineage) closes gracefully (Wave 115+). This was the soft-blocker for 7/11 primals rejecting the mito-beacon signal on live NUCLEUS.

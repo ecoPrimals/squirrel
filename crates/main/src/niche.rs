@@ -22,7 +22,7 @@
 //! literals. Squirrel only knows itself — it discovers other primals at
 //! runtime via capability-based discovery.
 
-use universal_constants::primal_names;
+use universal_constants::capabilities as cap_ids;
 
 /// Primal identity — used in all JSON-RPC, IPC, and biomeOS interactions.
 pub const PRIMAL_ID: &str = "squirrel";
@@ -237,39 +237,83 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "composition.nucleus_health",
 ];
 
-/// Primal dependencies for deployment.
+/// Required capabilities for deployment (TRUE PRIMAL: capability-based, no primal names).
 ///
-/// Each entry: `(primal_id, required, description)`.
-/// `required = true` means Squirrel cannot function without it.
+/// Each entry: `(capability_id, required, description)`.
+/// `required = true` means Squirrel cannot function without a provider for this capability.
 /// `required = false` means graceful degradation is supported.
-pub const DEPENDENCIES: &[(&str, bool, &str)] = &[
+///
+/// Squirrel discovers providers at runtime via capability-based discovery — it never
+/// hardcodes which primal supplies a given capability.
+pub const REQUIRED_CAPABILITIES: &[(&str, bool, &str)] = &[
     (
-        primal_names::BEARDOG,
+        cap_ids::SECURITY_CAPABILITY,
         true,
         "cryptographic identity and trust",
     ),
     (
-        primal_names::SONGBIRD,
+        cap_ids::SERVICE_MESH_CAPABILITY,
         true,
         "service discovery and IPC mesh",
     ),
     (
-        primal_names::TOADSTOOL,
+        cap_ids::COMPUTE_CAPABILITY,
         false,
         "GPU compute dispatch (graceful fallback to CPU-only inference)",
     ),
     (
-        primal_names::NESTGATE,
+        cap_ids::STORAGE_CAPABILITY,
         false,
         "persistent storage (graceful fallback to in-memory cache)",
     ),
     (
-        primal_names::PRIMALSPRING,
+        cap_ids::COORDINATION_CAPABILITY,
         false,
         "coordination validation and BYOB graph execution",
     ),
     (
-        primal_names::PETALTONGUE,
+        cap_ids::UI_CAPABILITY,
+        false,
+        "visualization and user interface rendering",
+    ),
+];
+
+/// Legacy primal dependencies for backward compatibility.
+///
+/// **Deprecated**: Use [`REQUIRED_CAPABILITIES`] instead. Squirrel discovers
+/// providers at runtime by capability, not by primal name.
+#[deprecated(
+    since = "3.0.0",
+    note = "Use REQUIRED_CAPABILITIES for capability-based discovery"
+)]
+pub const DEPENDENCIES: &[(&str, bool, &str)] = &[
+    (
+        universal_constants::primal_names::BEARDOG,
+        true,
+        "cryptographic identity and trust",
+    ),
+    (
+        universal_constants::primal_names::SONGBIRD,
+        true,
+        "service discovery and IPC mesh",
+    ),
+    (
+        universal_constants::primal_names::TOADSTOOL,
+        false,
+        "GPU compute dispatch (graceful fallback to CPU-only inference)",
+    ),
+    (
+        universal_constants::primal_names::NESTGATE,
+        false,
+        "persistent storage (graceful fallback to in-memory cache)",
+    ),
+    (
+        universal_constants::primal_names::PRIMALSPRING,
+        false,
+        "coordination validation and BYOB graph execution",
+    ),
+    (
+        universal_constants::primal_names::PETALTONGUE,
         false,
         "visualization and user interface rendering",
     ),
@@ -447,18 +491,25 @@ pub fn semantic_mappings_json() -> serde_json::Value {
     })
 }
 
-/// Number of required dependencies.
+/// Number of required capabilities.
 #[must_use]
-pub const fn required_dependency_count() -> usize {
+pub const fn required_capability_count() -> usize {
     let mut count = 0;
     let mut i = 0;
-    while i < DEPENDENCIES.len() {
-        if DEPENDENCIES[i].1 {
+    while i < REQUIRED_CAPABILITIES.len() {
+        if REQUIRED_CAPABILITIES[i].1 {
             count += 1;
         }
         i += 1;
     }
     count
+}
+
+/// Legacy alias.
+#[deprecated(since = "3.0.0", note = "Use required_capability_count()")]
+#[must_use]
+pub const fn required_dependency_count() -> usize {
+    required_capability_count()
 }
 
 /// Feature gates that expand primal capabilities.
@@ -513,9 +564,12 @@ mod tests {
     }
 
     #[test]
-    fn required_dependency_count_is_correct() {
-        let manual = DEPENDENCIES.iter().filter(|(_, req, _)| *req).count();
-        assert_eq!(required_dependency_count(), manual);
+    fn required_capability_count_is_correct() {
+        let manual = REQUIRED_CAPABILITIES
+            .iter()
+            .filter(|(_, req, _)| *req)
+            .count();
+        assert_eq!(required_capability_count(), manual);
     }
 
     #[test]
@@ -639,10 +693,32 @@ mod tests {
     }
 
     #[test]
-    fn dependencies_name_beardog_and_songbird_required() {
-        let beardog = DEPENDENCIES.iter().find(|(id, _, _)| *id == "beardog");
-        let songbird = DEPENDENCIES.iter().find(|(id, _, _)| *id == "songbird");
-        assert_eq!(beardog.map(|(_, r, _)| *r), Some(true));
-        assert_eq!(songbird.map(|(_, r, _)| *r), Some(true));
+    fn required_capabilities_include_security_and_mesh() {
+        let security = REQUIRED_CAPABILITIES
+            .iter()
+            .find(|(id, _, _)| *id == cap_ids::SECURITY_CAPABILITY);
+        let mesh = REQUIRED_CAPABILITIES
+            .iter()
+            .find(|(id, _, _)| *id == cap_ids::SERVICE_MESH_CAPABILITY);
+        assert_eq!(security.map(|(_, r, _)| *r), Some(true));
+        assert_eq!(mesh.map(|(_, r, _)| *r), Some(true));
+    }
+
+    #[test]
+    fn required_capabilities_are_defined_in_universal_constants() {
+        let known = [
+            cap_ids::SECURITY_CAPABILITY,
+            cap_ids::SERVICE_MESH_CAPABILITY,
+            cap_ids::COMPUTE_CAPABILITY,
+            cap_ids::STORAGE_CAPABILITY,
+            cap_ids::COORDINATION_CAPABILITY,
+            cap_ids::UI_CAPABILITY,
+        ];
+        for (cap_id, _, _) in REQUIRED_CAPABILITIES {
+            assert!(
+                known.contains(cap_id),
+                "required capability '{cap_id}' is not a known capability constant"
+            );
+        }
     }
 }

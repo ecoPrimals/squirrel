@@ -619,6 +619,14 @@ mod tests {
     #[test]
     fn test_biomeos_socket_constants() {
         assert_eq!(super::BIOMEOS_SOCKET_SUBDIR, "biomeos");
+    }
+
+    #[test]
+    #[expect(
+        deprecated,
+        reason = "Validates deprecated fallback path for backward compat"
+    )]
+    fn test_biomeos_socket_fallback_dir_deprecated() {
         assert_eq!(super::BIOMEOS_SOCKET_FALLBACK_DIR, "/tmp/biomeos");
     }
 

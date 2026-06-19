@@ -235,19 +235,36 @@ impl UniversalSecurityHealthChecker {
         Ok(())
     }
 
-    /// Check discovered security endpoints through universal adapter
+    /// Check discovered security endpoints through capability discovery.
+    ///
+    /// Probes the socket registry for any primal advertising `crypto.*` or `auth.*`
+    /// capabilities and records discovery success rate.
     async fn check_discovered_endpoints(
         &self,
         health: &mut SecurityHealth,
     ) -> Result<(), PrimalError> {
-        // This would use the universal adapter to discover and check
-        // security capabilities from any primal in the ecosystem
+        let discovery_result = crate::capabilities::discovery::discover_all_capabilities().await;
 
-        // For now, simulate checking discovered endpoints
         let mut discovered_health = ComponentHealth::default();
-        discovered_health
-            .metrics
-            .insert("discovery_success_rate".to_string(), 1.0);
+        match discovery_result {
+            Ok(caps) => {
+                let has_security = caps
+                    .keys()
+                    .any(|k| k.starts_with("crypto.") || k.starts_with("auth.") || k == "security");
+                discovered_health
+                    .metrics
+                    .insert("discovery_success_rate".to_string(), 1.0);
+                discovered_health.metrics.insert(
+                    "security_providers_found".to_string(),
+                    if has_security { 1.0 } else { 0.0 },
+                );
+            }
+            Err(_) => {
+                discovered_health
+                    .metrics
+                    .insert("discovery_success_rate".to_string(), 0.0);
+            }
+        }
         health.add_component("capability_discovery".to_string(), discovered_health);
 
         Ok(())

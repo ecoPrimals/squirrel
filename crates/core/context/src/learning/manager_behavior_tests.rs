@@ -3,7 +3,7 @@
 
 //! Behavioral tests for Context Learning Manager — episodes, stats, inference, and sessions.
 
-use super::manager::{ContextLearningManager, RewardParameters};
+use super::manager::ContextLearningManager;
 use crate::learning::test_helpers;
 use serde_json::json;
 use std::sync::Arc;

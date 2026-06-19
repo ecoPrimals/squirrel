@@ -29,13 +29,13 @@ mod auth_tests_impl {
     // AuthService
     // ====================================================================
 
-    async fn create_test_auth_service() -> AuthResult<AuthService> {
-        AuthService::new().await
+    fn create_test_auth_service() -> AuthResult<AuthService> {
+        AuthService::new()
     }
 
     #[tokio::test]
     async fn test_auth_service_initialization() {
-        let result = create_test_auth_service().await;
+        let result = create_test_auth_service();
         assert!(
             result.is_ok(),
             "Auth service should initialize successfully"
@@ -44,7 +44,7 @@ mod auth_tests_impl {
 
     #[tokio::test]
     async fn test_successful_standalone_login() {
-        let service = create_test_auth_service().await.expect("should succeed");
+        let service = create_test_auth_service().expect("should succeed");
         let request = LoginRequest::new("admin", "admin123");
         let result = service.authenticate(request).await;
 
@@ -68,7 +68,7 @@ mod auth_tests_impl {
 
     #[tokio::test]
     async fn test_failed_login_invalid_credentials() {
-        let service = create_test_auth_service().await.expect("should succeed");
+        let service = create_test_auth_service().expect("should succeed");
         let request = LoginRequest::new("admin", "wrongpassword");
         let response = service.authenticate(request).await.expect("should succeed");
 
@@ -81,7 +81,7 @@ mod auth_tests_impl {
 
     #[tokio::test]
     async fn test_failed_login_unknown_user() {
-        let service = create_test_auth_service().await.expect("should succeed");
+        let service = create_test_auth_service().expect("should succeed");
         let request = LoginRequest::new("nonexistent", "password");
         let response = service.authenticate(request).await.expect("should succeed");
 
@@ -90,7 +90,7 @@ mod auth_tests_impl {
 
     #[tokio::test]
     async fn test_logout() {
-        let service = create_test_auth_service().await.expect("should succeed");
+        let service = create_test_auth_service().expect("should succeed");
         let request = LoginRequest::new("admin", "admin123");
         let login_response = service.authenticate(request).await.expect("should succeed");
         assert!(login_response.success);
@@ -105,7 +105,7 @@ mod auth_tests_impl {
 
     #[tokio::test]
     async fn test_validate_session_valid() {
-        let service = create_test_auth_service().await.expect("should succeed");
+        let service = create_test_auth_service().expect("should succeed");
         let request = LoginRequest::new("admin", "admin123");
         let response = service.authenticate(request).await.expect("should succeed");
         assert!(response.success);
@@ -121,7 +121,7 @@ mod auth_tests_impl {
 
     #[tokio::test]
     async fn test_validate_session_invalid() {
-        let service = create_test_auth_service().await.expect("should succeed");
+        let service = create_test_auth_service().expect("should succeed");
         let fake_uuid = Uuid::new_v4().to_string();
         let result = service.validate_session(&fake_uuid).await;
         assert!(result.is_ok());
@@ -133,7 +133,7 @@ mod auth_tests_impl {
 
     #[tokio::test]
     async fn test_capability_discovery_fallback() {
-        let service = create_test_auth_service().await.expect("should succeed");
+        let service = create_test_auth_service().expect("should succeed");
         let provider = service.get_auth_provider();
         assert!(
             matches!(provider, AuthProvider::Standalone),

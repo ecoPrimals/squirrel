@@ -17,7 +17,6 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 use uuid::Uuid;
-// Removed: use squirrel_mcp_config::get_service_endpoints;
 
 use crate::types::{PluginResources, PluginStatus, PluginType};
 

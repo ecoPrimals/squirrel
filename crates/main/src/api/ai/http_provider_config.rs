@@ -93,17 +93,6 @@ pub fn get_http_provider_configs() -> Vec<HttpAiProviderConfig> {
         },
         // 🎯 EXTENSIBILITY: Add more providers here (data-driven!)
         // No code changes needed - just add configuration.
-        //
-        // Example for Google Gemini:
-        // HttpAiProviderConfig {
-        //     provider_id: "gemini".to_string(),
-        //     provider_name: "Google Gemini".to_string(),
-        //     api_base: "https://generativelanguage.googleapis.com/v1".to_string(),
-        //     api_key_env: "GEMINI_API_KEY".to_string(),
-        //     models: vec!["gemini-pro".to_string()],
-        //     required_headers: HashMap::new(),
-        //     api_version: None,
-        // },
     ]
 }
 

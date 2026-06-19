@@ -58,6 +58,16 @@ pub const ECOSYSTEM_CAPABILITY: &str = "ecosystem";
 /// Network capability (alias for service mesh)
 pub const NETWORK_CAPABILITY: &str = "network";
 
+/// Coordination / validation capability (formerly primalSpring)
+///
+/// Discover providers with: `discover_capability(COORDINATION_CAPABILITY)`
+pub const COORDINATION_CAPABILITY: &str = "coordination";
+
+/// UI / visualization capability (formerly petaltongue)
+///
+/// Discover providers with: `discover_capability(UI_CAPABILITY)`
+pub const UI_CAPABILITY: &str = "ui";
+
 /// All capabilities this Squirrel primal exposes to biomeOS (niche self-knowledge).
 ///
 /// Canonical list shared with `squirrel::niche::CAPABILITIES`. Each entry is a fully

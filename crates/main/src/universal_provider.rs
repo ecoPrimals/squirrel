@@ -84,7 +84,6 @@ impl UniversalSquirrelProvider {
             instance_id,
             config,
             universal_adapter: None, // Will be initialized in initialize()
-            // biomeos_client: None, // removed
             session_manager: None,
             initialized: false,
             shutdown: false,

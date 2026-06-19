@@ -32,16 +32,20 @@
 //! - Feature-gated behind `tarpc-rpc` feature flag
 
 // Core modules (Pure Rust!)
+pub(crate) mod btsp_encrypted_framing;
 pub mod btsp_handshake;
 mod handlers_ai;
+mod handlers_btsp;
 mod handlers_capability;
 mod handlers_context;
 mod handlers_graph;
 mod handlers_identity;
 mod handlers_inference;
+mod handlers_provider;
 mod handlers_system;
 mod handlers_tool;
 pub mod ipc_client;
+mod jsonrpc_dispatch;
 mod jsonrpc_handlers;
 mod jsonrpc_request_processing;
 pub mod jsonrpc_server;

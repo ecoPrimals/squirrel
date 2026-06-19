@@ -148,7 +148,15 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
                         .ok()
                         .and_then(|p| p.parse::<u16>().ok())
                         .unwrap_or(universal_constants::network::DEFAULT_BIOMEOS_PORT);
-                    format!("http://localhost:{port}{path}")
+                    universal_constants::config_helpers::build_url(
+                        "http",
+                        &universal_constants::config_helpers::get_host(
+                            env_vars::squirrel::HOST,
+                            universal_constants::network::DEFAULT_LOCALHOST,
+                        ),
+                        port,
+                        path,
+                    )
                 })
         };
 

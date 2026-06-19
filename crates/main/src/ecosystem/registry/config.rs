@@ -88,18 +88,20 @@ pub struct RegistrySecurityConfig {
 // Default implementations
 impl Default for EcosystemRegistryConfig {
     fn default() -> Self {
-        use universal_constants::network::get_service_port;
-
         use universal_constants::env_vars;
+        use universal_constants::network::{self, get_service_port};
+
         let service_mesh_endpoint =
             std::env::var(env_vars::ecosystem::ECOSYSTEM_SERVICE_MESH_ENDPOINT)
                 .or_else(|_| std::env::var(env_vars::network::SERVICE_MESH_ENDPOINT))
                 .unwrap_or_else(|_| {
-                    let port = std::env::var(env_vars::network::SERVICE_MESH_PORT)
-                        .ok()
-                        .and_then(|p| p.parse::<u16>().ok())
-                        .unwrap_or_else(|| get_service_port("service_mesh"));
-                    format!("http://localhost:{port}")
+                    network::discover_peer_http_origin(
+                        env_vars::network::SERVICE_MESH_ENDPOINT,
+                        env_vars::discovery::SERVICE_MESH_HOST,
+                        env_vars::network::SERVICE_MESH_PORT,
+                        network::DEFAULT_LOCALHOST,
+                        get_service_port("service_mesh"),
+                    )
                 });
 
         Self {

@@ -48,14 +48,12 @@
 //! ```
 
 use anyhow::{Context, Result};
-use serde_json::Value;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 use universal_patterns::transport::{UniversalListener, UniversalTransport};
 
-pub(crate) use super::jsonrpc_types::normalize_method;
 pub use super::jsonrpc_types::{
     JsonRpcError, JsonRpcRequest, JsonRpcResponse, ServerMetrics, error_codes,
 };
@@ -85,6 +83,16 @@ pub struct JsonRpcServer {
 
     /// When set, binds an additional TCP JSON-RPC listener on `127.0.0.1:<port>` (localhost only).
     tcp_port: Option<u16>,
+
+    /// Provider registry for spring provider registration (`provider.*` methods)
+    pub(crate) provider_registry: Arc<crate::universal_adapters::registry::InMemoryServiceRegistry>,
+
+    /// BTSP Phase 2 sessions (from `btsp_handshake`)
+    pub(crate) btsp_sessions: dashmap::DashMap<String, super::btsp_handshake::BtspSession>,
+
+    /// BTSP Phase 3 derived session keys
+    pub(crate) btsp_session_keys:
+        dashmap::DashMap<String, Arc<super::btsp_encrypted_framing::SessionKeys>>,
 }
 
 impl JsonRpcServer {
@@ -120,6 +128,11 @@ impl JsonRpcServer {
             announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
             capability_registry: Self::load_registry(),
             tcp_port: None,
+            provider_registry: Arc::new(
+                crate::universal_adapters::registry::InMemoryServiceRegistry::new(),
+            ),
+            btsp_sessions: dashmap::DashMap::new(),
+            btsp_session_keys: dashmap::DashMap::new(),
         }
     }
 
@@ -134,6 +147,11 @@ impl JsonRpcServer {
             announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
             capability_registry: Self::load_registry(),
             tcp_port: None,
+            provider_registry: Arc::new(
+                crate::universal_adapters::registry::InMemoryServiceRegistry::new(),
+            ),
+            btsp_sessions: dashmap::DashMap::new(),
+            btsp_session_keys: dashmap::DashMap::new(),
         }
     }
 
@@ -696,85 +714,6 @@ impl JsonRpcServer {
         }
 
         Ok(())
-    }
-
-    /// Dispatch a validated JSON-RPC method name (after `normalize_method`).
-    pub(crate) async fn dispatch_jsonrpc_method(
-        &self,
-        original_method: &str,
-        params: Option<Value>,
-    ) -> Result<Value, JsonRpcError> {
-        let method = normalize_method(original_method);
-        match method {
-            // AI domain — semantic names (preferred)
-            "ai.query" | "ai.complete" | "ai.chat" | "signal.plan" => {
-                self.handle_query_ai(params).await
-            }
-            "ai.list_providers" => self.handle_list_providers(params).await,
-
-            // Inference domain — vendor-agnostic wire standard
-            // (ecoPrimal inference provider abstraction)
-            "inference.complete" => self.handle_inference_complete(params).await,
-            "inference.embed" => self.handle_inference_embed(params).await,
-            "inference.models" => self.handle_inference_models(params).await,
-            "inference.register_provider" => self.handle_inference_register_provider(params).await,
-            "inference.unregister_provider" => {
-                self.handle_inference_unregister_provider(params).await
-            }
-
-            // Capabilities domain — SEMANTIC_METHOD_NAMING_STANDARD v2.1
-            // `capabilities.list` canonical; aliases per standard + ecosystem compat.
-            "capabilities.announce" | "capability.announce" | "primal.announce" => {
-                self.handle_announce_capabilities(params).await
-            }
-            "capabilities.discover" | "capability.discover" => {
-                self.handle_discover_capabilities().await
-            }
-            "capabilities.list" | "capability.list" | "primal.capabilities" => {
-                self.handle_capability_list().await
-            }
-
-            // Identity domain — CAPABILITY_BASED_DISCOVERY_STANDARD v1.0
-            "identity.get" => self.handle_identity_get().await,
-
-            // Health domain — PRIMAL_IPC_PROTOCOL v3.0 (canonical)
-            // SEMANTIC_METHOD_NAMING_STANDARD: health.* is NON-NEGOTIABLE.
-            // system.health / system.status are backward-compat aliases.
-            "health.check" | "system.health" | "system.status" => self.handle_health().await,
-            "health.liveness" => self.handle_health_liveness().await,
-            "health.readiness" => self.handle_health_readiness().await,
-
-            // Bare "health" — Wave 113 mandatory probe method.
-            // Returns minimal {status, primal, version} per overwatch contract.
-            "health" => self.handle_health_bare().await,
-
-            // System domain — backward-compat (metrics/ping have no health.* equivalent)
-            "system.metrics" => self.handle_metrics().await,
-            "system.ping" => self.handle_ping().await,
-
-            // Discovery domain — semantic names (preferred)
-            "discovery.peers" | "discovery.list" => self.handle_discover_peers(params).await,
-
-            // Tool domain — semantic names (preferred)
-            "tool.execute" => self.handle_execute_tool(params).await,
-            "tool.list" => self.handle_list_tools().await,
-
-            // Context domain — semantic names (preferred)
-            "context.create" => self.handle_context_create(params).await,
-            "context.update" => self.handle_context_update(params).await,
-            "context.summarize" => self.handle_context_summarize(params).await,
-
-            // Lifecycle domain — biomeOS registration
-            "lifecycle.register" => self.handle_lifecycle_register().await,
-            "lifecycle.status" => self.handle_lifecycle_status().await,
-
-            // Graph domain — primalSpring BYOB coordination
-            "graph.parse" => self.handle_graph_parse(params).await,
-            "graph.validate" => self.handle_graph_validate(params).await,
-
-            // Method not found
-            _ => Err(self.method_not_found(original_method)),
-        }
     }
 }
 

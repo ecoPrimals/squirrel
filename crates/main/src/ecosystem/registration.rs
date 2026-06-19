@@ -27,6 +27,33 @@ where
     Ok(Arc::from(s))
 }
 
+mod option_arc_str_serde {
+    use serde::{Deserialize, Deserializer, Serializer};
+    use std::sync::Arc;
+
+    #[expect(
+        clippy::ref_option,
+        reason = "serde with= contract requires &Option<T>"
+    )]
+    pub fn serialize<S>(opt: &Option<Arc<str>>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match opt {
+            Some(arc) => serializer.serialize_some(arc.as_ref()),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Arc<str>>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let opt = Option::<String>::deserialize(deserializer)?;
+        Ok(opt.map(|s| Arc::from(s.as_str())))
+    }
+}
+
 /// Ecosystem service registration for Squirrel AI primal (`Arc<str>` version)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemServiceRegistration {
@@ -35,6 +62,9 @@ pub struct EcosystemServiceRegistration {
         deserialize_with = "ecosystem_deserialize_arc_str"
     )]
     pub service_id: Arc<str>,
+    /// Capability-based service identifier (TRUE PRIMAL: no primal names).
+    #[serde(default, with = "option_arc_str_serde")]
+    pub capability_id: Option<Arc<str>>,
     pub primal_type: EcosystemPrimalType,
     pub name: String,
     pub description: String,
@@ -63,6 +93,7 @@ mod tests {
     fn minimal_registration() -> EcosystemServiceRegistration {
         EcosystemServiceRegistration {
             service_id: Arc::from("svc-test"),
+            capability_id: Some(Arc::from("ai")),
             primal_type: EcosystemPrimalType::Squirrel,
             name: "Squirrel".into(),
             description: "test".into(),

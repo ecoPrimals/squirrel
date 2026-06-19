@@ -48,7 +48,7 @@ use crate::api::ai::adapters::test_mocks::{
 };
 use crate::api::ai::adapters::{AiProvider, AiProviderAdapter, QualityTier, RemoteProviderConfig};
 use crate::api::ai::constraints::RoutingConstraint;
-use crate::api::ai::dignity::{DignityCheckRequest, DignityEvaluator};
+use crate::api::ai::dignity::{DIGNITY_ENFORCEMENT_ENV, DignityCheckRequest, DignityEvaluator};
 use crate::api::ai::router::AiRouter;
 use crate::api::ai::selector::QualityTier as SelectorQualityTier;
 use crate::api::ai::types::{
@@ -283,7 +283,7 @@ async fn router_default_has_no_providers() {
     assert_eq!(r.provider_count().await, 0);
 }
 
-/// Router uses the same dignity evaluator semantics as [`DignityEvaluator`] (non-blocking log on violation).
+/// Router uses the same dignity evaluator semantics as [`DignityEvaluator`] (warn-only allows routing).
 #[test]
 fn dignity_integration_matches_standalone_evaluator_for_text_prompt() {
     let prompt = "Should we hire this applicant?";
@@ -334,11 +334,100 @@ async fn generate_image_dignity_prompt_still_succeeds_with_image_provider() {
         constraints: vec![],
         params: std::collections::HashMap::new(),
     };
-    let out = router
-        .generate_image(req, None)
-        .await
-        .expect("should succeed");
-    assert_eq!(out.provider_id, "img-one");
+    temp_env::with_var(DIGNITY_ENFORCEMENT_ENV, Some("warn"), || {
+        let out =
+            futures::executor::block_on(router.generate_image(req, None)).expect("should succeed");
+        assert_eq!(out.provider_id, "img-one");
+    });
+}
+
+fn dignity_sensitive_text_request() -> TextGenerationRequest {
+    TextGenerationRequest {
+        prompt: "Review this applicant for employment".to_string(),
+        system: None,
+        max_tokens: 64,
+        temperature: 0.5,
+        model: Some("gpt-4".to_string()),
+        constraints: vec![],
+        params: std::collections::HashMap::new(),
+    }
+}
+
+#[tokio::test]
+async fn generate_text_dignity_warn_mode_allows_sensitive_prompt() {
+    let router =
+        AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(MockTextAdapter {
+            id: "mock-text",
+            name: "Mock",
+        }))]);
+    temp_env::with_var(DIGNITY_ENFORCEMENT_ENV, Some("warn"), || {
+        let out = futures::executor::block_on(
+            router.generate_text(dignity_sensitive_text_request(), None),
+        )
+        .expect("warn mode should allow routing");
+        assert_eq!(out.provider_id, "mock-text");
+    });
+}
+
+#[tokio::test]
+async fn generate_text_dignity_audit_mode_allows_sensitive_prompt() {
+    let router =
+        AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(MockTextAdapter {
+            id: "mock-text",
+            name: "Mock",
+        }))]);
+    temp_env::with_var(DIGNITY_ENFORCEMENT_ENV, Some("audit"), || {
+        let out = futures::executor::block_on(
+            router.generate_text(dignity_sensitive_text_request(), None),
+        )
+        .expect("audit mode should allow routing");
+        assert_eq!(out.provider_id, "mock-text");
+    });
+}
+
+#[tokio::test]
+async fn generate_text_dignity_enforce_mode_blocks_sensitive_prompt() {
+    let router =
+        AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(MockTextAdapter {
+            id: "mock-text",
+            name: "Mock",
+        }))]);
+    temp_env::with_var(DIGNITY_ENFORCEMENT_ENV, Some("enforce"), || {
+        let err = futures::executor::block_on(
+            router.generate_text(dignity_sensitive_text_request(), None),
+        )
+        .expect_err("enforce mode should block routing");
+        match err {
+            PrimalError::SecurityError(msg) => {
+                assert!(msg.contains("Dignity check failed"));
+            }
+            other => panic!("expected SecurityError, got {other:?}"),
+        }
+    });
+}
+
+#[tokio::test]
+async fn generate_image_dignity_enforce_mode_blocks_sensitive_prompt() {
+    let router = AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockImageOnly(
+        MockImageOnlyAdapter { id: "img-one" },
+    ))]);
+    let req = ImageGenerationRequest {
+        prompt: "Evaluate housing eligibility for this tenant".to_string(),
+        negative_prompt: None,
+        size: "128x128".to_string(),
+        n: 1,
+        quality_preference: None,
+        constraints: vec![],
+        params: std::collections::HashMap::new(),
+    };
+    temp_env::with_var(DIGNITY_ENFORCEMENT_ENV, Some("enforce"), || {
+        let err = futures::executor::block_on(router.generate_image(req, None))
+            .expect_err("enforce should block");
+        match err {
+            PrimalError::SecurityError(msg) => assert!(msg.contains("Dignity check failed")),
+            other => panic!("expected SecurityError, got {other:?}"),
+        }
+    });
 }
 
 #[tokio::test]

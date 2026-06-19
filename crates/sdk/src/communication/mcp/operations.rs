@@ -9,7 +9,6 @@
 use super::types::{McpPrompt, McpResource, McpTool};
 use crate::error::{PluginError, PluginResult};
 use tracing::debug;
-// Removed: use squirrel_mcp_config::get_service_endpoints;
 
 /// Operation handler for MCP protocol operations
 ///

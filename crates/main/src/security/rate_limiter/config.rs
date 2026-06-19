@@ -50,8 +50,9 @@ impl RateLimitConfig {
                 .filter_map(|s| s.trim().parse::<IpAddr>().ok())
                 .collect();
         }
+        use universal_constants::network::LOCALHOST_IPV4;
         [
-            "127.0.0.1".parse::<IpAddr>().ok(),
+            LOCALHOST_IPV4.parse::<IpAddr>().ok(),
             "::1".parse::<IpAddr>().ok(),
         ]
         .into_iter()

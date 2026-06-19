@@ -50,8 +50,7 @@
 //! # }
 //! ```
 
-// Removed: use squirrel_mcp_config::get_service_endpoints;
-
+pub mod auth;
 pub mod errors;
 pub mod session;
 pub mod types;
@@ -94,6 +93,7 @@ pub mod beardog_jwt {
 }
 
 // Modern re-exports leveraging capability-based patterns
+pub use auth::AuthService;
 pub use delegated_jwt_client::DelegatedJwtClient;
 pub use errors::{AuthError, AuthResult};
 pub use session::{Session, SessionManager};

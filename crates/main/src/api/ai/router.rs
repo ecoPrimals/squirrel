@@ -20,7 +20,7 @@
 
 use super::adapters::{AiProvider, AiProviderAdapter};
 use super::constraint_router::select_provider_with_constraints;
-use super::dignity::{DignityCheckRequest, DignityEvaluator};
+use super::dignity::{DignityCheckRequest, DignityEnforcementLevel, DignityGuard};
 use super::selector::{ProviderInfo, ProviderSelector};
 use super::types::{
     ActionRequirements, ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest,
@@ -48,21 +48,25 @@ pub struct AiRouter {
     max_retries: usize,
 }
 
-/// Run dignity check (wateringHole/sovereignty_guardian). Non-blocking: logs warning on violation.
-fn run_dignity_check(prompt: &str, model: Option<&str>, context: Option<&str>) {
-    let evaluator = DignityEvaluator;
+/// Run dignity check (wateringHole/sovereignty guard). Behavior depends on
+/// [`super::dignity::DIGNITY_ENFORCEMENT_ENV`] (`warn` | `enforce` | `audit`).
+fn run_dignity_check(
+    prompt: &str,
+    model: Option<&str>,
+    context: Option<&str>,
+) -> Result<(), PrimalError> {
+    let guard = DignityGuard::with_enforcement(DignityEnforcementLevel::from_env());
     let request = DignityCheckRequest {
         prompt,
         model,
         context,
     };
-    let result = evaluator.evaluate_request(&request);
-    if !result.passed {
-        warn!(
-            "Dignity check failed (wateringHole/sovereignty_guardian): {}",
-            result.explanation
-        );
-    }
+    guard.guard(&request).map_err(|violation| {
+        PrimalError::SecurityError(format!(
+            "Dignity check failed (wateringHole/sovereignty guard): {}",
+            violation.result.explanation
+        ))
+    })
 }
 
 /// Unix socket path for the local compute capability (`COMPUTE_SOCKET` → tiered resolution).
@@ -134,7 +138,9 @@ impl AiRouter {
         let url = url::Url::parse(endpoint).map_err(|e| {
             PrimalError::Configuration(format!("Invalid LOCAL_AI_ENDPOINT URL: {e}"))
         })?;
-        let host = url.host_str().unwrap_or("localhost");
+        let host = url
+            .host_str()
+            .unwrap_or(universal_constants::network::DEFAULT_LOCALHOST);
         let port = url
             .port()
             .unwrap_or_else(universal_constants::deployment::ports::ollama);
@@ -191,7 +197,7 @@ impl AiRouter {
     ) -> Result<ImageGenerationResponse, PrimalError> {
         info!("🎨 Routing image generation request: '{}'", request.prompt);
 
-        run_dignity_check(&request.prompt, None, None);
+        run_dignity_check(&request.prompt, None, None)?;
 
         let provider_infos = self.get_image_generation_providers().await?;
 
@@ -310,7 +316,7 @@ impl AiRouter {
             request.max_tokens
         );
 
-        run_dignity_check(&request.prompt, request.model.as_deref(), None);
+        run_dignity_check(&request.prompt, request.model.as_deref(), None)?;
 
         let providers = self.providers.read().await;
 

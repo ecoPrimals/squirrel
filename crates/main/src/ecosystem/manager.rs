@@ -118,6 +118,10 @@ impl EcosystemManager {
         Ok(())
     }
 
+    #[expect(
+        deprecated,
+        reason = "EcosystemPrimalType kept for serde backward compat"
+    )]
     fn create_service_registration<S: SessionManager>(
         &self,
         provider: &SquirrelPrimalProvider<S>,
@@ -125,6 +129,7 @@ impl EcosystemManager {
         let endpoints = provider.endpoints();
         EcosystemServiceRegistration {
             service_id: Arc::clone(&self.config.service_id),
+            capability_id: Some(Arc::from(crate::niche::DOMAIN)),
             primal_type: EcosystemPrimalType::Squirrel,
             biome_id: self.config.biome_id.clone(),
             name: provider.name().to_string(),
@@ -191,11 +196,15 @@ impl EcosystemManager {
         ))
     }
 
+    #[expect(
+        deprecated,
+        reason = "DiscoveredService.primal_type kept for serde backward compat"
+    )]
     pub async fn find_services_by_capability(
         &self,
         capability: &str,
     ) -> Result<Vec<super::registry::types::DiscoveredService>, PrimalError> {
-        tracing::info!("🔍 Discovering services with capability: {}", capability);
+        tracing::info!("Discovering services with capability: {}", capability);
         let matches = self
             .universal_ecosystem
             .find_by_capability(capability)
@@ -206,7 +215,7 @@ impl EcosystemManager {
             .into_iter()
             .map(|m| super::registry::types::DiscoveredService {
                 service_id: Arc::from(m.service.service_id.as_str()),
-                primal_type: EcosystemPrimalType::Squirrel,
+                primal_type: EcosystemPrimalType::BiomeOS,
                 endpoint: Arc::from(m.service.endpoint.as_str()),
                 health_endpoint: Arc::from(format!("{}/health", m.service.endpoint)),
                 api_version: Arc::from("1.0"),
@@ -219,7 +228,7 @@ impl EcosystemManager {
             .collect();
 
         tracing::info!(
-            "✅ Found {} services with capability '{}'",
+            "Found {} services with capability '{}'",
             services.len(),
             capability
         );

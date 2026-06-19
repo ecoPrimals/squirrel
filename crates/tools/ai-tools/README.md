@@ -362,17 +362,15 @@ cargo test
 cargo run --bin ai_tools_demo -- --help
 ```
 
-## 📝 License
+## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Licensed under the AGPL-3.0-or-later as part of the ecoPrimals scyBorg triple-copyleft framework.
+See the root [LICENSE](../../LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [Ollama](https://ollama.ai) for local model serving
-- [OpenAI](https://openai.com) for API access
-- [Anthropic](https://anthropic.com) for Claude API
-- [Google](https://ai.google.dev) for Gemini API
-- The Rust community for excellent async and HTTP libraries
+- The Rust community for excellent async libraries
 
 ## Status
 

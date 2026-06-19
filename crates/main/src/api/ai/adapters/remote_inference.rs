@@ -387,7 +387,7 @@ async fn send_http_json(
     let path = parse_http_path(url);
     let host = match &transport_ep {
         crate::transport::TransportEndpoint::Tcp { host, .. } => host.as_str(),
-        _ => "localhost",
+        _ => universal_constants::network::DEFAULT_LOCALHOST,
     };
 
     let payload = serde_json::to_string(body)

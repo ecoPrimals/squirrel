@@ -324,8 +324,14 @@ fn resolve_ecosystem_endpoint(capability_env: &str, legacy_env: &str, path: &str
         .unwrap_or_else(|_| {
             let port = std::env::var(env_vars::ecosystem::ECOSYSTEM_PORT)
                 .or_else(|_| std::env::var(env_vars::ecosystem::BIOMEOS_PORT))
-                .unwrap_or_else(|_| universal_constants::network::DEFAULT_BIOMEOS_PORT.to_string());
-            format!("http://localhost:{port}/{path}")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(universal_constants::network::DEFAULT_BIOMEOS_PORT);
+            format!(
+                "{}/{}",
+                universal_constants::builders::localhost_http(port),
+                path
+            )
         })
 }
 
@@ -346,12 +352,15 @@ impl Default for EcosystemEndpoints {
                 std::env::var(env_vars::ecosystem::ECOSYSTEM_PORT)
                     .or_else(|_| std::env::var(env_vars::ecosystem::BIOMEOS_PORT))
                     .ok()
-                    .map(|port| format!("ws://localhost:{port}/ws"))
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .map(|port| format!("{}/ws", universal_constants::builders::localhost_ws(port)))
             })
             .unwrap_or_else(|| {
                 format!(
-                    "ws://localhost:{}/ws",
-                    universal_constants::network::DEFAULT_BIOMEOS_PORT
+                    "{}/ws",
+                    universal_constants::builders::localhost_ws(
+                        universal_constants::network::DEFAULT_BIOMEOS_PORT,
+                    )
                 )
             });
 

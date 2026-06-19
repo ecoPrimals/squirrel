@@ -63,7 +63,6 @@ impl UniversalComputeClient {
             config,
             providers: Arc::new(DashMap::new()),
             context,
-            // Removed ai_metadata: AIComputeMetadata::default(),
         }
     }
 

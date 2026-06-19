@@ -3,14 +3,10 @@
 
 //! API module for AI routing and request types
 //!
-//! **LEGACY MODULE** - Partially evolved to modern architecture
+//! AI routing and shared request/response types.
 //!
-//! # Current State (v1.6.0)
-//!
-//! After v1.6.0 HTTP debt cleanup:
-//! - ❌ HTTP API endpoints **DELETED** (health, metrics, ecosystem, server, service_mesh, management)
-//! - ✅ AI routing **KEPT** (used by tarpc RPC server)
-//! - ✅ Types **KEPT** (shared request/response types)
+//! HTTP API endpoints were removed in the IPC-first migration.
+//! AI routing is used by both JSON-RPC and tarpc servers.
 //!
 //! # Architecture
 //!

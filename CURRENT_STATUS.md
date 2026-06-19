@@ -1,16 +1,18 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: June 10, 2026 (Wave 107 — Socket Cleanup)
+**Last Updated**: June 19, 2026 (Wave 116 — TRUE PRIMAL Evolution)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
+
+> **Live metrics**: See [CHANGELOG.md](CHANGELOG.md) `[Unreleased]` and [sporeprint/validation-summary.md](sporeprint/validation-summary.md) for authoritative test counts and gate status.
 
 ## Build
 
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,111 passing / 0 failures across 22 workspace crates; ~1,004 `.rs` files, ~326k lines |
+| Tests | 7,394 passing / 0 failures across 22 workspace crates; ~1,031 `.rs` files, ~326k lines |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
@@ -24,7 +26,7 @@
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors + `anyhow::Result` (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`, `anyhow::Error`) |
 | Crates | 22 workspace members |
-| Files >800 lines (prod) | 0 — `provider_trait.rs` refactored 983→728L via `rpc_roundtrip` generic + test extraction; `router.rs` 803→~810L (abstraction added, net neutral); `env_vars.rs` (1091L) is flat constants registry (excluded from metric) |
+| Files >800 lines (prod) | 0 — `provider_trait.rs` refactored 983→728L via `rpc_roundtrip` generic + test extraction; `env_vars.rs` (1091L) refactored to `env_vars/` module tree (36 files, max 107L); largest prod file: 796L |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |

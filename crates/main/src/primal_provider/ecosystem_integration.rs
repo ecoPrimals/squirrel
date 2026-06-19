@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![expect(deprecated, reason = "Backward compatibility during migration")]
-
 //! Ecosystem Integration and Service Mesh
 
 use std::sync::Arc;
@@ -45,6 +43,8 @@ impl EcosystemIntegration {
                 provider.primal_type(),
                 provider.instance_id
             )),
+            capability_id: Some(Arc::from(crate::niche::DOMAIN)),
+            #[expect(deprecated, reason = "serde backward compat")]
             primal_type: crate::ecosystem::EcosystemPrimalType::Squirrel,
             name: "Squirrel AI Primal".to_string(),
             version: "1.0.0".to_string(),
