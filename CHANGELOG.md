@@ -11,6 +11,16 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (June 20, 2026 — Wave 119: AI Pipeline + Provenance Tracking + BTSP Transport Switch)
+
+- **BTSP Phase 3 transport switch LIVE**: Server auto-transitions to encrypted frame loop after `btsp.negotiate` with `chacha20-poly1305`. 3 integration tests on live Unix socket pairs (were orphaned — now wired into CI). `handle_jsonrpc_loop` and `handle_jsonrpc_with_first_line` both detect negotiate+switch; `encrypted_frame_loop` handles multi-frame encrypted sessions.
+- **Provenance proxy layer**: `provenance.*`, `dag.*`, `anchoring.*`, `attribution.*` dynamically routed to discovered primals via provider registry or socket directory scanning. Uses `capability.discover` probe for runtime resolution. 6 new tests including registry-based routing validation.
+- **Shared `ContextManager`**: `JsonRpcServer.context_manager` field (was creating new manager per request — breaking multi-request context flow). `context.create` → `context.update` → `context.summarize` now correctly persists state across requests on the same connection.
+- **tarpc provider/BTSP stubs delegated**: `provider_register`, `provider_list`, `provider_deregister`, `btsp_negotiate` tarpc trait methods now delegate to JSON-RPC handlers (same pattern as `lifecycle_register`). Removes 4 stub warnings.
+- **Metrics collector evolved**: `RequestTracker` with atomic counters replaces hardcoded `125.3` avg_response_time and `0.0` request_rate/error_rate. `HttpMetrics` summary wired to real tracker. Exposes `request_tracker()` for future handler instrumentation.
+- **Discovery probe comment fixed**: Stale "will be replaced with real JSON-RPC probe" corrected — the probe already exists; the comment now documents the filename-fallback context.
+- **7,499 tests passing** (up from 7,394): 105 new tests from provenance proxy, context roundtrip, BTSP transport switch, and context UUID generation.
+
 ### Summary (June 19, 2026 — Wave 116: TRUE PRIMAL Evolution + Capability-Based Architecture)
 
 - **TRUE PRIMAL compliance**: `niche::DEPENDENCIES` (named primal IDs) → `niche::REQUIRED_CAPABILITIES` (capability-based). Squirrel now declares what it *needs* (security, service-mesh, compute, storage, coordination, ui) not *who* provides it. Legacy `DEPENDENCIES` deprecated with migration note. New `COORDINATION_CAPABILITY` and `UI_CAPABILITY` constants in `universal-constants/capabilities.rs`.

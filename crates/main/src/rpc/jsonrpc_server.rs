@@ -93,6 +93,9 @@ pub struct JsonRpcServer {
     /// BTSP Phase 3 derived session keys
     pub(crate) btsp_session_keys:
         dashmap::DashMap<String, Arc<super::btsp_encrypted_framing::SessionKeys>>,
+
+    /// Shared context manager for `context.*` handlers — persists across requests.
+    pub(crate) context_manager: Arc<squirrel_context::ContextManager>,
 }
 
 impl JsonRpcServer {
@@ -133,6 +136,7 @@ impl JsonRpcServer {
             ),
             btsp_sessions: dashmap::DashMap::new(),
             btsp_session_keys: dashmap::DashMap::new(),
+            context_manager: Arc::new(squirrel_context::ContextManager::new()),
         }
     }
 
@@ -152,6 +156,7 @@ impl JsonRpcServer {
             ),
             btsp_sessions: dashmap::DashMap::new(),
             btsp_session_keys: dashmap::DashMap::new(),
+            context_manager: Arc::new(squirrel_context::ContextManager::new()),
         }
     }
 
@@ -524,7 +529,7 @@ impl JsonRpcServer {
     /// - If client sends "PROTOCOLS: ..." → negotiate and route to selected protocol
     /// - If client sends JSON-RPC request → default to JSON-RPC
     /// - tarpc provides higher performance for bulk operations
-    async fn handle_universal_connection(
+    pub(crate) async fn handle_universal_connection(
         self: std::sync::Arc<Self>,
         transport: UniversalTransport,
     ) -> Result<()> {
@@ -587,6 +592,8 @@ impl JsonRpcServer {
         mut reader: BufReader<UniversalTransport>,
         first_line: String,
     ) -> Result<()> {
+        let switch_session_id = self.detect_btsp_switch(&first_line).await;
+
         if let Some(response_json) = self.handle_request_or_batch(&first_line).await {
             let mut out = response_json;
             out.push('\n');
@@ -600,6 +607,20 @@ impl JsonRpcServer {
                 .flush()
                 .await
                 .context("Failed to flush JSON-RPC response")?;
+
+            if let Some(keys) = switch_session_id
+                .as_ref()
+                .and_then(|sid| self.btsp_session_keys.get(sid))
+            {
+                let session_id = switch_session_id.as_deref().unwrap_or("?");
+                info!(
+                    session_id,
+                    "BTSP Phase 3: switching to encrypted frame loop (first line)"
+                );
+                let keys = Arc::clone(keys.value());
+                let transport = reader.into_inner();
+                return self.encrypted_frame_loop(transport, keys).await;
+            }
         }
 
         self.handle_jsonrpc_loop(reader).await
@@ -679,6 +700,9 @@ impl JsonRpcServer {
     }
 
     /// Standard JSON-RPC request/response loop (supports batch per Section 6).
+    ///
+    /// After a successful `btsp.negotiate` with `chacha20-poly1305`, transitions
+    /// the connection to the encrypted frame loop automatically.
     async fn handle_jsonrpc_loop(&self, mut reader: BufReader<UniversalTransport>) -> Result<()> {
         let mut line = String::new();
 
@@ -690,6 +714,9 @@ impl JsonRpcServer {
                     break;
                 }
                 Ok(_) => {
+                    // Check if this is a btsp.negotiate that triggers transport switch
+                    let switch_session_id = self.detect_btsp_switch(&line).await;
+
                     if let Some(response_json) = self.handle_request_or_batch(&line).await {
                         let mut out = response_json;
                         out.push('\n');
@@ -703,11 +730,91 @@ impl JsonRpcServer {
                             .flush()
                             .await
                             .context("Failed to flush JSON-RPC response in loop")?;
+
+                        // After writing the negotiate response, switch transport if keys are ready
+                        if let Some(keys) = switch_session_id
+                            .as_ref()
+                            .and_then(|sid| self.btsp_session_keys.get(sid))
+                        {
+                            let session_id = switch_session_id.as_deref().unwrap_or("?");
+                            info!(
+                                session_id,
+                                "BTSP Phase 3: switching to encrypted frame loop"
+                            );
+                            let keys = Arc::clone(keys.value());
+                            let transport = reader.into_inner();
+                            return self.encrypted_frame_loop(transport, keys).await;
+                        }
                     }
                     // None means all-notification batch — no response per spec
                 }
                 Err(e) => {
                     warn!("Error reading from connection: {}", e);
+                    break;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Detect whether a line contains a `btsp.negotiate` request that will
+    /// trigger a transport switch. Returns the session_id if so.
+    async fn detect_btsp_switch(&self, line: &str) -> Option<String> {
+        let parsed: serde_json::Value = serde_json::from_str(line.trim()).ok()?;
+        let method = parsed.get("method")?.as_str()?;
+        if method != "btsp.negotiate" {
+            return None;
+        }
+        let params = parsed.get("params")?;
+        let cipher = params.get("preferred_cipher")?.as_str()?;
+        if cipher != "chacha20-poly1305" {
+            return None;
+        }
+        let session_id = params.get("session_id")?.as_str()?;
+        // Only switch if we have a handshake key for this session
+        if self
+            .btsp_sessions
+            .get(session_id)
+            .is_some_and(|s| s.handshake_key.is_some())
+        {
+            Some(session_id.to_string())
+        } else {
+            None
+        }
+    }
+
+    /// Process encrypted frames using BTSP Phase 3 session keys.
+    async fn encrypted_frame_loop(
+        &self,
+        mut transport: UniversalTransport,
+        keys: Arc<super::btsp_encrypted_framing::SessionKeys>,
+    ) -> Result<()> {
+        use super::btsp_encrypted_framing::{encrypt_frame, read_encrypted_frame};
+
+        loop {
+            // Server reads with c2s_key (client→server), writes with s2c_key (server→client)
+            match read_encrypted_frame(&mut transport, &keys.c2s_key).await {
+                Ok(plaintext) => {
+                    let request_str =
+                        String::from_utf8(plaintext).context("invalid UTF-8 in encrypted frame")?;
+
+                    if let Some(response_json) = self.handle_request_or_batch(&request_str).await {
+                        let response_bytes = response_json.as_bytes();
+                        let frame = encrypt_frame(&keys.s2c_key, response_bytes)
+                            .context("failed to encrypt response frame")?;
+                        transport
+                            .write_all(&frame)
+                            .await
+                            .context("failed to write encrypted response frame")?;
+                        transport
+                            .flush()
+                            .await
+                            .context("failed to flush encrypted response frame")?;
+                    }
+                }
+                Err(e) => {
+                    debug!("Encrypted frame loop ended: {e}");
                     break;
                 }
             }

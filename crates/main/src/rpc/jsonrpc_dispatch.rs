@@ -88,6 +88,15 @@ impl JsonRpcServer {
             "graph.parse" => self.handle_graph_parse(params).await,
             "graph.validate" => self.handle_graph_validate(params).await,
 
+            // Provenance proxy — routes to discovered DAG/anchoring/attribution primals
+            m if m.starts_with("provenance.")
+                || m.starts_with("dag.")
+                || m.starts_with("anchoring.")
+                || m.starts_with("attribution.") =>
+            {
+                self.handle_provenance_proxy(m, params).await
+            }
+
             // Method not found
             _ => Err(self.method_not_found(original_method)),
         }

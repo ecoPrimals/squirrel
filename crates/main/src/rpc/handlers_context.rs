@@ -30,9 +30,8 @@ impl JsonRpcServer {
             .cloned()
             .unwrap_or_else(|| serde_json::json!({}));
 
-        let manager = squirrel_context::ContextManager::new();
-
-        let state = manager
+        let state = self
+            .context_manager
             .get_context_state(&session_id)
             .await
             .map_err(|e| JsonRpcError {
@@ -76,9 +75,8 @@ impl JsonRpcServer {
             .cloned()
             .unwrap_or_else(|| serde_json::json!({}));
 
-        let manager = squirrel_context::ContextManager::new();
-
-        let mut state = manager
+        let mut state = self
+            .context_manager
             .get_context_state(id)
             .await
             .map_err(|e| JsonRpcError {
@@ -91,7 +89,7 @@ impl JsonRpcServer {
         state.version += 1;
         state.last_modified = std::time::SystemTime::now();
 
-        manager
+        self.context_manager
             .update_context_state(id, state.clone())
             .await
             .map_err(|e| JsonRpcError {
@@ -129,9 +127,8 @@ impl JsonRpcServer {
                 data: None,
             })?;
 
-        let manager = squirrel_context::ContextManager::new();
-
-        let state = manager
+        let state = self
+            .context_manager
             .get_context_state(id)
             .await
             .map_err(|e| JsonRpcError {
@@ -171,5 +168,55 @@ mod tests {
         let server = JsonRpcServer::new("/tmp/sq-ctx-sum-no-params.sock".to_string());
         let err = server.handle_context_summarize(None).await.unwrap_err();
         assert_eq!(err.code, error_codes::INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn context_create_update_summarize_roundtrip() {
+        let server = JsonRpcServer::new("/tmp/sq-ctx-roundtrip.sock".to_string());
+
+        // Create
+        let created = server
+            .handle_context_create(Some(serde_json::json!({ "session_id": "rt-1" })))
+            .await
+            .expect("create should succeed");
+        assert_eq!(created["id"], "rt-1");
+
+        // Update — mutates the same shared ContextManager
+        let updated = server
+            .handle_context_update(Some(serde_json::json!({
+                "id": "rt-1",
+                "data": { "key": "value" }
+            })))
+            .await
+            .expect("update should succeed");
+        assert_eq!(updated["id"], "rt-1");
+        assert!(
+            updated["version"]
+                .as_u64()
+                .expect("version must be present")
+                > 0
+        );
+
+        // Summarize — reads from the same shared state
+        let summary = server
+            .handle_context_summarize(Some(serde_json::json!({ "id": "rt-1" })))
+            .await
+            .expect("summarize should succeed");
+        assert_eq!(summary["id"], "rt-1");
+        assert_eq!(summary["data"]["key"], "value");
+    }
+
+    #[tokio::test]
+    async fn context_create_generates_uuid_when_no_session_id() {
+        let server = JsonRpcServer::new("/tmp/sq-ctx-uuid.sock".to_string());
+        let created = server
+            .handle_context_create(None)
+            .await
+            .expect("create with None params");
+        let id = created["id"].as_str().expect("id must be string");
+        assert!(
+            uuid::Uuid::parse_str(id).is_ok(),
+            "auto-generated id should be valid UUID"
+        );
     }
 }

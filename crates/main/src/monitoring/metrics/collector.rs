@@ -56,6 +56,81 @@ pub struct MetricsCollector {
     last_discovery: Arc<RwLock<std::time::Instant>>,
     /// Minimum interval between external discovery scans
     discovery_interval: std::time::Duration,
+    /// Request tracking for rate/latency calculations
+    request_tracker: Arc<RequestTracker>,
+}
+
+/// Tracks request counts and response times for live metrics.
+pub struct RequestTracker {
+    total_requests: std::sync::atomic::AtomicU64,
+    total_errors: std::sync::atomic::AtomicU64,
+    /// Cumulative response time in microseconds for average calculation
+    total_response_us: std::sync::atomic::AtomicU64,
+    /// Timestamp when tracking started
+    started_at: std::time::Instant,
+}
+
+impl RequestTracker {
+    fn new() -> Self {
+        Self {
+            total_requests: std::sync::atomic::AtomicU64::new(0),
+            total_errors: std::sync::atomic::AtomicU64::new(0),
+            total_response_us: std::sync::atomic::AtomicU64::new(0),
+            started_at: std::time::Instant::now(),
+        }
+    }
+
+    /// Record a completed request with its latency.
+    pub fn record_request(&self, response_time: std::time::Duration, is_error: bool) {
+        self.total_requests
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if is_error {
+            self.total_errors
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "microseconds fit u64 for realistic durations"
+        )]
+        let us = response_time.as_micros() as u64;
+        self.total_response_us
+            .fetch_add(us, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    fn request_rate(&self) -> f64 {
+        let elapsed = self.started_at.elapsed().as_secs_f64();
+        if elapsed < 0.001 {
+            return 0.0;
+        }
+        let total = self
+            .total_requests
+            .load(std::sync::atomic::Ordering::Relaxed);
+        total as f64 / elapsed
+    }
+
+    fn error_rate(&self) -> f64 {
+        let total = self
+            .total_requests
+            .load(std::sync::atomic::Ordering::Relaxed);
+        if total == 0 {
+            return 0.0;
+        }
+        let errors = self.total_errors.load(std::sync::atomic::Ordering::Relaxed);
+        errors as f64 / total as f64
+    }
+
+    fn avg_response_time_ms(&self) -> f64 {
+        let total = self
+            .total_requests
+            .load(std::sync::atomic::Ordering::Relaxed);
+        if total == 0 {
+            return 0.0;
+        }
+        let us = self
+            .total_response_us
+            .load(std::sync::atomic::Ordering::Relaxed);
+        (us as f64 / total as f64) / 1000.0
+    }
 }
 impl Default for MetricsCollector {
     fn default() -> Self {
@@ -76,7 +151,14 @@ impl MetricsCollector {
             max_history_size: 1000,
             last_discovery: Arc::new(RwLock::new(std::time::Instant::now())),
             discovery_interval: std::time::Duration::from_secs(60),
+            request_tracker: Arc::new(RequestTracker::new()),
         }
+    }
+
+    /// Access the request tracker for recording request metrics.
+    #[must_use]
+    pub const fn request_tracker(&self) -> &Arc<RequestTracker> {
+        &self.request_tracker
     }
 
     /// Total number of recorded metric values (proxy for operation count).
@@ -92,9 +174,15 @@ impl MetricsCollector {
         Ok(MetricsSummary {
             system: system_metrics,
             http: HttpMetrics {
-                total_requests: 0, // Will be populated from actual metrics
-                error_responses: 0,
-                avg_response_time_ms: 0.0,
+                total_requests: self
+                    .request_tracker
+                    .total_requests
+                    .load(std::sync::atomic::Ordering::Relaxed),
+                error_responses: self
+                    .request_tracker
+                    .total_errors
+                    .load(std::sync::atomic::Ordering::Relaxed),
+                avg_response_time_ms: self.request_tracker.avg_response_time_ms(),
             },
         })
     }
@@ -489,15 +577,15 @@ impl MetricsCollector {
     }
 
     async fn get_request_rate(&self) -> Result<f64, PrimalError> {
-        Ok(0.0)
+        Ok(self.request_tracker.request_rate())
     }
 
     async fn get_error_rate(&self) -> Result<f64, PrimalError> {
-        Ok(0.0)
+        Ok(self.request_tracker.error_rate())
     }
 
     async fn get_avg_response_time(&self) -> Result<f64, PrimalError> {
-        Ok(125.3)
+        Ok(self.request_tracker.avg_response_time_ms())
     }
 
     /// Host uptime in seconds from [`universal_constants::sys_info::uptime_seconds`] (`/proc/uptime` on Linux).

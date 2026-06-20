@@ -56,7 +56,6 @@ const TAG_SIZE: usize = 16;
 
 /// Errors from encrypted frame operations.
 #[derive(Debug, thiserror::Error)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub enum FrameError {
     #[error("encryption failed: {0}")]
     Encryption(String),
@@ -137,7 +136,6 @@ pub fn generate_server_nonce() -> String {
 }
 
 /// Generate a random 12-byte ChaCha20-Poly1305 frame nonce.
-#[cfg_attr(not(test), allow(dead_code))]
 fn generate_frame_nonce() -> [u8; NONCE_SIZE] {
     rand::rng().random()
 }
@@ -147,7 +145,6 @@ fn generate_frame_nonce() -> [u8; NONCE_SIZE] {
 /// Encrypt `plaintext` into a length-prefixed encrypted frame.
 ///
 /// Returns: `[4B BE u32 len][12B nonce][ciphertext + 16B Poly1305 tag]`
-#[cfg_attr(not(test), allow(dead_code))]
 pub fn encrypt_frame(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, FrameError> {
     let cipher =
         ChaCha20Poly1305::new_from_slice(key).map_err(|e| FrameError::Encryption(e.to_string()))?;
@@ -174,7 +171,6 @@ pub fn encrypt_frame(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, FrameE
 /// Decrypt an encrypted payload (nonce + ciphertext + tag, without the length header).
 ///
 /// `payload` must be at least `NONCE_SIZE + TAG_SIZE + 1` bytes.
-#[cfg_attr(not(test), allow(dead_code))]
 pub fn decrypt_frame(key: &[u8; 32], payload: &[u8]) -> Result<Vec<u8>, FrameError> {
     let min_len = NONCE_SIZE + TAG_SIZE + 1;
     if payload.len() < min_len {
@@ -198,7 +194,6 @@ pub fn decrypt_frame(key: &[u8; 32], payload: &[u8]) -> Result<Vec<u8>, FrameErr
 /// Read one encrypted frame from the stream and decrypt it.
 ///
 /// Wire format: `[4B BE u32 len][payload]` where payload = `[12B nonce][ciphertext+tag]`.
-#[cfg_attr(not(test), allow(dead_code))]
 pub async fn read_encrypted_frame<R: AsyncRead + Unpin>(
     reader: &mut R,
     key: &[u8; 32],
@@ -221,7 +216,7 @@ pub async fn read_encrypted_frame<R: AsyncRead + Unpin>(
 }
 
 /// Encrypt plaintext and write as a length-prefixed frame to the stream.
-#[cfg_attr(not(test), allow(dead_code))]
+#[allow(dead_code)] // used by test clients, not the server's encrypted_frame_loop
 pub async fn write_encrypted_frame<W: AsyncWrite + Unpin>(
     writer: &mut W,
     key: &[u8; 32],

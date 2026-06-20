@@ -389,12 +389,14 @@ impl PrimalDiscovery {
             let primal_id = parts[0].to_string();
             let instance_id = filename.trim_end_matches(".sock").to_string();
 
-            // Placeholder primal info (will be replaced with real JSON-RPC probe)
+            // Filename-based fallback when identity.get probe fails (e.g. BTSP-guarded
+            // socket without riboCipher preamble, connection timeout, or empty response).
+            // Capabilities require a successful capability.discover probe.
             let primal_info = PrimalInfo {
                 primal_id,
                 instance_id,
                 primal_type: PrimalType::Custom("unknown".to_string()),
-                capabilities: vec![], // Would be populated from JSON-RPC response
+                capabilities: vec![],
                 health: PrimalHealth::Healthy,
             };
 

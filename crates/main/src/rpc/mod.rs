@@ -41,6 +41,7 @@ mod handlers_context;
 mod handlers_graph;
 mod handlers_identity;
 mod handlers_inference;
+mod handlers_provenance;
 mod handlers_provider;
 mod handlers_system;
 mod handlers_tool;
@@ -71,6 +72,9 @@ pub mod tarpc_service;
 pub mod tarpc_transport;
 
 // Integration tests (test-only)
+#[cfg(test)]
+#[path = "btsp_transport_switch_tests.rs"]
+mod btsp_transport_switch_tests;
 #[cfg(all(test, feature = "tarpc-rpc"))]
 mod tarpc_integration_tests;
 

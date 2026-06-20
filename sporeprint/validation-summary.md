@@ -1,7 +1,7 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal composition. 7,394+ tests, 42 IPC methods, 90% coverage."
-date = 2026-06-19
+description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,499+ tests, 42+ IPC methods, 90% coverage."
+date = 2026-06-20
 
 [taxonomies]
 primals = ["squirrel"]
@@ -13,8 +13,8 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: 7,394 passing across 22 workspace crates
-- **Source**: ~1,031 `.rs` files, ~326k lines
+- **Tests**: 7,499 passing across 22 workspace crates
+- **Source**: ~1,035 `.rs` files, ~328k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced
@@ -25,8 +25,12 @@ springs = []
 - **Files >800L (prod)**: 0 — `env_vars.rs` (979L) refactored to `env_vars/` module tree (36 files, max 107L)
 - **Hardcoding**: Evolved — 14 production files migrated from literal localhost/ports to capability-based discovery
 - **TRUE PRIMAL**: `niche::REQUIRED_CAPABILITIES` replaces named-primal `DEPENDENCIES`; `capability_id` field on `EcosystemServiceRegistration`; `EcosystemPrimalType` production uses annotated `#[expect(deprecated)]`
-- **Metrics**: Real `/proc` reads (CPU, memory, disk I/O, network I/O) replace simulated values
+- **Metrics**: Real `/proc` reads (CPU, memory, disk I/O, network I/O) replace simulated values; `RequestTracker` replaces hardcoded request_rate/error_rate/avg_response_time
 - **Security Health**: Capability-discovery probe replaces simulated endpoint check
+- **BTSP Phase 3 Transport Switch**: Server auto-transitions to encrypted frame loop after `btsp.negotiate` with `chacha20-poly1305`; 3 integration tests on live Unix socket pairs (previously orphaned, now wired)
+- **Provenance Proxy**: `dag.*`, `anchoring.*`, `attribution.*`, `provenance.*` methods routed to discovered primals via capability-based socket discovery
+- **Context Persistence**: Shared `ContextManager` on `JsonRpcServer` — `context.create` → `context.update` → `context.summarize` persists across requests
+- **tarpc Parity**: `provider.*` and `btsp.negotiate` tarpc stubs delegated to JSON-RPC handlers (mirrors lifecycle pattern)
 - **CI**: `fmt` + `clippy -D warnings` + `test` + `cargo deny check` (supply-chain audit added)
 - **Dignity**: Configurable enforcement (`SQUIRREL_DIGNITY_ENFORCEMENT`: warn/enforce/audit)
 - **AuthService**: Complete standalone implementation (was missing module; now compiles under `--all-features`)
@@ -45,8 +49,9 @@ springs = []
 | `graph` | Dependency graph parsing and validation (primalSpring BYOB) |
 | `lifecycle` | biomeOS lifecycle registration + heartbeat |
 | `provider` | Spring provider registration/deregistration (LIVE — Wave 116) |
+| `provenance` | Proxy layer for DAG/anchoring/attribution routing to discovered primals |
 
-## Methods (42 — registered in config/capability_registry.toml)
+## Methods (42 registered + dynamic provenance proxy)
 
 - `inference.complete`, `inference.embed`, `inference.models`, `inference.register_provider`, `inference.unregister_provider`
 - `ai.query`, `ai.list_providers`, `ai.complete`, `ai.chat`
@@ -58,10 +63,11 @@ springs = []
 - `health` (bare — Wave 113), `health.check`, `health.liveness`, `health.readiness`
 - `discovery.peers`, `discovery.list`
 - `tool.execute`, `tool.list`
-- `provider.register`, `provider.list`, `provider.deregister` (reserved — Phase 2)
+- `provider.register`, `provider.list`, `provider.deregister`
 - `btsp.negotiate`
 - `lifecycle.register`, `lifecycle.status`
 - `graph.parse`, `graph.validate`
+- `provenance.*`, `dag.*`, `anchoring.*`, `attribution.*` (dynamic proxy → discovered primals)
 
 ## Composition Role
 
