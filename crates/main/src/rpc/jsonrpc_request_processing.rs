@@ -215,10 +215,20 @@ impl JsonRpcServer {
 
         let result = self.dispatch_jsonrpc_method(method_str, params).await;
 
-        let elapsed_ms = start_time.elapsed().as_millis() as u64;
+        let elapsed = start_time.elapsed();
+        let is_error = result.is_err();
+
         let mut metrics = self.metrics.write().await;
         metrics.requests_handled += 1;
-        metrics.total_response_time_ms += elapsed_ms;
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "RPC response times won't exceed u64 milliseconds"
+        )]
+        {
+            metrics.total_response_time_ms += elapsed.as_millis() as u64;
+        }
+
+        self.request_tracker.record_request(elapsed, is_error);
 
         Some(match result {
             Ok(value) => JsonRpcResponse {

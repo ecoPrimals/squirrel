@@ -108,7 +108,7 @@ impl UniversalSquirrelProvider {
         let model_name = payload
             .get("model")
             .and_then(|v| v.as_str())
-            .unwrap_or("squirrel-ai-v1");
+            .unwrap_or(crate::niche::PRIMAL_ID);
 
         let Some(prompt) = payload.get("prompt").and_then(|v| v.as_str()) else {
             return Err(anyhow::anyhow!("Missing prompt in AI inference request").into());
@@ -128,7 +128,7 @@ impl UniversalSquirrelProvider {
         let system_prompt = payload
             .get("system")
             .and_then(|v| v.as_str())
-            .unwrap_or("You are a helpful AI assistant in the Squirrel ecosystem.");
+            .unwrap_or(crate::niche::PRIMAL_DESCRIPTION);
 
         let stream = payload
             .get("stream")

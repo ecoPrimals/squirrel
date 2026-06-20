@@ -70,8 +70,15 @@ pub struct RequestTracker {
     started_at: std::time::Instant,
 }
 
+impl Default for RequestTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RequestTracker {
-    fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             total_requests: std::sync::atomic::AtomicU64::new(0),
             total_errors: std::sync::atomic::AtomicU64::new(0),
@@ -117,6 +124,17 @@ impl RequestTracker {
         }
         let errors = self.total_errors.load(std::sync::atomic::Ordering::Relaxed);
         errors as f64 / total as f64
+    }
+
+    /// Total requests recorded since tracking started.
+    pub fn total_requests(&self) -> u64 {
+        self.total_requests
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Total errors recorded since tracking started.
+    pub fn total_errors(&self) -> u64 {
+        self.total_errors.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     fn avg_response_time_ms(&self) -> f64 {
@@ -174,14 +192,8 @@ impl MetricsCollector {
         Ok(MetricsSummary {
             system: system_metrics,
             http: HttpMetrics {
-                total_requests: self
-                    .request_tracker
-                    .total_requests
-                    .load(std::sync::atomic::Ordering::Relaxed),
-                error_responses: self
-                    .request_tracker
-                    .total_errors
-                    .load(std::sync::atomic::Ordering::Relaxed),
+                total_requests: self.request_tracker.total_requests(),
+                error_responses: self.request_tracker.total_errors(),
                 avg_response_time_ms: self.request_tracker.avg_response_time_ms(),
             },
         })
@@ -421,9 +433,20 @@ impl MetricsCollector {
                 use crate::monitoring::metric_names::ai_intelligence::{
                     AVG_PROCESSING_TIME, MEMORY_USAGE, REQUESTS_PROCESSED, SUCCESS_RATE,
                 };
-                metrics.insert(REQUESTS_PROCESSED.to_string(), 0.0);
-                metrics.insert(AVG_PROCESSING_TIME.to_string(), 0.0);
-                metrics.insert(SUCCESS_RATE.to_string(), 0.0);
+                let tracker = self.request_tracker();
+                let total = tracker.total_requests();
+                let errors = tracker.total_errors();
+                metrics.insert(REQUESTS_PROCESSED.to_string(), total as f64);
+                metrics.insert(
+                    AVG_PROCESSING_TIME.to_string(),
+                    tracker.avg_response_time_ms(),
+                );
+                let success_rate = if total > 0 {
+                    ((total - errors) as f64 / total as f64) * 100.0
+                } else {
+                    100.0
+                };
+                metrics.insert(SUCCESS_RATE.to_string(), success_rate);
                 metrics.insert(
                     MEMORY_USAGE.to_string(),
                     universal_constants::sys_info::process_rss_mb().unwrap_or(0.0),
@@ -433,10 +456,13 @@ impl MetricsCollector {
                 use crate::monitoring::metric_names::mcp_integration::{
                     CONNECTION_COUNT, MESSAGES_RECEIVED, MESSAGES_SENT, PROTOCOL_ERRORS,
                 };
-                metrics.insert(MESSAGES_SENT.to_string(), 0.0);
-                metrics.insert(MESSAGES_RECEIVED.to_string(), 0.0);
-                metrics.insert(CONNECTION_COUNT.to_string(), 0.0);
-                metrics.insert(PROTOCOL_ERRORS.to_string(), 0.0);
+                let tracker = self.request_tracker();
+                let total = tracker.total_requests() as f64;
+                let errors = tracker.total_errors() as f64;
+                metrics.insert(MESSAGES_SENT.to_string(), total);
+                metrics.insert(MESSAGES_RECEIVED.to_string(), total);
+                metrics.insert(CONNECTION_COUNT.to_string(), 1.0);
+                metrics.insert(PROTOCOL_ERRORS.to_string(), errors);
             }
             "context_state" => {
                 use crate::monitoring::metric_names::context_state::{

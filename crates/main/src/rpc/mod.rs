@@ -46,6 +46,7 @@ mod handlers_provider;
 mod handlers_system;
 mod handlers_tool;
 pub mod ipc_client;
+mod jsonrpc_connection_handler;
 mod jsonrpc_dispatch;
 mod jsonrpc_handlers;
 mod jsonrpc_request_processing;

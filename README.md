@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,499 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 3.5 MB | **Methods**: 42+ IPC (42 registered + provenance proxy)
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,502 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 3.5 MB | **Methods**: 42+ IPC (42 registered + provenance proxy)
 
 ---
 
@@ -100,7 +100,7 @@ Runtime registration: any primal can call `inference.register_provider` to dynam
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   7,095 tests passing (0 failures) | ~1,001 `.rs` files | ~326k lines | zero Box<dyn Error> in prod
+Fitness:   7,502 tests passing (0 failures) | ~1,033 `.rs` files | ~326k lines | zero Box<dyn Error> in prod
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
@@ -191,7 +191,7 @@ Storage endpoint resolution uses defaults. No primal dependency is hard-gated.
 ## Code Standards
 
 - `unsafe_code = "forbid"` in workspace `[lints.rust]` — enforced across all 22 crates
-- `#![deny(clippy::expect_used, clippy::unwrap_used)]` in production code (test-only `cfg_attr` allows)
+- `clippy::expect_used` + `clippy::unwrap_used` = `deny` workspace-wide (test-only `cfg_attr` allows)
 - `#![warn(missing_docs)]` on all library crates
 - `cargo clippy` with `pedantic` + `nursery` + `cargo` lints — zero errors under `-D warnings`
 - `#[expect(reason)]` over `#[allow]` — dead suppressions caught automatically

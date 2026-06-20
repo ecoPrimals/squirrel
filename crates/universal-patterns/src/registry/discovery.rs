@@ -196,7 +196,8 @@ impl PrimalDiscovery {
                                     device_id: "local".to_string(),
                                     session_id: "discovery".to_string(),
                                     network_location: crate::traits::NetworkLocation {
-                                        ip_address: "127.0.0.1".to_string(),
+                                        ip_address: universal_constants::network::LOCALHOST_IPV4
+                                            .to_string(),
                                         subnet: None,
                                         network_id: None,
                                         geo_location: None,

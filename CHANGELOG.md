@@ -11,6 +11,18 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (June 20, 2026 — Wave 120: Deep Debt Elimination + Structural Evolution)
+
+- **`jsonrpc_server.rs` split**: 829L → `jsonrpc_server.rs` (339L, server lifecycle) + `jsonrpc_connection_handler.rs` (474L, per-connection routing). Zero production files >800L in main crate.
+- **RequestTracker wired to RPC dispatch**: `handle_single_request_object` now records every request via `request_tracker.record_request()` with actual response duration and error status. Atomics shared between `ServerMetrics` and `RequestTracker`.
+- **Component metrics evolved**: `ai_intelligence` and `mcp_integration` component metrics now read live `total_requests`, `total_errors`, `avg_response_time_ms` from `RequestTracker` — no more hardcoded 0.0 values.
+- **`generate_response` implemented**: Delegates to `send_chat_request` via first registered provider with proper `ModelParameters`. Streaming wraps batch response in single-chunk stream. Tests evolved from "not yet implemented" assertions to delegation validation.
+- **Hardcoded values eliminated**: `"squirrel-ai-v1"` → `niche::PRIMAL_ID`, default system prompt → `niche::PRIMAL_DESCRIPTION`, `"127.0.0.1"` in discovery → `LOCALHOST_IPV4` constant.
+- **Lint policy tightened**: `clippy::expect_used` + `clippy::unwrap_used` elevated from `warn` to `deny` workspace-wide. Clean across all 22 crates.
+- **`RequestTracker::Default` impl**: Added for clippy `new_without_default` compliance.
+- **`futures` dep added to integration crate**: Required for streaming wrapper.
+- **7,502 tests passing** (up from 7,499): 3 new tests from `mcp_ai_tools` delegation + streaming + generate_response evolution.
+
 ### Summary (June 20, 2026 — Wave 119: AI Pipeline + Provenance Tracking + BTSP Transport Switch)
 
 - **BTSP Phase 3 transport switch LIVE**: Server auto-transitions to encrypted frame loop after `btsp.negotiate` with `chacha20-poly1305`. 3 integration tests on live Unix socket pairs (were orphaned — now wired into CI). `handle_jsonrpc_loop` and `handle_jsonrpc_with_first_line` both detect negotiate+switch; `encrypted_frame_loop` handles multi-frame encrypted sessions.

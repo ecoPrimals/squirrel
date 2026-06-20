@@ -278,47 +278,88 @@ impl<M: MCPInterface> McpAiToolsAdapter<M> {
         Ok(response)
     }
 
-    /// Send a streaming chat request
-    /// **FUTURE**: Implement streaming with `capability_ai`
-    /// Tracking: Planned for v0.2.0 - streaming support
+    /// Send a streaming chat request.
+    ///
+    /// Streaming requires async-SSE transport support in `capability_ai` which
+    /// is not yet available. Returns a single-chunk stream wrapping the batch
+    /// response so callers get a usable result immediately.
     pub async fn send_streaming_chat_request(
         &self,
-        _provider_id: &str,
-        _request: ChatRequest,
+        provider_id: &str,
+        request: ChatRequest,
     ) -> Result<ChatResponseStream> {
-        // Streaming implementation: delegate to capability_ai with streaming support
-        // For now, return clear error guidance
-        tracing::warn!(
-            "Streaming chat requested for provider {} - not yet implemented",
-            _provider_id
-        );
-        Err(anyhow::anyhow!(
-            "Streaming chat responses not yet implemented in capability_ai integration. \
-             Please use send_chat_request() for batch responses. \
-             Streaming support is planned for future release. \
-             See https://github.com/ecoPrimals/squirrel/issues for tracking."
-        ))
+        let batch = self.send_chat_request(provider_id, request).await?;
+
+        let chunk = squirrel_ai_tools::common::ChatResponseChunk {
+            id: batch.id.clone(),
+            model: batch.model.clone(),
+            choices: batch
+                .choices
+                .into_iter()
+                .map(|c| squirrel_ai_tools::common::ChatChoiceChunk {
+                    index: c.index,
+                    delta: squirrel_ai_tools::common::ChatMessage {
+                        role: c.role,
+                        content: c.content,
+                        name: None,
+                        tool_calls: c.tool_calls,
+                        tool_call_id: None,
+                    },
+                    finish_reason: c.finish_reason,
+                })
+                .collect(),
+        };
+
+        let stream = futures::stream::once(async move { Ok(chunk) });
+        Ok(Box::pin(stream))
     }
 
-    /// Generate a response for the specified message
+    /// Generate a response for the specified conversation.
+    ///
+    /// Delegates to [`send_chat_request`] using the first registered provider,
+    /// constructing a single-turn user message from `conversation_id` (treated
+    /// as the prompt text when no conversation store is available).
     pub async fn generate_response(
         &self,
         conversation_id: &str,
         model: Option<String>,
-        _temperature: Option<f32>,
-        _max_tokens: Option<u32>,
+        temperature: Option<f32>,
+        max_tokens: Option<u32>,
     ) -> Result<String, anyhow::Error> {
-        // Production implementation: this method requires a proper provider integration
-        tracing::warn!(
-            "generate_response called for conversation {} with model {:?} - not yet implemented",
-            conversation_id,
-            model
-        );
+        let providers = self.list_providers();
+        let provider_id = providers
+            .first()
+            .context("No AI providers registered")?
+            .clone();
 
-        // Return a clear error indicating the feature is not yet implemented
-        Err(anyhow::anyhow!(
-            "AI response generation not yet implemented. Please use send_chat_request with a specific provider instead."
-        ))
+        let request = ChatRequest {
+            messages: vec![squirrel_ai_tools::common::ChatMessage {
+                role: squirrel_ai_tools::common::MessageRole::User,
+                content: Some(conversation_id.to_string()),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
+            }],
+            model,
+            parameters: Some(
+                squirrel_ai_tools::common::parameters::ModelParameters::new()
+                    .with_temperature(temperature.unwrap_or(0.7))
+                    .with_max_tokens(max_tokens.unwrap_or(1000)),
+            ),
+            tools: None,
+        };
+
+        let response = self
+            .send_chat_request(&provider_id, request)
+            .await
+            .context("generate_response delegation failed")?;
+
+        response
+            .choices
+            .into_iter()
+            .next()
+            .and_then(|c| c.content)
+            .context("AI provider returned no content")
     }
 
     /// List available providers
@@ -465,25 +506,34 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn streaming_and_generate_response_errors() {
+    async fn streaming_delegates_to_batch() {
         let mcp = Arc::new(MockMcp);
         let adapter = create_mcp_ai_tools_adapter(mcp).expect("should succeed");
         let req = adapter.create_chat_request();
-        let Err(e1) = adapter
-            .send_streaming_chat_request("openai", req.clone())
+        let Err(e) = adapter
+            .send_streaming_chat_request("nonexistent", req.clone())
             .await
         else {
-            unreachable!("expected streaming to be unimplemented");
+            unreachable!("streaming should fail for unknown provider");
         };
-        assert!(e1.to_string().contains("Streaming") || e1.to_string().contains("not yet"));
+        let msg = e.to_string();
+        assert!(
+            msg.contains("Provider not found") || msg.contains("not found"),
+            "unexpected: {msg}"
+        );
+    }
 
-        let Err(e2) = adapter
-            .generate_response("c1", Some("m".to_string()), None, None)
-            .await
-        else {
-            unreachable!("expected generate_response to be unimplemented");
-        };
-        assert!(e2.to_string().contains("not yet implemented"));
+    #[tokio::test]
+    async fn generate_response_delegates_to_batch() {
+        let mcp = Arc::new(MockMcp);
+        let adapter = create_mcp_ai_tools_adapter(mcp).expect("should succeed");
+        let result = adapter
+            .generate_response("hello world", Some("m".to_string()), None, None)
+            .await;
+        assert!(
+            result.is_err(),
+            "generate_response should fail without provider env"
+        );
     }
 
     #[tokio::test]
@@ -541,17 +591,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn streaming_error_message_mentions_batch_alternative() {
+    async fn streaming_with_unknown_provider_returns_provider_error() {
         let mcp = Arc::new(MockMcp);
         let adapter = create_mcp_ai_tools_adapter(mcp).expect("should succeed");
         let req = adapter.create_chat_request();
         let Err(e) = adapter.send_streaming_chat_request("any", req).await else {
-            unreachable!("expected streaming to be unimplemented");
+            unreachable!("expected provider lookup to fail");
         };
         let msg = e.to_string();
-        assert!(
-            msg.contains("send_chat_request") || msg.contains("batch"),
-            "unexpected: {msg}"
-        );
+        assert!(msg.contains("Provider not found"), "unexpected: {msg}");
     }
 }

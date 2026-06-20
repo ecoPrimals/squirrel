@@ -2,8 +2,8 @@
 
 > **Note (April 2026):** WebSocket transport was removed from Squirrel in v0.1.0-alpha.47 (Tower Atomic pattern — WebSocket provided by Songbird service mesh). WebSocket references below are historical.
 
-**Date**: April 2026 (originally November 2025)  
-**Status**: Active
+**Date**: June 2026 (originally November 2025)  
+**Status**: Active — IPC-first (Unix sockets); HTTP/WebSocket removed per Tower Atomic
 
 ---
 
@@ -98,7 +98,7 @@ All Squirrel environment variables use consistent prefixes:
 
 | Prefix | Purpose | Example |
 |--------|---------|---------|
-| `SQUIRREL_` | Core Squirrel configuration | `SQUIRREL_HTTP_PORT` |
+| `SQUIRREL_` | Core Squirrel configuration | `SQUIRREL_BIND_ADDRESS` |
 | `MCP_` | MCP protocol configuration | `MCP_TIMEOUT_SECS` |
 | `DATABASE_` | Database configuration | `DATABASE_URL` |
 | `OPENAI_` | OpenAI provider | `OPENAI_API_KEY` |
@@ -135,11 +135,9 @@ All Squirrel environment variables use consistent prefixes:
 # Environment
 MCP_ENV=development                      # Environment type
 
-# Network
-SQUIRREL_HTTP_PORT=8080                  # HTTP server port
-SQUIRREL_WEBSOCKET_PORT=8081             # WebSocket server port
-SQUIRREL_BIND_ADDRESS=0.0.0.0            # Bind address
-SQUIRREL_PUBLIC_ADDRESS=example.com      # Public address
+# Network (IPC-first — Unix sockets; TCP fallback via --port/--bind)
+SQUIRREL_BIND_ADDRESS=127.0.0.1          # TCP bind address (when --port enabled)
+SQUIRREL_PUBLIC_ADDRESS=example.com      # Public address (informational)
 
 # Timeouts
 MCP_CONNECTION_TIMEOUT_SECS=30           # Connection timeout
@@ -417,14 +415,11 @@ services:
     image: squirrel:latest
     environment:
       MCP_ENV: production
-      SQUIRREL_HTTP_PORT: 8080
-      SQUIRREL_WEBSOCKET_PORT: 8081
       DATABASE_URL: postgresql://user:pass@db:5432/squirrel
       OPENAI_API_KEY: ${OPENAI_API_KEY}  # From host environment
       SQUIRREL_LOG_LEVEL: info
-    ports:
-      - "8080:8080"
-      - "8081:8081"
+    volumes:
+      - /run/user/1000/biomeos:/run/user/1000/biomeos  # UDS mount
 ```
 
 ### Kubernetes ConfigMap
@@ -436,7 +431,6 @@ metadata:
   name: squirrel-config
 data:
   MCP_ENV: "production"
-  SQUIRREL_HTTP_PORT: "8080"
   SQUIRREL_LOG_LEVEL: "info"
 ---
 apiVersion: v1
@@ -464,7 +458,6 @@ FROM debian:bookworm-slim
 
 # Runtime environment (configuration)
 ENV MCP_ENV=production
-ENV SQUIRREL_HTTP_PORT=8080
 
 # These should come from docker-compose or k8s
 # ENV DATABASE_URL=...
@@ -551,11 +544,6 @@ pub fn load_config() -> Result<Config> {
 fn main() -> Result<()> {
     // Load and validate configuration at startup
     let config = ConfigLoader::load()?;
-    
-    // Additional validation
-    if config.network.http_port == config.network.websocket_port {
-        return Err("HTTP and WebSocket ports must be different".into());
-    }
     
     // Start server only after validation passes
     start_server(config)?;

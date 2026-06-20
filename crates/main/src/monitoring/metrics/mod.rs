@@ -43,5 +43,5 @@ mod types;
 mod collector_tests;
 
 // Re-export public types
-pub use collector::MetricsCollector;
+pub use collector::{MetricsCollector, RequestTracker};
 pub use types::{AllMetrics, MetricInfo, MetricSnapshot, MetricValue, SystemMetrics};
