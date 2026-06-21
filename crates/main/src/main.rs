@@ -311,9 +311,13 @@ async fn run_server(
             .and_then(|p| p.parse().ok())
     });
 
+    let shared_tracker = Arc::clone(metrics_collector.request_tracker());
+
     let server = ai_router.map_or_else(
         || {
-            let s = JsonRpcServer::new(socket_path.clone());
+            let s = JsonRpcServer::new(socket_path.clone())
+                .with_request_tracker(Arc::clone(&shared_tracker))
+                .with_metrics_collector(Arc::clone(&metrics_collector));
             Arc::new(if let Some(p) = tcp_port {
                 s.with_tcp_port(p)
             } else {
@@ -321,7 +325,9 @@ async fn run_server(
             })
         },
         |router| {
-            let s = JsonRpcServer::with_ai_router(socket_path.clone(), router);
+            let s = JsonRpcServer::with_ai_router(socket_path.clone(), router)
+                .with_request_tracker(Arc::clone(&shared_tracker))
+                .with_metrics_collector(Arc::clone(&metrics_collector));
             Arc::new(if let Some(p) = tcp_port {
                 s.with_tcp_port(p)
             } else {

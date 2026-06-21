@@ -11,6 +11,19 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (June 21, 2026 — Wave 120: Metrics Unification + Depth Testing)
+
+- **RequestTracker unified**: `JsonRpcServer` and `MetricsCollector` now share a single `Arc<RequestTracker>` via `with_request_tracker()` builder — previously each held a separate instance, so component metrics never reflected real RPC traffic. Wired in `main.rs` startup.
+- **Context session count live**: `MetricsCollector.context_session_count` atomic field updated by `JsonRpcServer` after `context.create` — `context_state.active_sessions` metric now reflects actual live session count instead of hardcoded 0.0.
+- **Dead code eliminated**: `get_cpu_usage()`, `get_memory_usage()`, `get_memory_percentage()` `#[expect(dead_code)]` removed — now called from `collect_system_metrics()` replacing inline duplication.
+- **Signal plan tests**: 9 new tests for `parse_signal_plan` (valid JSON, markdown fences, invalid JSON, empty array, multi-step) and `parse_signal_tools_toml` (valid TOML, missing array, invalid TOML, default fields). Integration test for `signal_plan` mode through AI router with `TextBehavior::Static` mock variant.
+- **Provenance E2E tests**: 5 new tests with real Unix domain socket round-trips — `forward_jsonrpc` happy path, remote error propagation, invalid JSON response, missing result field, and full `handle_provenance_proxy` end-to-end via provider registry with mock provenance primal.
+- **RequestTracker depth tests**: Concurrent recording test (100 parallel tasks, atomics verified), request_tracker increment assertion after `handle_request_or_batch`, error counting verification.
+- **Shared metrics validation**: Test proving `RequestTracker` recordings flow through to `ai_intelligence` and `mcp_integration` component metrics.
+- **`MetricsCollector` builder on `JsonRpcServer`**: `with_metrics_collector()` for injecting live component metric updates.
+- **`TextBehavior::Static` variant**: New test mock for returning fixed strings (used by signal_plan integration test).
+- **7,524 tests passing** (up from 7,502): 22 new depth tests.
+
 ### Summary (June 20, 2026 — Wave 120: Deep Debt Elimination + Structural Evolution)
 
 - **`jsonrpc_server.rs` split**: 829L → `jsonrpc_server.rs` (339L, server lifecycle) + `jsonrpc_connection_handler.rs` (474L, per-connection routing). Zero production files >800L in main crate.

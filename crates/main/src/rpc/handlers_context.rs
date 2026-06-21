@@ -8,6 +8,14 @@ use serde_json::Value;
 use tracing::info;
 
 impl JsonRpcServer {
+    /// Sync the live context session count to the metrics collector.
+    async fn sync_context_session_count(&self) {
+        if let Some(mc) = &self.metrics_collector {
+            let count = self.context_manager.list_sessions().await.len() as u64;
+            mc.set_context_session_count(count);
+        }
+    }
+
     /// Handle `context.create` — create a new context session.
     ///
     /// Stores context state in-memory via `ContextManager`.  When NestGate
@@ -39,6 +47,8 @@ impl JsonRpcServer {
                 message: format!("Failed to create context: {e}"),
                 data: None,
             })?;
+
+        self.sync_context_session_count().await;
 
         Ok(serde_json::json!({
             "id": state.id,

@@ -98,6 +98,9 @@ pub struct JsonRpcServer {
 
     /// Request tracker for real-time rate/latency metrics (shared with monitoring subsystem).
     pub(crate) request_tracker: Arc<crate::monitoring::metrics::RequestTracker>,
+
+    /// Shared metrics collector for updating live component metrics (e.g. context sessions).
+    pub(crate) metrics_collector: Option<Arc<crate::monitoring::metrics::MetricsCollector>>,
 }
 
 impl JsonRpcServer {
@@ -140,6 +143,7 @@ impl JsonRpcServer {
             btsp_session_keys: dashmap::DashMap::new(),
             context_manager: Arc::new(squirrel_context::ContextManager::new()),
             request_tracker: Arc::new(crate::monitoring::metrics::RequestTracker::new()),
+            metrics_collector: None,
         }
     }
 
@@ -161,7 +165,30 @@ impl JsonRpcServer {
             btsp_session_keys: dashmap::DashMap::new(),
             context_manager: Arc::new(squirrel_context::ContextManager::new()),
             request_tracker: Arc::new(crate::monitoring::metrics::RequestTracker::new()),
+            metrics_collector: None,
         }
+    }
+
+    /// Share a `RequestTracker` with the monitoring subsystem so component
+    /// metrics reflect real RPC traffic.
+    #[must_use]
+    pub fn with_request_tracker(
+        mut self,
+        tracker: Arc<crate::monitoring::metrics::RequestTracker>,
+    ) -> Self {
+        self.request_tracker = tracker;
+        self
+    }
+
+    /// Attach a `MetricsCollector` for live component metric updates
+    /// (e.g. context session counts).
+    #[must_use]
+    pub fn with_metrics_collector(
+        mut self,
+        collector: Arc<crate::monitoring::metrics::MetricsCollector>,
+    ) -> Self {
+        self.metrics_collector = Some(collector);
+        self
     }
 
     /// Enable a localhost TCP JSON-RPC listener on `127.0.0.1:<port>` alongside Universal Transport.

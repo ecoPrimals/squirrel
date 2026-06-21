@@ -191,7 +191,9 @@ impl JsonRpcServer {
     }
 
     /// Parse signal_tools.toml into SignalToolDef entries.
-    fn parse_signal_tools_toml(content: &str) -> Result<Vec<SignalToolDef>, JsonRpcError> {
+    pub(crate) fn parse_signal_tools_toml(
+        content: &str,
+    ) -> Result<Vec<SignalToolDef>, JsonRpcError> {
         let parsed: toml::Value = toml::from_str(content).map_err(|e| JsonRpcError {
             code: error_codes::INVALID_PARAMS,
             message: format!("Failed to parse signal_tools.toml: {e}"),
@@ -239,7 +241,9 @@ impl JsonRpcServer {
     }
 
     /// Parse AI response text into structured signal plan steps.
-    fn parse_signal_plan(response_text: &str) -> Result<Vec<SignalPlanStep>, JsonRpcError> {
+    pub(crate) fn parse_signal_plan(
+        response_text: &str,
+    ) -> Result<Vec<SignalPlanStep>, JsonRpcError> {
         let trimmed = response_text.trim();
         // Strip markdown code fences if present
         let json_str = if trimmed.starts_with("```") {

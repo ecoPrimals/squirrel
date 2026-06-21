@@ -411,6 +411,8 @@ pub struct TestAiAdapter {
 /// Controls [`TestAiAdapter`] text generation in tests.
 pub enum TextBehavior {
     Echo,
+    /// Return a fixed string (useful for testing parsers like signal_plan).
+    Static(&'static str),
     Fail(&'static str),
     Unreachable,
 }
@@ -477,6 +479,14 @@ impl AiProviderAdapter for TestAiAdapter {
         match &self.text_handler {
             TextBehavior::Echo => Ok(TextGenerationResponse {
                 text: format!("reply:{}", request.prompt),
+                provider_id: self.id.to_string(),
+                model: "mock-model".to_string(),
+                usage: None,
+                cost_usd: None,
+                latency_ms: 1,
+            }),
+            TextBehavior::Static(s) => Ok(TextGenerationResponse {
+                text: (*s).to_string(),
                 provider_id: self.id.to_string(),
                 model: "mock-model".to_string(),
                 usage: None,

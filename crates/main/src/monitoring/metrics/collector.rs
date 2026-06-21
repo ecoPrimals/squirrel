@@ -58,6 +58,8 @@ pub struct MetricsCollector {
     discovery_interval: std::time::Duration,
     /// Request tracking for rate/latency calculations
     request_tracker: Arc<RequestTracker>,
+    /// Live context session count, updated by the JSON-RPC server.
+    context_session_count: std::sync::atomic::AtomicU64,
 }
 
 /// Tracks request counts and response times for live metrics.
@@ -170,6 +172,7 @@ impl MetricsCollector {
             last_discovery: Arc::new(RwLock::new(std::time::Instant::now())),
             discovery_interval: std::time::Duration::from_secs(60),
             request_tracker: Arc::new(RequestTracker::new()),
+            context_session_count: std::sync::atomic::AtomicU64::new(0),
         }
     }
 
@@ -177,6 +180,19 @@ impl MetricsCollector {
     #[must_use]
     pub const fn request_tracker(&self) -> &Arc<RequestTracker> {
         &self.request_tracker
+    }
+
+    /// Update the live context session count (called by the JSON-RPC server).
+    pub fn set_context_session_count(&self, count: u64) {
+        self.context_session_count
+            .store(count, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Current context session count.
+    #[must_use]
+    pub fn context_session_count(&self) -> u64 {
+        self.context_session_count
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Total number of recorded metric values (proxy for operation count).
@@ -344,16 +360,9 @@ impl MetricsCollector {
 
         #[cfg(feature = "system-metrics")]
         {
-            if let Ok(mem) = universal_constants::sys_info::memory_info() {
-                system_metrics.memory_usage = mem.used;
-                system_metrics.memory_percentage = if mem.total > 0 {
-                    (mem.used as f64 / mem.total as f64) * 100.0
-                } else {
-                    0.0
-                };
-            }
-            system_metrics.cpu_usage =
-                universal_constants::sys_info::system_cpu_usage_percent().unwrap_or(0.0);
+            system_metrics.cpu_usage = self.get_cpu_usage().await?;
+            system_metrics.memory_usage = self.get_memory_usage().await?;
+            system_metrics.memory_percentage = self.get_memory_percentage().await?;
         }
 
         system_metrics.disk_usage = self.get_disk_usage().await?;
@@ -468,7 +477,10 @@ impl MetricsCollector {
                 use crate::monitoring::metric_names::context_state::{
                     ACTIVE_SESSIONS, CACHE_HIT_RATE, CONTEXT_SIZE, PERSISTENCE_LATENCY,
                 };
-                metrics.insert(ACTIVE_SESSIONS.to_string(), 0.0);
+                metrics.insert(
+                    ACTIVE_SESSIONS.to_string(),
+                    self.context_session_count() as f64,
+                );
                 metrics.insert(CONTEXT_SIZE.to_string(), 0.0);
                 metrics.insert(CACHE_HIT_RATE.to_string(), 0.0);
                 metrics.insert(PERSISTENCE_LATENCY.to_string(), 0.0);
@@ -525,10 +537,6 @@ impl MetricsCollector {
     }
 
     #[cfg(feature = "system-metrics")]
-    #[expect(
-        dead_code,
-        reason = "wired when system-metrics feature ships /proc CPU parsing"
-    )]
     async fn get_cpu_usage(&self) -> Result<f64, PrimalError> {
         let cpu_usage = universal_constants::sys_info::system_cpu_usage_percent().unwrap_or(0.0);
         debug!("Current CPU usage: {:.2}%", cpu_usage);
@@ -536,10 +544,6 @@ impl MetricsCollector {
     }
 
     #[cfg(feature = "system-metrics")]
-    #[expect(
-        dead_code,
-        reason = "wired when system-metrics feature ships /proc memory parsing"
-    )]
     async fn get_memory_usage(&self) -> Result<u64, PrimalError> {
         let used_memory = universal_constants::sys_info::memory_info()
             .map(|m| m.used)
@@ -549,10 +553,6 @@ impl MetricsCollector {
     }
 
     #[cfg(feature = "system-metrics")]
-    #[expect(
-        dead_code,
-        reason = "wired when system-metrics feature ships /proc memory parsing"
-    )]
     async fn get_memory_percentage(&self) -> Result<f64, PrimalError> {
         let mem = universal_constants::sys_info::memory_info().unwrap_or_default();
         if mem.total == 0 {

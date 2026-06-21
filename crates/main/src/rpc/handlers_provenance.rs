@@ -430,4 +430,271 @@ mod tests {
             err.message
         );
     }
+
+    /// Mock provenance primal: listens on UDS, responds to JSON-RPC.
+    fn spawn_mock_provenance(socket_path: &std::path::Path) -> tokio::task::JoinHandle<()> {
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::net::UnixListener;
+
+        let _ = std::fs::remove_file(socket_path);
+        let listener = UnixListener::bind(socket_path).expect("bind mock provenance socket");
+        tokio::spawn(async move {
+            while let Ok((stream, _)) = listener.accept().await {
+                tokio::spawn(async move {
+                    let (reader, mut writer) = stream.into_split();
+                    let mut buf_reader = BufReader::new(reader);
+                    let mut line = String::new();
+                    if buf_reader.read_line(&mut line).await.unwrap_or(0) == 0 {
+                        return;
+                    }
+                    let request: serde_json::Value =
+                        serde_json::from_str(line.trim()).unwrap_or_default();
+                    let id = request
+                        .get("id")
+                        .cloned()
+                        .unwrap_or(serde_json::json!(null));
+                    let method = request
+                        .get("method")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("");
+
+                    let result = match method {
+                        "dag.session.create" => serde_json::json!({
+                            "session_id": "mock-session-001",
+                            "created": true
+                        }),
+                        "anchoring.verify" => serde_json::json!({
+                            "valid": true,
+                            "anchor_hash": "abc123"
+                        }),
+                        _ => serde_json::json!({
+                            "echo": method
+                        }),
+                    };
+
+                    let response = serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "result": result,
+                        "id": id
+                    });
+                    let mut out = serde_json::to_string(&response).expect("serialize");
+                    out.push('\n');
+                    let _ = writer.write_all(out.as_bytes()).await;
+                    let _ = writer.flush().await;
+                });
+            }
+        })
+    }
+
+    #[tokio::test]
+    async fn forward_jsonrpc_happy_path() {
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let mock_sock = tmp.path().join("mock-provenance.sock");
+        let _bg = spawn_mock_provenance(&mock_sock);
+        tokio::task::yield_now().await;
+
+        let server = JsonRpcServer::new("/tmp/sq-fwd-ok.sock".to_string());
+        let params = serde_json::json!({"branch": "main"});
+        let result = server
+            .forward_jsonrpc(
+                "dag.session.create",
+                Some(&params),
+                mock_sock.to_str().expect("path"),
+            )
+            .await
+            .expect("forward should succeed");
+
+        assert_eq!(
+            result.get("session_id").and_then(|v| v.as_str()),
+            Some("mock-session-001")
+        );
+        assert_eq!(result.get("created").and_then(|v| v.as_bool()), Some(true));
+    }
+
+    #[tokio::test]
+    async fn forward_jsonrpc_remote_error_propagated() {
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::net::UnixListener;
+
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let mock_sock = tmp.path().join("mock-err-prov.sock");
+        let _ = std::fs::remove_file(&mock_sock);
+        let listener = UnixListener::bind(&mock_sock).expect("bind");
+        tokio::spawn(async move {
+            if let Ok((stream, _)) = listener.accept().await {
+                let (reader, mut writer) = stream.into_split();
+                let mut buf_reader = BufReader::new(reader);
+                let mut line = String::new();
+                let _ = buf_reader.read_line(&mut line).await;
+                let req: serde_json::Value = serde_json::from_str(line.trim()).unwrap_or_default();
+                let id = req.get("id").cloned().unwrap_or(serde_json::json!(null));
+                let resp = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "error": {
+                        "code": -32001,
+                        "message": "session not found"
+                    },
+                    "id": id
+                });
+                let mut out = serde_json::to_string(&resp).expect("ser");
+                out.push('\n');
+                let _ = writer.write_all(out.as_bytes()).await;
+                let _ = writer.flush().await;
+            }
+        });
+        tokio::task::yield_now().await;
+
+        let server = JsonRpcServer::new("/tmp/sq-fwd-err.sock".to_string());
+        let err = server
+            .forward_jsonrpc("dag.session.get", None, mock_sock.to_str().expect("path"))
+            .await
+            .unwrap_err();
+
+        assert_eq!(err.code, -32001);
+        assert!(err.message.contains("session not found"));
+    }
+
+    #[tokio::test]
+    async fn forward_jsonrpc_invalid_json_response() {
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::net::UnixListener;
+
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let mock_sock = tmp.path().join("mock-badjson.sock");
+        let _ = std::fs::remove_file(&mock_sock);
+        let listener = UnixListener::bind(&mock_sock).expect("bind");
+        tokio::spawn(async move {
+            if let Ok((stream, _)) = listener.accept().await {
+                let (reader, mut writer) = stream.into_split();
+                let mut buf_reader = BufReader::new(reader);
+                let mut line = String::new();
+                let _ = buf_reader.read_line(&mut line).await;
+                let _ = writer.write_all(b"not json\n").await;
+                let _ = writer.flush().await;
+            }
+        });
+        tokio::task::yield_now().await;
+
+        let server = JsonRpcServer::new("/tmp/sq-fwd-bad.sock".to_string());
+        let err = server
+            .forward_jsonrpc("dag.query", None, mock_sock.to_str().expect("path"))
+            .await
+            .unwrap_err();
+
+        assert!(err.message.contains("Invalid JSON response"));
+    }
+
+    #[tokio::test]
+    async fn forward_jsonrpc_missing_result_field() {
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::net::UnixListener;
+
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let mock_sock = tmp.path().join("mock-noresult.sock");
+        let _ = std::fs::remove_file(&mock_sock);
+        let listener = UnixListener::bind(&mock_sock).expect("bind");
+        tokio::spawn(async move {
+            if let Ok((stream, _)) = listener.accept().await {
+                let (reader, mut writer) = stream.into_split();
+                let mut buf_reader = BufReader::new(reader);
+                let mut line = String::new();
+                let _ = buf_reader.read_line(&mut line).await;
+                let resp = serde_json::json!({"jsonrpc": "2.0", "id": 1});
+                let mut out = serde_json::to_string(&resp).expect("ser");
+                out.push('\n');
+                let _ = writer.write_all(out.as_bytes()).await;
+                let _ = writer.flush().await;
+            }
+        });
+        tokio::task::yield_now().await;
+
+        let server = JsonRpcServer::new("/tmp/sq-fwd-nores.sock".to_string());
+        let err = server
+            .forward_jsonrpc("dag.query", None, mock_sock.to_str().expect("path"))
+            .await
+            .unwrap_err();
+
+        assert!(err.message.contains("missing 'result' field"));
+    }
+
+    #[tokio::test]
+    async fn provenance_proxy_end_to_end_via_registry() {
+        use crate::universal_adapters::registry::UniversalServiceRegistry;
+        use crate::universal_adapters::{
+            IntegrationPreferences, ResourceSpec, ServiceCapability, ServiceCategory,
+            ServiceEndpoint, ServiceMetadata, UniversalServiceRegistration,
+        };
+        use std::collections::HashMap;
+
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let mock_sock = tmp.path().join("rhizocrypt-e2e.sock");
+        let _bg = spawn_mock_provenance(&mock_sock);
+        tokio::task::yield_now().await;
+
+        let server = JsonRpcServer::new("/tmp/sq-prov-e2e.sock".to_string());
+
+        let reg = UniversalServiceRegistration {
+            service_id: uuid::Uuid::new_v4(),
+            metadata: ServiceMetadata {
+                name: "rhizocrypt-e2e".to_string(),
+                category: ServiceCategory::Custom {
+                    category: "provenance".to_string(),
+                    subcategories: vec![],
+                },
+                version: "0.1.0".to_string(),
+                description: "DAG provenance E2E".to_string(),
+                maintainer: "eco".to_string(),
+                protocols: vec!["jsonrpc-2.0".to_string()],
+            },
+            capabilities: vec![ServiceCapability::Custom {
+                domain: "dag".to_string(),
+                capability: "dag.session.create".to_string(),
+                parameters: HashMap::new(),
+            }],
+            endpoints: vec![ServiceEndpoint {
+                name: "uds".to_string(),
+                url: format!("unix://{}", mock_sock.display()),
+                protocol: "jsonrpc-2.0".to_string(),
+                port: None,
+                path: Some(mock_sock.to_str().expect("path").to_string()),
+            }],
+            resources: ResourceSpec {
+                cpu_cores: None,
+                memory_gb: None,
+                storage_gb: None,
+                network_bandwidth: None,
+                custom_resources: HashMap::new(),
+            },
+            integration: IntegrationPreferences {
+                preferred_protocols: vec!["jsonrpc-2.0".to_string()],
+                retry_policy: "exponential".to_string(),
+                timeout_seconds: 30,
+                load_balancing_weight: 50,
+            },
+            extensions: HashMap::new(),
+            registration_timestamp: chrono::Utc::now(),
+            service_version: "0.1.0".to_string(),
+            instance_id: "rhizocrypt-e2e-01".to_string(),
+            priority: 50,
+        };
+
+        server
+            .provider_registry
+            .register_service(reg)
+            .await
+            .expect("register provider");
+
+        let result = server
+            .handle_provenance_proxy(
+                "dag.session.create",
+                Some(serde_json::json!({"branch": "main"})),
+            )
+            .await
+            .expect("provenance proxy should succeed");
+
+        assert_eq!(
+            result.get("session_id").and_then(|v| v.as_str()),
+            Some("mock-session-001")
+        );
+    }
 }

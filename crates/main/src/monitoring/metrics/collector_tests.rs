@@ -564,3 +564,83 @@ async fn test_default_trait_implementation() {
     let collector = MetricsCollector::default();
     assert!(collector.metrics.is_empty());
 }
+
+#[tokio::test]
+async fn request_tracker_concurrent_recording() {
+    use std::sync::Arc;
+    let tracker = Arc::new(RequestTracker::new());
+
+    let mut handles = Vec::new();
+    for i in 0..100 {
+        let t = Arc::clone(&tracker);
+        handles.push(tokio::spawn(async move {
+            let is_error = i % 10 == 0;
+            t.record_request(std::time::Duration::from_micros(100), is_error);
+        }));
+    }
+    for h in handles {
+        h.await.expect("join");
+    }
+
+    assert_eq!(tracker.total_requests(), 100);
+    assert_eq!(tracker.total_errors(), 10);
+}
+
+#[tokio::test]
+async fn shared_tracker_flows_to_component_metrics() {
+    use std::sync::Arc;
+    let collector = MetricsCollector::new();
+    let tracker = Arc::clone(collector.request_tracker());
+
+    tracker.record_request(std::time::Duration::from_millis(5), false);
+    tracker.record_request(std::time::Duration::from_millis(10), true);
+
+    collector.collect_metrics().await.expect("should succeed");
+
+    let ai_metrics = collector
+        .get_component_metrics("ai_intelligence")
+        .await
+        .expect("should succeed");
+    let total = ai_metrics
+        .get(crate::monitoring::metric_names::ai_intelligence::REQUESTS_PROCESSED)
+        .copied()
+        .unwrap_or(0.0);
+    assert!(
+        total >= 2.0,
+        "ai_intelligence requests_processed should reflect tracker recordings, got {total}"
+    );
+
+    let mcp_metrics = collector
+        .get_component_metrics("mcp_integration")
+        .await
+        .expect("should succeed");
+    let errors = mcp_metrics
+        .get(crate::monitoring::metric_names::mcp_integration::PROTOCOL_ERRORS)
+        .copied()
+        .unwrap_or(0.0);
+    assert!(
+        errors >= 1.0,
+        "mcp_integration protocol_errors should reflect tracker errors, got {errors}"
+    );
+}
+
+#[tokio::test]
+async fn context_session_count_flows_to_context_state_metrics() {
+    let collector = MetricsCollector::new();
+
+    collector.set_context_session_count(3);
+    collector.collect_metrics().await.expect("should succeed");
+
+    let ctx_metrics = collector
+        .get_component_metrics("context_state")
+        .await
+        .expect("should succeed");
+    let sessions = ctx_metrics
+        .get(crate::monitoring::metric_names::context_state::ACTIVE_SESSIONS)
+        .copied()
+        .unwrap_or(0.0);
+    assert!(
+        (sessions - 3.0).abs() < f64::EPSILON,
+        "context_state active_sessions should be 3, got {sessions}"
+    );
+}
