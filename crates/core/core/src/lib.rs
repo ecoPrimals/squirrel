@@ -198,8 +198,8 @@ pub use ecosystem_api::PrimalType;
 
 /// Squirrel MCP protocol version.
 pub const SQUIRREL_MCP_VERSION: &str = "2.2.0";
-/// Primal type identifier for Squirrel.
-pub const PRIMAL_TYPE: &str = "squirrel";
+/// Primal type identifier for Squirrel (canonical source: `universal_constants::capabilities`).
+pub const PRIMAL_TYPE: &str = universal_constants::capabilities::SELF_PRIMAL_NAME;
 
 // Backward-compat aliases for mesh types (distinct from federation/routing/service_discovery types)
 #[cfg(feature = "mesh")]

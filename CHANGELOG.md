@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (June 21, 2026 — Wave 120: Identity Consolidation + Feature Gating)
+
+- **Identity constants unified**: Three separate `"squirrel"` literals (`niche::PRIMAL_ID`, `core::PRIMAL_TYPE`, `SELF_PRIMAL_NAME`) now derive from one canonical source (`universal_constants::capabilities::SELF_PRIMAL_NAME`). Zero duplicate string literals for self-identity in production code.
+- **Hardcoded strings eliminated**: `deploy_graph.rs` `includes_squirrel()` → `niche::PRIMAL_ID` + `niche::DOMAIN`; `jsonrpc_server.rs` socket fallback → `concat!(env!("CARGO_PKG_NAME"), ".sock")`; `arc_str.rs` string cache → `niche::PRIMAL_ID`.
+- **Context learning feature-gated**: ~14.6k lines of planned-but-unwired context learning subsystem gated behind `context-learning` feature flag. Default build no longer compiles learning; `--all-features` still exercises all 7,524 tests.
+- **Zero `#[allow(` remaining**: Already fully evolved to `#[expect(reason)]` workspace-wide (confirmed by deep scan).
+- **Near-800L files assessed**: `security/orchestrator/mod.rs` (797), `routing/agent.rs` (795), `universal_executor.rs` (795) — all under threshold; `agent.rs` and `executor.rs` are single-concern, no architecture-improving split identified.
+- **7,524 tests passing** (unchanged — learning tests run under `--all-features`).
+
 ### Summary (June 21, 2026 — Wave 120: Metrics Unification + Depth Testing)
 
 - **RequestTracker unified**: `JsonRpcServer` and `MetricsCollector` now share a single `Arc<RequestTracker>` via `with_request_tracker()` builder — previously each held a separate instance, so component metrics never reflected real RPC traffic. Wired in `main.rs` startup.

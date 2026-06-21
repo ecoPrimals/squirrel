@@ -250,7 +250,7 @@ impl JsonRpcServer {
                                     std::path::Path::new(&fs_path)
                                         .file_name()
                                         .and_then(|n| n.to_str())
-                                        .unwrap_or("squirrel.sock"),
+                                        .unwrap_or(concat!(env!("CARGO_PKG_NAME"), ".sock")),
                                     e
                                 );
                             }

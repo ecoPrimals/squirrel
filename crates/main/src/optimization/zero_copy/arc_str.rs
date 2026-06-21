@@ -85,7 +85,7 @@ pub mod intern {
         let mut map = HashMap::new();
 
         // Self-identity (only squirrel knows itself)
-        map.insert("squirrel", Arc::from("squirrel"));
+        map.insert(crate::niche::PRIMAL_ID, Arc::from(crate::niche::PRIMAL_ID));
 
         // Capability domains (agnostic — no hardcoded primal names)
         map.insert("ai", Arc::from("ai"));

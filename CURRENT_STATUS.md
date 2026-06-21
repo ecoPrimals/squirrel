@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: June 21, 2026 (Wave 120 — Metrics Unification + Depth Testing)
+**Last Updated**: June 21, 2026 (Wave 120 — Identity Consolidation + Feature Gating)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -27,7 +27,7 @@
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors + `anyhow::Result` (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`, `anyhow::Error`) |
 | Crates | 22 workspace members |
 | Files >800 lines (prod) | 0 — `jsonrpc_server.rs` split (829L → 336L server + 474L connection handler); `provider_trait.rs` refactored 983→728L; `env_vars.rs` (1091L) → module tree (36 files, max 107L); largest prod file: 796L |
-| `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — dead suppressions caught automatically |
+| `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — zero `#[allow(` remaining; dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
 | cargo deny | `advisories ok, bans ok, licenses ok, sources ok` |

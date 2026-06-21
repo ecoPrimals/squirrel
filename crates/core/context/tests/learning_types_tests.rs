@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![cfg(feature = "context-learning")]
 #![expect(
     clippy::expect_used,
     reason = "Learning type tests use expect on serde and known-good values"

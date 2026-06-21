@@ -302,10 +302,10 @@ impl NicheDeployGraph {
     /// Whether this graph includes Squirrel (via `by_capability = "ai"` or node name).
     #[must_use]
     pub fn includes_squirrel(&self) -> bool {
-        self.graph
-            .node
-            .iter()
-            .any(|n| n.name == "squirrel" || n.by_capability.as_deref() == Some("ai"))
+        self.graph.node.iter().any(|n| {
+            n.name == crate::niche::PRIMAL_ID
+                || n.by_capability.as_deref() == Some(crate::niche::DOMAIN)
+        })
     }
 }
 

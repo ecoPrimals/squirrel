@@ -25,7 +25,8 @@
 use universal_constants::capabilities as cap_ids;
 
 /// Primal identity — used in all JSON-RPC, IPC, and biomeOS interactions.
-pub const PRIMAL_ID: &str = "squirrel";
+/// Canonical source: `universal_constants::capabilities::SELF_PRIMAL_NAME`.
+pub const PRIMAL_ID: &str = cap_ids::SELF_PRIMAL_NAME;
 
 /// Human-readable description for biomeOS registration.
 pub const PRIMAL_DESCRIPTION: &str = "Universal AI coordination and MCP routing primal";

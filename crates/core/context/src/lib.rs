@@ -104,6 +104,7 @@ impl Default for ContextState {
 }
 
 pub mod error;
+#[cfg(feature = "context-learning")]
 pub mod learning;
 pub mod manager;
 pub mod plugins;
@@ -128,7 +129,8 @@ pub use visualization::{
     VisualizationSystem, VisualizationSystemConfig, VisualizationType,
 };
 
-// Re-export from learning module
+// Re-export from learning module (feature-gated: planned but not runtime-wired)
+#[cfg(feature = "context-learning")]
 pub use learning::{
     AdaptiveRuleSystem, ContextLearningManager, ExperienceReplay, LearningEngine,
     LearningIntegration, LearningMetrics, LearningState, LearningSystem, LearningSystemConfig,
