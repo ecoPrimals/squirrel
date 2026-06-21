@@ -31,7 +31,9 @@ springs = []
 - **Provenance Proxy**: `dag.*`, `anchoring.*`, `attribution.*`, `provenance.*` methods routed to discovered primals via capability-based socket discovery; `forward_jsonrpc` E2E-tested with mock UDS round-trips (happy path, remote error, invalid JSON, missing result)
 - **Context Persistence**: Shared `ContextManager` on `JsonRpcServer` — `context.create` → `context.update` → `context.summarize` persists across requests; session count synced to `MetricsCollector`
 - **tarpc Parity**: `provider.*` and `btsp.negotiate` tarpc stubs delegated to JSON-RPC handlers (mirrors lifecycle pattern)
-- **Lint policy**: `clippy::expect_used` + `clippy::unwrap_used` = `deny` workspace-wide (evolved from `warn`)
+- **Identity**: Single canonical source (`universal_constants::capabilities::SELF_PRIMAL_NAME`); `niche::PRIMAL_ID` and `core::PRIMAL_TYPE` are re-exports. Zero hardcoded self-identity string literals in production.
+- **Feature gating**: Context learning subsystem (~14.6k lines, 625 tests) behind `context-learning` feature. Default build: 6,899 tests; `--all-features`: 7,524 tests.
+- **Lint policy**: `clippy::expect_used` + `clippy::unwrap_used` = `deny` workspace-wide (evolved from `warn`); zero `#[allow(` remaining (all converted to `#[expect(reason)]`)
 - **CI**: `fmt` + `clippy -D warnings` + `test` + `cargo deny check` (supply-chain audit added)
 - **Dignity**: Configurable enforcement (`SQUIRREL_DIGNITY_ENFORCEMENT`: warn/enforce/audit)
 - **AuthService**: Complete standalone implementation (was missing module; now compiles under `--all-features`)
