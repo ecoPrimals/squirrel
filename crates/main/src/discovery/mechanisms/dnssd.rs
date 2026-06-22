@@ -6,7 +6,16 @@
 //! Discovers services across networks using DNS-based service discovery (RFC 6763).
 //! Works globally, unlike mDNS which is limited to local networks.
 //!
-//! ## Protocol
+//! ## Current Status
+//!
+//! **Stub**: No pure-Rust DNS resolver is wired (hickory-dns/trust-dns-resolver are
+//! not in dependencies per ecoBin policy). All discovery methods **fall back to the
+//! socket registry** (`discover_from_socket_registry`), which is the canonical
+//! discovery mechanism for the ecoPrimals mesh. Registration/unregistration are
+//! no-ops. The interface is production-ready for when a `discovery-mdns` feature
+//! flag is added with hickory-dns.
+//!
+//! ## Protocol (future)
 //!
 //! - Uses standard DNS queries (port 53)
 //! - Service instances: `<instance>.<service>.<domain>`
@@ -14,7 +23,7 @@
 //! - SRV records provide host and port
 //! - TXT records contain metadata
 //!
-//! ## Example DNS Records
+//! ## Example DNS Records (future)
 //!
 //! ```text
 //! _primal._tcp.squirrel.local. PTR squirrel-ai._primal._tcp.squirrel.local.
@@ -286,6 +295,40 @@ mod tests {
         let result = dnssd.discover_by_capability("ai").await;
         assert!(result.is_ok());
         assert_eq!(result.expect("should succeed").len(), 0);
+    }
+
+    #[tokio::test]
+    async fn fallback_discover_by_capability_returns_ok() {
+        let dnssd = DnssdDiscovery::new("example.com.".to_string(), "_test._tcp".to_string());
+        let result = dnssd.discover_by_capability("nonexistent").await;
+        assert!(
+            result.is_ok(),
+            "fallback must never error even for unknown capabilities"
+        );
+    }
+
+    #[tokio::test]
+    async fn discover_all_returns_ok_regardless_of_config() {
+        let dnssd = DnssdDiscovery::new("custom.domain.".to_string(), "_custom._tcp".to_string())
+            .with_dns_server("192.0.2.1:53".to_string());
+        let result = dnssd.discover_all().await;
+        assert!(
+            result.is_ok(),
+            "discover_all must fall back gracefully even with custom DNS server"
+        );
+    }
+
+    #[tokio::test]
+    async fn register_and_unregister_are_noops() {
+        let dnssd = DnssdDiscovery::default();
+        dnssd
+            .register_service("x", "h", 1, vec![], HashMap::new())
+            .await
+            .expect("register noop");
+        dnssd
+            .unregister_service("x")
+            .await
+            .expect("unregister noop");
     }
 
     #[test]

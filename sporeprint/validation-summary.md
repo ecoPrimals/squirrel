@@ -13,7 +13,7 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: 7,524 passing across 22 workspace crates
+- **Tests**: 7,534 passing across 22 workspace crates
 - **Source**: ~1,035 `.rs` files, ~328k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)
@@ -32,7 +32,9 @@ springs = []
 - **Context Persistence**: Shared `ContextManager` on `JsonRpcServer` — `context.create` → `context.update` → `context.summarize` persists across requests; session count synced to `MetricsCollector`
 - **tarpc Parity**: `provider.*` and `btsp.negotiate` tarpc stubs delegated to JSON-RPC handlers (mirrors lifecycle pattern)
 - **Identity**: Single canonical source (`universal_constants::capabilities::SELF_PRIMAL_NAME`); `niche::PRIMAL_ID` and `core::PRIMAL_TYPE` are re-exports. Zero hardcoded self-identity string literals in production.
-- **Feature gating**: Context learning subsystem (~14.6k lines, 625 tests) behind `context-learning` feature. Default build: 6,899 tests; `--all-features`: 7,524 tests.
+- **Feature gating**: Context learning subsystem (~14.6k lines, 625 tests) behind `context-learning` feature. Default build: 6,909 tests; `--all-features`: 7,534 tests.
+- **Nuclear Lineage (0xEE)**: Protocol-aware; NDJSON clients receive JSON-RPC -32050 with `resolution:"awaiting_beardog_keys"`; BTSP closes silently. Full encrypted channel awaits BearDog key material.
+- **Discovery**: Socket registry is canonical for LAN. DNS-SD and mDNS stubs documented; fallback paths tested. Ready for `discovery-mdns` feature flag with hickory-dns.
 - **Lint policy**: `clippy::expect_used` + `clippy::unwrap_used` = `deny` workspace-wide (evolved from `warn`); zero `#[allow(` remaining (all converted to `#[expect(reason)]`)
 - **CI**: `fmt` + `clippy -D warnings` + `test` + `cargo deny check` (supply-chain audit added)
 - **Dignity**: Configurable enforcement (`SQUIRREL_DIGNITY_ENFORCEMENT`: warn/enforce/audit)

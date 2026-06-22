@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: June 21, 2026 (Wave 120 — Identity Consolidation + Feature Gating)
+**Last Updated**: June 22, 2026 (Wave 123 — Nuclear Lineage Protocol + Depth Testing)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 

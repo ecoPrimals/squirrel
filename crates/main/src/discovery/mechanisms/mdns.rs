@@ -6,13 +6,21 @@
 //! Discovers services on the local network using mDNS/Bonjour/Avahi.
 //! Ideal for zero-configuration local network discovery.
 //!
-//! ## Protocol
+//! ## Current Status
+//!
+//! **Stub**: No pure-Rust mDNS implementation is wired (hickory-dns not in
+//! dependencies per ecoBin policy). All discovery methods **fall back to the
+//! socket registry**, which is the canonical LAN discovery mechanism for the
+//! ecoPrimals mesh. Registration/announcement are no-ops. The interface is
+//! production-ready for when a `discovery-mdns` feature flag is added.
+//!
+//! ## Protocol (future)
 //!
 //! - Multicast group: 224.0.0.251:5353 (IPv4)
 //! - Service type format: `_primal._tcp.local.`
 //! - TXT records contain capabilities and metadata
 //!
-//! ## Example Service Advertisement
+//! ## Example Service Advertisement (future)
 //!
 //! ```text
 //! _squirrel._tcp.local. PTR squirrel-ai._squirrel._tcp.local.
