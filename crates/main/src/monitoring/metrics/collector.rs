@@ -60,6 +60,8 @@ pub struct MetricsCollector {
     request_tracker: Arc<RequestTracker>,
     /// Live context session count, updated by the JSON-RPC server.
     context_session_count: std::sync::atomic::AtomicU64,
+    /// Approximate total bytes across all context sessions.
+    context_total_bytes: std::sync::atomic::AtomicU64,
 }
 
 /// Tracks request counts and response times for live metrics.
@@ -173,6 +175,7 @@ impl MetricsCollector {
             discovery_interval: std::time::Duration::from_secs(60),
             request_tracker: Arc::new(RequestTracker::new()),
             context_session_count: std::sync::atomic::AtomicU64::new(0),
+            context_total_bytes: std::sync::atomic::AtomicU64::new(0),
         }
     }
 
@@ -192,6 +195,19 @@ impl MetricsCollector {
     #[must_use]
     pub fn context_session_count(&self) -> u64 {
         self.context_session_count
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Update the approximate total bytes across all context sessions.
+    pub fn set_context_total_bytes(&self, bytes: u64) {
+        self.context_total_bytes
+            .store(bytes, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Current approximate total context bytes.
+    #[must_use]
+    pub fn context_total_bytes(&self) -> u64 {
+        self.context_total_bytes
             .load(std::sync::atomic::Ordering::Relaxed)
     }
 
@@ -481,7 +497,7 @@ impl MetricsCollector {
                     ACTIVE_SESSIONS.to_string(),
                     self.context_session_count() as f64,
                 );
-                metrics.insert(CONTEXT_SIZE.to_string(), 0.0);
+                metrics.insert(CONTEXT_SIZE.to_string(), self.context_total_bytes() as f64);
                 metrics.insert(CACHE_HIT_RATE.to_string(), 0.0);
                 metrics.insert(PERSISTENCE_LATENCY.to_string(), 0.0);
             }

@@ -58,8 +58,8 @@ struct AnthropicMessage {
 
 /// Anthropic API response
 #[derive(Debug, Deserialize)]
-#[expect(dead_code, reason = "Fields used by serde deserialization")]
 struct AnthropicResponse {
+    #[expect(dead_code, reason = "Deserialized for completeness; not read")]
     id: String,
     model: String,
     content: Vec<AnthropicContent>,
@@ -67,8 +67,8 @@ struct AnthropicResponse {
 }
 
 #[derive(Debug, Deserialize)]
-#[expect(dead_code, reason = "Fields used by serde deserialization")]
 struct AnthropicContent {
+    #[expect(dead_code, reason = "Deserialized for completeness; not read")]
     #[serde(rename = "type")]
     content_type: String,
     text: String,

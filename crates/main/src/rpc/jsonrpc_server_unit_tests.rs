@@ -903,22 +903,56 @@ async fn uds_mito_signal_ndjson_health_roundtrip() {
 }
 
 #[tokio::test]
-async fn uds_nuclear_signal_closes_gracefully() {
+async fn uds_nuclear_signal_returns_json_error_for_ndjson() {
     let (jh, mut client) = uds_server_transport().await;
-    client.write_all(&[0xEE]).await.expect("nuclear byte");
+    // Nuclear signal + NDJSON protocol type → structured JSON-RPC error
+    client
+        .write_all(&[0xEE, 0x01])
+        .await
+        .expect("nuclear+ndjson");
+    client.flush().await.expect("flush");
+
+    let mut buf = Vec::new();
+    let _ = client.read_to_end(&mut buf).await;
+    assert!(
+        !buf.is_empty(),
+        "nuclear+ndjson should return a JSON-RPC error"
+    );
+    let v: Value = serde_json::from_slice(&buf).expect("valid json");
+    assert_eq!(
+        v.pointer("/error/code").and_then(Value::as_i64),
+        Some(-32050),
+        "error code must be -32050"
+    );
+    assert_eq!(
+        v.pointer("/error/data/resolution").and_then(Value::as_str),
+        Some("awaiting_beardog_keys"),
+        "resolution field must guide client"
+    );
+    assert_eq!(
+        v.pointer("/error/data/tier").and_then(Value::as_str),
+        Some("nuclear"),
+        "tier must identify nuclear lineage"
+    );
+    let res = jh.await.expect("join");
+    assert!(res.is_ok(), "server should not error: {res:?}");
+}
+
+#[tokio::test]
+async fn uds_nuclear_signal_btsp_protocol_closes_silently() {
+    let (jh, mut client) = uds_server_transport().await;
+    // Nuclear signal + BTSP protocol type → no JSON response, clean close
+    client.write_all(&[0xEE, 0x02]).await.expect("nuclear+btsp");
     client.flush().await.expect("flush");
 
     let mut buf = Vec::new();
     let _ = client.read_to_end(&mut buf).await;
     assert!(
         buf.is_empty(),
-        "nuclear signal should close cleanly (no response)"
+        "nuclear+btsp should close silently (no NDJSON response)"
     );
     let res = jh.await.expect("join");
-    assert!(
-        res.is_ok(),
-        "server should not error on nuclear signal: {res:?}"
-    );
+    assert!(res.is_ok(), "server should not error: {res:?}");
 }
 
 #[tokio::test]

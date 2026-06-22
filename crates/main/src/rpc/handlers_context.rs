@@ -8,11 +8,21 @@ use serde_json::Value;
 use tracing::info;
 
 impl JsonRpcServer {
-    /// Sync the live context session count to the metrics collector.
-    async fn sync_context_session_count(&self) {
+    /// Sync context metrics (session count + total bytes) to the metrics collector.
+    async fn sync_context_metrics(&self) {
         if let Some(mc) = &self.metrics_collector {
-            let count = self.context_manager.list_sessions().await.len() as u64;
-            mc.set_context_session_count(count);
+            let sessions = self.context_manager.list_sessions().await;
+            mc.set_context_session_count(sessions.len() as u64);
+
+            let mut total_bytes: u64 = 0;
+            for id in &sessions {
+                if let Ok(state) = self.context_manager.get_context_state(id).await {
+                    total_bytes = total_bytes.saturating_add(
+                        serde_json::to_vec(&state.data).map_or(0, |v| v.len() as u64),
+                    );
+                }
+            }
+            mc.set_context_total_bytes(total_bytes);
         }
     }
 
@@ -48,7 +58,7 @@ impl JsonRpcServer {
                 data: None,
             })?;
 
-        self.sync_context_session_count().await;
+        self.sync_context_metrics().await;
 
         Ok(serde_json::json!({
             "id": state.id,
@@ -107,6 +117,8 @@ impl JsonRpcServer {
                 message: format!("Failed to update context: {e}"),
                 data: None,
             })?;
+
+        self.sync_context_metrics().await;
 
         Ok(serde_json::json!({
             "id": state.id,

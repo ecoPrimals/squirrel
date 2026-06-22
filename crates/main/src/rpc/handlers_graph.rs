@@ -86,3 +86,104 @@ impl JsonRpcServer {
         }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::rpc::JsonRpcServer;
+    use crate::rpc::jsonrpc_server::error_codes;
+
+    const VALID_GRAPH_TOML: &str = r#"
+[graph]
+name = "test_graph"
+coordination = "Sequential"
+
+[[graph.node]]
+name = "squirrel"
+binary = "squirrel"
+order = 1
+required = true
+by_capability = "ai"
+health_method = "health.check"
+
+[[graph.node]]
+name = "nestgate"
+binary = "nestgate"
+order = 2
+health_method = "health.check"
+"#;
+
+    #[tokio::test]
+    async fn graph_parse_missing_params_errors() {
+        let server = JsonRpcServer::new("/tmp/sq-graph-no-params.sock".to_string());
+        let err = server.handle_graph_parse(None).await.unwrap_err();
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
+        assert!(err.message.contains("graph_toml"));
+    }
+
+    #[tokio::test]
+    async fn graph_parse_invalid_toml_errors() {
+        let server = JsonRpcServer::new("/tmp/sq-graph-bad-toml.sock".to_string());
+        let err = server
+            .handle_graph_parse(Some(serde_json::json!({ "graph_toml": "{{not toml" })))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
+        assert!(err.message.contains("parse error"));
+    }
+
+    #[tokio::test]
+    async fn graph_parse_valid_returns_json() {
+        let server = JsonRpcServer::new("/tmp/sq-graph-ok.sock".to_string());
+        let result = server
+            .handle_graph_parse(Some(serde_json::json!({ "graph_toml": VALID_GRAPH_TOML })))
+            .await
+            .expect("should parse");
+        assert!(
+            result.get("graph").is_some(),
+            "parsed graph must have 'graph' key"
+        );
+    }
+
+    #[tokio::test]
+    async fn graph_validate_missing_params_errors() {
+        let server = JsonRpcServer::new("/tmp/sq-graph-val-no-params.sock".to_string());
+        let err = server.handle_graph_validate(None).await.unwrap_err();
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn graph_validate_returns_structure() {
+        let server = JsonRpcServer::new("/tmp/sq-graph-val-ok.sock".to_string());
+        let result = server
+            .handle_graph_validate(Some(serde_json::json!({ "graph_toml": VALID_GRAPH_TOML })))
+            .await
+            .expect("should validate");
+        assert_eq!(result["valid"], true);
+        assert_eq!(result["name"], "test_graph");
+        assert_eq!(result["node_count"], 2);
+        assert_eq!(result["required_count"], 1);
+        assert_eq!(result["includes_squirrel"], true);
+        assert_eq!(result["coordination"], "Sequential");
+    }
+
+    #[tokio::test]
+    async fn graph_validate_detects_issues_in_empty_graph() {
+        let server = JsonRpcServer::new("/tmp/sq-graph-val-empty.sock".to_string());
+        let empty_graph = r#"
+[graph]
+name = "empty"
+"#;
+        let result = server
+            .handle_graph_validate(Some(serde_json::json!({ "graph_toml": empty_graph })))
+            .await
+            .expect("should validate even if empty");
+        assert_eq!(result["valid"], false, "empty graph should have issues");
+        assert!(
+            !result["issues"]
+                .as_array()
+                .expect("issues array")
+                .is_empty()
+        );
+        assert_eq!(result["includes_squirrel"], false);
+    }
+}

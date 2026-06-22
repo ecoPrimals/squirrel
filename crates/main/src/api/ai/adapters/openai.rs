@@ -57,8 +57,8 @@ struct OpenAiMessage {
 
 /// OpenAI API response
 #[derive(Debug, Deserialize)]
-#[expect(dead_code, reason = "Fields used by serde deserialization")]
 struct OpenAiResponse {
+    #[expect(dead_code, reason = "Deserialized for completeness; not read")]
     #[serde(default)]
     id: String,
     model: String,
@@ -78,9 +78,9 @@ struct OpenAiErrorDetail {
 }
 
 #[derive(Debug, Deserialize)]
-#[expect(dead_code, reason = "Fields used by serde deserialization")]
 struct OpenAiChoice {
     message: OpenAiMessage,
+    #[expect(dead_code, reason = "Deserialized for completeness; not read")]
     finish_reason: String,
 }
 

@@ -26,8 +26,9 @@ impl JsonRpcServer {
     /// - `0xEC` / `0xED` — **MitoBeacon** (shared access). Reads the second
     ///   byte (protocol type) and routes: `0x01` → NDJSON JSON-RPC, `0x02`/`0x03`
     ///   → BTSP handshake.
-    /// - `0xEE` — **Nuclear Lineage** (per-user). Requires BearDog key material;
-    ///   not yet implemented — closes gracefully.
+    /// - `0xEE` — **Nuclear Lineage** (per-user). Reads the protocol type byte,
+    ///   then returns a structured JSON-RPC error indicating BearDog key material
+    ///   is required. Full encrypted channel is Phase 2.
     /// - Anything else — passed to `maybe_handshake` for BTSP/JSON auto-detect.
     pub(super) async fn handle_uds_connection(
         server: Arc<Self>,
@@ -89,7 +90,42 @@ impl JsonRpcServer {
                 }
             }
             NUCLEAR_SIGNAL => {
-                warn!("riboCipher Nuclear Lineage (0xEE) not yet implemented — closing");
+                let mut proto = [0u8; 1];
+                let proto_byte = match tokio::time::timeout(
+                    std::time::Duration::from_secs(5),
+                    transport.read_exact(&mut proto),
+                )
+                .await
+                {
+                    Ok(Ok(_)) => proto[0],
+                    _ => 0x00,
+                };
+
+                warn!(
+                    protocol_type = proto_byte,
+                    "riboCipher Nuclear Lineage (0xEE) requires BearDog key material"
+                );
+
+                if proto_byte == NDJSON_JSONRPC {
+                    let error_response = serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "id": null,
+                        "error": {
+                            "code": -32050,
+                            "message": "Nuclear Lineage (0xEE) requires BearDog key material",
+                            "data": {
+                                "tier": "nuclear",
+                                "resolution": "awaiting_beardog_keys",
+                                "protocol_type": proto_byte
+                            }
+                        }
+                    });
+                    let mut line = serde_json::to_vec(&error_response)
+                        .unwrap_or_else(|_| br#"{"jsonrpc":"2.0","id":null,"error":{"code":-32050,"message":"nuclear unavailable"}}"#.to_vec());
+                    line.push(b'\n');
+                    let _ = transport.write_all(&line).await;
+                    let _ = transport.flush().await;
+                }
                 Ok(())
             }
             first_byte => Self::run_btsp_with_first_byte(server, transport, first_byte).await,
