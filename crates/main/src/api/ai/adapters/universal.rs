@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal AI Adapter - Capability-Based Discovery
-#![expect(dead_code, reason = "API surface awaiting consumer activation")]
 //!
 //! This adapter works with ANY AI provider via Unix socket communication,
 //! discovered through the ecosystem's capability-based discovery system.
@@ -59,11 +58,13 @@ struct JsonRpcRequest<T> {
 /// JSON-RPC response format
 #[derive(Debug, Clone, Deserialize)]
 struct JsonRpcResponse<T> {
+    #[expect(dead_code, reason = "Deserialized for completeness; not read")]
     jsonrpc: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<T>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<JsonRpcError>,
+    #[expect(dead_code, reason = "Deserialized for completeness; not read")]
     id: String,
 }
 
@@ -73,6 +74,7 @@ struct JsonRpcError {
     code: i32,
     message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[expect(dead_code, reason = "Deserialized for completeness; not read")]
     data: Option<serde_json::Value>,
 }
 

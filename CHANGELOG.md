@@ -11,6 +11,17 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (June 22, 2026 — Wave 123: Security Middleware + Lint Hygiene + Constraint Plumbing)
+
+- **SecurityOrchestrator wired to RPC**: `check_security()` now runs as pre-dispatch middleware in `handle_single_request_object`. Rate limiting, input validation, and threat detection are active when an orchestrator is attached via `with_security_orchestrator()`. Method prefixes map to `EndpointType` tiers (`health.*` → `HealthCheck`, `ai.*`/`inference.*` → `Compute`, `btsp.*` → `Authentication`, `deploy.*` → `Admin`). Denied requests receive JSON-RPC error `-32003` with `risk_level`.
+- **Constraint router plumbed to RPC**: `ai.query` handler now parses routing constraints from raw request params via `constraints::from_request()` and passes them to `TextGenerationRequest`. Clients can send `privacy_level`, `cost_preference`, `quality`, `speed_preference`, or a `constraints[]` array — all flow through to `select_provider_with_constraints`.
+- **`#![expect(dead_code)]` narrowed**: 5 module-level blanket suppressions (`universal.rs`, `constraint_router.rs`, `universal_adapter_v2.rs`, `monitoring/types.rs`, `rate_limiter/mod.rs`) replaced with targeted per-item `#[expect(dead_code, reason)]`. Stale attrs removed; remaining ones have honest reasons.
+- **Feature-flag hygiene**: `capability-ai` vestigial empty feature removed from defaults (zero `cfg` references). `benchmarking` module gated behind `feature = "benchmarking"` (was always compiled). Default features trimmed to `["ecosystem", "tarpc-rpc"]`.
+- **Hardcoded 9200 announce port replaced**: `announce_capabilities()` now resolves port via `get_service_port(PRIMAL_ID)` (env → discovery → fallback).
+- **`ConstraintSet::into_vec()`**: New method to flatten prioritized constraints into a plain `Vec<RoutingConstraint>` for `TextGenerationRequest`.
+- **5 new security middleware tests**: endpoint type mapping, input extraction, orchestrator presence/absence, and full pass-through with live orchestrator.
+- **7,539 tests passing** (up from 7,534), 0 failed. Zero clippy warnings. Zero unfulfilled lint expectations.
+
 ### Summary (June 21, 2026 — Wave 120: Identity Consolidation + Feature Gating)
 
 - **Identity constants unified**: Three separate `"squirrel"` literals (`niche::PRIMAL_ID`, `core::PRIMAL_TYPE`, `SELF_PRIMAL_NAME`) now derive from one canonical source (`universal_constants::capabilities::SELF_PRIMAL_NAME`). Zero duplicate string literals for self-identity in production code.

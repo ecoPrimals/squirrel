@@ -21,6 +21,7 @@ impl JsonRpcServer {
         &self,
         params: Option<Value>,
     ) -> Result<Value, JsonRpcError> {
+        let raw_params = params.clone().unwrap_or(Value::Null);
         let request: QueryAiRequest = self.parse_params(params)?;
 
         if request.mode.as_deref() == Some("signal_plan") {
@@ -32,13 +33,15 @@ impl JsonRpcServer {
         if let Some(router) = &self.ai_router {
             use crate::api::ai::types::TextGenerationRequest;
 
+            let constraints = crate::api::ai::constraints::from_request(&raw_params).into_vec();
+
             let ai_request = TextGenerationRequest {
                 prompt: request.prompt,
                 system: None,
                 max_tokens: request.max_tokens.map_or(1024, |v| v as u32),
                 temperature: request.temperature.unwrap_or(0.7),
                 model: request.model,
-                constraints: vec![],
+                constraints,
                 params: std::collections::HashMap::new(),
             };
 

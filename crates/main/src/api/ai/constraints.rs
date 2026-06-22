@@ -208,6 +208,15 @@ impl ConstraintSet {
             })
             .max()
     }
+
+    /// Flatten all constraints into a plain `Vec<RoutingConstraint>`,
+    /// discarding priority and source metadata.
+    pub fn into_vec(self) -> Vec<RoutingConstraint> {
+        self.constraints
+            .into_iter()
+            .map(|(pc, _)| pc.constraint)
+            .collect()
+    }
 }
 
 impl Default for ConstraintSet {

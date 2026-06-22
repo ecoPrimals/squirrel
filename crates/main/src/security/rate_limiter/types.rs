@@ -96,6 +96,10 @@ pub struct RateLimitStatistics {
 
 /// Security violation tracking
 #[derive(Debug, Clone)]
+#[expect(
+    dead_code,
+    reason = "Fields populated by rate limiter; read when violation export wired"
+)]
 pub(crate) struct SecurityViolation {
     pub(crate) timestamp: Instant,
     pub(crate) violation_type: ViolationType,
@@ -104,6 +108,10 @@ pub(crate) struct SecurityViolation {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[expect(
+    dead_code,
+    reason = "Variants constructed when SecurityOrchestrator is on RPC hot path"
+)]
 pub(crate) enum ViolationType {
     RateLimitExceeded,
     SuspiciousActivity,
@@ -113,6 +121,13 @@ pub(crate) enum ViolationType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ViolationSeverity {
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "Lowest tier — populated by future low-severity violation paths"
+        )
+    )]
     Low,
     Medium,
     High,
@@ -121,6 +136,10 @@ pub(crate) enum ViolationSeverity {
 
 /// Client tracking information
 #[derive(Debug, Clone)]
+#[expect(
+    dead_code,
+    reason = "Fields populated by rate limiter; read when client stats exported"
+)]
 pub(crate) struct ClientInfo {
     pub(crate) ip_address: IpAddr,
     pub(crate) user_agent: Option<String>,
@@ -154,6 +173,10 @@ impl Default for GlobalRateLimitMetrics {
 }
 
 #[derive(Debug)]
+#[expect(
+    dead_code,
+    reason = "system_load populated by adaptive algorithm; read when system metrics wired"
+)]
 pub(crate) struct AdaptiveRateLimitState {
     pub(crate) system_load: f64,
     pub(crate) active_connections: u32,

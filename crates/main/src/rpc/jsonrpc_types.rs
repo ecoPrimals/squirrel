@@ -131,6 +131,9 @@ pub mod error_codes {
     pub const SERVER_ERROR_MIN: i32 = -32099;
     /// End of reserved implementation-defined server-error range.
     pub const SERVER_ERROR_MAX: i32 = -32000;
+
+    /// Request denied by security orchestrator (rate limit, input validation, threat).
+    pub const SECURITY_DENIED: i32 = -32003;
 }
 
 // ── Server metrics ───────────────────────────────────────────────────────────

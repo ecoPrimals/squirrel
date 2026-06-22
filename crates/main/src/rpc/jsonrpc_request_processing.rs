@@ -8,11 +8,13 @@
 //! and metrics recording.
 
 use serde_json::Value;
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Instant;
 
 use super::jsonrpc_server::{JsonRpcError, JsonRpcResponse, JsonRpcServer, error_codes};
 use super::method_gate::{CallerContext, MethodGate};
+use crate::security::rate_limiter::types::EndpointType;
 
 impl JsonRpcServer {
     /// Handle a JSON-RPC request or batch (JSON-RPC 2.0 Section 6).
@@ -203,6 +205,44 @@ impl JsonRpcServer {
             });
         }
 
+        // Pre-dispatch security: rate limiting + input validation
+        if let Some(orchestrator) = &self.security_orchestrator {
+            let check = crate::security::orchestrator::SecurityCheckRequest {
+                client_ip: IpAddr::from([127, 0, 0, 1]),
+                user_agent: None,
+                endpoint: method_str.to_string(),
+                endpoint_type: Self::endpoint_type_for_method(method_str),
+                input_data: Self::extract_input_data(params.as_ref()),
+                user_id: None,
+                session_id: None,
+                policy_name: None,
+                correlation_id: crate::observability::CorrelationId::new(),
+                metadata: std::collections::HashMap::new(),
+            };
+            let result = orchestrator.check_security(check).await;
+            if !result.allowed {
+                if is_notification {
+                    return None;
+                }
+                let req_id = obj.get("id").cloned().unwrap_or(Value::Null);
+                let reason = result
+                    .denial_reason
+                    .unwrap_or_else(|| "security check failed".to_string());
+                return Some(JsonRpcResponse {
+                    jsonrpc: Arc::from("2.0"),
+                    result: None,
+                    error: Some(JsonRpcError {
+                        code: error_codes::SECURITY_DENIED,
+                        message: reason,
+                        data: Some(serde_json::json!({
+                            "risk_level": format!("{:?}", result.risk_level),
+                        })),
+                    }),
+                    id: req_id,
+                });
+            }
+        }
+
         if is_notification {
             let _ = self.dispatch_jsonrpc_method(method_str, params).await;
             return None;
@@ -247,6 +287,45 @@ impl JsonRpcServer {
                 }
             }
         })
+    }
+
+    /// Map JSON-RPC method prefix to `EndpointType` for rate-limit tiering.
+    pub(crate) fn endpoint_type_for_method(method: &str) -> EndpointType {
+        match method.split('.').next().unwrap_or(method) {
+            "health" | "ping" => EndpointType::HealthCheck,
+            "ai" | "inference" => EndpointType::Compute,
+            "auth" | "btsp" => EndpointType::Authentication,
+            "admin" | "deploy" => EndpointType::Admin,
+            _ => EndpointType::Api,
+        }
+    }
+
+    /// Extract text inputs from params for security validation.
+    pub(crate) fn extract_input_data(
+        params: Option<&Value>,
+    ) -> Option<Vec<(String, String, crate::security::input_validator::InputType)>> {
+        use crate::security::input_validator::InputType;
+
+        let obj = params?.as_object()?;
+        let mut inputs = Vec::new();
+
+        for (key, val) in obj {
+            if let Some(s) = val.as_str() {
+                let input_type = match key.as_str() {
+                    "prompt" | "text" | "message" => InputType::Text,
+                    "url" | "endpoint" => InputType::Url,
+                    "path" | "file" | "socket_path" => InputType::FilePath,
+                    _ => continue,
+                };
+                inputs.push((key.clone(), s.to_string(), input_type));
+            }
+        }
+
+        if inputs.is_empty() {
+            None
+        } else {
+            Some(inputs)
+        }
     }
 
     #[doc(hidden)]

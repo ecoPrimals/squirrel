@@ -976,3 +976,93 @@ async fn uds_raw_json_still_works_without_prefix() {
     );
     let _ = jh.await;
 }
+
+// ── Security orchestrator middleware tests ────────────────────────────────────
+
+#[tokio::test]
+async fn security_middleware_allows_normal_requests() {
+    use crate::security::orchestrator::{SecurityOrchestrationConfig, SecurityOrchestrator};
+
+    let orchestrator = SecurityOrchestrator::new(SecurityOrchestrationConfig::default())
+        .await
+        .expect("orchestrator");
+    let server = JsonRpcServer::new("/tmp/jsonrpc-sec-allow.sock".to_string())
+        .with_security_orchestrator(Arc::new(orchestrator));
+
+    let req = r#"{"jsonrpc":"2.0","method":"system.health","id":1}"#;
+    let raw = server
+        .test_handle_jsonrpc_line(req)
+        .await
+        .expect("response");
+    let v: Value = serde_json::from_str(&raw).expect("json");
+    assert!(
+        v.get("error").is_none(),
+        "healthy request should pass security: {v}"
+    );
+    assert_eq!(
+        v.pointer("/result/status").and_then(Value::as_str),
+        Some("ready")
+    );
+}
+
+#[tokio::test]
+async fn security_middleware_maps_endpoint_types_correctly() {
+    assert_eq!(
+        JsonRpcServer::endpoint_type_for_method("health.check"),
+        crate::security::rate_limiter::types::EndpointType::HealthCheck,
+    );
+    assert_eq!(
+        JsonRpcServer::endpoint_type_for_method("ai.query"),
+        crate::security::rate_limiter::types::EndpointType::Compute,
+    );
+    assert_eq!(
+        JsonRpcServer::endpoint_type_for_method("inference.complete"),
+        crate::security::rate_limiter::types::EndpointType::Compute,
+    );
+    assert_eq!(
+        JsonRpcServer::endpoint_type_for_method("btsp.handshake"),
+        crate::security::rate_limiter::types::EndpointType::Authentication,
+    );
+    assert_eq!(
+        JsonRpcServer::endpoint_type_for_method("deploy.start"),
+        crate::security::rate_limiter::types::EndpointType::Admin,
+    );
+    assert_eq!(
+        JsonRpcServer::endpoint_type_for_method("context.create"),
+        crate::security::rate_limiter::types::EndpointType::Api,
+    );
+}
+
+#[tokio::test]
+async fn security_middleware_extracts_text_inputs() {
+    let params = json!({"prompt": "hello world", "model": "local"});
+    let inputs = JsonRpcServer::extract_input_data(Some(&params));
+    assert!(inputs.is_some(), "should extract prompt");
+    let inputs = inputs.unwrap();
+    assert_eq!(inputs.len(), 1);
+    assert_eq!(inputs[0].0, "prompt");
+    assert_eq!(inputs[0].1, "hello world");
+}
+
+#[tokio::test]
+async fn security_middleware_no_inputs_for_empty_params() {
+    let params = json!({"count": 5});
+    let inputs = JsonRpcServer::extract_input_data(Some(&params));
+    assert!(inputs.is_none(), "no text fields should yield None");
+}
+
+#[tokio::test]
+async fn security_middleware_absent_when_not_configured() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-sec-none.sock".to_string());
+    assert!(
+        server.security_orchestrator.is_none(),
+        "default server should have no security orchestrator"
+    );
+    let req = r#"{"jsonrpc":"2.0","method":"system.health","id":1}"#;
+    let raw = server
+        .test_handle_jsonrpc_line(req)
+        .await
+        .expect("response");
+    let v: Value = serde_json::from_str(&raw).expect("json");
+    assert!(v.get("error").is_none(), "should pass without orchestrator");
+}

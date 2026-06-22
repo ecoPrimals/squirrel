@@ -320,9 +320,10 @@ impl PrimalSelfKnowledge {
     ///
     /// # Arguments
     ///
-    /// * `port` - Service port (defaults to 9200 if not specified)
+    /// * `port` - Service port (resolved via `get_service_port` if not specified)
     pub async fn announce_capabilities(&self) -> DiscoveryResult<()> {
-        self.announce_capabilities_with_port(9200).await
+        let port = universal_constants::network::get_service_port(crate::niche::PRIMAL_ID);
+        self.announce_capabilities_with_port(port).await
     }
 
     /// Announce capabilities with specific port

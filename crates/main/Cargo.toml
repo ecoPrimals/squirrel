@@ -99,13 +99,12 @@ criterion = { workspace = true, optional = true }
 # prost REMOVED - protobuf NOT needed (use serde_json!)
 
 [features]
-# Production default: Core RPC + Ecosystem + Capability AI (100% Pure Rust!)
+# Production default: Core RPC + Ecosystem (100% Pure Rust!)
 # NO monitoring (optional - pulls hyper via prometheus)
 # NO dev-direct-http (DELETED - use Unix socket delegation!)
-default = ["capability-ai", "ecosystem", "tarpc-rpc"]
+default = ["ecosystem", "tarpc-rpc"]
 
 # Core features (TRUE PRIMAL architecture)
-capability-ai = []                     # Capability-based AI (Pure Rust!)
 ecosystem = []                         # Ecosystem integration (core!)
 tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]  # High-performance binary RPC (core!)
 

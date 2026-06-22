@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Constraint-based provider selection
-#![expect(dead_code, reason = "API surface awaiting consumer activation")]
 //!
 //! Applies routing constraints to filter and score providers.
 
@@ -16,6 +15,10 @@ use tracing::debug;
 pub struct ProviderScore {
     pub provider: Arc<AiProvider>,
     pub score: f64,
+    #[expect(
+        dead_code,
+        reason = "Populated during scoring; read by future action registry integration"
+    )]
     pub meets_requirements: bool,
 }
 

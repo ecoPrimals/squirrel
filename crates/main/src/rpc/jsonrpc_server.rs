@@ -101,6 +101,10 @@ pub struct JsonRpcServer {
 
     /// Shared metrics collector for updating live component metrics (e.g. context sessions).
     pub(crate) metrics_collector: Option<Arc<crate::monitoring::metrics::MetricsCollector>>,
+
+    /// Security orchestrator for pre-dispatch rate limiting and input validation.
+    pub(crate) security_orchestrator:
+        Option<Arc<crate::security::orchestrator::SecurityOrchestrator>>,
 }
 
 impl JsonRpcServer {
@@ -144,6 +148,7 @@ impl JsonRpcServer {
             context_manager: Arc::new(squirrel_context::ContextManager::new()),
             request_tracker: Arc::new(crate::monitoring::metrics::RequestTracker::new()),
             metrics_collector: None,
+            security_orchestrator: None,
         }
     }
 
@@ -166,6 +171,7 @@ impl JsonRpcServer {
             context_manager: Arc::new(squirrel_context::ContextManager::new()),
             request_tracker: Arc::new(crate::monitoring::metrics::RequestTracker::new()),
             metrics_collector: None,
+            security_orchestrator: None,
         }
     }
 
@@ -188,6 +194,16 @@ impl JsonRpcServer {
         collector: Arc<crate::monitoring::metrics::MetricsCollector>,
     ) -> Self {
         self.metrics_collector = Some(collector);
+        self
+    }
+
+    /// Attach a `SecurityOrchestrator` for pre-dispatch rate limiting and input validation.
+    #[must_use]
+    pub fn with_security_orchestrator(
+        mut self,
+        orchestrator: Arc<crate::security::orchestrator::SecurityOrchestrator>,
+    ) -> Self {
+        self.security_orchestrator = Some(orchestrator);
         self
     }
 

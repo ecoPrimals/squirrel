@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Universal Adapter V2 - Infant Primal Pattern
-#![expect(dead_code, reason = "Adapter V2 infrastructure awaiting activation")]
 //!
 //! **Philosophy**: Like an infant, Squirrel starts with ZERO hardcoded knowledge
 //! and discovers its world through universal patterns.
@@ -112,11 +111,19 @@ struct ActiveConnection {
     protocol: Protocol,
 
     /// Connection metadata
+    #[expect(
+        dead_code,
+        reason = "Populated during connection; exported when metrics wired"
+    )]
     metadata: ConnectionMetadata,
 }
 
 /// Connection metadata for monitoring
 #[derive(Debug, Clone)]
+#[expect(
+    dead_code,
+    reason = "Fields populated by connection pool; read when metrics export wired"
+)]
 struct ConnectionMetadata {
     /// Number of successful requests
     successful_requests: u64,

@@ -119,6 +119,7 @@ pub mod rpc;
 pub mod transport;
 
 /// Benchmarking framework for performance measurement
+#[cfg(feature = "benchmarking")]
 pub mod benchmarking;
 
 /// Graceful shutdown system
@@ -200,6 +201,7 @@ pub mod prelude {
 }
 
 // Backward compatibility alias
+#[cfg(feature = "benchmarking")]
 pub use benchmarking::BenchmarkSuite;
 pub use monitoring::performance::PerformanceTracker as PerformanceMonitor;
 pub use self_healing::SelfHealingManager;
