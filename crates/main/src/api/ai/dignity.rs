@@ -279,6 +279,10 @@ impl DignityGuard {
     }
 
     /// Run dignity check; always blocks on failure regardless of enforcement level.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Strict-mode dignity check for future enforcement")
+    )]
     pub fn check_and_route(
         &self,
         request: &DignityCheckRequest<'_>,

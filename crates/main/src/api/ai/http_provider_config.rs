@@ -97,6 +97,13 @@ pub fn get_http_provider_configs() -> Vec<HttpAiProviderConfig> {
 }
 
 /// Find a provider configuration by ID
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "HTTP provider lookup for deprecated-adapters feature"
+    )
+)]
 pub fn find_provider_config(provider_id: &str) -> Option<HttpAiProviderConfig> {
     get_http_provider_configs()
         .into_iter()

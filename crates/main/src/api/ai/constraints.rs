@@ -58,6 +58,10 @@ pub use super::adapters::QualityTier;
 /// gives `Optional < Preferred < Required`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ConstraintPriority {
+    #[expect(
+        dead_code,
+        reason = "Lowest tier — used when constraint system is fully wired"
+    )]
     /// Nice to have but not important
     Optional,
 
@@ -144,6 +148,13 @@ impl ConstraintSet {
             .collect()
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "Constraint query methods — used in tests and future evaluation"
+        )
+    )]
     /// Get all preferred constraints
     pub fn preferred(&self) -> Vec<&RoutingConstraint> {
         self.constraints
@@ -153,6 +164,13 @@ impl ConstraintSet {
             .collect()
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "Constraint query methods — used in tests and future evaluation"
+        )
+    )]
     /// Get constraints by source
     pub fn by_source(&self, source: &ConstraintSource) -> Vec<&RoutingConstraint> {
         self.constraints
@@ -162,6 +180,13 @@ impl ConstraintSet {
             .collect()
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "Constraint query methods — used in tests and future evaluation"
+        )
+    )]
     /// Check if constraint set has any cost optimization
     pub fn optimizes_cost(&self) -> bool {
         self.constraints
@@ -169,6 +194,13 @@ impl ConstraintSet {
             .any(|(pc, _)| matches!(pc.constraint, RoutingConstraint::OptimizeCost))
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "Constraint query methods — used in tests and future evaluation"
+        )
+    )]
     /// Check if constraint set requires local execution
     pub fn requires_local(&self) -> bool {
         self.required()
@@ -176,6 +208,13 @@ impl ConstraintSet {
             .any(|c| matches!(c, RoutingConstraint::RequireLocal))
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "Constraint query methods — used in tests and future evaluation"
+        )
+    )]
     /// Get maximum acceptable cost
     pub fn max_cost(&self) -> Option<f64> {
         self.required()
@@ -187,6 +226,13 @@ impl ConstraintSet {
             .min_by(f64::total_cmp)
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "Constraint query methods — used in tests and future evaluation"
+        )
+    )]
     /// Get maximum acceptable latency
     pub fn max_latency(&self) -> Option<u64> {
         self.required()
@@ -198,6 +244,13 @@ impl ConstraintSet {
             .min()
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "Constraint query methods — used in tests and future evaluation"
+        )
+    )]
     /// Get minimum required quality
     pub fn min_quality(&self) -> Option<QualityTier> {
         self.required()
@@ -294,12 +347,20 @@ impl ConstraintBuilder {
         self
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Builder methods for extended constraint sources")
+    )]
     /// Add team policy
     pub fn with_team_policy(mut self, team: String, constraint: RoutingConstraint) -> Self {
         self.set.require(constraint, ConstraintSource::Team(team));
         self
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Builder methods for extended constraint sources")
+    )]
     /// Add primal constraint (e.g., from `ToadStool` or `NestGate`)
     pub fn with_primal_constraint(
         mut self,
@@ -317,6 +378,10 @@ impl ConstraintBuilder {
         self
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Builder methods for extended constraint sources")
+    )]
     /// Add compliance requirement
     pub fn with_compliance(mut self, regulation: String, constraint: RoutingConstraint) -> Self {
         self.set
@@ -324,6 +389,10 @@ impl ConstraintBuilder {
         self
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Builder methods for extended constraint sources")
+    )]
     /// Add custom constraint
     pub fn with_custom(mut self, key: String, value: serde_json::Value) -> Self {
         self.set.prefer(

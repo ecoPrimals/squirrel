@@ -10,6 +10,13 @@ use std::collections::HashMap;
 
 /// Universal AI request for any action type
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "Action-based routing type; wired when ActionRegistry integrates with AiRouter"
+    )
+)]
 pub struct UniversalAiRequest {
     /// The action to perform (e.g., "image.generation", "text.generation")
     pub action: String,
@@ -58,7 +65,13 @@ impl Default for ActionRequirements {
 }
 
 /// Universal AI response (constructed via JSON-RPC deserialization at runtime)
-#[cfg_attr(test, allow(dead_code))]
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "Action-based response; wired when ActionRegistry integrates"
+    )
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UniversalAiResponse {
     /// The action that was performed
@@ -251,6 +264,7 @@ pub struct AiErrorResponse {
     pub details: HashMap<String, serde_json::Value>,
 }
 
+#[cfg_attr(not(test), expect(dead_code, reason = "Error type builder methods"))]
 impl AiErrorResponse {
     /// Create a new error response
     pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {

@@ -186,7 +186,6 @@ pub use error::PrimalError;
 #[cfg(feature = "monitoring")]
 pub use monitoring::{health::HealthMonitor, metrics::MetricsCollector};
 
-#[cfg(feature = "ecosystem")]
 pub use ecosystem::{EcosystemConfig, EcosystemManager};
 
 /// Standard exports commonly used by ecosystem consumers

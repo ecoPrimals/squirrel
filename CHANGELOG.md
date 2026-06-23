@@ -11,6 +11,18 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (June 23, 2026 — Wave 124: Adapter Consolidation + Security Wiring + Config Evolution)
+
+- **SecurityOrchestrator wired at startup**: `main.rs` now builds the orchestrator via `SecuritySystemBuilder::new().build().await` and attaches it to `JsonRpcServer` with `with_security_orchestrator()`. Graceful fallback if init fails.
+- **Dead parallel adapter stack deleted**: Removed `adapter.rs`, `adapter_tests.rs`, `bridge.rs`, `discovery.rs`, `universal.rs` (1,811 lines of dead code). Single adapter path: `AiRouter` → `router_discovery` → `adapters/universal.rs`.
+- **`ecosystem` feature removed**: No-op feature (empty `[]`, gated only one re-export). Module is always compiled; re-export now unconditional. Default features: `["tarpc-rpc"]`.
+- **Configurable timeouts**: Added `connection_timeout_secs`, `heartbeat_interval_secs`, `inference_timeout_secs`, `probe_timeout_secs` to `ServerConfig` with defaults (30/30/120/5).
+- **Hardcoded `0.0.0.0` replaced**: `primal_provider::core` endpoint fallbacks now use `LOCALHOST_IPV4` (not unspecified address).
+- **Input extraction expanded**: `extract_input_data` now recognizes `system_message`, `query`, `content`, `input` fields for security validation.
+- **Targeted dead-code attrs**: 11 newly exposed items (from blanket removal) given individual `#[cfg_attr(not(test), expect(dead_code))]` with reasons.
+- **13 new depth tests**: Security middleware edge cases (concurrent, null/array params, multi-field extraction), RPC dispatch (malformed JSON, missing method, unknown method, string IDs, notifications, batch, id preservation).
+- **7,514 tests passing**, 0 failed. Zero clippy warnings.
+
 ### Summary (June 22, 2026 — Wave 123: Security Middleware + Lint Hygiene + Constraint Plumbing)
 
 - **SecurityOrchestrator wired to RPC**: `check_security()` now runs as pre-dispatch middleware in `handle_single_request_object`. Rate limiting, input validation, and threat detection are active when an orchestrator is attached via `with_security_orchestrator()`. Method prefixes map to `EndpointType` tiers (`health.*` → `HealthCheck`, `ai.*`/`inference.*` → `Compute`, `btsp.*` → `Authentication`, `deploy.*` → `Admin`). Denied requests receive JSON-RPC error `-32003` with `risk_level`.

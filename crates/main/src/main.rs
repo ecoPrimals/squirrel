@@ -313,28 +313,39 @@ async fn run_server(
 
     let shared_tracker = Arc::clone(metrics_collector.request_tracker());
 
-    let server = ai_router.map_or_else(
-        || {
-            let s = JsonRpcServer::new(socket_path.clone())
-                .with_request_tracker(Arc::clone(&shared_tracker))
-                .with_metrics_collector(Arc::clone(&metrics_collector));
-            Arc::new(if let Some(p) = tcp_port {
-                s.with_tcp_port(p)
-            } else {
-                s
-            })
-        },
-        |router| {
-            let s = JsonRpcServer::with_ai_router(socket_path.clone(), router)
-                .with_request_tracker(Arc::clone(&shared_tracker))
-                .with_metrics_collector(Arc::clone(&metrics_collector));
-            Arc::new(if let Some(p) = tcp_port {
-                s.with_tcp_port(p)
-            } else {
-                s
-            })
-        },
-    );
+    let security_orchestrator = match squirrel::security::SecuritySystemBuilder::new()
+        .build()
+        .await
+    {
+        Ok(orch) => {
+            info!("Security orchestrator initialized (rate limiting + input validation active)");
+            Some(orch)
+        }
+        Err(e) => {
+            warn!(
+                "Security orchestrator init failed: {e} — server will run without pre-dispatch security"
+            );
+            None
+        }
+    };
+
+    let server = {
+        let mut s = if let Some(router) = ai_router {
+            JsonRpcServer::with_ai_router(socket_path.clone(), router)
+        } else {
+            JsonRpcServer::new(socket_path.clone())
+        }
+        .with_request_tracker(Arc::clone(&shared_tracker))
+        .with_metrics_collector(Arc::clone(&metrics_collector));
+
+        if let Some(orch) = security_orchestrator {
+            s = s.with_security_orchestrator(orch);
+        }
+        if let Some(p) = tcp_port {
+            s = s.with_tcp_port(p);
+        }
+        Arc::new(s)
+    };
     let server_clone = Arc::clone(&server);
 
     // Start server in background task

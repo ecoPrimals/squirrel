@@ -102,10 +102,9 @@ criterion = { workspace = true, optional = true }
 # Production default: Core RPC + Ecosystem (100% Pure Rust!)
 # NO monitoring (optional - pulls hyper via prometheus)
 # NO dev-direct-http (DELETED - use Unix socket delegation!)
-default = ["ecosystem", "tarpc-rpc"]
+default = ["tarpc-rpc"]
 
 # Core features (TRUE PRIMAL architecture)
-ecosystem = []                         # Ecosystem integration (core!)
 tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]  # High-performance binary RPC (core!)
 
 # Optional features

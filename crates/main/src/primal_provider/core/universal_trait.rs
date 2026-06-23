@@ -91,7 +91,7 @@ impl<S: SessionManager> UniversalPrimalProvider for SquirrelPrimalProvider<S> {
     /// Get service endpoints
     fn endpoints(&self) -> PrimalEndpoints {
         let host = std::env::var(universal_constants::env_vars::network::SERVICE_HOST)
-            .unwrap_or_else(|_| "0.0.0.0".to_string());
+            .unwrap_or_else(|_| universal_constants::network::LOCALHOST_IPV4.to_string());
         let port = std::env::var(universal_constants::env_vars::network::SERVICE_PORT)
             .ok()
             .and_then(|p| p.parse().ok())

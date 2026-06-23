@@ -312,7 +312,8 @@ impl JsonRpcServer {
         for (key, val) in obj {
             if let Some(s) = val.as_str() {
                 let input_type = match key.as_str() {
-                    "prompt" | "text" | "message" => InputType::Text,
+                    "prompt" | "text" | "message" | "system_message" | "query" | "content"
+                    | "input" => InputType::Text,
                     "url" | "endpoint" => InputType::Url,
                     "path" | "file" | "socket_path" => InputType::FilePath,
                     _ => continue,

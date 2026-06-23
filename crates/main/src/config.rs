@@ -26,6 +26,19 @@ fn default_bind() -> String {
     LOCALHOST_IPV4.to_string()
 }
 
+const fn default_connection_timeout_secs() -> u64 {
+    30
+}
+const fn default_heartbeat_interval_secs() -> u64 {
+    30
+}
+const fn default_inference_timeout_secs() -> u64 {
+    120
+}
+const fn default_probe_timeout_secs() -> u64 {
+    5
+}
+
 /// Main Squirrel configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -72,6 +85,22 @@ pub struct ServerConfig {
 
     /// Request timeout in seconds
     pub request_timeout_secs: u64,
+
+    /// First-byte read timeout on new UDS connections (seconds, default 30)
+    #[serde(default = "default_connection_timeout_secs")]
+    pub connection_timeout_secs: u64,
+
+    /// Heartbeat / lifecycle registration interval (seconds, default 30)
+    #[serde(default = "default_heartbeat_interval_secs")]
+    pub heartbeat_interval_secs: u64,
+
+    /// AI inference read timeout (seconds, default 120)
+    #[serde(default = "default_inference_timeout_secs")]
+    pub inference_timeout_secs: u64,
+
+    /// Capability probe / discovery scan timeout (seconds, default 5)
+    #[serde(default = "default_probe_timeout_secs")]
+    pub probe_timeout_secs: u64,
 }
 
 /// AI router configuration
@@ -128,6 +157,10 @@ impl Default for ServerConfig {
             daemon: false,
             max_connections: 100,
             request_timeout_secs: 30,
+            connection_timeout_secs: default_connection_timeout_secs(),
+            heartbeat_interval_secs: default_heartbeat_interval_secs(),
+            inference_timeout_secs: default_inference_timeout_secs(),
+            probe_timeout_secs: default_probe_timeout_secs(),
         }
     }
 }

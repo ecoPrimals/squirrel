@@ -1,7 +1,7 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,539+ tests, 42+ IPC methods, 90% coverage."
-date = 2026-06-22
+description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,514+ tests, 42+ IPC methods, 90% coverage."
+date = 2026-06-23
 
 [taxonomies]
 primals = ["squirrel"]
@@ -13,8 +13,8 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: 7,539 passing across 22 workspace crates
-- **Source**: ~1,035 `.rs` files, ~328k lines
+- **Tests**: 7,514 passing across 22 workspace crates (net -25: +13 new depth tests, -38 deleted with dead adapter stack)
+- **Source**: ~1,029 `.rs` files, ~325k lines (1,811 lines of dead parallel adapter code removed)
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced
@@ -95,6 +95,17 @@ Squirrel is the **intelligence router** for all compositions requiring AI infere
 - primalSpring (graph validation, coordination)
 - wetSpring (sovereign pipeline — inference for Barrick clone)
 - NestGate (model weight storage)
+
+## Wave 124 — Adapter Consolidation + Config Evolution (June 23, 2026)
+
+- SecurityOrchestrator wired at startup in `main.rs` (was middleware-only)
+- Deleted 5 dead parallel adapter files (1,811 lines): `adapter.rs`, `adapter_tests.rs`, `bridge.rs`, `discovery.rs`, `universal.rs`
+- Single adapter path: `AiRouter` → `router_discovery` → `adapters/universal.rs`
+- Removed no-op `ecosystem` feature flag; default features trimmed to `["tarpc-rpc"]`
+- Added configurable timeout fields to `ServerConfig` (connection, heartbeat, inference, probe)
+- Replaced hardcoded `0.0.0.0` fallbacks with `LOCALHOST_IPV4`
+- Expanded `extract_input_data` to recognize `system_message`, `query`, `content`, `input`
+- 13 new depth tests (security concurrency, RPC edge cases, malformed input)
 
 ## Degradation
 
