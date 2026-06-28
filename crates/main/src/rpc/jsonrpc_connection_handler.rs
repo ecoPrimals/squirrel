@@ -40,13 +40,10 @@ impl JsonRpcServer {
         use tokio::io::AsyncReadExt;
 
         let mut first = [0u8; 1];
-        let n = tokio::time::timeout(
-            std::time::Duration::from_secs(30),
-            transport.read(&mut first),
-        )
-        .await
-        .unwrap_or(Ok(0))
-        .unwrap_or(0);
+        let n = tokio::time::timeout(server.connection_timeout, transport.read(&mut first))
+            .await
+            .unwrap_or(Ok(0))
+            .unwrap_or(0);
 
         if n == 0 {
             debug!("Client disconnected before sending data (UDS)");

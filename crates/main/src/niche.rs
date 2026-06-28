@@ -280,45 +280,6 @@ pub const REQUIRED_CAPABILITIES: &[(&str, bool, &str)] = &[
 ];
 
 /// Legacy primal dependencies for backward compatibility.
-///
-/// **Deprecated**: Use [`REQUIRED_CAPABILITIES`] instead. Squirrel discovers
-/// providers at runtime by capability, not by primal name.
-#[deprecated(
-    since = "3.0.0",
-    note = "Use REQUIRED_CAPABILITIES for capability-based discovery"
-)]
-pub const DEPENDENCIES: &[(&str, bool, &str)] = &[
-    (
-        universal_constants::primal_names::BEARDOG,
-        true,
-        "cryptographic identity and trust",
-    ),
-    (
-        universal_constants::primal_names::SONGBIRD,
-        true,
-        "service discovery and IPC mesh",
-    ),
-    (
-        universal_constants::primal_names::TOADSTOOL,
-        false,
-        "GPU compute dispatch (graceful fallback to CPU-only inference)",
-    ),
-    (
-        universal_constants::primal_names::NESTGATE,
-        false,
-        "persistent storage (graceful fallback to in-memory cache)",
-    ),
-    (
-        universal_constants::primal_names::PRIMALSPRING,
-        false,
-        "coordination validation and BYOB graph execution",
-    ),
-    (
-        universal_constants::primal_names::PETALTONGUE,
-        false,
-        "visualization and user interface rendering",
-    ),
-];
 
 /// Cost estimates for biomeOS Pathway Learner scheduling.
 ///
@@ -504,13 +465,6 @@ pub const fn required_capability_count() -> usize {
         i += 1;
     }
     count
-}
-
-/// Legacy alias.
-#[deprecated(since = "3.0.0", note = "Use required_capability_count()")]
-#[must_use]
-pub const fn required_dependency_count() -> usize {
-    required_capability_count()
 }
 
 /// Feature gates that expand primal capabilities.

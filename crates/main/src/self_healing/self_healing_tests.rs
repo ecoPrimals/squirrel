@@ -121,13 +121,36 @@ fn test_failure_count_increments() {
     manager.register_component("test");
 
     manager.update_component_health("test", HealthStatus::Failed, "Fail 1");
+    assert_eq!(
+        manager
+            .get_component_health("test")
+            .expect("should exist")
+            .failure_count,
+        1
+    );
     manager.update_component_health("test", HealthStatus::Failed, "Fail 2");
-    manager.update_component_health("test", HealthStatus::Failed, "Fail 3");
+    assert_eq!(
+        manager
+            .get_component_health("test")
+            .expect("should exist")
+            .failure_count,
+        2
+    );
 
+    // 3rd failure hits max_failures (default 3) → auto-recovery resets counter
+    manager.update_component_health("test", HealthStatus::Failed, "Fail 3");
     let health = manager
         .get_component_health("test")
         .expect("should succeed");
-    assert_eq!(health.failure_count, 3);
+    assert_eq!(
+        health.failure_count, 0,
+        "auto-recovery resets failure count"
+    );
+    assert_eq!(
+        health.status,
+        HealthStatus::Unknown,
+        "auto-recovery resets status to Unknown for re-evaluation"
+    );
 }
 
 #[test]
@@ -348,17 +371,24 @@ async fn test_perform_health_check() {
     manager.register_component("ai_coordinator");
     manager.register_component("security_adapter");
 
+    // Newly registered components start as Unknown
     let result = manager.perform_health_check().await;
     assert!(result.is_ok());
 
-    // All simulated health checks return true → healthy
+    // Components that haven't reported status yet remain Unknown
     let health = manager
         .get_component_health("ai_coordinator")
         .expect("should succeed");
-    assert_eq!(health.status, HealthStatus::Healthy);
+    assert_eq!(health.status, HealthStatus::Unknown);
 
+    // Manually report a component as healthy, then re-check
+    manager.update_component_health("ai_coordinator", HealthStatus::Healthy, "responding");
+    let result = manager.perform_health_check().await;
+    assert!(result.is_ok());
+
+    // Recently reported healthy component stays healthy (within stale threshold)
     let health = manager
-        .get_component_health("security_adapter")
+        .get_component_health("ai_coordinator")
         .expect("should succeed");
     assert_eq!(health.status, HealthStatus::Healthy);
 }
@@ -436,16 +466,29 @@ fn test_auto_recovery_triggered_at_max_failures() {
     let mut manager = SelfHealingManager::new(config);
     manager.register_component("test");
 
-    // Trigger failures up to and beyond max_failures
     manager.update_component_health("test", HealthStatus::Failed, "Fail 1");
-    manager.update_component_health("test", HealthStatus::Failed, "Fail 2");
-    manager.update_component_health("test", HealthStatus::Failed, "Fail 3");
+    assert_eq!(
+        manager
+            .get_component_health("test")
+            .expect("should exist")
+            .failure_count,
+        1
+    );
 
-    // Verify the failure count is tracked
+    // 2nd failure hits max_failures=2 → auto-recovery resets
+    manager.update_component_health("test", HealthStatus::Failed, "Fail 2");
     let health = manager
         .get_component_health("test")
         .expect("should succeed");
-    assert_eq!(health.failure_count, 3);
+    assert_eq!(health.failure_count, 0, "auto-recovery resets counter");
+    assert_eq!(health.status, HealthStatus::Unknown);
+
+    // 3rd failure after reset: count starts fresh
+    manager.update_component_health("test", HealthStatus::Failed, "Fail 3");
+    let health = manager
+        .get_component_health("test")
+        .expect("should succeed");
+    assert_eq!(health.failure_count, 1, "counter resumes after reset");
 }
 
 #[test]

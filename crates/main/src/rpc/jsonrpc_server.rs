@@ -105,6 +105,9 @@ pub struct JsonRpcServer {
     /// Security orchestrator for pre-dispatch rate limiting and input validation.
     pub(crate) security_orchestrator:
         Option<Arc<crate::security::orchestrator::SecurityOrchestrator>>,
+
+    /// First-byte read timeout on new UDS connections.
+    pub(crate) connection_timeout: std::time::Duration,
 }
 
 impl JsonRpcServer {
@@ -149,6 +152,7 @@ impl JsonRpcServer {
             request_tracker: Arc::new(crate::monitoring::metrics::RequestTracker::new()),
             metrics_collector: None,
             security_orchestrator: None,
+            connection_timeout: std::time::Duration::from_secs(30),
         }
     }
 
@@ -172,6 +176,7 @@ impl JsonRpcServer {
             request_tracker: Arc::new(crate::monitoring::metrics::RequestTracker::new()),
             metrics_collector: None,
             security_orchestrator: None,
+            connection_timeout: std::time::Duration::from_secs(30),
         }
     }
 
@@ -211,6 +216,13 @@ impl JsonRpcServer {
     #[must_use]
     pub const fn with_tcp_port(mut self, port: u16) -> Self {
         self.tcp_port = Some(port);
+        self
+    }
+
+    /// Set the first-byte read timeout for new UDS connections.
+    #[must_use]
+    pub const fn with_connection_timeout(mut self, timeout: std::time::Duration) -> Self {
+        self.connection_timeout = timeout;
         self
     }
 

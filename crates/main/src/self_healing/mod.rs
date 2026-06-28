@@ -200,22 +200,24 @@ impl SelfHealingManager {
         }
     }
 
-    /// Perform health check on all registered components
+    /// Perform health check on all registered components.
+    ///
+    /// Evaluates each component based on time since its last status update.
+    /// Components that haven't reported within `check_interval_seconds * 3`
+    /// are marked degraded; beyond `* 6` they are marked failed.
     pub async fn perform_health_check(&mut self) -> Result<(), PrimalError> {
         debug!("🔍 Performing AI coordination health check...");
 
+        let now = chrono::Utc::now();
+        let interval = self.config.check_interval_seconds.min(i64::MAX as u64) as i64;
+        let stale_threshold = chrono::Duration::seconds(interval * 3);
+        let fail_threshold = chrono::Duration::seconds(interval * 6);
+
         let mut check_results = Vec::new();
 
-        // Simulate health checks for AI coordination components
         for component_id in self.component_health.clone().keys() {
-            let is_healthy = self.simulate_component_health_check(component_id).await;
-
-            let (status, message) = if is_healthy {
-                (HealthStatus::Healthy, "Component responding normally")
-            } else {
-                (HealthStatus::Failed, "Component not responding")
-            };
-
+            let (status, message) =
+                self.evaluate_component_health(component_id, now, stale_threshold, fail_threshold);
             self.update_component_health(component_id, status, message);
             check_results.push((component_id.clone(), status));
         }
@@ -233,29 +235,52 @@ impl SelfHealingManager {
         Ok(())
     }
 
-    /// Simulate health check for a component
-    async fn simulate_component_health_check(&self, _component_id: &str) -> bool {
-        // Simple simulation - assume healthy for now
-        // In real implementation would check actual component health
-        true
+    /// Evaluate a single component's health based on reporting staleness.
+    fn evaluate_component_health(
+        &self,
+        component_id: &str,
+        now: chrono::DateTime<chrono::Utc>,
+        stale_threshold: chrono::Duration,
+        fail_threshold: chrono::Duration,
+    ) -> (HealthStatus, &'static str) {
+        let Some(health) = self.component_health.get(component_id) else {
+            return (HealthStatus::Unknown, "Component not registered");
+        };
+
+        match health.status {
+            HealthStatus::Unknown => (HealthStatus::Unknown, "Awaiting first status report"),
+            HealthStatus::Failed if health.failure_count >= self.config.max_failures => {
+                (HealthStatus::Failed, "Max failures exceeded")
+            }
+            _ => {
+                let age = now.signed_duration_since(health.last_check);
+                if age > fail_threshold {
+                    (HealthStatus::Failed, "No status report within fail window")
+                } else if age > stale_threshold {
+                    (HealthStatus::Degraded, "Status report stale")
+                } else {
+                    (HealthStatus::Healthy, "Component reporting normally")
+                }
+            }
+        }
     }
 
-    /// Attempt automatic recovery for failed component
+    /// Attempt automatic recovery for a failed component.
+    ///
+    /// Resets the component to `Unknown` status with a zeroed failure counter
+    /// so the next health-check cycle can re-evaluate it cleanly.
     fn attempt_auto_recovery(&mut self, component_id: &str) {
-        if let Some(health) = self.component_health.get(component_id)
+        if let Some(health) = self.component_health.get_mut(component_id)
             && health.failure_count >= self.config.max_failures
         {
             warn!(
-                "🔧 Attempting auto-recovery for component '{}' (failure count: {})",
+                "🔧 Auto-recovery for component '{}' (failure count: {}): resetting to Unknown",
                 component_id, health.failure_count
             );
-
-            // Simulate recovery attempt
-            // In real implementation, this would restart services, clear caches, etc.
-            info!(
-                "🔄 Auto-recovery initiated for component '{}'",
-                component_id
-            );
+            health.status = HealthStatus::Unknown;
+            health.failure_count = 0;
+            health.last_check = chrono::Utc::now();
+            health.message = "Auto-recovery: reset for re-evaluation".to_string();
         }
     }
 

@@ -30,7 +30,7 @@
 //! ```
 
 use crate::discovery::mechanisms::socket_registry::discover_from_socket_registry;
-use crate::discovery::types::{DiscoveredService, DiscoveryResult};
+use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult};
 use std::collections::HashMap;
 #[cfg(test)]
 use std::net::IpAddr;
@@ -124,29 +124,21 @@ impl MdnsDiscovery {
     pub async fn announce_service(
         &self,
         service_name: &str,
-        port: u16,
-        capabilities: Vec<String>,
+        _port: u16,
+        _capabilities: Vec<String>,
         _metadata: HashMap<String, String>,
     ) -> DiscoveryResult<()> {
         if !self.enabled {
             return Ok(());
         }
 
-        info!(
-            "📢 Announcing service '{}' on port {} via mDNS",
-            service_name, port
-        );
-        info!("   Capabilities: {:?}", capabilities);
-
-        // Production-ready interface with graceful fallback
-        // Full implementation would:
-        // 1. Create mDNS responder
-        // 2. Register PTR record for service type
-        // 3. Register SRV record with hostname and port
-        // 4. Register TXT record with capabilities and metadata
-        // 5. Keep responder alive to answer queries
-
-        Ok(())
+        Err(DiscoveryError::MechanismFailed {
+            mechanism: "mdns".to_string(),
+            reason: format!(
+                "mDNS announce for '{}' unavailable — no multicast implementation wired (use socket registry)",
+                service_name
+            ),
+        })
     }
 
     /// Parse service information from mDNS response
@@ -208,7 +200,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_mdns_announce_service() {
+    async fn test_mdns_announce_returns_unavailable() {
         let mdns = MdnsDiscovery::default();
         let capabilities = vec!["ai".to_string(), "embeddings".to_string()];
         let metadata = HashMap::new();
@@ -216,7 +208,9 @@ mod tests {
         let result = mdns
             .announce_service("test-service", 9200, capabilities, metadata)
             .await;
-        assert!(result.is_ok());
+        assert!(result.is_err(), "mDNS announce should report unavailable");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("unavailable"), "{err_msg}");
     }
 
     #[tokio::test]

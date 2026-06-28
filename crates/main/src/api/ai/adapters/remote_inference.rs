@@ -38,8 +38,14 @@ pub struct RemoteProviderConfig {
     pub cost_per_unit: Option<f64>,
 }
 
-/// Default read timeout for UDS inference calls (120s — LLM responses can be slow).
-const INFERENCE_UDS_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+/// Read timeout for UDS inference calls (env: `SQUIRREL_INFERENCE_TIMEOUT_SECS`, default 120s).
+fn inference_uds_read_timeout() -> std::time::Duration {
+    let secs = std::env::var("SQUIRREL_INFERENCE_TIMEOUT_SECS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(120);
+    std::time::Duration::from_secs(secs)
+}
 
 /// Adapter that routes inference to a remote provider over UDS JSON-RPC or HTTP REST.
 pub struct RemoteInferenceAdapter {
@@ -105,7 +111,7 @@ impl RemoteInferenceAdapter {
         let parsed = crate::capabilities::lifecycle::send_jsonrpc_with_timeout(
             socket_path,
             &rpc_request,
-            INFERENCE_UDS_READ_TIMEOUT,
+            inference_uds_read_timeout(),
         )
         .await
         .map_err(|e| {
@@ -319,7 +325,7 @@ impl AiProviderAdapter for RemoteInferenceAdapter {
         let parsed = crate::capabilities::lifecycle::send_jsonrpc_with_timeout(
             socket_path,
             &rpc_request,
-            INFERENCE_UDS_READ_TIMEOUT,
+            inference_uds_read_timeout(),
         )
         .await
         .map_err(|e| {

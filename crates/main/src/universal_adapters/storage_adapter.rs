@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 
 use super::registry::{InMemoryServiceRegistry, ServiceInfo};
-use super::{ServiceCapability, ServiceMatcher, UniversalRequest, UniversalServiceRegistry};
+use super::{ServiceCapability, ServiceMatcher, UniversalServiceRegistry};
 use crate::error::PrimalError;
 
 /// Universal Storage Adapter - works with any storage primal
@@ -38,14 +38,13 @@ impl UniversalStorageAdapter {
     pub async fn coordinate_storage(
         &mut self,
         operation: &str,
-        data: serde_json::Value,
+        _data: serde_json::Value,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
             "🏠 Coordinating storage operation: {} via universal adapter",
             operation
         );
 
-        // Discover storage service if needed
         if self.preferred_storage_service.is_none() {
             self.preferred_storage_service = Some(self.discover_storage_service().await?);
         }
@@ -55,99 +54,10 @@ impl UniversalStorageAdapter {
             PrimalError::ResourceNotFound("No storage service available".to_string())
         })?;
 
-        // Create universal storage request
-        let request_params = HashMap::from([
-            ("operation_type".to_string(), serde_json::json!(operation)),
-            ("data".to_string(), data),
-            (
-                "coordinator".to_string(),
-                serde_json::json!(crate::niche::PRIMAL_ID),
-            ),
-            ("ai_context".to_string(), serde_json::json!(true)),
-            ("optimization".to_string(), serde_json::json!("ai_enhanced")),
-        ]);
-
-        let _request = UniversalRequest {
-            request_id: uuid::Uuid::new_v4().to_string(),
-            operation: operation.to_string(),
-            parameters: request_params,
-            context: HashMap::from([
-                (
-                    "requester".to_string(),
-                    serde_json::json!("squirrel_ai_coordinator"),
-                ),
-                (
-                    "storage_context".to_string(),
-                    serde_json::json!("ai_data_management"),
-                ),
-            ]),
-            requester: crate::niche::PRIMAL_ID.to_string(),
-            timestamp: chrono::Utc::now(),
-        };
-
-        // Simulate storage coordination (in real implementation, make HTTP call)
-        let response_data = match operation {
-            "store" => serde_json::json!({
-                "storage_id": uuid::Uuid::new_v4().to_string(),
-                "status": "stored",
-                "storage_service": storage_service.name,
-                "location": format!("{}/ai_data/{}", storage_service.name.to_lowercase(), uuid::Uuid::new_v4()),
-                "metadata": {
-                    "compression": "ai_optimized",
-                    "encryption": "aes-256-gcm",
-                    "replication_factor": 3,
-                    "deduplication": true
-                },
-                "performance": {
-                    "storage_time_ms": 45,
-                    "compression_ratio": 0.65,
-                    "estimated_retrieval_time_ms": 25
-                }
-            }),
-            "retrieve" => serde_json::json!({
-                "retrieval_id": uuid::Uuid::new_v4().to_string(),
-                "status": "retrieved",
-                "storage_service": storage_service.name,
-                "data_available": true,
-                "metadata": {
-                    "original_size_bytes": 2048,
-                    "compressed_size_bytes": 1331,
-                    "last_accessed": chrono::Utc::now().to_rfc3339()
-                },
-                "performance": {
-                    "retrieval_time_ms": 28,
-                    "cache_hit": false,
-                    "network_latency_ms": 12
-                }
-            }),
-            "backup" => serde_json::json!({
-                "backup_id": uuid::Uuid::new_v4().to_string(),
-                "status": "backed_up",
-                "storage_service": storage_service.name,
-                "backup_locations": [
-                    format!("{}/backup/primary", storage_service.name.to_lowercase()),
-                    format!("{}/backup/secondary", storage_service.name.to_lowercase())
-                ],
-                "metadata": {
-                    "backup_type": "incremental",
-                    "consistency_check": "passed",
-                    "retention_days": 90
-                }
-            }),
-            _ => serde_json::json!({
-                "status": "completed",
-                "storage_service": storage_service.name,
-                "operation": operation,
-                "message": format!("Operation '{}' completed successfully", operation)
-            }),
-        };
-
-        info!(
-            "✅ Storage operation '{}' coordinated via {} ({})",
-            operation, storage_service.name, storage_service.service_id
-        );
-
-        Ok(response_data)
+        Err(PrimalError::NotImplemented(format!(
+            "Storage operation '{}' via {} — IPC transport to storage primal not yet wired",
+            operation, storage_service.name
+        )))
     }
 
     /// Store AI context data using any available storage primal
@@ -506,60 +416,46 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn coordinate_storage_store_retrieve_backup_default() {
+    async fn coordinate_storage_returns_not_implemented() {
         let reg = registry_with_storage().await;
         let mut adapter = UniversalStorageAdapter::new(reg);
-        let store = adapter
-            .coordinate_storage("store", serde_json::json!({ "k": 1 }))
-            .await
-            .expect("store");
-        assert_eq!(store["status"], "stored");
-        assert!(store.get("storage_id").is_some());
-
-        let ret = adapter
-            .coordinate_storage("retrieve", serde_json::json!({}))
-            .await
-            .expect("retrieve");
-        assert_eq!(ret["status"], "retrieved");
-
-        let bak = adapter
-            .coordinate_storage("backup", serde_json::json!({}))
-            .await
-            .expect("backup");
-        assert_eq!(bak["status"], "backed_up");
-
-        let other = adapter
-            .coordinate_storage("list", serde_json::json!({}))
-            .await
-            .expect("other");
-        assert_eq!(other["status"], "completed");
+        for op in &["store", "retrieve", "backup", "list"] {
+            let err = adapter
+                .coordinate_storage(op, serde_json::json!({}))
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(err, PrimalError::NotImplemented(_)),
+                "expected NotImplemented for '{op}', got {err:?}"
+            );
+        }
     }
 
     #[tokio::test]
-    async fn store_ai_context_returns_storage_id() {
+    async fn store_ai_context_propagates_not_implemented() {
         let reg = registry_with_storage().await;
         let mut adapter = UniversalStorageAdapter::new(reg);
-        let id = adapter
+        let err = adapter
             .store_ai_context("ctx-1", serde_json::json!({ "x": 1 }))
             .await
-            .expect("id");
-        assert!(!id.is_empty());
+            .unwrap_err();
+        assert!(matches!(err, PrimalError::NotImplemented(_)));
     }
 
     #[tokio::test]
-    async fn retrieve_ai_context_errors_no_context_data() {
+    async fn retrieve_ai_context_propagates_not_implemented() {
         let reg = registry_with_storage().await;
         let mut adapter = UniversalStorageAdapter::new(reg);
         let err = adapter.retrieve_ai_context("sid-1").await.unwrap_err();
-        assert!(matches!(err, PrimalError::StorageError(_)));
+        assert!(matches!(err, PrimalError::NotImplemented(_)));
     }
 
     #[tokio::test]
-    async fn backup_ai_data_returns_backup_id() {
+    async fn backup_ai_data_propagates_not_implemented() {
         let reg = registry_with_storage().await;
         let mut adapter = UniversalStorageAdapter::new(reg);
-        let id = adapter.backup_ai_data("set-a").await.expect("backup id");
-        assert!(!id.is_empty());
+        let err = adapter.backup_ai_data("set-a").await.unwrap_err();
+        assert!(matches!(err, PrimalError::NotImplemented(_)));
     }
 
     #[tokio::test]
@@ -574,10 +470,10 @@ mod tests {
     async fn get_storage_metrics_ok() {
         let reg = registry_with_storage().await;
         let mut adapter = UniversalStorageAdapter::new(reg);
-        adapter
+        // Trigger discovery (coordinate returns NotImplemented)
+        let _ = adapter
             .coordinate_storage("store", serde_json::json!({}))
-            .await
-            .expect("should succeed");
+            .await;
         let m = adapter.get_storage_metrics().await.expect("metrics");
         assert_eq!(m["storage_service"], "Test Storage");
     }
@@ -595,10 +491,9 @@ mod tests {
     async fn rediscover_storage_services() {
         let reg = registry_with_storage().await;
         let mut adapter = UniversalStorageAdapter::new(reg);
-        adapter
+        let _ = adapter
             .coordinate_storage("store", serde_json::json!({}))
-            .await
-            .expect("should succeed");
+            .await;
         adapter.rediscover_storage_services().await.expect("redisc");
         assert!(adapter.get_current_storage_service().is_some());
     }
@@ -647,10 +542,9 @@ mod tests {
         .await
         .expect("should succeed");
         let mut adapter = UniversalStorageAdapter::new(reg);
-        adapter
+        let _ = adapter
             .coordinate_storage("store", serde_json::json!({}))
-            .await
-            .expect("should succeed");
+            .await;
         assert!(!adapter.is_healthy().await);
     }
 

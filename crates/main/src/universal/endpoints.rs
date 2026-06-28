@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![expect(deprecated, reason = "Backward compatibility during migration")]
-
 //! Endpoint and port management for primals
 //!
 //! This module defines types for managing primal endpoints and dynamic

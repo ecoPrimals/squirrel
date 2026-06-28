@@ -11,6 +11,22 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (June 28, 2026 — Wave 129: Mock Evolution + Timeout Threading + Dead Module Purge)
+
+- **Dead modules purged**: `chaos/mod.rs` (682 lines, zero callers) and `universal_provider.rs` + `universal_provider_tests.rs` (1,128 lines, zero callers) deleted. All production mocks that fabricated success data eliminated.
+- **Production mocks evolved to honest behavior**:
+  - `self_healing`: `simulate_component_health_check()` (always returned `true`) replaced with staleness-based `evaluate_component_health()` that checks reporting age vs `check_interval_seconds`. `attempt_auto_recovery()` now resets component to `Unknown` status for re-evaluation instead of just logging.
+  - `universal_adapters`: `coordinate_computation()`, `coordinate_storage()`, `coordinate_ai_workflow()` all evolved from fabricated JSON success responses to explicit `PrimalError::NotImplemented` errors indicating IPC transport is unwired.
+  - `mDNS/DNS-SD`: `announce_service()`, `register_service()`, `unregister_service()` no-ops evolved to explicit `DiscoveryError::MechanismFailed` errors when enabled without implementation.
+- **Deprecated items deleted** (6 zero-caller items): `niche::DEPENDENCIES`, `niche::required_dependency_count()`, `primal_names::SONGBIRD_SOCKET_NAME`, `TarpcClient::from_transport()`, `SecurityProviderConfig::security_provider()`, `DiscoveryOps::get_capabilities_for_primal()` + 6 associated tests.
+- **Stale lint suppression removed**: `#![expect(deprecated)]` from `universal/endpoints.rs` (module uses no deprecated items).
+- **ServerConfig timeouts threaded to production hot paths**:
+  - `heartbeat_interval_secs` → `main.rs` biomeOS + discovery heartbeat loops (was hardcoded 30s).
+  - `connection_timeout_secs` → `JsonRpcServer.connection_timeout` field + `handle_uds_connection()` first-byte read (was hardcoded 30s).
+  - `inference_timeout_secs` → `remote_inference.rs` now reads `SQUIRREL_INFERENCE_TIMEOUT_SECS` env var (was const 120s).
+- **6,809 tests passing**. 0 failed. Zero clippy warnings.
+- **Net code reduction**: 1,023 `.rs` files (~321k lines), down from 1,026/324k.
+
 ### Summary (June 28, 2026 — Wave 128: Dead Code Purge + API Surface Pruning)
 
 - **Deprecated vendor adapters deleted**: `anthropic.rs` + `openai.rs` (947 lines) removed. `deprecated-adapters` feature flag removed from `Cargo.toml`. All `#[cfg(feature = "deprecated-adapters")]` match arms stripped from `AiProvider` enum dispatch (24 arms). `router_init.rs` simplified to capability-only path.

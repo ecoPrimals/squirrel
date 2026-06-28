@@ -132,43 +132,6 @@ impl Default for RetryConfig {
 
 /// Security configuration helpers
 impl SecurityProviderConfig {
-    /// Create configuration for security provider with authentication capability
-    ///
-    /// **TRUE PRIMAL**: Uses capability-based discovery instead of hardcoded primal names.
-    /// For runtime discovery, use `discover_capability("security.authentication")` or
-    /// `RuntimeDiscoveryEngine::discover_capability("security.authentication")`.
-    ///
-    /// **DEPRECATED**: Prefer capability-based discovery at runtime. This constructor
-    /// is maintained for backward compatibility only.
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use capability-based discovery: discover_capability(\"security.authentication\")"
-    )]
-    #[must_use]
-    pub fn security_provider(endpoint: &str, auth_method: AuthMethod) -> Self {
-        Self {
-            // TRUE PRIMAL: Use capability name, not primal name
-            provider_type: "security.authentication".to_string(),
-            endpoint: endpoint.to_string(),
-            auth_method,
-            timeout: Duration::from_secs(30),
-            retry_config: RetryConfig {
-                max_retries: 5,
-                base_delay: Duration::from_millis(200),
-                max_delay: Duration::from_secs(60),
-                backoff_factor: 2.0,
-            },
-            security_level: SecurityLevel::Critical,
-            capabilities: vec![
-                SecurityCapability::Authentication,
-                SecurityCapability::Encryption,
-                SecurityCapability::AccessControl,
-                SecurityCapability::ThreatDetection,
-                SecurityCapability::ComplianceMonitoring,
-            ],
-        }
-    }
-
     /// Create configuration for custom security provider
     #[must_use]
     pub fn custom(endpoint: &str, auth_method: AuthMethod) -> Self {
@@ -266,23 +229,6 @@ mod tests {
                 );
             },
         );
-    }
-
-    #[test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
-    fn test_security_provider_constructor() {
-        let config = SecurityProviderConfig::security_provider(
-            "http://localhost:8443",
-            AuthMethod::UnixSocket,
-        );
-        assert_eq!(config.provider_type, "security.authentication");
-        assert_eq!(config.endpoint, "http://localhost:8443");
-        assert_eq!(config.security_level, SecurityLevel::Critical);
-        assert_eq!(config.retry_config.max_retries, 5);
-        assert!(config.capabilities.len() >= 3);
     }
 
     #[test]

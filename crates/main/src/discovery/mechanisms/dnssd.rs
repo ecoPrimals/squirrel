@@ -32,7 +32,7 @@
 //! ```
 
 use crate::discovery::mechanisms::socket_registry::discover_from_socket_registry;
-use crate::discovery::types::{DiscoveredService, DiscoveryResult};
+use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult};
 use std::collections::HashMap;
 use std::time::Duration;
 use tracing::{debug, info, warn};
@@ -156,29 +156,22 @@ impl DnssdDiscovery {
     pub async fn register_service(
         &self,
         instance_name: &str,
-        hostname: &str,
-        port: u16,
-        capabilities: Vec<String>,
+        _hostname: &str,
+        _port: u16,
+        _capabilities: Vec<String>,
         _metadata: HashMap<String, String>,
     ) -> DiscoveryResult<()> {
         if !self.enabled {
             return Ok(());
         }
 
-        info!(
-            "📝 Registering service '{}' at {}:{} in DNS",
-            instance_name, hostname, port
-        );
-        info!("   Capabilities: {:?}", capabilities);
-
-        // Production-ready interface with graceful fallback
-        // Full implementation would:
-        // 1. Create PTR record: {service_type}.{domain} → {instance}.{service_type}.{domain}
-        // 2. Create SRV record: {instance}.{service_type}.{domain} → hostname:port
-        // 3. Create TXT record: {instance}.{service_type}.{domain} → capabilities+metadata
-        // 4. Submit via Dynamic DNS Update (RFC 2136) or API
-
-        Ok(())
+        Err(DiscoveryError::MechanismFailed {
+            mechanism: "dnssd".to_string(),
+            reason: format!(
+                "DNS-SD register for '{}' unavailable — no DNS update client wired (use socket registry)",
+                instance_name
+            ),
+        })
     }
 
     /// Unregister service from DNS
@@ -189,10 +182,13 @@ impl DnssdDiscovery {
             return Ok(());
         }
 
-        info!("🗑️  Unregistering service '{}' from DNS", instance_name);
-
-        // Production-ready interface with graceful fallback
-        Ok(())
+        Err(DiscoveryError::MechanismFailed {
+            mechanism: "dnssd".to_string(),
+            reason: format!(
+                "DNS-SD unregister for '{}' unavailable — no DNS update client wired",
+                instance_name
+            ),
+        })
     }
 
     /// Parse DNS-SD records into DiscoveredService
@@ -261,7 +257,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_dnssd_register_service() {
+    async fn test_dnssd_register_returns_unavailable() {
         let dnssd = DnssdDiscovery::default();
         let capabilities = vec!["ai".to_string()];
         let metadata = HashMap::new();
@@ -275,14 +271,19 @@ mod tests {
                 metadata,
             )
             .await;
-        assert!(result.is_ok());
+        assert!(result.is_err(), "DNS-SD register should report unavailable");
+        assert!(result.unwrap_err().to_string().contains("unavailable"));
     }
 
     #[tokio::test]
-    async fn test_dnssd_unregister_service() {
+    async fn test_dnssd_unregister_returns_unavailable() {
         let dnssd = DnssdDiscovery::default();
         let result = dnssd.unregister_service("test-instance").await;
-        assert!(result.is_ok());
+        assert!(
+            result.is_err(),
+            "DNS-SD unregister should report unavailable"
+        );
+        assert!(result.unwrap_err().to_string().contains("unavailable"));
     }
 
     #[tokio::test]
@@ -319,16 +320,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn register_and_unregister_are_noops() {
+    async fn register_and_unregister_report_unavailable() {
         let dnssd = DnssdDiscovery::default();
-        dnssd
-            .register_service("x", "h", 1, vec![], HashMap::new())
-            .await
-            .expect("register noop");
-        dnssd
-            .unregister_service("x")
-            .await
-            .expect("unregister noop");
+        assert!(
+            dnssd
+                .register_service("x", "h", 1, vec![], HashMap::new())
+                .await
+                .is_err()
+        );
+        assert!(dnssd.unregister_service("x").await.is_err());
     }
 
     #[test]

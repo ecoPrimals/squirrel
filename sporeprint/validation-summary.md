@@ -1,6 +1,6 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,487+ tests, 42+ IPC methods, 90% coverage."
+description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 6,809+ tests, 42+ IPC methods, 90% coverage."
 date = 2026-06-28
 
 [taxonomies]
@@ -13,8 +13,8 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: 7,487 passing across 22 workspace crates
-- **Source**: ~1,026 `.rs` files, ~324k lines
+- **Tests**: 6,809 passing across 22 workspace crates
+- **Source**: ~1,023 `.rs` files, ~321k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced
@@ -34,7 +34,7 @@ springs = []
 - **Identity**: Single canonical source (`universal_constants::capabilities::SELF_PRIMAL_NAME`); `niche::PRIMAL_ID` and `core::PRIMAL_TYPE` are re-exports. Zero hardcoded self-identity string literals in production.
 - **Feature gating**: Context learning subsystem (~14.6k lines, 625 tests) behind `context-learning` feature. Default build: 6,914 tests; `--all-features`: 7,539 tests.
 - **Nuclear Lineage (0xEE)**: Protocol-aware; NDJSON clients receive JSON-RPC -32050 with `resolution:"awaiting_beardog_keys"`; BTSP closes silently. Full encrypted channel awaits BearDog key material.
-- **Discovery**: Socket registry is canonical for LAN. DNS-SD and mDNS stubs documented; fallback paths tested. Ready for `discovery-mdns` feature flag with hickory-dns.
+- **Discovery**: Socket registry is canonical for LAN. DNS-SD and mDNS announce/register return explicit `MechanismFailed` errors (no more silent no-ops); discovery falls back to socket registry. Ready for `discovery-mdns` feature flag with hickory-dns.
 - **Security middleware**: `SecurityOrchestrator` wired as pre-dispatch middleware — rate limiting, input validation, and threat detection active when orchestrator attached. Method prefix → `EndpointType` tiering; denied requests receive JSON-RPC `-32003`.
 - **Constraint routing**: `ai.query` now parses routing constraints from raw request params (`privacy_level`, `cost_preference`, `quality`, `speed_preference`, `constraints[]`) and feeds them to `select_provider_with_constraints`.
 - **Feature gating (hygiene)**: Vestigial `capability-ai` feature removed; `benchmarking` module gated behind its feature; defaults trimmed to `["ecosystem", "tarpc-rpc"]`.
@@ -95,6 +95,16 @@ Squirrel is the **intelligence router** for all compositions requiring AI infere
 - primalSpring (graph validation, coordination)
 - wetSpring (sovereign pipeline — inference for Barrick clone)
 - NestGate (model weight storage)
+
+## Wave 129 — Mock Evolution + Timeout Threading + Dead Module Purge (June 28, 2026)
+
+- Deleted `chaos/mod.rs` (682L), `universal_provider.rs` + tests (1,128L) — zero callers
+- Deleted 6 zero-caller deprecated items (niche, primal_names, tarpc_client, security config, discovery) + 7 associated tests
+- Self-healing evolved from simulated to staleness-based health checks; auto-recovery resets components for re-evaluation
+- Universal adapters evolved from fabricated success JSON to honest `NotImplemented` errors
+- mDNS/DNS-SD stubs evolved from silent no-ops to explicit `MechanismFailed` errors
+- Stale `#![expect(deprecated)]` removed from `universal/endpoints.rs`
+- `ServerConfig` timeouts threaded to: heartbeat loops, UDS connection handler, inference adapter (env override)
 
 ## Wave 124 — Adapter Consolidation + Config Evolution (June 23, 2026)
 

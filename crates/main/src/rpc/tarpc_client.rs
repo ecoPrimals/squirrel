@@ -115,15 +115,6 @@ impl SquirrelClient {
         })
     }
 
-    /// Create a client from an existing Universal Transport (legacy, no negotiation).
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use connect() for protocol-negotiated connections"
-    )]
-    pub async fn from_transport(service_name: &str, transport: UniversalTransport) -> Result<Self> {
-        Self::from_negotiated_transport(service_name, transport).await
-    }
-
     /// Set default timeout for RPC calls
     pub const fn set_default_timeout(&mut self, timeout: Duration) {
         self.default_timeout = timeout;

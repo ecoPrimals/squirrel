@@ -33,10 +33,6 @@ pub const BIOMEOS_SOCKET_DIR: &str = "biomeos";
 /// Canonical default discovery (service mesh) socket filename.
 pub const DISCOVERY_SOCKET_NAME: &str = "discovery-default.sock";
 
-/// Deprecated: use [`DISCOVERY_SOCKET_NAME`].
-#[deprecated(note = "use DISCOVERY_SOCKET_NAME")]
-pub const SONGBIRD_SOCKET_NAME: &str = DISCOVERY_SOCKET_NAME;
-
 /// Default biomeOS socket filename.
 pub const BIOMEOS_SOCKET_NAME: &str = "biomeos.sock";
 

@@ -338,6 +338,9 @@ async fn run_server(
         .with_request_tracker(Arc::clone(&shared_tracker))
         .with_metrics_collector(Arc::clone(&metrics_collector));
 
+        s = s.with_connection_timeout(std::time::Duration::from_secs(
+            config.server.connection_timeout_secs,
+        ));
         if let Some(orch) = security_orchestrator {
             s = s.with_security_orchestrator(orch);
         }
@@ -381,14 +384,14 @@ async fn run_server(
         {
             info!("Registered with ecosystem orchestrator");
 
-            // Start heartbeat (30s interval)
+            let hb_interval = std::time::Duration::from_secs(config.server.heartbeat_interval_secs);
             let _heartbeat = squirrel::capabilities::lifecycle::spawn_heartbeat(
                 biomeos_socket,
                 socket_path.clone(),
-                std::time::Duration::from_secs(30),
+                hb_interval,
                 shutdown_rx,
             );
-            info!("Heartbeat started (30s interval)");
+            info!("Heartbeat started ({}s interval)", hb_interval.as_secs());
         }
     } else {
         info!("No ecosystem orchestrator socket found — standalone mode");
@@ -406,14 +409,18 @@ async fn run_server(
         {
             info!("Registered with discovery service");
 
+            let hb_interval = std::time::Duration::from_secs(config.server.heartbeat_interval_secs);
             let _discovery_heartbeat =
                 squirrel::capabilities::discovery_service::start_heartbeat_loop(
                     discovery_socket,
                     socket_path.clone(),
-                    std::time::Duration::from_secs(30),
+                    hb_interval,
                     shutdown_rx_discovery,
                 );
-            info!("Discovery heartbeat started (30s interval)");
+            info!(
+                "Discovery heartbeat started ({}s interval)",
+                hb_interval.as_secs()
+            );
         }
     } else {
         info!("No discovery socket found — peer discovery unavailable");

@@ -259,27 +259,6 @@ impl DiscoveryOps {
             _ => vec![], // Default: no capabilities
         }
     }
-
-    /// Get capabilities for a primal type (DEPRECATED - use get_capabilities_for_service)
-    ///
-    /// This method is deprecated. Use `get_capabilities_for_service()` with capability strings instead.
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use get_capabilities_for_service() for capability-based discovery"
-    )]
-    #[must_use]
-    pub fn get_capabilities_for_primal(primal_type: &EcosystemPrimalType) -> Vec<Arc<str>> {
-        // Map deprecated primal types to capabilities
-        let capability = match primal_type {
-            EcosystemPrimalType::Squirrel => "ai_coordination",
-            EcosystemPrimalType::Songbird => "service_mesh",
-            EcosystemPrimalType::ToadStool => "compute",
-            EcosystemPrimalType::BearDog => "security",
-            EcosystemPrimalType::NestGate => "networking",
-            EcosystemPrimalType::BiomeOS => "operating_system",
-        };
-        Self::get_capabilities_for_service(capability)
-    }
 }
 
 #[cfg(test)]
@@ -414,73 +393,6 @@ mod tests {
     fn test_get_capabilities_for_service_empty_string() {
         let caps = DiscoveryOps::get_capabilities_for_service("");
         assert!(caps.is_empty());
-    }
-
-    // Tests for get_capabilities_for_primal (deprecated, but should still work)
-    #[test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
-    fn test_get_capabilities_for_primal_squirrel() {
-        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::Squirrel);
-        assert!(!caps.is_empty());
-        assert!(caps.contains(&intern_registry_string("ai_coordination")));
-    }
-
-    #[test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
-    fn test_get_capabilities_for_primal_songbird() {
-        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::Songbird);
-        assert!(!caps.is_empty());
-        assert!(caps.contains(&intern_registry_string("service_mesh")));
-    }
-
-    #[test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
-    fn test_get_capabilities_for_primal_toadstool() {
-        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::ToadStool);
-        assert!(!caps.is_empty());
-        assert!(caps.contains(&intern_registry_string("compute")));
-    }
-
-    #[test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
-    fn test_get_capabilities_for_primal_beardog() {
-        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::BearDog);
-        assert!(!caps.is_empty());
-        assert!(caps.contains(&intern_registry_string("security")));
-    }
-
-    #[test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
-    fn test_get_capabilities_for_primal_nestgate() {
-        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::NestGate);
-        assert!(!caps.is_empty());
-        assert!(caps.contains(&intern_registry_string("networking")));
-    }
-
-    #[test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
-    fn test_get_capabilities_for_primal_biomeos() {
-        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::BiomeOS);
-        assert!(!caps.is_empty());
-        assert!(caps.contains(&intern_registry_string("operating_system")));
     }
 
     // Tests for discover_services

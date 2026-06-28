@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 
 use super::registry::{InMemoryServiceRegistry, ServiceInfo};
-use super::{ServiceCapability, ServiceMatcher, UniversalRequest, UniversalServiceRegistry};
+use super::{ServiceCapability, ServiceMatcher, UniversalServiceRegistry};
 use crate::error::PrimalError;
 
 /// Universal Orchestration Adapter - works with any orchestration primal
@@ -38,15 +38,13 @@ impl UniversalOrchestrationAdapter {
     pub async fn coordinate_ai_workflow(
         &mut self,
         workflow_type: &str,
-        participants: Vec<String>,
+        _participants: Vec<String>,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
-            "🎼 Coordinating AI workflow '{}' with {} participants via universal adapter",
+            "🎼 Coordinating AI workflow '{}' via universal adapter",
             workflow_type,
-            participants.len()
         );
 
-        // Discover orchestration service if needed
         if self.preferred_orchestration_service.is_none() {
             self.preferred_orchestration_service =
                 Some(self.discover_orchestration_service().await?);
@@ -60,66 +58,10 @@ impl UniversalOrchestrationAdapter {
                     PrimalError::ResourceNotFound("No orchestration service available".to_string())
                 })?;
 
-        // Create universal orchestration request
-        let request_params = HashMap::from([
-            (
-                "workflow_type".to_string(),
-                serde_json::json!(workflow_type),
-            ),
-            ("participants".to_string(), serde_json::json!(participants)),
-            (
-                "coordinator".to_string(),
-                serde_json::json!(crate::niche::PRIMAL_ID),
-            ),
-            ("ai_enhanced".to_string(), serde_json::json!(true)),
-            ("priority".to_string(), serde_json::json!("high")),
-        ]);
-
-        let _request = UniversalRequest {
-            request_id: uuid::Uuid::new_v4().to_string(),
-            operation: "coordinate_workflow".to_string(),
-            parameters: request_params,
-            context: HashMap::from([
-                (
-                    "requester".to_string(),
-                    serde_json::json!("squirrel_ai_coordinator"),
-                ),
-                (
-                    "coordination_type".to_string(),
-                    serde_json::json!("ai_workflow"),
-                ),
-            ]),
-            requester: crate::niche::PRIMAL_ID.to_string(),
-            timestamp: chrono::Utc::now(),
-        };
-
-        // Simulate orchestration coordination (in real implementation, make HTTP call)
-        let response_data = serde_json::json!({
-            "workflow_id": uuid::Uuid::new_v4().to_string(),
-            "status": "coordinated",
-            "workflow_type": workflow_type,
-            "orchestration_service": orchestration_service.name,
-            "participating_services": participants,
-            "coordinator": crate::niche::PRIMAL_ID,
-            "ai_enhanced": true,
-            "execution_plan": {
-                "phases": ["discovery", "coordination", "execution", "monitoring"],
-                "estimated_duration_ms": 2000,
-                "resource_allocation": "optimized"
-            },
-            "coordination_metadata": {
-                "service_mesh_enabled": true,
-                "load_balancing_strategy": "ai_optimized",
-                "failover_configured": true
-            }
-        });
-
-        info!(
-            "✅ AI workflow '{}' coordinated via {} ({})",
-            workflow_type, orchestration_service.name, orchestration_service.service_id
-        );
-
-        Ok(response_data)
+        Err(PrimalError::NotImplemented(format!(
+            "AI workflow '{}' via {} — IPC transport to orchestration primal not yet wired",
+            workflow_type, orchestration_service.name
+        )))
     }
 
     /// Request service discovery via orchestration primal
@@ -462,16 +404,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn coordinate_ai_workflow_happy_path() {
+    async fn coordinate_ai_workflow_returns_not_implemented() {
         let reg = registry_with_orchestration().await;
         let mut adapter = UniversalOrchestrationAdapter::new(reg);
-        let v = adapter
+        let err = adapter
             .coordinate_ai_workflow("pipeline", vec!["a".to_string(), "b".to_string()])
             .await
-            .expect("coord");
-        assert_eq!(v["status"], "coordinated");
-        assert_eq!(v["workflow_type"], "pipeline");
-        assert!(v.get("workflow_id").is_some());
+            .unwrap_err();
+        assert!(
+            matches!(err, PrimalError::NotImplemented(_)),
+            "expected NotImplemented, got {err:?}"
+        );
     }
 
     #[tokio::test]
@@ -540,10 +483,7 @@ mod tests {
     async fn rediscover_orchestration_services() {
         let reg = registry_with_orchestration().await;
         let mut adapter = UniversalOrchestrationAdapter::new(reg);
-        adapter
-            .coordinate_ai_workflow("w", vec![])
-            .await
-            .expect("should succeed");
+        let _ = adapter.coordinate_ai_workflow("w", vec![]).await;
         adapter
             .rediscover_orchestration_services()
             .await
@@ -617,10 +557,7 @@ mod tests {
         .await
         .expect("should succeed");
         let mut adapter = UniversalOrchestrationAdapter::new(reg);
-        adapter
-            .coordinate_ai_workflow("w", vec![])
-            .await
-            .expect("should succeed");
+        let _ = adapter.coordinate_ai_workflow("w", vec![]).await;
         assert!(!adapter.is_healthy().await);
     }
 

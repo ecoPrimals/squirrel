@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 
 use super::registry::{InMemoryServiceRegistry, ServiceInfo};
-use super::{ServiceCapability, ServiceMatcher, UniversalRequest, UniversalServiceRegistry};
+use super::{ServiceCapability, ServiceMatcher, UniversalServiceRegistry};
 use crate::error::PrimalError;
 
 /// Universal Compute Adapter - works with any compute primal
@@ -35,18 +35,16 @@ impl UniversalComputeAdapter {
     }
 
     /// Coordinate compute operation with any available compute primal
-    #[expect(clippy::too_many_lines, reason = "Compute adapter; refactor planned")]
     pub async fn coordinate_computation(
         &mut self,
         operation: &str,
-        workload: serde_json::Value,
+        _workload: serde_json::Value,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
             "🍄 Coordinating compute operation: {} via universal adapter",
             operation
         );
 
-        // Discover compute service if needed
         if self.preferred_compute_service.is_none() {
             self.preferred_compute_service = Some(self.discover_compute_service().await?);
         }
@@ -56,118 +54,10 @@ impl UniversalComputeAdapter {
             PrimalError::ResourceNotFound("No compute service available".to_string())
         })?;
 
-        // Create universal compute request
-        let request_params = HashMap::from([
-            ("operation_type".to_string(), serde_json::json!(operation)),
-            ("workload".to_string(), workload),
-            (
-                "coordinator".to_string(),
-                serde_json::json!(crate::niche::PRIMAL_ID),
-            ),
-            ("ai_context".to_string(), serde_json::json!(true)),
-            ("optimization".to_string(), serde_json::json!("ai_enhanced")),
-        ]);
-
-        let _request = UniversalRequest {
-            request_id: uuid::Uuid::new_v4().to_string(),
-            operation: operation.to_string(),
-            parameters: request_params,
-            context: HashMap::from([
-                (
-                    "requester".to_string(),
-                    serde_json::json!("squirrel_ai_coordinator"),
-                ),
-                (
-                    "compute_context".to_string(),
-                    serde_json::json!("ai_coordination"),
-                ),
-            ]),
-            requester: crate::niche::PRIMAL_ID.to_string(),
-            timestamp: chrono::Utc::now(),
-        };
-
-        // Simulate compute coordination (in real implementation, make HTTP call)
-        let response_data = match operation {
-            "execute" => serde_json::json!({
-                "execution_id": uuid::Uuid::new_v4().to_string(),
-                "status": "completed",
-                "compute_service": compute_service.name,
-                "result": {
-                    "success": true,
-                    "output": "AI coordination computation completed successfully",
-                    "metrics": {
-                        "execution_time_ms": 1250,
-                        "cpu_usage_percent": 45,
-                        "memory_usage_mb": 256,
-                        "tasks_processed": 12
-                    }
-                },
-                "resource_allocation": {
-                    "cpu_cores_used": 2,
-                    "memory_allocated_gb": 4,
-                    "container_instances": 1,
-                    "gpu_acceleration": false
-                },
-                "performance": {
-                    "throughput_ops_per_sec": 850,
-                    "latency_p95_ms": 85,
-                    "efficiency_score": 0.87
-                }
-            }),
-            "scale" => serde_json::json!({
-                "scaling_id": uuid::Uuid::new_v4().to_string(),
-                "status": "scaled",
-                "compute_service": compute_service.name,
-                "scaling_action": "up",
-                "details": {
-                    "previous_instances": 1,
-                    "current_instances": 3,
-                    "target_instances": 3,
-                    "scaling_reason": "ai_workload_increase"
-                },
-                "resource_changes": {
-                    "cpu_cores": "2 -> 6",
-                    "memory_gb": "4 -> 12",
-                    "network_bandwidth": "1000 -> 3000"
-                }
-            }),
-            "monitor" => serde_json::json!({
-                "monitoring_id": uuid::Uuid::new_v4().to_string(),
-                "status": "monitoring",
-                "compute_service": compute_service.name,
-                "metrics": {
-                    "active_workloads": 5,
-                    "queued_tasks": 2,
-                    "average_response_time_ms": 145,
-                    "resource_utilization": {
-                        "cpu_percent": 68,
-                        "memory_percent": 42,
-                        "storage_percent": 15,
-                        "network_utilization_percent": 25
-                    }
-                },
-                "health_status": {
-                    "overall": "healthy",
-                    "cpu": "optimal",
-                    "memory": "good",
-                    "storage": "excellent",
-                    "network": "good"
-                }
-            }),
-            _ => serde_json::json!({
-                "status": "completed",
-                "compute_service": compute_service.name,
-                "operation": operation,
-                "message": format!("Compute operation '{}' completed successfully", operation)
-            }),
-        };
-
-        info!(
-            "✅ Compute operation '{}' coordinated via {} ({})",
-            operation, compute_service.name, compute_service.service_id
-        );
-
-        Ok(response_data)
+        Err(PrimalError::NotImplemented(format!(
+            "Compute operation '{}' via {} — IPC transport to compute primal not yet wired",
+            operation, compute_service.name
+        )))
     }
 
     /// Execute AI workload using any available compute primal
@@ -579,75 +469,55 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn coordinate_computation_execute_scale_monitor_and_default() {
+    async fn coordinate_computation_returns_not_implemented() {
         let reg = registry_with_compute().await;
         let mut adapter = UniversalComputeAdapter::new(reg);
 
-        let exec = adapter
-            .coordinate_computation("execute", serde_json::json!({ "x": 1 }))
-            .await
-            .expect("execute");
-        assert_eq!(exec["status"], "completed");
-        assert!(exec.get("execution_id").is_some());
-
-        let scale = adapter
-            .coordinate_computation("scale", serde_json::json!({}))
-            .await
-            .expect("scale");
-        assert_eq!(scale["status"], "scaled");
-        assert!(scale.get("scaling_id").is_some());
-
-        let mon = adapter
-            .coordinate_computation("monitor", serde_json::json!({}))
-            .await
-            .expect("monitor");
-        assert_eq!(mon["status"], "monitoring");
-
-        let custom = adapter
-            .coordinate_computation("custom_op", serde_json::json!({}))
-            .await
-            .expect("custom");
-        assert_eq!(custom["status"], "completed");
-        assert_eq!(custom["operation"], "custom_op");
+        for op in &["execute", "scale", "monitor", "custom_op"] {
+            let err = adapter
+                .coordinate_computation(op, serde_json::json!({}))
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(err, PrimalError::NotImplemented(_)),
+                "expected NotImplemented for '{op}', got {err:?}"
+            );
+        }
     }
 
     #[tokio::test]
-    async fn execute_ai_workload_returns_execution_id() {
+    async fn execute_ai_workload_propagates_not_implemented() {
         let reg = registry_with_compute().await;
         let mut adapter = UniversalComputeAdapter::new(reg);
         let mut params = HashMap::new();
         params.insert("k".to_string(), serde_json::json!(1));
-        let id = adapter
+        let err = adapter
             .execute_ai_workload("inference", params)
             .await
-            .expect("exec id");
-        assert!(!id.is_empty());
+            .unwrap_err();
+        assert!(matches!(err, PrimalError::NotImplemented(_)));
     }
 
     #[tokio::test]
-    async fn scale_and_monitor_helpers() {
+    async fn scale_and_monitor_propagate_not_implemented() {
         let reg = registry_with_compute().await;
         let mut adapter = UniversalComputeAdapter::new(reg);
-        let scale = adapter
-            .scale_compute_resources("up", 2)
-            .await
-            .expect("scale");
-        assert_eq!(scale["scaling_action"], "up");
-        let mon = adapter.monitor_compute_performance().await.expect("mon");
-        assert_eq!(mon["status"], "monitoring");
+        let err = adapter.scale_compute_resources("up", 2).await.unwrap_err();
+        assert!(matches!(err, PrimalError::NotImplemented(_)));
+        let err = adapter.monitor_compute_performance().await.unwrap_err();
+        assert!(matches!(err, PrimalError::NotImplemented(_)));
     }
 
     #[tokio::test]
-    async fn get_current_after_coordinate() {
+    async fn get_current_after_coordinate_attempt() {
         let reg = registry_with_compute().await;
         let mut adapter = UniversalComputeAdapter::new(reg);
-        adapter
+        let _ = adapter
             .coordinate_computation("execute", serde_json::json!({}))
-            .await
-            .expect("should succeed");
+            .await;
         let info = adapter
             .get_current_compute_service()
-            .expect("preferred service");
+            .expect("preferred service discovered even though IPC is unwired");
         let dbg = format!("{info:?}");
         assert!(dbg.contains("Test Compute Service") || dbg.contains("service_id"));
     }
@@ -656,10 +526,9 @@ mod tests {
     async fn rediscover_compute_services() {
         let reg = registry_with_compute().await;
         let mut adapter = UniversalComputeAdapter::new(reg);
-        adapter
+        let _ = adapter
             .coordinate_computation("execute", serde_json::json!({}))
-            .await
-            .expect("should succeed");
+            .await;
         adapter
             .rediscover_compute_services()
             .await
@@ -679,14 +548,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn submit_batch_job_errors_no_job_id() {
+    async fn submit_batch_job_propagates_not_implemented() {
         let reg = registry_with_compute().await;
         let mut adapter = UniversalComputeAdapter::new(reg);
         let err = adapter
             .submit_batch_job(serde_json::json!({}))
             .await
             .unwrap_err();
-        assert!(matches!(err, PrimalError::ComputeError(_)));
+        assert!(matches!(err, PrimalError::NotImplemented(_)));
     }
 
     #[tokio::test]
@@ -701,10 +570,10 @@ mod tests {
     async fn get_resource_availability_ok_with_service() {
         let reg = registry_with_compute().await;
         let mut adapter = UniversalComputeAdapter::new(reg);
-        adapter
+        // Trigger discovery (the coordinate call itself returns NotImplemented)
+        let _ = adapter
             .coordinate_computation("execute", serde_json::json!({}))
-            .await
-            .expect("should succeed");
+            .await;
         let j = adapter
             .get_resource_availability()
             .await
@@ -747,10 +616,10 @@ mod tests {
         .await
         .expect("should succeed");
         let mut adapter = UniversalComputeAdapter::new(reg);
-        adapter
+        // Trigger discovery (coordinate itself returns NotImplemented)
+        let _ = adapter
             .coordinate_computation("execute", serde_json::json!({}))
-            .await
-            .expect("coord");
+            .await;
         assert!(!adapter.is_healthy().await);
     }
 

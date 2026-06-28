@@ -66,7 +66,7 @@ pub mod api;
 pub mod biomeos_integration;
 pub mod capabilities;
 // capability and capability_registry removed - HTTP-based legacy discovery
-pub mod chaos;
+// chaos module removed (Wave 129) — zero callers, 682 lines of canned resilience simulation
 pub mod compute_client;
 pub mod config;
 pub mod discovery;
@@ -101,7 +101,7 @@ pub mod storage_client;
 pub mod universal;
 pub mod universal_adapter_v2;
 pub mod universal_primal_ecosystem;
-pub mod universal_provider;
+// universal_provider removed (Wave 129) — zero callers, 758 lines of fake inference
 
 /// Universal adapters for capability-based primal integration
 pub mod universal_adapters;
