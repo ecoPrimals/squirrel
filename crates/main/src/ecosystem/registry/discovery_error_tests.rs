@@ -8,7 +8,7 @@
 
 #[cfg(test)]
 mod error_path_tests {
-    use crate::EcosystemPrimalType;
+    use crate::ecosystem::EcosystemPrimalType;
     use crate::ecosystem::registry::discovery::DiscoveryOps;
     use crate::ecosystem::registry::types::DiscoveredService;
     use std::collections::HashMap;

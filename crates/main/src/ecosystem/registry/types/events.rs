@@ -17,7 +17,7 @@ pub enum EcosystemRegistryEvent {
         /// Discovered service ID
         service_id: Arc<str>,
         /// Type of primal
-        primal_type: crate::EcosystemPrimalType,
+        primal_type: crate::ecosystem::EcosystemPrimalType,
         /// Service endpoint
         endpoint: Arc<str>,
         /// Service capabilities
@@ -29,7 +29,7 @@ pub enum EcosystemRegistryEvent {
         /// Registered service ID
         service_id: Arc<str>,
         /// Type of primal
-        primal_type: crate::EcosystemPrimalType,
+        primal_type: crate::ecosystem::EcosystemPrimalType,
         /// Service endpoint
         endpoint: Arc<str>,
     },

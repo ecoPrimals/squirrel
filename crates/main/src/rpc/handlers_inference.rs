@@ -221,14 +221,6 @@ impl JsonRpcServer {
                     .into(),
                 data: None,
             }),
-            #[cfg(feature = "deprecated-adapters")]
-            crate::api::ai::adapters::AiProvider::OpenAi(_)
-            | crate::api::ai::adapters::AiProvider::Anthropic(_) => Err(JsonRpcError {
-                code: error_codes::METHOD_NOT_FOUND,
-                message: "inference.embed: selected provider does not support remote embedding"
-                    .into(),
-                data: None,
-            }),
             #[cfg(test)]
             _ => Err(JsonRpcError {
                 code: error_codes::METHOD_NOT_FOUND,

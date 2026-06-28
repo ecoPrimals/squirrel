@@ -113,11 +113,6 @@ monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]  # Metrics
 benchmarking = ["criterion"]             # Benchmarking tools
 ## enhanced_error_handling / optimizations removed — no cfg(feature) references;
 ## error handling and optimizations are always-on via workspace lint policy.
-## Enable deprecated vendor-specific AI adapters (Anthropic, OpenAI).
-## These compile in direct HTTP adapters — v0.3.0 removal planned.
-## Prefer capability-based discovery with UniversalAiAdapter + LOCAL_AI_ENDPOINT.
-## See crates/main/src/api/ai/adapters/mod.rs for migration guidance.
-deprecated-adapters = []
 # GPU probing (nvidia-smi / rocm-smi / lspci) — deep NVML metrics belong to ToadStool compute primal.
 gpu-detection = []
 

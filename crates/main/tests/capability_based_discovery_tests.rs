@@ -175,14 +175,14 @@ fn test_all_primals_unique_names() {
     // Check all service names are unique
     let service_names: HashSet<_> = primals
         .iter()
-        .map(squirrel::EcosystemPrimalType::service_name)
+        .map(squirrel::ecosystem::EcosystemPrimalType::service_name)
         .collect();
     assert_eq!(service_names.len(), primals.len());
 
     // Check all capability-derived endpoint prefixes are unique
     let env_prefixes: HashSet<_> = primals
         .iter()
-        .map(squirrel::EcosystemPrimalType::endpoint_env_prefix)
+        .map(squirrel::ecosystem::EcosystemPrimalType::endpoint_env_prefix)
         .collect();
     assert_eq!(env_prefixes.len(), primals.len());
 }

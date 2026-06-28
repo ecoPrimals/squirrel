@@ -1,7 +1,7 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,514+ tests, 42+ IPC methods, 90% coverage."
-date = 2026-06-23
+description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,487+ tests, 42+ IPC methods, 90% coverage."
+date = 2026-06-28
 
 [taxonomies]
 primals = ["squirrel"]
@@ -13,8 +13,8 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: 7,514 passing across 22 workspace crates (net -25: +13 new depth tests, -38 deleted with dead adapter stack)
-- **Source**: ~1,029 `.rs` files, ~325k lines (1,811 lines of dead parallel adapter code removed)
+- **Tests**: 7,487 passing across 22 workspace crates
+- **Source**: ~1,026 `.rs` files, ~324k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced

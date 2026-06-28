@@ -9,37 +9,13 @@
 //! HTTP requests are delegated to whoever provides "http.request" capability.
 //! NO hardcoded primal names (Songbird, etc.) - discovered at runtime!
 //!
-//! ## Migration Note (v0.3.0)
-//!
-//! The vendor-specific adapters (Anthropic, OpenAI) are **deprecated** and
-//! feature-gated behind `deprecated-adapters`. Use `UniversalAiAdapter` instead.
-//!
-//! To enable deprecated adapters (temporary):
-//! ```toml
-//! squirrel = { features = ["deprecated-adapters"] }
-//! ```
-
-// Universal adapter (always available - Unix socket providers)
 mod universal;
 
 /// Remote inference adapter — forwards to springs registered via `inference.register_provider`.
 pub mod remote_inference;
 
-// Re-exports (always available)
 pub use remote_inference::{RemoteInferenceAdapter, RemoteProviderConfig};
 pub use universal::{ProviderMetadata, UniversalAiAdapter};
-
-// DEPRECATED: HTTP-delegating adapters (v0.3.0 removal planned)
-// Enable with `deprecated-adapters` feature
-#[cfg(feature = "deprecated-adapters")]
-pub mod anthropic;
-#[cfg(feature = "deprecated-adapters")]
-pub mod openai;
-
-#[cfg(feature = "deprecated-adapters")]
-pub use anthropic::AnthropicAdapter;
-#[cfg(feature = "deprecated-adapters")]
-pub use openai::OpenAiAdapter;
 
 #[cfg(test)]
 pub mod test_mocks;
@@ -120,10 +96,6 @@ pub enum AiProvider {
     Universal(UniversalAiAdapter),
     /// Remote spring registered via `inference.register_provider`.
     RemoteInference(RemoteInferenceAdapter),
-    #[cfg(feature = "deprecated-adapters")]
-    OpenAi(OpenAiAdapter),
-    #[cfg(feature = "deprecated-adapters")]
-    Anthropic(AnthropicAdapter),
     #[cfg(test)]
     MockText(test_mocks::MockTextAdapter),
     #[cfg(test)]
@@ -146,8 +118,6 @@ impl AiProvider {
         match self {
             Self::RemoteInference(a) => a.model_names().to_vec(),
             Self::Universal(_) => Vec::new(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::OpenAi(_) | Self::Anthropic(_) => Vec::new(),
             #[cfg(test)]
             _ => Vec::new(),
         }
@@ -158,8 +128,6 @@ impl AiProvider {
         match self {
             Self::RemoteInference(a) => a.supports_embedding(),
             Self::Universal(_) => false,
-            #[cfg(feature = "deprecated-adapters")]
-            Self::OpenAi(_) | Self::Anthropic(_) => false,
             #[cfg(test)]
             _ => false,
         }
@@ -171,10 +139,6 @@ impl AiProviderAdapter for AiProvider {
         match self {
             Self::Universal(a) => a.provider_id(),
             Self::RemoteInference(a) => a.provider_id(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::OpenAi(a) => a.provider_id(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::Anthropic(a) => a.provider_id(),
             #[cfg(test)]
             Self::MockText(a) => a.provider_id(),
             #[cfg(test)]
@@ -196,10 +160,6 @@ impl AiProviderAdapter for AiProvider {
         match self {
             Self::Universal(a) => a.provider_name(),
             Self::RemoteInference(a) => a.provider_name(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::OpenAi(a) => a.provider_name(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::Anthropic(a) => a.provider_name(),
             #[cfg(test)]
             Self::MockText(a) => a.provider_name(),
             #[cfg(test)]
@@ -221,10 +181,6 @@ impl AiProviderAdapter for AiProvider {
         match self {
             Self::Universal(a) => a.is_local(),
             Self::RemoteInference(a) => a.is_local(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::OpenAi(a) => a.is_local(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::Anthropic(a) => a.is_local(),
             #[cfg(test)]
             Self::MockText(a) => a.is_local(),
             #[cfg(test)]
@@ -246,10 +202,6 @@ impl AiProviderAdapter for AiProvider {
         match self {
             Self::Universal(a) => a.cost_per_unit(),
             Self::RemoteInference(a) => a.cost_per_unit(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::OpenAi(a) => a.cost_per_unit(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::Anthropic(a) => a.cost_per_unit(),
             #[cfg(test)]
             Self::MockText(a) => a.cost_per_unit(),
             #[cfg(test)]
@@ -271,10 +223,6 @@ impl AiProviderAdapter for AiProvider {
         match self {
             Self::Universal(a) => a.avg_latency_ms(),
             Self::RemoteInference(a) => a.avg_latency_ms(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::OpenAi(a) => a.avg_latency_ms(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::Anthropic(a) => a.avg_latency_ms(),
             #[cfg(test)]
             Self::MockText(a) => a.avg_latency_ms(),
             #[cfg(test)]
@@ -296,10 +244,6 @@ impl AiProviderAdapter for AiProvider {
         match self {
             Self::Universal(a) => a.quality_tier(),
             Self::RemoteInference(a) => a.quality_tier(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::OpenAi(a) => a.quality_tier(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::Anthropic(a) => a.quality_tier(),
             #[cfg(test)]
             Self::MockText(a) => a.quality_tier(),
             #[cfg(test)]
@@ -321,10 +265,6 @@ impl AiProviderAdapter for AiProvider {
         match self {
             Self::Universal(a) => a.supports_text_generation(),
             Self::RemoteInference(a) => a.supports_text_generation(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::OpenAi(a) => a.supports_text_generation(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::Anthropic(a) => a.supports_text_generation(),
             #[cfg(test)]
             Self::MockText(a) => a.supports_text_generation(),
             #[cfg(test)]
@@ -346,10 +286,6 @@ impl AiProviderAdapter for AiProvider {
         match self {
             Self::Universal(a) => a.supports_image_generation(),
             Self::RemoteInference(a) => a.supports_image_generation(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::OpenAi(a) => a.supports_image_generation(),
-            #[cfg(feature = "deprecated-adapters")]
-            Self::Anthropic(a) => a.supports_image_generation(),
             #[cfg(test)]
             Self::MockText(a) => a.supports_image_generation(),
             #[cfg(test)]
@@ -371,10 +307,6 @@ impl AiProviderAdapter for AiProvider {
         match self {
             Self::Universal(a) => a.is_available().await,
             Self::RemoteInference(a) => a.is_available().await,
-            #[cfg(feature = "deprecated-adapters")]
-            Self::OpenAi(a) => a.is_available().await,
-            #[cfg(feature = "deprecated-adapters")]
-            Self::Anthropic(a) => a.is_available().await,
             #[cfg(test)]
             Self::MockText(a) => a.is_available().await,
             #[cfg(test)]
@@ -399,10 +331,6 @@ impl AiProviderAdapter for AiProvider {
         match self {
             Self::Universal(a) => a.generate_text(request).await,
             Self::RemoteInference(a) => a.generate_text(request).await,
-            #[cfg(feature = "deprecated-adapters")]
-            Self::OpenAi(a) => a.generate_text(request).await,
-            #[cfg(feature = "deprecated-adapters")]
-            Self::Anthropic(a) => a.generate_text(request).await,
             #[cfg(test)]
             Self::MockText(a) => a.generate_text(request).await,
             #[cfg(test)]
@@ -427,10 +355,6 @@ impl AiProviderAdapter for AiProvider {
         match self {
             Self::Universal(a) => a.generate_image(request).await,
             Self::RemoteInference(a) => a.generate_image(request).await,
-            #[cfg(feature = "deprecated-adapters")]
-            Self::OpenAi(a) => a.generate_image(request).await,
-            #[cfg(feature = "deprecated-adapters")]
-            Self::Anthropic(a) => a.generate_image(request).await,
             #[cfg(test)]
             Self::MockText(a) => a.generate_image(request).await,
             #[cfg(test)]

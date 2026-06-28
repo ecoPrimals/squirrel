@@ -58,9 +58,12 @@ pub use super::adapters::QualityTier;
 /// gives `Optional < Preferred < Required`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ConstraintPriority {
-    #[expect(
-        dead_code,
-        reason = "Lowest tier — used when constraint system is fully wired"
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "Lowest tier — used when constraint system is fully wired"
+        )
     )]
     /// Nice to have but not important
     Optional,

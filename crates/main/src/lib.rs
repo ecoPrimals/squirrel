@@ -99,7 +99,6 @@ pub mod shutdown;
 mod shutdown_tests;
 pub mod storage_client;
 pub mod universal;
-pub mod universal_adapter;
 pub mod universal_adapter_v2;
 pub mod universal_primal_ecosystem;
 pub mod universal_provider;
@@ -125,83 +124,14 @@ pub mod benchmarking;
 /// Graceful shutdown system
 pub mod self_healing;
 
-// Re-export commonly used types for convenience
-pub use biomeos_integration::SquirrelBiomeOSIntegration;
-pub use compute_client::{
-    UniversalComputeClient, UniversalComputeRequest, UniversalComputeResponse,
-};
-pub use ecosystem::{
-    ComponentHealth,
-    EcosystemPrimalType,
-    EcosystemRegistryEvent,
-    // EcosystemRegistryManager removed - HTTP-based registry
-    EcosystemServiceRegistration,
-    EcosystemStatus,
-    initialize_ecosystem_integration,
-};
-// error_handling::prelude removed - safe_operations deleted
-pub use monitoring::performance::PerformanceTracker;
-pub use optimization::zero_copy;
-pub use primal_provider::SquirrelPrimalProvider;
-#[expect(
-    deprecated,
-    reason = "Re-export for backward compat; use SecurityCoordinator"
-)]
-pub use security::BeardogSecurityCoordinator;
-pub use security_client::{
-    UniversalSecurityClient, UniversalSecurityRequest, UniversalSecurityResponse,
-};
-pub use storage_client::{
-    UniversalStorageClient, UniversalStorageRequest, UniversalStorageResponse,
-};
-// Universal types (selective re-exports to avoid conflicts)
-pub use universal::{
-    DynamicPortInfo, HealthStatus, NetworkLocation, PrimalCapability, PrimalContext,
-    PrimalDependency, PrimalEndpoints, PrimalHealth, PrimalRequest, PrimalResponse, PrimalType,
-    SecurityLevel, ServiceMeshStatus,
-};
-
-pub use universal_adapter::{AdapterStatus, UniversalAdapter}; // Updated exports
-pub use universal_provider::UniversalSquirrelProvider;
-
-// Ecosystem API re-exports (selective to avoid conflicts)
-pub use ecosystem_api::{
-    error::EcosystemError,
-    traits::{EcosystemIntegration, UniversalPrimalProvider as UniversalProviderTrait},
-    types::{EcosystemRequest, EcosystemResponse, ResponseStatus},
-};
-
-// Convenient type aliases for common patterns
-
-/// Result type for ecosystem operations using `EcosystemError`.
-pub type UniversalResult<T> = Result<T, EcosystemError>;
+// Core error types
+pub use error::PrimalError;
 
 /// Result type for primal operations using `PrimalError`.
 pub type PrimalResult<T> = Result<T, PrimalError>;
 
-// Core error types (selective re-exports)
-pub use error::PrimalError;
-
-// Conditional re-exports based on feature flags (selective)
-#[cfg(feature = "monitoring")]
-pub use monitoring::{health::HealthMonitor, metrics::MetricsCollector};
-
-pub use ecosystem::{EcosystemConfig, EcosystemManager};
-
-/// Standard exports commonly used by ecosystem consumers
-pub mod prelude {
-    pub use super::{
-        EcosystemConfig, EcosystemError, EcosystemIntegration, EcosystemManager,
-        EcosystemServiceRegistration, EcosystemStatus, UniversalProviderTrait,
-        UniversalSquirrelProvider,
-    };
-    pub use crate::error::PrimalError;
-    pub use crate::universal::*;
-}
-
-// Backward compatibility alias
-#[cfg(feature = "benchmarking")]
-pub use benchmarking::BenchmarkSuite;
+// Monitoring (used by main.rs binary)
+pub use monitoring::metrics::MetricsCollector;
 pub use monitoring::performance::PerformanceTracker as PerformanceMonitor;
 pub use self_healing::SelfHealingManager;
 pub use shutdown::ShutdownManager;
@@ -216,27 +146,21 @@ pub const NAME: &str = env!("CARGO_PKG_NAME");
 
 /// Initialize the Squirrel MCP system with comprehensive ecosystem integration
 pub async fn initialize_squirrel_system(
-    config: EcosystemConfig,
+    config: ecosystem::EcosystemConfig,
 ) -> Result<SquirrelSystem, crate::error::PrimalError> {
-    // Initialize metrics collector
     let metrics_collector = std::sync::Arc::new(monitoring::metrics::MetricsCollector::new());
 
-    // Initialize ecosystem manager
     let ecosystem_manager =
-        initialize_ecosystem_integration(config, metrics_collector.clone()).await?;
+        ecosystem::initialize_ecosystem_integration(config, metrics_collector.clone()).await?;
 
-    // Initialize monitoring system
     let monitoring_system =
         monitoring::MonitoringSystem::new(monitoring::MonitoringConfig::default());
 
-    // Initialize self-healing system
     let self_healing_system =
         self_healing::SelfHealingManager::new(self_healing::SelfHealingConfig::default());
 
-    // Initialize shutdown manager
     let shutdown_manager = shutdown::ShutdownManager::new();
 
-    // Create comprehensive system
     let system = SquirrelSystem {
         ecosystem_manager,
         monitoring_system,
@@ -252,13 +176,13 @@ pub async fn initialize_squirrel_system(
 /// Comprehensive Squirrel system with all integrated components
 pub struct SquirrelSystem {
     /// Manages ecosystem registration and coordination.
-    pub ecosystem_manager: EcosystemManager,
+    pub ecosystem_manager: ecosystem::EcosystemManager,
     /// Tracks system health and performance metrics.
     pub monitoring_system: monitoring::MonitoringSystem,
     /// Handles automatic recovery from component failures.
-    pub self_healing_system: SelfHealingManager,
+    pub self_healing_system: self_healing::SelfHealingManager,
     /// Coordinates graceful shutdown across components.
-    pub shutdown_manager: ShutdownManager,
+    pub shutdown_manager: shutdown::ShutdownManager,
     #[cfg(feature = "monitoring")]
     pub metrics_collector: std::sync::Arc<MetricsCollector>,
 }
@@ -267,7 +191,7 @@ impl SquirrelSystem {
     /// Register with ecosystem
     pub async fn register_with_ecosystem<S: crate::session::SessionManager>(
         &self,
-        provider: &SquirrelPrimalProvider<S>,
+        provider: &primal_provider::SquirrelPrimalProvider<S>,
     ) -> Result<(), crate::error::PrimalError> {
         self.ecosystem_manager
             .register_squirrel_service(provider)
@@ -367,6 +291,6 @@ pub struct SquirrelSystemStatus {
 
 /// Create a default Squirrel system for testing and development
 pub async fn create_default_squirrel_system() -> Result<SquirrelSystem, crate::error::PrimalError> {
-    let config = EcosystemConfig::default();
+    let config = ecosystem::EcosystemConfig::default();
     initialize_squirrel_system(config).await
 }

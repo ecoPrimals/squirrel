@@ -6,7 +6,7 @@
 //! Service discovery operations for the ecosystem registry
 
 use super::types::{DiscoveredService, ServiceHealthStatus, intern_registry_string};
-use crate::EcosystemPrimalType;
+use crate::ecosystem::EcosystemPrimalType;
 use crate::error::PrimalError;
 use std::collections::HashMap;
 use std::sync::Arc;

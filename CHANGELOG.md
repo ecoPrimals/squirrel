@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (June 28, 2026 — Wave 128: Dead Code Purge + API Surface Pruning)
+
+- **Deprecated vendor adapters deleted**: `anthropic.rs` + `openai.rs` (947 lines) removed. `deprecated-adapters` feature flag removed from `Cargo.toml`. All `#[cfg(feature = "deprecated-adapters")]` match arms stripped from `AiProvider` enum dispatch (24 arms). `router_init.rs` simplified to capability-only path.
+- **`universal_adapter.rs` v1 deleted**: 388-line deprecated monolithic adapter removed. Was never instantiated in production; `universal_adapter_v2` is the sole cross-primal client.
+- **Root re-export pruning**: ~40 unused `pub use` re-exports removed from `lib.rs`. Dead `prelude` module deleted. Remaining root surface: `PrimalError`, `PrimalResult`, `MetricsCollector`, `VERSION`, `NAME`. All internal callers migrated to module paths (`crate::ecosystem::EcosystemConfig` etc.).
+- **`ConstraintPriority::Optional` fix**: Changed `#[expect(dead_code)]` → `#[cfg_attr(not(test), expect(dead_code))]` to avoid unfulfilled lint in test builds.
+- **7,487 tests passing** (net -27: deleted vendor adapter + v1 adapter tests, all were dead code tests). 0 failed. Zero clippy warnings.
+- **Net code reduction**: 1,026 `.rs` files (~324k lines), down from 1,029/325k.
+
 ### Summary (June 23, 2026 — Wave 124: Adapter Consolidation + Security Wiring + Config Evolution)
 
 - **SecurityOrchestrator wired at startup**: `main.rs` now builds the orchestrator via `SecuritySystemBuilder::new().build().await` and attaches it to `JsonRpcServer` with `with_security_orchestrator()`. Graceful fallback if init fails.
