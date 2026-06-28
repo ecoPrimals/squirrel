@@ -51,8 +51,8 @@ cargo doc --all-features --no-deps
 
 - Target: 90% line coverage via `cargo-llvm-cov`.
 - Proptest for round-trip and fuzz.
-- Chaos tests under `crates/main/tests/chaos/`.
-- E2E workflows under `crates/main/tests/e2e/`.
+- Resilience tests under `crates/main/tests/chaos/`.
+- E2E workflows under `crates/main/tests/`.
 - Doctests count as tests.
 
 ## Commit Messages

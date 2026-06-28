@@ -134,12 +134,13 @@ requiring AI capabilities.
 
 | Feature | What it gates | Default |
 |---------|---------------|---------|
-| `capability-ai` | Capability-based AI routing (Pure Rust) | ON |
-| `ecosystem` | Ecosystem integration | ON |
 | `tarpc-rpc` | High-performance binary RPC via tarpc | ON |
 | `delegated-jwt` | Capability-based JWT delegation | ON |
 | `monitoring` | Prometheus metrics (brings hyper) | OFF |
-| `deprecated-adapters` | Vendor-specific HTTP adapters (Anthropic, OpenAI) — v0.3.0 removal. Use `UniversalAiAdapter` + `LOCAL_AI_ENDPOINT`. | OFF |
+| `benchmarking` | Criterion benchmark harness | OFF |
+| `context-learning` | Context learning subsystem (~14.6k lines, 625 tests) | OFF |
+
+> **Removed features (fossil record)**: `capability-ai` (Wave 124 — always-on, absorbed into core), `ecosystem` (Wave 128 — always-on, absorbed), `deprecated-adapters` (Wave 128 — vendor adapters deleted).
 
 ## Human Dignity Evaluation
 
@@ -737,7 +738,7 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 - **23 `#[async_trait]` annotations removed** (228 → 205): 10 trait definitions + 13 impl blocks migrated to native `async fn` in trait across 11 files
 - **Tier 1 traits migrated** (zero `dyn` dispatch — safe drop-in):
   - `AIProvider` (`ecosystem-api/src/traits/ai.rs`)
-  - `EcosystemIntegration` (`ecosystem-api/src/traits/primal.rs`) + 1 impl in `universal_provider.rs`
+  - `EcosystemIntegration` (`ecosystem-api/src/traits/primal.rs`)
   - `Primal` (`universal-patterns/src/traits/primal.rs`) + 4 test impls + 1 in `primal_tests.rs`
   - `GpuInferenceCapability` (`universal-patterns/src/capabilities.rs`)
   - `ServiceMeshCapability` (`universal-patterns/src/capabilities.rs`)
@@ -770,7 +771,7 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
   - `is_healthy()` on OptimizationEngine/PredictionEngine — `const fn` checking actual model/strategy availability
   - `ContextAnalytics::initialize/update_analytics/shutdown` — resets counters, logs metrics snapshots
   - `StateVersioning::initialize/cleanup_old_versions` — tracks version history size, logs audit info
-- **Hardcoded "squirrel" self-references → `niche::PRIMAL_ID`**: 20+ production references across `universal_adapters/` (storage, compute, orchestration, security), `primal_provider/` (core, health_monitoring, ecosystem_integration), `rpc/` (jsonrpc_server, unix_socket), `tool/executor`, `security/beardog_coordinator`, `ecosystem/manager`, `biomeos_integration/mod`, `universal_provider`, `discovery/self_knowledge`
+- **Hardcoded "squirrel" self-references → `niche::PRIMAL_ID`**: 20+ production references across `universal_adapters/` (storage, compute, orchestration, security), `primal_provider/` (core, health_monitoring, ecosystem_integration), `rpc/` (jsonrpc_server, unix_socket), `tool/executor`, `security/beardog_coordinator`, `ecosystem/manager`, `biomeos_integration/mod`, `discovery/self_knowledge`
 - **Removed `primal_names` import** from `compute_client/provider_trait.rs` — no vendor-primal coupling in compute detection
 - **Dead code cleanup**: Removed 42KB of orphaned `sync/manager.rs` (917 lines) and `sync/types.rs` (368 lines) — never compiled (not declared as submodules); actual sync module is `sync.rs` (826 lines, under 1000)
 - **Zero-copy evolution**: `ServiceInfo` string fields (`service_id`, `name`, `category`, `endpoints`) evolved from `String` → `Arc<str>` — eliminates deep copies in high-frequency capability discovery queries

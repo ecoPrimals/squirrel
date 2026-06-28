@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,487 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 3.5 MB | **Methods**: 42+ IPC (42 registered + provenance proxy)
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 6,809 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 3.5 MB | **Methods**: 42+ IPC (42 registered + provenance proxy)
 
 ---
 
@@ -91,7 +91,7 @@ At startup, `AiRouter` discovers inference providers from multiple sources:
 4. **Socket hints**: `AI_PROVIDER_SOCKETS` → comma-separated Unix socket paths
 5. **Socket scan**: `COMPUTE_SOCKET` → tiered capability discovery
 
-Runtime registration: any primal can call `inference.register_provider` to dynamically add itself. UDS inference calls use a **120-second** read timeout (appropriate for LLM response times).
+Runtime registration: any primal can call `inference.register_provider` to dynamically add itself. UDS inference calls use a **120-second** read timeout by default (override via `SQUIRREL_INFERENCE_TIMEOUT_SECS`).
 
 ---
 
@@ -100,7 +100,7 @@ Runtime registration: any primal can call `inference.register_provider` to dynam
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   7,487 tests passing (0 failures) | ~1,026 `.rs` files | ~324k lines | zero Box<dyn Error> in prod
+Fitness:   6,809 tests passing (0 failures) | ~1,023 `.rs` files | ~321k lines | zero Box<dyn Error> in prod
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
