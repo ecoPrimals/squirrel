@@ -17,7 +17,7 @@ impl IpcClient {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
 
         let mut stream =
-            connection::connect_unix_stream(&self.socket_path, self.connection_timeout).await?;
+            connection::connect_ipc_stream(&self.socket_path, self.connection_timeout).await?;
 
         let request = serde_json::json!({
             "jsonrpc": "2.0",

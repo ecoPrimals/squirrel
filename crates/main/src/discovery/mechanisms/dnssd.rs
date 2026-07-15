@@ -168,8 +168,7 @@ impl DnssdDiscovery {
         Err(DiscoveryError::MechanismFailed {
             mechanism: "dnssd".to_string(),
             reason: format!(
-                "DNS-SD register for '{}' unavailable — no DNS update client wired (use socket registry)",
-                instance_name
+                "DNS-SD register for '{instance_name}' unavailable — no DNS update client wired (use socket registry)"
             ),
         })
     }
@@ -185,8 +184,7 @@ impl DnssdDiscovery {
         Err(DiscoveryError::MechanismFailed {
             mechanism: "dnssd".to_string(),
             reason: format!(
-                "DNS-SD unregister for '{}' unavailable — no DNS update client wired",
-                instance_name
+                "DNS-SD unregister for '{instance_name}' unavailable — no DNS update client wired"
             ),
         })
     }

@@ -279,8 +279,6 @@ pub const REQUIRED_CAPABILITIES: &[(&str, bool, &str)] = &[
     ),
 ];
 
-/// Legacy primal dependencies for backward compatibility.
-
 /// Cost estimates for biomeOS Pathway Learner scheduling.
 ///
 /// Each entry: `(capability, estimated_ms, gpu_beneficial)`.

@@ -29,7 +29,6 @@ use serde_json::json;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::UnixStream;
 use tracing::{debug, error, info};
 use universal_constants::network::resolve_capability_unix_socket;
 
@@ -342,33 +341,43 @@ impl CapabilityCryptoProvider {
         Ok(valid)
     }
 
-    /// Call JSON-RPC method on discovered endpoint
+    /// Call JSON-RPC method on discovered endpoint.
+    ///
+    /// On Unix, connects via `UnixStream`. On Windows, falls back to TCP.
     async fn call_json_rpc(
         &self,
         endpoint: &str,
         request: serde_json::Value,
     ) -> Result<serde_json::Value> {
-        // Connect to Unix socket
-        let mut stream =
-            tokio::time::timeout(self.discovery_timeout, UnixStream::connect(endpoint))
+        #[cfg(unix)]
+        let mut stream = tokio::time::timeout(
+            self.discovery_timeout,
+            tokio::net::UnixStream::connect(endpoint),
+        )
+        .await
+        .context("Discovery timeout")?
+        .context("Failed to connect to crypto provider")?;
+        #[cfg(not(unix))]
+        let mut stream = {
+            let addr: std::net::SocketAddr = endpoint
+                .parse()
+                .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 9200)));
+            tokio::time::timeout(self.discovery_timeout, tokio::net::TcpStream::connect(addr))
                 .await
                 .context("Discovery timeout")?
-                .context("Failed to connect to crypto provider")?;
+                .context("Failed to connect to crypto provider")?
+        };
 
-        // Send JSON-RPC request
         let request_str = serde_json::to_string(&request)?;
         stream.write_all(request_str.as_bytes()).await?;
         stream.write_all(b"\n").await?;
 
-        // Read JSON-RPC response
         let mut reader = BufReader::new(stream);
         let mut response_str = String::new();
         reader.read_line(&mut response_str).await?;
 
-        // Parse response
         let response: serde_json::Value = serde_json::from_str(&response_str)?;
 
-        // Check for JSON-RPC error
         if let Some(error) = response.get("error") {
             return Err(anyhow::anyhow!(
                 "Crypto provider error: {}",
@@ -429,7 +438,9 @@ impl CapabilityCryptoProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    #[cfg(unix)]
     use tokio::net::UnixListener;
 
     #[test]
@@ -551,6 +562,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_mock_socket_sign_ed25519() {
         let rt = tokio::runtime::Runtime::new().expect("should succeed");
@@ -599,6 +611,7 @@ mod tests {
         assert!(!signature.is_empty());
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_mock_socket_verify_ed25519() {
         let rt = tokio::runtime::Runtime::new().expect("should succeed");
@@ -641,6 +654,7 @@ mod tests {
         assert!(result.expect("should succeed"));
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_mock_socket_verify_ed25519_with_key_id() {
         let rt = tokio::runtime::Runtime::new().expect("should succeed");

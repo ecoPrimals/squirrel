@@ -135,8 +135,7 @@ impl MdnsDiscovery {
         Err(DiscoveryError::MechanismFailed {
             mechanism: "mdns".to_string(),
             reason: format!(
-                "mDNS announce for '{}' unavailable — no multicast implementation wired (use socket registry)",
-                service_name
+                "mDNS announce for '{service_name}' unavailable — no multicast implementation wired (use socket registry)"
             ),
         })
     }

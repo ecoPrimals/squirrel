@@ -24,7 +24,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::path::Path;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::UnixStream;
 use tokio::time::{Duration, timeout};
 use tracing::{debug, info, warn};
 use universal_constants::network::resolve_capability_unix_socket;
@@ -358,16 +357,32 @@ impl SecurityProviderClient {
         }
     }
 
-    /// Send a single JSON-RPC request to security provider
+    /// Send a single JSON-RPC request to security provider.
+    ///
+    /// On Unix, connects via `UnixStream`. On Windows, falls back to TCP.
     async fn send_request_once(&self, request: &JsonRpcRequest) -> Result<JsonValue> {
-        // Connect to Unix socket with timeout
+        let connect_timeout = Duration::from_secs(self.config.timeout_secs);
+
+        #[cfg(unix)]
         let stream = timeout(
-            Duration::from_secs(self.config.timeout_secs),
-            UnixStream::connect(&self.config.socket_path),
+            connect_timeout,
+            tokio::net::UnixStream::connect(&self.config.socket_path),
         )
         .await
         .context("Timeout connecting to security provider socket")?
         .context("Failed to connect to security provider socket")?;
+        #[cfg(not(unix))]
+        let stream = {
+            let addr: std::net::SocketAddr = self
+                .config
+                .socket_path
+                .parse()
+                .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 9200)));
+            timeout(connect_timeout, tokio::net::TcpStream::connect(addr))
+                .await
+                .context("Timeout connecting to security provider socket")?
+                .context("Failed to connect to security provider socket")?
+        };
 
         let (read_half, mut write_half) = stream.into_split();
 
@@ -466,7 +481,9 @@ pub type BearDogClient = SecurityProviderClient;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    #[cfg(unix)]
     use tokio::net::UnixListener;
 
     #[test]
@@ -545,6 +562,7 @@ mod tests {
         assert_eq!(id3, 3);
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_ed25519_sign_mock_socket() {
         let rt = tokio::runtime::Runtime::new().expect("should succeed");
@@ -595,6 +613,7 @@ mod tests {
         assert!(!signature.is_empty());
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_ed25519_verify_mock_socket() {
         let rt = tokio::runtime::Runtime::new().expect("should succeed");
@@ -641,6 +660,7 @@ mod tests {
         assert!(result.expect("should succeed"));
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_ed25519_verify_invalid_mock_socket() {
         let rt = tokio::runtime::Runtime::new().expect("should succeed");
@@ -687,6 +707,7 @@ mod tests {
         assert!(!result.expect("should succeed"));
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_ed25519_sign_no_socket_fails() {
         let rt = tokio::runtime::Runtime::new().expect("should succeed");
@@ -703,6 +724,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_json_rpc_error_response() {
         let rt = tokio::runtime::Runtime::new().expect("should succeed");

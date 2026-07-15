@@ -12,7 +12,6 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::UnixStream;
 use tracing::{debug, info, warn};
 
 use crate::traits::{PrimalCapability, PrimalContext, PrimalHealth, PrimalResult, PrimalType};
@@ -316,19 +315,29 @@ impl PrimalDiscovery {
         false
     }
 
-    /// Probe a Unix socket to get primal information
+    /// Probe a socket to get primal information.
     ///
-    /// This uses a simple JSON-RPC "info" request to discover the primal.
+    /// On Unix, connects via `UnixStream`. On Windows, falls back to TCP localhost
+    /// at the configured port (named pipe support can be added later).
+    ///
     /// TRUE PRIMAL: no knowledge of what's on the other end!
     async fn probe_socket(&self, socket_path: &Path) -> PrimalResult<DiscoveryResult> {
         debug!("Probing socket: {}", socket_path.display());
 
-        // Try to connect with timeout
-        let connect_result = tokio::time::timeout(
-            std::time::Duration::from_millis(self.config.probe_timeout_ms),
-            UnixStream::connect(socket_path),
-        )
-        .await;
+        let probe_timeout = std::time::Duration::from_millis(self.config.probe_timeout_ms);
+
+        // Platform-dispatch connect
+        #[cfg(unix)]
+        let connect_result =
+            tokio::time::timeout(probe_timeout, tokio::net::UnixStream::connect(socket_path)).await;
+        #[cfg(not(unix))]
+        let connect_result = {
+            let addr = socket_path
+                .to_str()
+                .and_then(|s| s.parse::<std::net::SocketAddr>().ok())
+                .unwrap_or_else(|| std::net::SocketAddr::from(([127, 0, 0, 1], 9200)));
+            tokio::time::timeout(probe_timeout, tokio::net::TcpStream::connect(addr)).await
+        };
 
         let stream = match connect_result {
             Ok(Ok(stream)) => stream,
