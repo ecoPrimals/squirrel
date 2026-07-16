@@ -51,6 +51,7 @@ toml.workspace = true
 # from --all-features builds.
 
 # Utilities
+dirs.workspace = true
 rand.workspace = true
 blake3.workspace = true
 ed25519-dalek = { workspace = true, optional = true }

@@ -4,16 +4,19 @@
 //! Platform-abstracted secret storage.
 //!
 //! `SecretStore` is the trait that credential/token persistence backends
-//! implement.  Squirrel ships three built-in backends:
+//! implement.  Squirrel ships four built-in backends:
 //!
 //! | Backend | Config variant | Persistence |
 //! |---------|----------------|-------------|
 //! | [`InMemorySecretStore`] | `CredentialStorage::Memory` | None (process lifetime) |
 //! | [`FileSecretStore`] | `CredentialStorage::File { path }` | Base64-encoded JSON |
 //! | (IPC delegation) | `CredentialStorage::SecurityProvider` | External (BearDog) |
+//! | [`super::platform_secret_store::PlatformSecretStore`] | `CredentialStorage::Platform` | OS-native path (XDG/AppData) |
 //!
-//! Platform-specific backends (Android Keystore, Windows Credential Manager)
-//! are future work — each will implement this same trait.
+//! `Platform` auto-detects the best path per OS.  Future native credential
+//! stores (Windows Credential Manager, Android Keystore, macOS Keychain)
+//! can replace the file backend inside `PlatformSecretStore` without
+//! changing config or call-sites.
 
 use crate::error::{MCPError, Result};
 use serde::{Deserialize, Serialize};
@@ -266,15 +269,19 @@ impl SecretStore for FileSecretStore {
 pub enum SecretStoreBackend {
     /// Volatile in-memory store.
     Memory(InMemorySecretStore),
-    /// Persistent file-backed store.
+    /// Persistent file-backed store at an explicit path.
     File(FileSecretStore),
+    /// Platform-native store (auto-detected per OS).
+    Platform(super::platform_secret_store::PlatformSecretStore),
 }
 
 impl SecretStoreBackend {
     /// Build a backend from the config `CredentialStorage` variant.
     ///
-    /// `SecurityProvider` returns an in-memory store as a local cache — the real
-    /// secret retrieval happens via `SecurityProviderClient` RPC to BearDog.
+    /// - `Memory` / `SecurityProvider`: in-memory (cache; security provider
+    ///   fetches secrets via RPC to BearDog).
+    /// - `File { path }`: persistent JSON at the given path.
+    /// - `Platform`: auto-detects OS-native path (XDG, AppData, etc.).
     pub async fn from_config(
         storage: &universal_patterns::config::CredentialStorage,
     ) -> Result<Self> {
@@ -287,6 +294,11 @@ impl SecretStoreBackend {
                 let store = FileSecretStore::open(path).await?;
                 Ok(Self::File(store))
             }
+            CredentialStorage::Platform => {
+                let store =
+                    super::platform_secret_store::PlatformSecretStore::detect().await?;
+                Ok(Self::Platform(store))
+            }
         }
     }
 }
@@ -296,6 +308,7 @@ impl SecretStore for SecretStoreBackend {
         match self {
             Self::Memory(s) => s.get(name).await,
             Self::File(s) => s.get(name).await,
+            Self::Platform(s) => s.get(name).await,
         }
     }
 
@@ -303,6 +316,7 @@ impl SecretStore for SecretStoreBackend {
         match self {
             Self::Memory(s) => s.set(name, value).await,
             Self::File(s) => s.set(name, value).await,
+            Self::Platform(s) => s.set(name, value).await,
         }
     }
 
@@ -310,6 +324,7 @@ impl SecretStore for SecretStoreBackend {
         match self {
             Self::Memory(s) => s.delete(name).await,
             Self::File(s) => s.delete(name).await,
+            Self::Platform(s) => s.delete(name).await,
         }
     }
 
@@ -317,6 +332,7 @@ impl SecretStore for SecretStoreBackend {
         match self {
             Self::Memory(s) => s.list_keys().await,
             Self::File(s) => s.list_keys().await,
+            Self::Platform(s) => s.list_keys().await,
         }
     }
 }
@@ -454,5 +470,27 @@ mod tests {
             .unwrap();
         backend.set("cached", b"val".to_vec()).await.unwrap();
         assert_eq!(backend.get("cached").await.unwrap().unwrap(), b"val");
+    }
+
+    #[tokio::test]
+    async fn backend_platform_variant() {
+        use universal_patterns::config::CredentialStorage;
+        let backend = SecretStoreBackend::from_config(&CredentialStorage::Platform)
+            .await
+            .unwrap();
+        backend
+            .set("platform_test", b"platform_val".to_vec())
+            .await
+            .unwrap();
+        assert_eq!(
+            backend
+                .get("platform_test")
+                .await
+                .unwrap()
+                .unwrap(),
+            b"platform_val"
+        );
+        assert!(backend.delete("platform_test").await.unwrap());
+        assert!(backend.get("platform_test").await.unwrap().is_none());
     }
 }

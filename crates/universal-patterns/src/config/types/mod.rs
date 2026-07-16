@@ -462,6 +462,7 @@ mod tests {
         let file = CredentialStorage::File {
             path: PathBuf::from("/tmp/creds"),
         };
+        let platform = CredentialStorage::Platform;
         assert!(matches!(
             CredentialStorage::SecurityProvider,
             CredentialStorage::SecurityProvider
@@ -469,9 +470,12 @@ mod tests {
 
         let memory_json = serde_json::to_string(&memory).expect("should succeed");
         let file_json = serde_json::to_string(&file).expect("should succeed");
+        let platform_json = serde_json::to_string(&platform).expect("should succeed");
 
         let _: CredentialStorage = serde_json::from_str(&memory_json).expect("should succeed");
         let _: CredentialStorage = serde_json::from_str(&file_json).expect("should succeed");
+        let _: CredentialStorage =
+            serde_json::from_str(&platform_json).expect("should succeed");
     }
 
     #[test]

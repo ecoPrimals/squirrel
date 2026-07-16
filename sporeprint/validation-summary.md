@@ -1,6 +1,6 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,171 tests, 42+ IPC methods, 90% coverage."
+description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,177 tests, 42+ IPC methods, 90% coverage."
 date = 2026-07-16
 
 [taxonomies]
@@ -13,8 +13,8 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: 7,171 passing across 16 workspace crates
-- **Source**: 989 `.rs` files, ~308k lines
+- **Tests**: 7,177 passing across 16 workspace crates
+- **Source**: 990 `.rs` files, ~308.3k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced
@@ -32,7 +32,8 @@ springs = []
 - **Context Persistence**: Shared `ContextManager` on `JsonRpcServer` — `context.create` → `context.update` → `context.summarize` persists across requests; session count synced to `MetricsCollector`
 - **tarpc Parity**: `provider.*` and `btsp.negotiate` tarpc stubs delegated to JSON-RPC handlers (mirrors lifecycle pattern)
 - **Identity**: Single canonical source (`universal_constants::capabilities::SELF_PRIMAL_NAME`); `niche::PRIMAL_ID` and `core::PRIMAL_TYPE` are re-exports. Zero hardcoded self-identity string literals in production.
-- **Feature gating**: Context learning subsystem (~14.6k lines, 625 tests) behind `context-learning` feature.
+- **Feature gating**: Context learning subsystem (~14.6k lines, 625 tests) behind `context-learning` feature. Context visualization (~3.1k lines) behind `context-visualization`.
+- **SecretStore**: Platform-abstracted credential storage — `InMemorySecretStore`, `FileSecretStore`, `PlatformSecretStore` (auto-detects OS-native paths). `CredentialStorage::Platform` config variant. Extension points for native backends (Windows Credential Manager, Android Keystore, macOS Keychain).
 - **Nuclear Lineage (0xEE)**: Protocol-aware; NDJSON clients receive JSON-RPC -32050 with `resolution:"awaiting_beardog_keys"`; BTSP closes silently. Full encrypted channel awaits BearDog key material.
 - **Discovery**: Socket registry is canonical for LAN. DNS-SD and mDNS announce/register return explicit `MechanismFailed` errors (no more silent no-ops); discovery falls back to socket registry. Ready for `discovery-mdns` feature flag with hickory-dns.
 - **Security middleware**: `SecurityOrchestrator` wired as pre-dispatch middleware — rate limiting, input validation, and threat detection active when orchestrator attached. Method prefix → `EndpointType` tiering; denied requests receive JSON-RPC `-32003`.

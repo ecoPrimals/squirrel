@@ -288,8 +288,8 @@ impl ConfigValidator {
                     )));
                 }
             }
-            CredentialStorage::SecurityProvider => {
-                // No validation needed for Beardog storage
+            CredentialStorage::SecurityProvider | CredentialStorage::Platform => {
+                // No validation needed; runtime resolves path
             }
         }
         Ok(())

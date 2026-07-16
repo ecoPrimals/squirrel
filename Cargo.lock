@@ -3253,6 +3253,7 @@ dependencies = [
  "clap",
  "criterion",
  "dashmap",
+ "dirs",
  "ed25519-dalek",
  "futures",
  "futures-util",
