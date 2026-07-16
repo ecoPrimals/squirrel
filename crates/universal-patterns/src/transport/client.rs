@@ -6,7 +6,9 @@
 use std::io::{self, Result as IoResult};
 use std::path::PathBuf;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::net::{TcpStream, UnixStream};
+use tokio::net::TcpStream;
+#[cfg(unix)]
+use tokio::net::UnixStream;
 
 #[cfg(windows)]
 use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};

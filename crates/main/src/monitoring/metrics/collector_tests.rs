@@ -398,12 +398,7 @@ async fn test_component_specific_metrics_all_components() {
 
     // Internal components always have metrics; capability-domain components
     // are only present when discovered at runtime via socket scan
-    let internal_components = vec![
-        "ai_intelligence",
-        "mcp_integration",
-        "context_state",
-        "agent_deployment",
-    ];
+    let internal_components = vec!["ai_intelligence", "mcp_integration", "context_state"];
 
     for component in internal_components {
         let metrics = collector
@@ -415,6 +410,16 @@ async fn test_component_specific_metrics_all_components() {
             "Internal component {component} should have metrics"
         );
     }
+
+    // agent_deployment returns empty until the subsystem is wired
+    let agent_metrics = collector
+        .get_component_metrics("agent_deployment")
+        .await
+        .expect("should succeed");
+    assert!(
+        agent_metrics.is_empty(),
+        "agent_deployment should be empty until wired"
+    );
 
     // Capability-domain metrics are populated if primals are running
     // (they may be empty in test environments -- that's correct behavior)

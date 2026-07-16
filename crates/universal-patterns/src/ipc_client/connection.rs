@@ -43,7 +43,12 @@ pub(super) async fn connect_ipc_stream(
         let addr = endpoint
             .to_str()
             .and_then(|s| s.parse::<std::net::SocketAddr>().ok())
-            .unwrap_or_else(|| std::net::SocketAddr::from(([127, 0, 0, 1], 9200)));
+            .unwrap_or_else(|| {
+                std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    universal_constants::network::get_service_port("jsonrpc"),
+                ))
+            });
         timeout(connection_timeout, PlatformStream::connect(addr))
             .await
             .map_err(|_| IpcClientError::Timeout {

@@ -47,13 +47,25 @@ use crate::primal_names;
 /// For Unix domain sockets, `connect()` returns immediately: ECONNREFUSED for
 /// stale sockets (no listener), success for alive ones.
 fn socket_is_alive_sync(path: &Path) -> bool {
-    use std::os::unix::net::UnixStream;
-
     if !path.exists() {
         return false;
     }
 
-    UnixStream::connect(path).is_ok()
+    #[cfg(unix)]
+    {
+        use std::os::unix::net::UnixStream;
+        UnixStream::connect(path).is_ok()
+    }
+    #[cfg(not(unix))]
+    {
+        let addr: std::net::SocketAddr = path.to_string_lossy().parse().unwrap_or_else(|_| {
+            std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                universal_constants::network::get_service_port("jsonrpc"),
+            ))
+        });
+        std::net::TcpStream::connect(addr).is_ok()
+    }
 }
 
 /// Discover the discovery service socket.
@@ -77,7 +89,10 @@ pub fn discover_socket() -> Option<PathBuf> {
         }
     }
 
+    #[cfg(unix)]
     let uid = universal_constants::sys_info::current_uid();
+    #[cfg(not(unix))]
+    let uid = 0u32;
     let dir = primal_names::BIOMEOS_SOCKET_DIR;
     let sock = primal_names::DISCOVERY_SOCKET_NAME;
     let fallback = universal_constants::network::get_socket_dir();

@@ -359,9 +359,12 @@ impl CapabilityCryptoProvider {
         .context("Failed to connect to crypto provider")?;
         #[cfg(not(unix))]
         let mut stream = {
-            let addr: std::net::SocketAddr = endpoint
-                .parse()
-                .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 9200)));
+            let addr: std::net::SocketAddr = endpoint.parse().unwrap_or_else(|_| {
+                std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    universal_constants::network::get_service_port("jsonrpc"),
+                ))
+            });
             tokio::time::timeout(self.discovery_timeout, tokio::net::TcpStream::connect(addr))
                 .await
                 .context("Discovery timeout")?

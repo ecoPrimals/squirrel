@@ -13,6 +13,7 @@
 
 use std::path::{Path, PathBuf};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+#[cfg(unix)]
 use tokio::net::UnixStream;
 use tokio::sync::watch;
 use tracing::{debug, info, warn};
@@ -27,13 +28,25 @@ use crate::primal_names;
 /// stale sockets (no listener), success for alive ones. No timeout needed — the
 /// kernel answers instantly for local filesystem sockets.
 fn socket_is_alive_sync(path: &Path) -> bool {
-    use std::os::unix::net::UnixStream as StdUnixStream;
-
     if !path.exists() {
         return false;
     }
 
-    StdUnixStream::connect(path).is_ok()
+    #[cfg(unix)]
+    {
+        use std::os::unix::net::UnixStream as StdUnixStream;
+        StdUnixStream::connect(path).is_ok()
+    }
+    #[cfg(not(unix))]
+    {
+        let addr: std::net::SocketAddr = path.to_string_lossy().parse().unwrap_or_else(|_| {
+            std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                universal_constants::network::get_service_port("jsonrpc"),
+            ))
+        });
+        std::net::TcpStream::connect(addr).is_ok()
+    }
 }
 
 /// Discover the biomeOS orchestrator socket.
@@ -51,7 +64,10 @@ pub fn find_biomeos_socket() -> Option<PathBuf> {
         }
     }
 
+    #[cfg(unix)]
     let uid = universal_constants::sys_info::current_uid();
+    #[cfg(not(unix))]
+    let uid = 0u32;
     let dir = primal_names::BIOMEOS_SOCKET_DIR;
     let fallback_dir = universal_constants::network::get_socket_dir();
     let candidates = [
@@ -140,7 +156,10 @@ pub fn resolve_neural_api_socket() -> Option<PathBuf> {
         .or_else(|_| std::env::var(env_vars::ecosystem::FAMILY_ID))
         .unwrap_or_else(|_| "ecoPrimal".to_string());
 
+    #[cfg(unix)]
     let uid = universal_constants::sys_info::current_uid();
+    #[cfg(not(unix))]
+    let uid = 0u32;
     let dir = primal_names::BIOMEOS_SOCKET_DIR;
     let fallback_dir = universal_constants::network::get_socket_dir();
 
@@ -350,11 +369,26 @@ pub(crate) async fn send_jsonrpc_with_timeout(
     request: &serde_json::Value,
     read_timeout: std::time::Duration,
 ) -> anyhow::Result<serde_json::Value> {
+    #[cfg(unix)]
     let stream = tokio::time::timeout(
         std::time::Duration::from_secs(5),
         UnixStream::connect(socket),
     )
     .await??;
+    #[cfg(not(unix))]
+    let stream = {
+        let addr: std::net::SocketAddr = socket.to_string_lossy().parse().unwrap_or_else(|_| {
+            std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                universal_constants::network::get_service_port("jsonrpc"),
+            ))
+        });
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            tokio::net::TcpStream::connect(addr),
+        )
+        .await??
+    };
 
     let mut line = serde_json::to_string(request)?;
     line.push('\n');

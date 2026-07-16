@@ -335,7 +335,12 @@ impl PrimalDiscovery {
             let addr = socket_path
                 .to_str()
                 .and_then(|s| s.parse::<std::net::SocketAddr>().ok())
-                .unwrap_or_else(|| std::net::SocketAddr::from(([127, 0, 0, 1], 9200)));
+                .unwrap_or_else(|| {
+                    std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        universal_constants::network::get_service_port("jsonrpc"),
+                    ))
+                });
             tokio::time::timeout(probe_timeout, tokio::net::TcpStream::connect(addr)).await
         };
 

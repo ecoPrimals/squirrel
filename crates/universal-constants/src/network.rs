@@ -80,7 +80,7 @@ pub fn get_service_port(service: &str) -> u16 {
         "service_mesh" | "mesh" => 8085,
         "compute" => 8086,
         "federation" => 8087,
-        "mcp_tcp" => 9000,
+        "mcp_tcp" | "jsonrpc" | "jsonrpc_tcp" => 9000,
         "metrics" => 9090,
         "discovery" => 8500,
         _ => {

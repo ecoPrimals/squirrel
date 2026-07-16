@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
+#[cfg(unix)]
 use tokio::net::UnixStream;
 use tokio::sync::RwLock;
 use tokio::time::timeout;
@@ -275,7 +276,24 @@ impl HealthMonitor {
             if !Path::new(&path).exists() {
                 continue;
             }
-            match timeout(check_timeout, UnixStream::connect(&path)).await {
+            match timeout(check_timeout, async {
+                #[cfg(unix)]
+                {
+                    UnixStream::connect(&path).await
+                }
+                #[cfg(not(unix))]
+                {
+                    let addr: std::net::SocketAddr = path.parse().unwrap_or_else(|_| {
+                        std::net::SocketAddr::from((
+                            [127, 0, 0, 1],
+                            universal_constants::network::get_service_port("jsonrpc"),
+                        ))
+                    });
+                    tokio::net::TcpStream::connect(addr).await
+                }
+            })
+            .await
+            {
                 Ok(Ok(_)) => {}
                 Ok(Err(e)) => {
                     return Err(PrimalError::Network(format!(

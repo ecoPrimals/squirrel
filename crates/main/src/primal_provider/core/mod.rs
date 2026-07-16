@@ -104,14 +104,17 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
         Ok(config_json)
     }
 
-    /// Update configuration (simplified - actual implementation would reload config)
+    /// Update configuration at runtime.
+    ///
+    /// Hot-reload is not yet wired — returns `NotImplemented` until the
+    /// `ConfigLoader` supports live reload notifications.
     pub fn update_managed_config(
         &mut self,
         _updates: serde_json::Value,
     ) -> Result<(), PrimalError> {
-        // Note: Config updates would require reloading from file or environment
-        info!("Configuration update requested (simplified implementation)");
-        Ok(())
+        Err(PrimalError::NotImplemented(
+            "Runtime config update not yet wired — reload the primal to apply changes".into(),
+        ))
     }
 
     /// Validate configuration

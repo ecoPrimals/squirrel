@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::path::PathBuf;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+#[cfg(unix)]
 use tokio::net::UnixStream;
 use tokio::time::{Duration, timeout};
 use tracing::{debug, info, warn};
@@ -257,6 +258,7 @@ impl HttpClient {
         let request_json = serde_json::to_string(&rpc_request)?;
 
         // Connect to Unix socket (with timeout)
+        #[cfg(unix)]
         let stream = timeout(
             Duration::from_secs(self.config.timeout_secs),
             UnixStream::connect(&self.config.socket_path),
@@ -269,6 +271,32 @@ impl HttpClient {
                 self.config.socket_path.display()
             )
         })?;
+        #[cfg(not(unix))]
+        let stream = {
+            let addr: std::net::SocketAddr = self
+                .config
+                .socket_path
+                .to_string_lossy()
+                .parse()
+                .unwrap_or_else(|_| {
+                    std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        universal_constants::network::get_service_port("jsonrpc"),
+                    ))
+                });
+            timeout(
+                Duration::from_secs(self.config.timeout_secs),
+                tokio::net::TcpStream::connect(addr),
+            )
+            .await
+            .context("Connection timeout")?
+            .with_context(|| {
+                format!(
+                    "Failed to connect to HTTP capability provider at {}",
+                    self.config.socket_path.display()
+                )
+            })?
+        };
 
         let (read_half, mut write_half) = stream.into_split();
 

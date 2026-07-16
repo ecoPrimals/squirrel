@@ -130,12 +130,27 @@ impl SpringToolDiscovery {
         socket_path: &str,
     ) -> Result<Vec<SpringToolDef>, PrimalError> {
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        #[cfg(unix)]
         use tokio::net::UnixStream;
 
+        #[cfg(unix)]
         let stream = tokio::time::timeout(Duration::from_secs(2), UnixStream::connect(socket_path))
             .await
             .map_err(|e| PrimalError::Internal(format!("unix connect timeout: {e}")))?
             .map_err(PrimalError::Io)?;
+        #[cfg(not(unix))]
+        let stream = {
+            let addr: std::net::SocketAddr = socket_path.parse().unwrap_or_else(|_| {
+                std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    universal_constants::network::get_service_port("jsonrpc"),
+                ))
+            });
+            tokio::time::timeout(Duration::from_secs(2), tokio::net::TcpStream::connect(addr))
+                .await
+                .map_err(|e| PrimalError::Internal(format!("unix connect timeout: {e}")))?
+                .map_err(PrimalError::Io)?
+        };
 
         let request = serde_json::json!({
             "jsonrpc": "2.0",

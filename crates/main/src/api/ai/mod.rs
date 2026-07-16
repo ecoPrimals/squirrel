@@ -6,7 +6,6 @@
 //! Single adapter path: `AiRouter` → `router_discovery` → `adapters::UniversalAiAdapter`.
 //! Parallel adapter/bridge/discovery stacks removed in Wave 124 (1,811 lines of dead code).
 
-pub mod action_registry;
 pub mod adapters;
 pub mod constraint_router;
 pub mod constraints;

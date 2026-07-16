@@ -135,6 +135,7 @@ impl fmt::Display for TransportEndpoint {
 #[derive(Debug)]
 pub enum TransportStream {
     /// Connected Unix domain socket.
+    #[cfg(unix)]
     Unix(tokio::net::UnixStream),
     /// Connected TCP stream.
     Tcp(tokio::net::TcpStream),
@@ -147,6 +148,7 @@ impl AsyncRead for TransportStream {
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
         match self.get_mut() {
+            #[cfg(unix)]
             Self::Unix(s) => Pin::new(s).poll_read(cx, buf),
             Self::Tcp(s) => Pin::new(s).poll_read(cx, buf),
         }
@@ -160,6 +162,7 @@ impl AsyncWrite for TransportStream {
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
         match self.get_mut() {
+            #[cfg(unix)]
             Self::Unix(s) => Pin::new(s).poll_write(cx, buf),
             Self::Tcp(s) => Pin::new(s).poll_write(cx, buf),
         }
@@ -167,6 +170,7 @@ impl AsyncWrite for TransportStream {
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match self.get_mut() {
+            #[cfg(unix)]
             Self::Unix(s) => Pin::new(s).poll_flush(cx),
             Self::Tcp(s) => Pin::new(s).poll_flush(cx),
         }
@@ -174,6 +178,7 @@ impl AsyncWrite for TransportStream {
 
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match self.get_mut() {
+            #[cfg(unix)]
             Self::Unix(s) => Pin::new(s).poll_shutdown(cx),
             Self::Tcp(s) => Pin::new(s).poll_shutdown(cx),
         }
@@ -207,14 +212,37 @@ pub async fn connect_transport_with_timeout(
 ) -> io::Result<TransportStream> {
     match endpoint {
         TransportEndpoint::Uds { path } => {
-            let stream = tokio::time::timeout(timeout, tokio::net::UnixStream::connect(path)).await;
-            match stream {
-                Ok(Ok(s)) => Ok(TransportStream::Unix(s)),
-                Ok(Err(e)) => Err(e),
-                Err(_) => Err(io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    format!("UDS connect timeout: {path}"),
-                )),
+            #[cfg(unix)]
+            {
+                let stream =
+                    tokio::time::timeout(timeout, tokio::net::UnixStream::connect(path)).await;
+                match stream {
+                    Ok(Ok(s)) => Ok(TransportStream::Unix(s)),
+                    Ok(Err(e)) => Err(e),
+                    Err(_) => Err(io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        format!("UDS connect timeout: {path}"),
+                    )),
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                let addr: std::net::SocketAddr = path.parse().unwrap_or_else(|_| {
+                    std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        universal_constants::network::get_service_port("jsonrpc"),
+                    ))
+                });
+                let stream =
+                    tokio::time::timeout(timeout, tokio::net::TcpStream::connect(addr)).await;
+                match stream {
+                    Ok(Ok(s)) => Ok(TransportStream::Tcp(s)),
+                    Ok(Err(e)) => Err(e),
+                    Err(_) => Err(io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        format!("TCP connect timeout (UDS fallback): {path}"),
+                    )),
+                }
             }
         }
         TransportEndpoint::Tcp { host, port } => {

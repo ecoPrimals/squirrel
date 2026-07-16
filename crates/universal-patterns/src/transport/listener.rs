@@ -5,7 +5,9 @@
 
 use std::io::{self, Result as IoResult};
 use std::path::PathBuf;
-use tokio::net::{TcpListener, UnixListener};
+use tokio::net::TcpListener;
+#[cfg(unix)]
+use tokio::net::UnixListener;
 
 #[cfg(windows)]
 use tokio::net::windows::named_pipe::{ClientOptions, ServerOptions};

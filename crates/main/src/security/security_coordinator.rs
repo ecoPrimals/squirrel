@@ -105,7 +105,10 @@ impl SecurityCoordinator {
             format!("unix://{socket}")
         } else {
             // Check standard biomeOS socket path (capability-based, not primal-specific)
+            #[cfg(unix)]
             let uid = universal_constants::sys_info::current_uid();
+            #[cfg(not(unix))]
+            let uid = 0u32;
             let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
             let standard_socket = format!("/run/user/{uid}/{dir}/security.sock");
             if std::path::Path::new(&standard_socket).exists() {

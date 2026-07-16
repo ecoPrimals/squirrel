@@ -373,11 +373,12 @@ impl SecurityProviderClient {
         .context("Failed to connect to security provider socket")?;
         #[cfg(not(unix))]
         let stream = {
-            let addr: std::net::SocketAddr = self
-                .config
-                .socket_path
-                .parse()
-                .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 9200)));
+            let addr: std::net::SocketAddr = self.config.socket_path.parse().unwrap_or_else(|_| {
+                std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    universal_constants::network::get_service_port("jsonrpc"),
+                ))
+            });
             timeout(connect_timeout, tokio::net::TcpStream::connect(addr))
                 .await
                 .context("Timeout connecting to security provider socket")?

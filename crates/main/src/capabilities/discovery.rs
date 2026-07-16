@@ -28,6 +28,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+#[cfg(unix)]
 use tokio::net::UnixStream;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
@@ -38,12 +39,30 @@ use uuid::Uuid;
 /// filesystem entries left after ungraceful shutdown. Stale sockets fail
 /// immediately with ECONNREFUSED; alive sockets accept within microseconds.
 pub async fn socket_is_alive(path: &Path) -> bool {
-    tokio::time::timeout(
-        std::time::Duration::from_millis(50),
-        UnixStream::connect(path),
-    )
-    .await
-    .is_ok_and(|r| r.is_ok())
+    #[cfg(unix)]
+    {
+        tokio::time::timeout(
+            std::time::Duration::from_millis(50),
+            UnixStream::connect(path),
+        )
+        .await
+        .is_ok_and(|r| r.is_ok())
+    }
+    #[cfg(not(unix))]
+    {
+        let addr: std::net::SocketAddr = path.to_string_lossy().parse().unwrap_or_else(|_| {
+            std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                universal_constants::network::get_service_port("jsonrpc"),
+            ))
+        });
+        tokio::time::timeout(
+            std::time::Duration::from_millis(50),
+            tokio::net::TcpStream::connect(addr),
+        )
+        .await
+        .is_ok_and(|r| r.is_ok())
+    }
 }
 
 /// Discovered capability provider
@@ -328,7 +347,10 @@ async fn try_registry_query(
         std::env::var(universal_constants::env_vars::ecosystem::NEURAL_API_SOCKET)
             .ok()
             .or_else(|| {
+                #[cfg(unix)]
                 let uid = universal_constants::sys_info::current_uid();
+                #[cfg(not(unix))]
+                let uid = 0u32;
                 let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
                 let sock = crate::primal_names::NEURAL_API_SOCKET_NAME;
                 let fallback = universal_constants::network::get_socket_dir();
@@ -394,10 +416,24 @@ async fn try_registry_query(
 ///
 /// Sends a JSON-RPC discovery request and parses the response
 pub async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, DiscoveryError> {
-    // Connect to socket
+    // Connect to socket (TCP fallback on non-Unix)
+    #[cfg(unix)]
     let stream = UnixStream::connect(socket_path)
         .await
         .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?;
+    #[cfg(not(unix))]
+    let stream = {
+        let addr: std::net::SocketAddr =
+            socket_path.to_string_lossy().parse().unwrap_or_else(|_| {
+                std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    universal_constants::network::get_service_port("jsonrpc"),
+                ))
+            });
+        tokio::net::TcpStream::connect(addr)
+            .await
+            .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?
+    };
 
     // Build discovery request (JSON-RPC 2.0)
     let request = serde_json::json!({
@@ -495,9 +531,23 @@ async fn query_registry(
     registry_path: &Path,
     capability: &str,
 ) -> Result<CapabilityProvider, DiscoveryError> {
+    #[cfg(unix)]
     let stream = UnixStream::connect(registry_path)
         .await
         .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?;
+    #[cfg(not(unix))]
+    let stream = {
+        let addr: std::net::SocketAddr =
+            registry_path.to_string_lossy().parse().unwrap_or_else(|_| {
+                std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    universal_constants::network::get_service_port("jsonrpc"),
+                ))
+            });
+        tokio::net::TcpStream::connect(addr)
+            .await
+            .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?
+    };
 
     // Build capability.discover query (Neural API semantic routing)
     // NUCLEUS FIX (Feb 3, 2026): Use correct method name for Neural API
@@ -620,7 +670,10 @@ fn get_socket_directories() -> Vec<PathBuf> {
     let mut dirs = vec![];
 
     // Priority 1: Standard biomeOS socket directory (NUCLEUS-compliant!)
+    #[cfg(unix)]
     let uid = universal_constants::sys_info::current_uid();
+    #[cfg(not(unix))]
+    let uid = 0u32;
     let biomeos_dir = PathBuf::from(format!("/run/user/{uid}/biomeos"));
     if biomeos_dir.exists() {
         dirs.push(biomeos_dir);

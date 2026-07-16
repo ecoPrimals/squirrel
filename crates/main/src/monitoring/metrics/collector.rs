@@ -486,34 +486,27 @@ impl MetricsCollector {
                 let errors = tracker.total_errors() as f64;
                 metrics.insert(MESSAGES_SENT.to_string(), total);
                 metrics.insert(MESSAGES_RECEIVED.to_string(), total);
-                metrics.insert(CONNECTION_COUNT.to_string(), 1.0);
+                metrics.insert(
+                    CONNECTION_COUNT.to_string(),
+                    self.request_tracker().total_requests().min(1) as f64,
+                );
                 metrics.insert(PROTOCOL_ERRORS.to_string(), errors);
             }
             "context_state" => {
                 use crate::monitoring::metric_names::context_state::{
-                    ACTIVE_SESSIONS, CACHE_HIT_RATE, CONTEXT_SIZE, PERSISTENCE_LATENCY,
+                    ACTIVE_SESSIONS, CONTEXT_SIZE,
                 };
                 metrics.insert(
                     ACTIVE_SESSIONS.to_string(),
                     self.context_session_count() as f64,
                 );
                 metrics.insert(CONTEXT_SIZE.to_string(), self.context_total_bytes() as f64);
-                metrics.insert(CACHE_HIT_RATE.to_string(), 0.0);
-                metrics.insert(PERSISTENCE_LATENCY.to_string(), 0.0);
             }
-            "agent_deployment" => {
-                use crate::monitoring::metric_names::agent_deployment::{
-                    DEPLOYED_AGENTS, DEPLOYMENT_TIME, FAILED_DEPLOYMENTS, RUNNING_AGENTS,
-                };
-                metrics.insert(DEPLOYED_AGENTS.to_string(), 0.0);
-                metrics.insert(RUNNING_AGENTS.to_string(), 0.0);
-                metrics.insert(FAILED_DEPLOYMENTS.to_string(), 0.0);
-                metrics.insert(DEPLOYMENT_TIME.to_string(), 0.0);
-            }
-            // External capability domains — squirrel does not own these metrics.
-            // Return empty; the owning primal (songBird/toadStool/nestGate/bearDog)
-            // should be queried via its own system.metrics endpoint at runtime.
-            "network" | "compute" | "storage" | "security" => {}
+            // Domains squirrel does not own or has not wired yet — omit metrics
+            // rather than fabricate zeros so consumers can distinguish "unknown"
+            // from "zero". The owning primal should be queried via its own
+            // system.metrics endpoint at runtime.
+            "agent_deployment" | "network" | "compute" | "storage" | "security" => {}
             _ => {
                 use crate::monitoring::metric_names::default::{STATUS, UPTIME};
                 metrics.insert(STATUS.to_string(), 1.0);

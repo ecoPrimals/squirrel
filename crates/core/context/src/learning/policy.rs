@@ -373,20 +373,20 @@ impl PolicyNetwork {
         Ok(())
     }
 
-    /// Train the network with experience batch
+    /// Train the network with an experience batch.
+    ///
+    /// No backpropagation backend is wired yet — this bumps the epoch
+    /// counter so callers can observe that training was requested, but
+    /// loss/accuracy stay at their initial values until a real learning
+    /// engine is integrated.
     pub async fn train(&self, _experiences: &[super::engine::RLExperience]) -> Result<()> {
-        // Simplified training implementation
-        // In a real implementation, this would use proper backpropagation
-
         let mut training_state = self.training_state.write().await;
         training_state.epoch += 1;
-        training_state.loss = rand::random::<f64>() * 0.1; // Simulated loss
-        training_state.accuracy = 0.8 + rand::random::<f64>() * 0.2; // Simulated accuracy
         training_state.last_update = Utc::now();
 
         debug!(
-            "Trained network: epoch {}, loss {:.4}, accuracy {:.4}",
-            training_state.epoch, training_state.loss, training_state.accuracy
+            "Training requested (epoch {}) — no backpropagation backend wired",
+            training_state.epoch
         );
 
         Ok(())

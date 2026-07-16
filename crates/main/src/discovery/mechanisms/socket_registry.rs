@@ -83,7 +83,10 @@ impl SocketRegistryDiscovery {
                 .join("socket-registry.json");
         }
 
+        #[cfg(unix)]
         let uid = universal_constants::sys_info::current_uid();
+        #[cfg(not(unix))]
+        let uid = 0u32;
         PathBuf::from(format!("/run/user/{uid}/{socket_dir}/socket-registry.json"))
     }
 

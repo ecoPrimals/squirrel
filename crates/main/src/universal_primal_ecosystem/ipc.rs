@@ -47,6 +47,7 @@ impl UniversalPrimalEcosystem {
         request: PrimalRequest,
     ) -> UniversalResult<PrimalResponse> {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        #[cfg(unix)]
         use tokio::net::UnixStream;
 
         let socket_path = service
@@ -54,12 +55,27 @@ impl UniversalPrimalEcosystem {
             .strip_prefix("unix://")
             .ok_or_else(|| PrimalError::InvalidEndpoint(service.endpoint.clone()))?;
 
-        // Connect to Unix socket
+        // Connect to Unix socket (TCP fallback on non-Unix)
+        #[cfg(unix)]
         let mut stream = UnixStream::connect(socket_path).await.map_err(|e| {
             PrimalError::NetworkError(format!(
                 "Failed to connect to Unix socket {socket_path}: {e}"
             ))
         })?;
+        #[cfg(not(unix))]
+        let mut stream = {
+            let addr: std::net::SocketAddr = socket_path.parse().unwrap_or_else(|_| {
+                std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    universal_constants::network::get_service_port("jsonrpc"),
+                ))
+            });
+            tokio::net::TcpStream::connect(addr).await.map_err(|e| {
+                PrimalError::NetworkError(format!(
+                    "Failed to connect to Unix socket {socket_path}: {e}"
+                ))
+            })?
+        };
 
         // Serialize request as JSON-RPC 2.0
         let json_rpc_request = serde_json::json!({

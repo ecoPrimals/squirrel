@@ -44,6 +44,7 @@
 
 use super::SquirrelPrimalProvider;
 use crate::ecosystem::EcosystemManager;
+use crate::error::PrimalError;
 use crate::monitoring::metrics::MetricsCollector;
 use crate::session::{SessionConfig, SessionManagerImpl};
 use crate::universal::{PrimalType, UniversalPrimalProvider};
@@ -84,8 +85,13 @@ async fn config_helpers_roundtrip() {
     let mut p = provider().await;
     let j = p.get_managed_config().expect("should succeed");
     assert!(j.get("instance_id").is_some());
-    p.update_managed_config(serde_json::json!({"x": 1}))
-        .expect("should succeed");
+    let update_err = p
+        .update_managed_config(serde_json::json!({"x": 1}))
+        .expect_err("should return NotImplemented");
+    assert!(
+        matches!(update_err, PrimalError::NotImplemented(_)),
+        "expected NotImplemented, got {update_err:?}"
+    );
     assert!(p.validate_configuration().expect("should succeed"));
     p.reset_to_defaults().expect("should succeed");
     let ext = p.get_external_services().expect("should succeed");

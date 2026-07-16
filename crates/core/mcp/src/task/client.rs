@@ -6,7 +6,6 @@
 //! Uses JSON-RPC over Unix socket.
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::UnixStream;
 
 use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
@@ -178,9 +177,22 @@ impl MCPTaskClient {
 
         let request_bytes = serde_json::to_vec(&request).context("Failed to serialize request")?;
 
-        let stream = UnixStream::connect(&socket_path)
+        #[cfg(unix)]
+        let stream = tokio::net::UnixStream::connect(&socket_path)
             .await
             .context(format!("Failed to connect to task server at {socket_path}"))?;
+        #[cfg(not(unix))]
+        let stream = {
+            let addr: std::net::SocketAddr = socket_path.parse().unwrap_or_else(|_| {
+                std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    universal_constants::network::get_service_port("jsonrpc"),
+                ))
+            });
+            tokio::net::TcpStream::connect(addr)
+                .await
+                .context(format!("Failed to connect to task server at {socket_path}"))?
+        };
 
         let (mut reader, mut writer) = stream.into_split();
         writer.write_all(&request_bytes).await?;

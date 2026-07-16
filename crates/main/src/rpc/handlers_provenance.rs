@@ -147,8 +147,10 @@ impl JsonRpcServer {
     /// Probe a socket with `capability.discover` and return advertised capability names.
     async fn probe_capabilities(&self, socket_path: &std::path::Path) -> Result<Vec<String>, ()> {
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        #[cfg(unix)]
         use tokio::net::UnixStream;
 
+        #[cfg(unix)]
         let stream = tokio::time::timeout(
             std::time::Duration::from_millis(500),
             UnixStream::connect(socket_path),
@@ -156,6 +158,23 @@ impl JsonRpcServer {
         .await
         .map_err(|_| ())?
         .map_err(|_| ())?;
+        #[cfg(not(unix))]
+        let stream = {
+            let addr: std::net::SocketAddr =
+                socket_path.to_string_lossy().parse().unwrap_or_else(|_| {
+                    std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        universal_constants::network::get_service_port("jsonrpc"),
+                    ))
+                });
+            tokio::time::timeout(
+                std::time::Duration::from_millis(500),
+                tokio::net::TcpStream::connect(addr),
+            )
+            .await
+            .map_err(|_| ())?
+            .map_err(|_| ())?
+        };
 
         let request = serde_json::json!({
             "jsonrpc": "2.0",
@@ -193,7 +212,11 @@ impl JsonRpcServer {
         Ok(caps)
     }
 
-    /// Forward a JSON-RPC request to a remote socket.
+    /// Forward a JSON-RPC request to a remote socket (or TCP fallback on non-Unix).
+    #[expect(
+        clippy::too_many_lines,
+        reason = "cfg(unix)/cfg(not(unix)) branches inflate line count"
+    )]
     async fn forward_jsonrpc(
         &self,
         method: &str,
@@ -201,8 +224,10 @@ impl JsonRpcServer {
         socket_path: &str,
     ) -> Result<Value, JsonRpcError> {
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        #[cfg(unix)]
         use tokio::net::UnixStream;
 
+        #[cfg(unix)]
         let stream = UnixStream::connect(socket_path)
             .await
             .map_err(|e| JsonRpcError {
@@ -210,6 +235,22 @@ impl JsonRpcServer {
                 message: format!("Failed to connect to provider at {socket_path}: {e}"),
                 data: Some(serde_json::json!({ "method": method, "socket": socket_path })),
             })?;
+        #[cfg(not(unix))]
+        let stream = {
+            let addr: std::net::SocketAddr = socket_path.parse().unwrap_or_else(|_| {
+                std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    universal_constants::network::get_service_port("jsonrpc"),
+                ))
+            });
+            tokio::net::TcpStream::connect(addr)
+                .await
+                .map_err(|e| JsonRpcError {
+                    code: error_codes::INTERNAL_ERROR,
+                    message: format!("Failed to connect to provider at {socket_path}: {e}"),
+                    data: Some(serde_json::json!({ "method": method, "socket": socket_path })),
+                })?
+        };
 
         let request = serde_json::json!({
             "jsonrpc": "2.0",

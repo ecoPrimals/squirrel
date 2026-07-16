@@ -75,7 +75,10 @@ impl Default for SecurityProviderConfig {
         let endpoint = std::env::var(universal_constants::env_vars::security::SERVICE_ENDPOINT)
             .unwrap_or_else(|_| {
                 // Fallback to standard socket path if available
+                #[cfg(unix)]
                 let uid = universal_constants::sys_info::current_uid();
+                #[cfg(not(unix))]
+                let uid = 0u32;
                 let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
                 let standard_socket = format!("/run/user/{uid}/{dir}/security.sock");
                 if std::path::Path::new(&standard_socket).exists() {

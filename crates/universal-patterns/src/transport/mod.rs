@@ -66,7 +66,9 @@ pub use types::{
 };
 
 // Re-export discovery functions for advanced usage
+#[cfg(unix)]
+pub use discovery::get_socket_paths;
 pub use discovery::{
-    discover_ipc_endpoint, discover_tcp_endpoint, get_socket_paths,
-    get_tcp_discovery_file_candidates, write_tcp_discovery_file,
+    discover_ipc_endpoint, discover_tcp_endpoint, get_tcp_discovery_file_candidates,
+    write_tcp_discovery_file,
 };

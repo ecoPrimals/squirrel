@@ -185,7 +185,10 @@ pub fn get_socket_path(node_id: &str) -> String {
 /// Returns `/run/user/<uid>/biomeos/squirrel.sock` — the standardized ecosystem
 /// path that enables inter-primal discovery and NUCLEUS deployment.
 fn get_xdg_socket_path(family_id: &str) -> Option<String> {
+    #[cfg(unix)]
     let uid = universal_constants::sys_info::current_uid();
+    #[cfg(not(unix))]
+    let uid = 0u32;
     let xdg_runtime_dir = format!("/run/user/{uid}");
 
     if Path::new(&xdg_runtime_dir).exists() {
@@ -226,7 +229,10 @@ fn get_xdg_socket_path(family_id: &str) -> Option<String> {
 /// - Cannot create directory
 /// - Cannot set permissions
 pub fn ensure_biomeos_directory() -> std::io::Result<PathBuf> {
+    #[cfg(unix)]
     let uid = universal_constants::sys_info::current_uid();
+    #[cfg(not(unix))]
+    let uid = 0u32;
     let biomeos_dir = format!("/run/user/{uid}/biomeos");
     let path = PathBuf::from(&biomeos_dir);
 

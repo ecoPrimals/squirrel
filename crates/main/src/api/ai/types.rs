@@ -8,31 +8,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Universal AI request for any action type
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "Action-based routing type; wired when ActionRegistry integrates with AiRouter"
-    )
-)]
-pub struct UniversalAiRequest {
-    /// The action to perform (e.g., "image.generation", "text.generation")
-    pub action: String,
-
-    /// Input data for the action (flexible JSON)
-    pub input: serde_json::Value,
-
-    /// Optional requirements for provider selection
-    #[serde(default)]
-    pub requirements: Option<ActionRequirements>,
-
-    /// Request metadata
-    #[serde(default)]
-    pub metadata: HashMap<String, String>,
-}
-
 /// Requirements for provider selection
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionRequirements {
@@ -62,49 +37,6 @@ impl Default for ActionRequirements {
             preferred_provider: None,
         }
     }
-}
-
-/// Universal AI response (constructed via JSON-RPC deserialization at runtime)
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "Action-based response; wired when ActionRegistry integrates"
-    )
-)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UniversalAiResponse {
-    /// The action that was performed
-    pub action: String,
-
-    /// Output data from the action (flexible JSON)
-    pub output: serde_json::Value,
-
-    /// Response metadata
-    pub metadata: ResponseMetadata,
-}
-
-/// Response metadata for transparency
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResponseMetadata {
-    /// Provider that fulfilled the request
-    pub provider_id: String,
-
-    /// Provider name for display
-    pub provider_name: String,
-
-    /// Cost in USD (if available)
-    pub cost_usd: Option<f64>,
-
-    /// Actual latency in milliseconds
-    pub latency_ms: u64,
-
-    /// Request timestamp
-    pub timestamp: chrono::DateTime<chrono::Utc>,
-
-    /// Additional provider-specific metadata
-    #[serde(default)]
-    pub extras: HashMap<String, serde_json::Value>,
 }
 
 /// Image generation request (specific action type)
@@ -305,29 +237,6 @@ mod tests {
         assert!(req.max_latency_ms.is_none());
         assert!(req.privacy_level.is_none());
         assert!(req.preferred_provider.is_none());
-    }
-
-    // ========== UniversalAiRequest/Response Serde Tests ==========
-
-    #[test]
-    fn test_universal_ai_request_serde() {
-        let req = UniversalAiRequest {
-            action: "text.generation".to_string(),
-            input: serde_json::json!({"prompt": "Hello"}),
-            requirements: Some(ActionRequirements::default()),
-            metadata: HashMap::new(),
-        };
-        let json = serde_json::to_string(&req).expect("should succeed");
-        let deser: UniversalAiRequest = serde_json::from_str(&json).expect("should succeed");
-        assert_eq!(deser.action, "text.generation");
-    }
-
-    #[test]
-    fn test_universal_ai_request_without_requirements() {
-        let json = r#"{"action":"test","input":"hello"}"#;
-        let req: UniversalAiRequest = serde_json::from_str(json).expect("should succeed");
-        assert!(req.requirements.is_none());
-        assert!(req.metadata.is_empty());
     }
 
     // ========== ImageGenerationRequest Tests ==========

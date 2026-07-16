@@ -42,6 +42,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+#[cfg(unix)]
 use tokio::net::UnixStream;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
@@ -152,7 +153,11 @@ impl UniversalAiAdapter {
         self
     }
 
-    /// Send JSON-RPC request via Unix socket
+    /// Send JSON-RPC request via Unix socket (or TCP fallback on non-Unix)
+    #[expect(
+        clippy::too_many_lines,
+        reason = "cfg(unix)/cfg(not(unix)) branches inflate line count"
+    )]
     async fn send_rpc_request<T, R>(&self, method: &str, params: T) -> Result<R, PrimalError>
     where
         T: Serialize,
@@ -178,7 +183,8 @@ impl UniversalAiAdapter {
             request_json.len()
         );
 
-        // Connect to Unix socket
+        // Connect to Unix socket (TCP fallback on non-Unix)
+        #[cfg(unix)]
         let mut stream = tokio::time::timeout(self.timeout, UnixStream::connect(&self.socket_path))
             .await
             .map_err(|_| {
@@ -196,6 +202,36 @@ impl UniversalAiAdapter {
                     e
                 ))
             })?;
+        #[cfg(not(unix))]
+        let mut stream = {
+            let addr: std::net::SocketAddr = self
+                .socket_path
+                .to_string_lossy()
+                .parse()
+                .unwrap_or_else(|_| {
+                    std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        universal_constants::network::get_service_port("jsonrpc"),
+                    ))
+                });
+            tokio::time::timeout(self.timeout, tokio::net::TcpStream::connect(addr))
+                .await
+                .map_err(|_| {
+                    PrimalError::NetworkError(format!(
+                        "Timeout connecting to {} at {}",
+                        self.metadata.name,
+                        self.socket_path.display()
+                    ))
+                })?
+                .map_err(|e| {
+                    PrimalError::NetworkError(format!(
+                        "Failed to connect to {} at {}: {}",
+                        self.metadata.name,
+                        self.socket_path.display(),
+                        e
+                    ))
+                })?
+        };
 
         universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut stream)
             .await
