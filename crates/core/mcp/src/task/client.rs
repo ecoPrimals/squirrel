@@ -5,10 +5,13 @@
 //!
 //! Uses JSON-RPC over Unix socket.
 
+use std::time::Duration;
+
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
+use universal_patterns::transport::{TransportEndpoint, connect_transport_with_timeout};
 
 use crate::task::json_rpc_types::{
     AssignTaskRequest, AssignTaskResponse, CancelTaskRequest, CancelTaskResponse,
@@ -177,27 +180,15 @@ impl MCPTaskClient {
 
         let request_bytes = serde_json::to_vec(&request).context("Failed to serialize request")?;
 
-        #[cfg(unix)]
-        let stream = tokio::net::UnixStream::connect(&socket_path)
-            .await
-            .context(format!("Failed to connect to task server at {socket_path}"))?;
-        #[cfg(not(unix))]
-        let stream = {
-            let addr: std::net::SocketAddr = socket_path.parse().unwrap_or_else(|_| {
-                std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    universal_constants::network::get_service_port("jsonrpc"),
-                ))
-            });
-            tokio::net::TcpStream::connect(addr)
+        let connect_timeout = Duration::from_millis(self.config.connect_timeout_ms);
+        let stream =
+            connect_transport_with_timeout(&TransportEndpoint::uds(socket_path), connect_timeout)
                 .await
-                .context(format!("Failed to connect to task server at {socket_path}"))?
-        };
+                .context(format!("Failed to connect to task server at {socket_path}"))?;
 
-        let (mut reader, mut writer) = stream.into_split();
+        let (mut reader, mut writer) = tokio::io::split(stream);
         writer.write_all(&request_bytes).await?;
-        writer.flush().await?;
-        drop(writer);
+        writer.shutdown().await?;
 
         let mut buf = Vec::new();
         reader.read_to_end(&mut buf).await?;

@@ -27,6 +27,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::time::{Duration, timeout};
 use tracing::{debug, info, warn};
 use universal_constants::network::resolve_capability_unix_socket;
+use universal_patterns::transport::{TransportEndpoint, connect_transport_with_timeout};
 
 /// Security provider client configuration
 #[derive(Debug, Clone)]
@@ -363,29 +364,20 @@ impl SecurityProviderClient {
     async fn send_request_once(&self, request: &JsonRpcRequest) -> Result<JsonValue> {
         let connect_timeout = Duration::from_secs(self.config.timeout_secs);
 
-        #[cfg(unix)]
-        let stream = timeout(
+        let stream = connect_transport_with_timeout(
+            &TransportEndpoint::uds(&self.config.socket_path),
             connect_timeout,
-            tokio::net::UnixStream::connect(&self.config.socket_path),
         )
         .await
-        .context("Timeout connecting to security provider socket")?
-        .context("Failed to connect to security provider socket")?;
-        #[cfg(not(unix))]
-        let stream = {
-            let addr: std::net::SocketAddr = self.config.socket_path.parse().unwrap_or_else(|_| {
-                std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    universal_constants::network::get_service_port("jsonrpc"),
-                ))
-            });
-            timeout(connect_timeout, tokio::net::TcpStream::connect(addr))
-                .await
-                .context("Timeout connecting to security provider socket")?
-                .context("Failed to connect to security provider socket")?
-        };
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::TimedOut {
+                anyhow::anyhow!("Timeout connecting to security provider socket")
+            } else {
+                anyhow::anyhow!("Failed to connect to security provider socket: {e}")
+            }
+        })?;
 
-        let (read_half, mut write_half) = stream.into_split();
+        let (read_half, mut write_half) = tokio::io::split(stream);
 
         // Serialize request
         let request_json =

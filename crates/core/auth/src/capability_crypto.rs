@@ -31,6 +31,7 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tracing::{debug, error, info};
 use universal_constants::network::resolve_capability_unix_socket;
+use universal_patterns::transport::{TransportEndpoint, connect_transport_with_timeout};
 
 /// Primary env for tiered resolution of the `crypto.sign` / signing socket (see [`resolve_capability_unix_socket`]).
 const CRYPTO_SIGN_CAPABILITY_SOCKET_ENV: &str = "CRYPTO_CAPABILITY_SOCKET";
@@ -349,27 +350,18 @@ impl CapabilityCryptoProvider {
         endpoint: &str,
         request: serde_json::Value,
     ) -> Result<serde_json::Value> {
-        #[cfg(unix)]
-        let mut stream = tokio::time::timeout(
+        let mut stream = connect_transport_with_timeout(
+            &TransportEndpoint::uds(endpoint),
             self.discovery_timeout,
-            tokio::net::UnixStream::connect(endpoint),
         )
         .await
-        .context("Discovery timeout")?
-        .context("Failed to connect to crypto provider")?;
-        #[cfg(not(unix))]
-        let mut stream = {
-            let addr: std::net::SocketAddr = endpoint.parse().unwrap_or_else(|_| {
-                std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    universal_constants::network::get_service_port("jsonrpc"),
-                ))
-            });
-            tokio::time::timeout(self.discovery_timeout, tokio::net::TcpStream::connect(addr))
-                .await
-                .context("Discovery timeout")?
-                .context("Failed to connect to crypto provider")?
-        };
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::TimedOut {
+                anyhow::anyhow!("Discovery timeout")
+            } else {
+                anyhow::anyhow!("Failed to connect to crypto provider: {e}")
+            }
+        })?;
 
         let request_str = serde_json::to_string(&request)?;
         stream.write_all(request_str.as_bytes()).await?;

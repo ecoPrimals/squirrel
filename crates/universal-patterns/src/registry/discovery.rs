@@ -9,12 +9,14 @@
 
 use serde_json::Value;
 use std::collections::HashMap;
+use std::io;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tracing::{debug, info, warn};
 
 use crate::traits::{PrimalCapability, PrimalContext, PrimalHealth, PrimalResult, PrimalType};
+use crate::transport::{TransportEndpoint, connect_transport_with_timeout};
 
 use super::DiscoveredPrimal;
 
@@ -326,38 +328,25 @@ impl PrimalDiscovery {
 
         let probe_timeout = std::time::Duration::from_millis(self.config.probe_timeout_ms);
 
-        // Platform-dispatch connect
-        #[cfg(unix)]
-        let connect_result =
-            tokio::time::timeout(probe_timeout, tokio::net::UnixStream::connect(socket_path)).await;
-        #[cfg(not(unix))]
-        let connect_result = {
-            let addr = socket_path
-                .to_str()
-                .and_then(|s| s.parse::<std::net::SocketAddr>().ok())
-                .unwrap_or_else(|| {
-                    std::net::SocketAddr::from((
-                        [127, 0, 0, 1],
-                        universal_constants::network::get_service_port("jsonrpc"),
-                    ))
-                });
-            tokio::time::timeout(probe_timeout, tokio::net::TcpStream::connect(addr)).await
-        };
-
-        let stream = match connect_result {
-            Ok(Ok(stream)) => stream,
-            Ok(Err(e)) => {
-                return Ok(DiscoveryResult {
-                    socket_path: socket_path.to_path_buf(),
-                    primal_info: None,
-                    status: DiscoveryStatus::ProbeFailed(format!("Connection failed: {}", e)),
-                });
-            }
-            Err(_) => {
+        let stream = match connect_transport_with_timeout(
+            &TransportEndpoint::uds(socket_path.to_string_lossy()),
+            probe_timeout,
+        )
+        .await
+        {
+            Ok(stream) => stream,
+            Err(e) if e.kind() == io::ErrorKind::TimedOut => {
                 return Ok(DiscoveryResult {
                     socket_path: socket_path.to_path_buf(),
                     primal_info: None,
                     status: DiscoveryStatus::Timeout,
+                });
+            }
+            Err(e) => {
+                return Ok(DiscoveryResult {
+                    socket_path: socket_path.to_path_buf(),
+                    primal_info: None,
+                    status: DiscoveryStatus::ProbeFailed(format!("Connection failed: {}", e)),
                 });
             }
         };

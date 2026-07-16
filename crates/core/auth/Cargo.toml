@@ -20,6 +20,7 @@ integration-tests = []
 # beardog = { path = "../../../../../beardog", version = "0.1.0" }  # Will be added in proper integration
 squirrel-mcp-config = { path = "../../config", version = "0.1.0" }
 universal-constants = { path = "../../universal-constants", version = "0.1.0" }
+universal-patterns = { path = "../../universal-patterns", version = "0.1.0" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }

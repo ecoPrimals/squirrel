@@ -54,12 +54,16 @@
 
 mod client;
 mod discovery;
+pub mod endpoint;
 mod listener;
 pub mod ribocipher;
 mod types;
 
 // Re-export all public types and functions
 pub use client::UniversalTransport;
+pub use endpoint::{
+    TransportEndpoint, TransportStream, connect_transport, connect_transport_with_timeout,
+};
 pub use listener::UniversalListener;
 pub use types::{
     InProcessTransport, IpcEndpoint, ListenerConfig, RemoteAddr, TransportConfig, TransportType,

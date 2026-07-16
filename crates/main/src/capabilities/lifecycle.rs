@@ -13,14 +13,13 @@
 
 use std::path::{Path, PathBuf};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-#[cfg(unix)]
-use tokio::net::UnixStream;
 use tokio::sync::watch;
 use tracing::{debug, info, warn};
 use universal_constants::env_vars;
 
 use crate::niche;
 use crate::primal_names;
+use crate::transport::{TransportEndpoint, connect_transport_with_timeout};
 use squirrel_mcp_config::unified::TimeoutConfig;
 
 /// Synchronous connect-probe per CAPABILITY_BASED_DISCOVERY_STANDARD v1.3.0 §5.
@@ -375,26 +374,11 @@ pub(crate) async fn send_jsonrpc_with_timeout(
     request: &serde_json::Value,
     read_timeout: std::time::Duration,
 ) -> anyhow::Result<serde_json::Value> {
-    #[cfg(unix)]
-    let stream = tokio::time::timeout(
+    let stream = connect_transport_with_timeout(
+        &TransportEndpoint::uds(socket.to_string_lossy()),
         TimeoutConfig::global().health_check_timeout(),
-        UnixStream::connect(socket),
     )
-    .await??;
-    #[cfg(not(unix))]
-    let stream = {
-        let addr: std::net::SocketAddr = socket.to_string_lossy().parse().unwrap_or_else(|_| {
-            std::net::SocketAddr::from((
-                [127, 0, 0, 1],
-                universal_constants::network::get_service_port("jsonrpc"),
-            ))
-        });
-        tokio::time::timeout(
-            TimeoutConfig::global().health_check_timeout(),
-            tokio::net::TcpStream::connect(addr),
-        )
-        .await??
-    };
+    .await?;
 
     let mut line = serde_json::to_string(request)?;
     line.push('\n');

@@ -29,10 +29,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-#[cfg(unix)]
-use tokio::net::UnixStream;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
+
+use crate::transport::{TransportEndpoint, connect_transport_with_timeout};
 
 /// Connect-probe liveness check per CAPABILITY_BASED_DISCOVERY_STANDARD v1.3.0 §5.
 ///
@@ -40,30 +40,12 @@ use uuid::Uuid;
 /// filesystem entries left after ungraceful shutdown. Stale sockets fail
 /// immediately with ECONNREFUSED; alive sockets accept within microseconds.
 pub async fn socket_is_alive(path: &Path) -> bool {
-    #[cfg(unix)]
-    {
-        tokio::time::timeout(
-            std::time::Duration::from_millis(50),
-            UnixStream::connect(path),
-        )
-        .await
-        .is_ok_and(|r| r.is_ok())
-    }
-    #[cfg(not(unix))]
-    {
-        let addr: std::net::SocketAddr = path.to_string_lossy().parse().unwrap_or_else(|_| {
-            std::net::SocketAddr::from((
-                [127, 0, 0, 1],
-                universal_constants::network::get_service_port("jsonrpc"),
-            ))
-        });
-        tokio::time::timeout(
-            std::time::Duration::from_millis(50),
-            tokio::net::TcpStream::connect(addr),
-        )
-        .await
-        .is_ok_and(|r| r.is_ok())
-    }
+    connect_transport_with_timeout(
+        &TransportEndpoint::uds(path.to_string_lossy()),
+        std::time::Duration::from_millis(50),
+    )
+    .await
+    .is_ok()
 }
 
 /// Discovered capability provider
@@ -416,26 +398,13 @@ async fn try_registry_query(
 ///
 /// Sends a JSON-RPC discovery request and parses the response
 pub async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, DiscoveryError> {
-    // Connect to socket (TCP fallback on non-Unix)
-    #[cfg(unix)]
-    let stream = UnixStream::connect(socket_path)
-        .await
-        .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?;
-    #[cfg(not(unix))]
-    let stream = {
-        let addr: std::net::SocketAddr =
-            socket_path.to_string_lossy().parse().unwrap_or_else(|_| {
-                std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    universal_constants::network::get_service_port("jsonrpc"),
-                ))
-            });
-        tokio::net::TcpStream::connect(addr)
-            .await
-            .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?
-    };
+    let stream = connect_transport_with_timeout(
+        &TransportEndpoint::uds(socket_path.to_string_lossy()),
+        TimeoutConfig::global().health_check_timeout(),
+    )
+    .await
+    .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?;
 
-    // Build discovery request (JSON-RPC 2.0)
     let request = serde_json::json!({
         "jsonrpc": "2.0",
         "method": "capability.discover",
@@ -446,7 +415,7 @@ pub async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, Disc
     let mut request_str = serde_json::to_string(&request)?;
     request_str.push('\n');
 
-    let (read_half, mut write_half) = stream.into_split();
+    let (read_half, mut write_half) = tokio::io::split(stream);
     universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut write_half)
         .await
         .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?;
@@ -530,27 +499,13 @@ async fn query_registry(
     registry_path: &Path,
     capability: &str,
 ) -> Result<CapabilityProvider, DiscoveryError> {
-    #[cfg(unix)]
-    let stream = UnixStream::connect(registry_path)
-        .await
-        .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?;
-    #[cfg(not(unix))]
-    let stream = {
-        let addr: std::net::SocketAddr =
-            registry_path.to_string_lossy().parse().unwrap_or_else(|_| {
-                std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    universal_constants::network::get_service_port("jsonrpc"),
-                ))
-            });
-        tokio::net::TcpStream::connect(addr)
-            .await
-            .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?
-    };
+    let stream = connect_transport_with_timeout(
+        &TransportEndpoint::uds(registry_path.to_string_lossy()),
+        TimeoutConfig::global().health_check_timeout(),
+    )
+    .await
+    .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?;
 
-    // Build capability.discover query (Neural API semantic routing)
-    // NUCLEUS FIX (Feb 3, 2026): Use correct method name for Neural API
-    // NOTE: Neural API requires integer IDs, not string UUIDs
     use std::sync::atomic::{AtomicU64, Ordering};
     static REQUEST_ID: AtomicU64 = AtomicU64::new(1);
     let id = REQUEST_ID.fetch_add(1, Ordering::SeqCst);
@@ -567,7 +522,7 @@ async fn query_registry(
     let mut request_str = serde_json::to_string(&request)?;
     request_str.push('\n');
 
-    let (read_half, mut write_half) = stream.into_split();
+    let (read_half, mut write_half) = tokio::io::split(stream);
     universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut write_half).await?;
     write_half.write_all(request_str.as_bytes()).await?;
 
@@ -696,21 +651,18 @@ fn get_socket_directories() -> Vec<PathBuf> {
 
 /// Check if path is a Unix socket
 async fn is_unix_socket(path: &Path) -> bool {
-    if let Ok(metadata) = fs::metadata(path).await {
-        #[cfg(unix)]
-        {
+    #[cfg(unix)]
+    {
+        if let Ok(metadata) = fs::metadata(path).await {
             use std::os::unix::fs::FileTypeExt;
             return metadata.file_type().is_socket();
         }
-
-        #[cfg(not(unix))]
-        {
-            // On non-Unix, check file extension as fallback
-            return path.extension().and_then(|s| s.to_str()) == Some("sock");
-        }
+        false
     }
-
-    false
+    #[cfg(not(unix))]
+    {
+        path.extension().and_then(|s| s.to_str()) == Some("sock")
+    }
 }
 
 /// Discover all available capabilities in the environment
