@@ -20,6 +20,7 @@ pub(crate) mod float_helpers;
 // Delegates AI HTTP calls via capability discovery (network specialist)
 // NO reqwest, NO ring! Pure Rust via Unix sockets!
 pub mod capability_ai;
+pub mod capability_ai_types;
 
 // Capability-based HTTP client (TRUE PRIMAL - agnostic network delegation!)
 // Discovers http.client capability - could be Songbird, could be ANY network primal!

@@ -5,6 +5,7 @@
 
 use super::jsonrpc_server::{JsonRpcError, JsonRpcServer, error_codes};
 use serde_json::Value;
+use squirrel_mcp_config::unified::TimeoutConfig;
 use tracing::{debug, info};
 
 impl JsonRpcServer {
@@ -104,34 +105,20 @@ impl JsonRpcServer {
         args: &Value,
         socket_path: &str,
     ) -> Result<Value, JsonRpcError> {
+        use crate::transport::{TransportEndpoint, connect_transport_with_timeout};
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-        #[cfg(unix)]
-        use tokio::net::UnixStream;
 
-        #[cfg(unix)]
-        let stream = UnixStream::connect(socket_path)
-            .await
-            .map_err(|e| JsonRpcError {
-                code: error_codes::INTERNAL_ERROR,
-                message: format!("Failed to connect to remote primal at {socket_path}: {e}"),
-                data: Some(serde_json::json!({ "tool": tool_name, "socket": socket_path })),
-            })?;
-        #[cfg(not(unix))]
-        let stream = {
-            let addr: std::net::SocketAddr = socket_path.parse().unwrap_or_else(|_| {
-                std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    universal_constants::network::get_service_port("jsonrpc"),
-                ))
-            });
-            tokio::net::TcpStream::connect(addr)
-                .await
-                .map_err(|e| JsonRpcError {
-                    code: error_codes::INTERNAL_ERROR,
-                    message: format!("Failed to connect to remote primal at {socket_path}: {e}"),
-                    data: Some(serde_json::json!({ "tool": tool_name, "socket": socket_path })),
-                })?
-        };
+        let endpoint = TransportEndpoint::uds(socket_path);
+        let stream = connect_transport_with_timeout(
+            &endpoint,
+            TimeoutConfig::global().health_check_timeout(),
+        )
+        .await
+        .map_err(|e| JsonRpcError {
+            code: error_codes::INTERNAL_ERROR,
+            message: format!("Failed to connect to remote primal at {socket_path}: {e}"),
+            data: Some(serde_json::json!({ "tool": tool_name, "socket": socket_path })),
+        })?;
 
         let request = serde_json::json!({
             "jsonrpc": "2.0",

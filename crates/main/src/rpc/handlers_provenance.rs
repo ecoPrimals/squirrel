@@ -20,6 +20,7 @@
 
 use super::jsonrpc_server::{JsonRpcError, JsonRpcServer, error_codes};
 use serde_json::Value;
+use squirrel_mcp_config::unified::TimeoutConfig;
 use tracing::{debug, info, warn};
 
 /// Maps a provenance method prefix to the capability domain used for socket discovery.
@@ -146,35 +147,14 @@ impl JsonRpcServer {
 
     /// Probe a socket with `capability.discover` and return advertised capability names.
     async fn probe_capabilities(&self, socket_path: &std::path::Path) -> Result<Vec<String>, ()> {
+        use crate::transport::{TransportEndpoint, connect_transport_with_timeout};
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-        #[cfg(unix)]
-        use tokio::net::UnixStream;
 
-        #[cfg(unix)]
-        let stream = tokio::time::timeout(
-            std::time::Duration::from_millis(500),
-            UnixStream::connect(socket_path),
-        )
-        .await
-        .map_err(|_| ())?
-        .map_err(|_| ())?;
-        #[cfg(not(unix))]
-        let stream = {
-            let addr: std::net::SocketAddr =
-                socket_path.to_string_lossy().parse().unwrap_or_else(|_| {
-                    std::net::SocketAddr::from((
-                        [127, 0, 0, 1],
-                        universal_constants::network::get_service_port("jsonrpc"),
-                    ))
-                });
-            tokio::time::timeout(
-                std::time::Duration::from_millis(500),
-                tokio::net::TcpStream::connect(addr),
-            )
-            .await
-            .map_err(|_| ())?
-            .map_err(|_| ())?
-        };
+        let endpoint = TransportEndpoint::uds(socket_path.to_string_lossy());
+        let stream =
+            connect_transport_with_timeout(&endpoint, std::time::Duration::from_millis(500))
+                .await
+                .map_err(|_| ())?;
 
         let request = serde_json::json!({
             "jsonrpc": "2.0",
@@ -182,7 +162,7 @@ impl JsonRpcServer {
             "id": 1
         });
 
-        let (reader, mut writer) = stream.into_split();
+        let (reader, mut writer) = tokio::io::split(stream);
         let mut line = serde_json::to_string(&request).map_err(|_| ())?;
         line.push('\n');
         writer.write_all(line.as_bytes()).await.map_err(|_| ())?;
@@ -213,44 +193,26 @@ impl JsonRpcServer {
     }
 
     /// Forward a JSON-RPC request to a remote socket (or TCP fallback on non-Unix).
-    #[expect(
-        clippy::too_many_lines,
-        reason = "cfg(unix)/cfg(not(unix)) branches inflate line count"
-    )]
     async fn forward_jsonrpc(
         &self,
         method: &str,
         params: Option<&Value>,
         socket_path: &str,
     ) -> Result<Value, JsonRpcError> {
+        use crate::transport::{TransportEndpoint, connect_transport_with_timeout};
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-        #[cfg(unix)]
-        use tokio::net::UnixStream;
 
-        #[cfg(unix)]
-        let stream = UnixStream::connect(socket_path)
-            .await
-            .map_err(|e| JsonRpcError {
-                code: error_codes::INTERNAL_ERROR,
-                message: format!("Failed to connect to provider at {socket_path}: {e}"),
-                data: Some(serde_json::json!({ "method": method, "socket": socket_path })),
-            })?;
-        #[cfg(not(unix))]
-        let stream = {
-            let addr: std::net::SocketAddr = socket_path.parse().unwrap_or_else(|_| {
-                std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    universal_constants::network::get_service_port("jsonrpc"),
-                ))
-            });
-            tokio::net::TcpStream::connect(addr)
-                .await
-                .map_err(|e| JsonRpcError {
-                    code: error_codes::INTERNAL_ERROR,
-                    message: format!("Failed to connect to provider at {socket_path}: {e}"),
-                    data: Some(serde_json::json!({ "method": method, "socket": socket_path })),
-                })?
-        };
+        let endpoint = TransportEndpoint::uds(socket_path);
+        let stream = connect_transport_with_timeout(
+            &endpoint,
+            TimeoutConfig::global().health_check_timeout(),
+        )
+        .await
+        .map_err(|e| JsonRpcError {
+            code: error_codes::INTERNAL_ERROR,
+            message: format!("Failed to connect to provider at {socket_path}: {e}"),
+            data: Some(serde_json::json!({ "method": method, "socket": socket_path })),
+        })?;
 
         let request = serde_json::json!({
             "jsonrpc": "2.0",
@@ -259,7 +221,7 @@ impl JsonRpcServer {
             "id": 1
         });
 
-        let (reader, mut writer) = stream.into_split();
+        let (reader, mut writer) = tokio::io::split(stream);
         let mut line = serde_json::to_string(&request).map_err(|e| JsonRpcError {
             code: error_codes::INTERNAL_ERROR,
             message: format!("Serialization error: {e}"),
@@ -283,7 +245,7 @@ impl JsonRpcServer {
 
         let mut buf_reader = BufReader::new(reader);
         let mut resp_line = String::new();
-        tokio::time::timeout(std::time::Duration::from_secs(30), async {
+        tokio::time::timeout(TimeoutConfig::global().request_timeout(), async {
             buf_reader.read_line(&mut resp_line).await
         })
         .await

@@ -247,10 +247,13 @@ impl ContextState {
     pub async fn shutdown(&mut self) -> Result<(), PrimalError> {
         info!("Shutting down context state management");
 
-        // Save active sessions to persistent storage
         for (session_id, session_context) in &self.active_sessions {
-            self.persist_session_context(session_id, session_context)
-                .await?;
+            if let Err(e) = self
+                .persist_session_context(session_id, session_context)
+                .await
+            {
+                tracing::warn!("Could not persist session {session_id} during shutdown: {e}");
+            }
         }
 
         // Clear active sessions
@@ -345,9 +348,10 @@ impl ContextState {
         session_id: &str,
         _session: &SessionContext,
     ) -> Result<(), PrimalError> {
-        // Simulate persisting session context
-        debug!("Persisting session context: {}", session_id);
-        Ok(())
+        debug!("Session context persistence requested for {session_id} — no storage backend wired");
+        Err(PrimalError::NotImplemented(
+            "Session context persistence requires a storage provider (nestGate IPC)".into(),
+        ))
     }
 
     fn matches_query(&self, session: &SessionContext, query: &str) -> bool {

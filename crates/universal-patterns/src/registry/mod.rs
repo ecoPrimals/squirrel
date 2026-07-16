@@ -24,7 +24,7 @@ pub use discovery::{
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 use crate::config::UniversalPrimalConfig;
 use crate::traits::{
@@ -158,24 +158,11 @@ impl UniversalPrimalRegistry {
             // This just discovers them and reports what's available
         }
 
-        // Process configured primal instances
         for primal_config in config.primal_instances.values() {
-            info!(
-                "Processing configured primal instance: {}",
-                primal_config.instance_id
+            tracing::warn!(
+                instance_id = %primal_config.instance_id,
+                "Configured primal instance noted — runtime registration via capability discovery, not static config"
             );
-
-            // NOTE: In a complete implementation, this would:
-            // 1. Connect to the primal via Unix socket (primal_config.socket_path)
-            // 2. Query capabilities via JSON-RPC
-            // 3. Perform health check
-            // 4. Register the primal if healthy
-            //
-            // For now, this is a placeholder that logs the configuration.
-            // Full implementation will be added when PrimalProvider trait
-            // includes a "connect_from_config" method.
-
-            debug!("Configured primal instance: {}", primal_config.instance_id);
         }
 
         Ok(())

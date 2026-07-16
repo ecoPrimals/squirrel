@@ -21,6 +21,7 @@ use universal_constants::env_vars;
 
 use crate::niche;
 use crate::primal_names;
+use squirrel_mcp_config::unified::TimeoutConfig;
 
 /// Synchronous connect-probe per CAPABILITY_BASED_DISCOVERY_STANDARD v1.3.0 §5.
 ///
@@ -357,7 +358,12 @@ pub(crate) async fn send_jsonrpc_public(
     socket: &Path,
     request: &serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {
-    send_jsonrpc_with_timeout(socket, request, std::time::Duration::from_secs(2)).await
+    send_jsonrpc_with_timeout(
+        socket,
+        request,
+        TimeoutConfig::global().health_check_timeout(),
+    )
+    .await
 }
 
 /// Like [`send_jsonrpc_public`] but with a configurable read timeout.
@@ -371,7 +377,7 @@ pub(crate) async fn send_jsonrpc_with_timeout(
 ) -> anyhow::Result<serde_json::Value> {
     #[cfg(unix)]
     let stream = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
+        TimeoutConfig::global().health_check_timeout(),
         UnixStream::connect(socket),
     )
     .await??;
@@ -384,7 +390,7 @@ pub(crate) async fn send_jsonrpc_with_timeout(
             ))
         });
         tokio::time::timeout(
-            std::time::Duration::from_secs(5),
+            TimeoutConfig::global().health_check_timeout(),
             tokio::net::TcpStream::connect(addr),
         )
         .await??

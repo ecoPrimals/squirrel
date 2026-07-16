@@ -23,6 +23,7 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use squirrel_mcp_config::unified::TimeoutConfig;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -291,8 +292,7 @@ async fn try_socket_scan(capability: &str) -> Result<Option<CapabilityProvider>,
     // Get socket directory from environment or use default
     let socket_dirs = get_socket_directories();
 
-    // Total scan timeout of 5 seconds
-    let scan_result = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+    let scan_result = tokio::time::timeout(TimeoutConfig::global().discovery_timeout(), async {
         for socket_dir in socket_dirs {
             debug!("Scanning socket directory: {:?}", socket_dir);
 
@@ -458,9 +458,8 @@ pub async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, Disc
     let mut reader = BufReader::new(read_half);
     let mut response_line = String::new();
 
-    // 2s timeout per socket probe
     match tokio::time::timeout(
-        std::time::Duration::from_secs(2),
+        TimeoutConfig::global().health_check_timeout(),
         reader.read_line(&mut response_line),
     )
     .await
@@ -575,9 +574,8 @@ async fn query_registry(
     let mut reader = BufReader::new(read_half);
     let mut response_line = String::new();
 
-    // Timeout to prevent hangs on unresponsive sockets
     match tokio::time::timeout(
-        std::time::Duration::from_secs(2),
+        TimeoutConfig::global().health_check_timeout(),
         reader.read_line(&mut response_line),
     )
     .await

@@ -27,6 +27,7 @@ use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult
 use crate::discovery::{PrimalSelfKnowledge, RuntimeDiscoveryEngine};
 use crate::error::PrimalError;
 use serde::{Deserialize, Serialize};
+use squirrel_mcp_config::unified::TimeoutConfig;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -426,33 +427,21 @@ impl UniversalClient {
         socket_path: &std::path::Path,
         request: &serde_json::Value,
     ) -> Result<serde_json::Value, PrimalError> {
+        use crate::transport::{TransportEndpoint, connect_transport_with_timeout};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
-        #[cfg(unix)]
-        use tokio::net::UnixStream;
 
-        #[cfg(unix)]
-        let mut stream = UnixStream::connect(socket_path).await.map_err(|e| {
+        let endpoint = TransportEndpoint::uds(socket_path.to_string_lossy());
+        let mut stream = connect_transport_with_timeout(
+            &endpoint,
+            TimeoutConfig::global().health_check_timeout(),
+        )
+        .await
+        .map_err(|e| {
             PrimalError::NetworkError(format!(
                 "Failed to connect to Unix socket {}: {e}",
                 socket_path.display()
             ))
         })?;
-        #[cfg(not(unix))]
-        let mut stream = {
-            let addr: std::net::SocketAddr =
-                socket_path.to_string_lossy().parse().unwrap_or_else(|_| {
-                    std::net::SocketAddr::from((
-                        [127, 0, 0, 1],
-                        universal_constants::network::get_service_port("jsonrpc"),
-                    ))
-                });
-            tokio::net::TcpStream::connect(addr).await.map_err(|e| {
-                PrimalError::NetworkError(format!(
-                    "Failed to connect to Unix socket {}: {e}",
-                    socket_path.display()
-                ))
-            })?
-        };
 
         let request_bytes = serde_json::to_vec(request)
             .map_err(|e| PrimalError::InvalidInput(format!("Failed to serialize: {e}")))?;

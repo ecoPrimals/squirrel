@@ -16,10 +16,7 @@ impl SwarmManager for FederationService {
         let instance_id = uuid::Uuid::new_v4().to_string();
         let instance_port = config.port;
 
-        tracing::info!("Spawning new Squirrel instance: {}", instance_id);
-
-        // In a real implementation, this would actually spawn a new process or container
-        // For now, we simulate the instance creation
+        tracing::info!("Registering Squirrel instance: {}", instance_id);
 
         let node_ip = std::env::var(universal_constants::env_vars::deploy::NODE_IP)
             .or_else(|_| std::env::var(universal_constants::env_vars::mcp::HOST))
@@ -42,7 +39,7 @@ impl SwarmManager for FederationService {
             metadata: config.metadata,
         };
 
-        tracing::info!("Successfully created instance: {}", instance_id);
+        tracing::info!("Registered instance: {instance_id}");
         self.instances.insert(instance_id, instance.clone());
         Ok(instance)
     }

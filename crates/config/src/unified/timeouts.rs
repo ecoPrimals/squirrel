@@ -201,6 +201,16 @@ fn default_session_timeout_secs() -> u64 {
 }
 
 impl TimeoutConfig {
+    /// Lazily-initialized global instance driven by env vars.
+    ///
+    /// Call sites that don't have a config injection path can use this
+    /// to avoid scattering inline `Duration::from_secs(N)` literals.
+    pub fn global() -> &'static Self {
+        use std::sync::OnceLock;
+        static INSTANCE: OnceLock<TimeoutConfig> = OnceLock::new();
+        INSTANCE.get_or_init(Self::from_env)
+    }
+
     /// Create a new TimeoutConfig with all environment variables loaded
     pub fn from_env() -> Self {
         Self {

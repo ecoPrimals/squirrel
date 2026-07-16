@@ -10,15 +10,13 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
-#[cfg(unix)]
-use tokio::net::UnixStream;
 use tokio::sync::RwLock;
-use tokio::time::timeout;
 use tracing::{debug, error, info};
 
 use super::HealthState;
 use super::types::{ComponentHealth, HealthSnapshot, MonitoringHealthCheckConfig};
 use crate::error::PrimalError;
+use crate::transport::{TransportEndpoint, connect_transport_with_timeout};
 
 /// Health monitoring system
 pub struct HealthMonitor {
@@ -276,33 +274,18 @@ impl HealthMonitor {
             if !Path::new(&path).exists() {
                 continue;
             }
-            match timeout(check_timeout, async {
-                #[cfg(unix)]
-                {
-                    UnixStream::connect(&path).await
-                }
-                #[cfg(not(unix))]
-                {
-                    let addr: std::net::SocketAddr = path.parse().unwrap_or_else(|_| {
-                        std::net::SocketAddr::from((
-                            [127, 0, 0, 1],
-                            universal_constants::network::get_service_port("jsonrpc"),
-                        ))
-                    });
-                    tokio::net::TcpStream::connect(addr).await
-                }
-            })
-            .await
+            match connect_transport_with_timeout(&TransportEndpoint::uds(&path), check_timeout)
+                .await
             {
-                Ok(Ok(_)) => {}
-                Ok(Err(e)) => {
-                    return Err(PrimalError::Network(format!(
-                        "Unix socket not accepting connections at {path}: {e}"
-                    )));
-                }
-                Err(_) => {
+                Ok(_) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {
                     return Err(PrimalError::Network(format!(
                         "Unix socket connection to {path} exceeded {check_timeout:?}"
+                    )));
+                }
+                Err(e) => {
+                    return Err(PrimalError::Network(format!(
+                        "Unix socket not accepting connections at {path}: {e}"
                     )));
                 }
             }

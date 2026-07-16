@@ -39,6 +39,7 @@ use super::{
 };
 use crate::error::PrimalError;
 use serde::{Deserialize, Serialize};
+use squirrel_mcp_config::unified::TimeoutConfig;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -143,7 +144,7 @@ impl UniversalAiAdapter {
             socket_path,
             capability: capability.to_string(),
             metadata,
-            timeout: Duration::from_secs(120), // 2 minute timeout
+            timeout: TimeoutConfig::global().ai_inference_timeout(),
         }
     }
 

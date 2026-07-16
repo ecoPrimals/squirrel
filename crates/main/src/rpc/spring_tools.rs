@@ -12,6 +12,7 @@ use crate::discovery::mechanisms::socket_registry::SocketRegistryDiscovery;
 use crate::error::PrimalError;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
+use squirrel_mcp_config::unified::TimeoutConfig;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::{debug, warn};
@@ -129,28 +130,16 @@ impl SpringToolDiscovery {
         &self,
         socket_path: &str,
     ) -> Result<Vec<SpringToolDef>, PrimalError> {
+        use crate::transport::{TransportEndpoint, connect_transport_with_timeout};
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-        #[cfg(unix)]
-        use tokio::net::UnixStream;
 
-        #[cfg(unix)]
-        let stream = tokio::time::timeout(Duration::from_secs(2), UnixStream::connect(socket_path))
-            .await
-            .map_err(|e| PrimalError::Internal(format!("unix connect timeout: {e}")))?
-            .map_err(PrimalError::Io)?;
-        #[cfg(not(unix))]
-        let stream = {
-            let addr: std::net::SocketAddr = socket_path.parse().unwrap_or_else(|_| {
-                std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    universal_constants::network::get_service_port("jsonrpc"),
-                ))
-            });
-            tokio::time::timeout(Duration::from_secs(2), tokio::net::TcpStream::connect(addr))
-                .await
-                .map_err(|e| PrimalError::Internal(format!("unix connect timeout: {e}")))?
-                .map_err(PrimalError::Io)?
-        };
+        let endpoint = TransportEndpoint::uds(socket_path);
+        let stream = connect_transport_with_timeout(
+            &endpoint,
+            TimeoutConfig::global().health_check_timeout(),
+        )
+        .await
+        .map_err(PrimalError::Io)?;
 
         let request = serde_json::json!({
             "jsonrpc": "2.0",
@@ -176,7 +165,7 @@ impl SpringToolDiscovery {
         let mut response_line = String::new();
 
         tokio::time::timeout(
-            Duration::from_secs(2),
+            TimeoutConfig::global().health_check_timeout(),
             buf_reader.read_line(&mut response_line),
         )
         .await
