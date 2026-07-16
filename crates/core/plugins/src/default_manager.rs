@@ -121,15 +121,10 @@ struct PluginManifestSection {
     version: String,
     description: String,
     author: String,
-    #[expect(dead_code, reason = "deserialized from TOML manifest at runtime")]
-    #[serde(default)]
-    capabilities: Option<toml::Value>,
-    #[expect(dead_code, reason = "deserialized from TOML manifest at runtime")]
-    #[serde(default)]
-    dependencies: Vec<toml::Value>,
 }
 
-/// Manifest format for plugin.json (flat structure)
+/// Manifest format for plugin.json (flat structure; unread fields like
+/// `capabilities` and `dependencies` are omitted — serde skips them)
 #[derive(serde::Deserialize)]
 struct PluginManifestJson {
     id: Uuid,
@@ -137,12 +132,6 @@ struct PluginManifestJson {
     version: String,
     description: String,
     author: String,
-    #[expect(dead_code, reason = "deserialized from JSON manifest at runtime")]
-    #[serde(default)]
-    capabilities: Option<serde_json::Value>,
-    #[expect(dead_code, reason = "deserialized from JSON manifest at runtime")]
-    #[serde(default)]
-    dependencies: Vec<serde_json::Value>,
 }
 
 /// Load plugins from a directory by scanning subdirectories for plugin.toml or plugin.json.

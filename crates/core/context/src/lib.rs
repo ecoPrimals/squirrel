@@ -115,6 +115,7 @@ pub mod sync;
 mod sync_tests;
 mod sync_types;
 pub mod tracker;
+#[cfg(feature = "context-visualization")]
 pub mod visualization;
 pub use error::{ContextError, Result};
 pub use manager::ContextManager;
@@ -123,7 +124,7 @@ pub use tracker::{ContextTracker, ContextTrackerFactory};
 // Re-export from rules module (only what exists)
 pub use rules::Rule;
 
-// Re-export from visualization module
+#[cfg(feature = "context-visualization")]
 pub use visualization::{
     VisualizationConfig, VisualizationManager, VisualizationRequest, VisualizationResponse,
     VisualizationSystem, VisualizationSystemConfig, VisualizationType,

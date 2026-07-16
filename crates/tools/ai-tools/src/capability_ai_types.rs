@@ -89,16 +89,10 @@ pub(crate) struct JsonRpcRequest {
     pub params: JsonValue,
 }
 
-/// JSON-RPC 2.0 response
+/// JSON-RPC 2.0 response (unread wire fields omitted — serde skips them)
 #[derive(Debug, Deserialize)]
 pub(crate) struct JsonRpcResponse {
-    #[expect(dead_code, reason = "deserialized from JSON-RPC at runtime")]
-    pub jsonrpc: String,
-    #[expect(dead_code, reason = "deserialized from JSON-RPC at runtime")]
-    pub id: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<JsonValue>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<JsonRpcError>,
 }
 
@@ -107,7 +101,4 @@ pub(crate) struct JsonRpcResponse {
 pub(crate) struct JsonRpcError {
     pub code: i32,
     pub message: String,
-    #[expect(dead_code, reason = "deserialized from JSON-RPC at runtime")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<JsonValue>,
 }

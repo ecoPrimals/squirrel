@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (July 16, 2026 — Wave 145a: Deep Debt Sweep — Feature-Gate + Type Extraction + Dead-Code Cleanup)
+
+- **Visualization feature-gated**: `context-visualization` feature added to `squirrel-context`; ~3.1k LOC + 6 `dead_code` attrs excluded from default builds. `context-learning` now depends on `context-visualization` (learning uses visualization types). Mirrors the existing `context-learning` pattern. Faster default CI builds.
+- **Threshold files split**: `universal_executor.rs` (794→633L) — executor types extracted to `executor_types.rs` (176L). `routing/agent.rs` (794→479L) — agent types, health config, and stats extracted to `agent_types.rs` (329L). Both now well under the 800-line threshold with headroom for growth.
+- **JSON-RPC dead_code cleanup**: 13 `#[expect(dead_code)]` attrs eliminated by removing unread serde fields from deserialization structs (`jsonrpc`, `id`, `data` in JSON-RPC responses; `capabilities`, `dependencies` in plugin manifests). Serde skips unknown fields by default — no wire compatibility change.
+- **Workspace**: 16 crates, 989 files, ~308k lines.
+- **7,171 tests passing**. 0 failed. Clippy clean. Windows cross-compile green.
+
 ### Summary (July 16, 2026 — Wave 144a: Phase 2 Transport SHIPPED + SecretStore + Mock Evolution)
 
 - **Phase 2 transport SHIPPED**: `TransportEndpoint`, `TransportStream`, `connect_transport*` extracted from `main/transport.rs` to `universal-patterns/transport/endpoint.rs`. 12 call sites across 6 crates migrated from raw `#[cfg]` blocks. ~564 lines of duplicated platform-gating eliminated. MCP task client: missing connect timeout added, EOF-on-split bug fixed.

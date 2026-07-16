@@ -21,6 +21,7 @@ use uuid::Uuid;
 
 pub mod consensus;
 pub mod cross_platform;
+pub mod executor_types;
 pub mod federation_network;
 pub mod network;
 pub mod network_connection;

@@ -33,6 +33,7 @@
 //! ```
 
 pub mod agent;
+pub mod agent_types;
 pub mod balancer;
 pub mod config;
 pub mod context;

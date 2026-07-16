@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: July 16, 2026 (Wave 144a — Phase 2 Transport SHIPPED + SecretStore + Mock Evolution)
+**Last Updated**: July 16, 2026 (Wave 145a — Deep Debt: Feature-Gate + Type Extraction + Dead-Code Cleanup)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -26,7 +26,7 @@
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors + `anyhow::Result` (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`, `anyhow::Error`) |
 | Crates | 16 workspace members |
-| Files >800 lines (prod) | 0 — `jsonrpc_server.rs` split (829L → 336L server + 474L connection handler); `provider_trait.rs` refactored 983→728L; `env_vars.rs` (1091L) → module tree (36 files, max 107L); largest prod file: 796L |
+| Files >800 lines (prod) | 0 — `universal_executor.rs` split (794→633L types extracted); `routing/agent.rs` split (794→479L types extracted); `jsonrpc_server.rs` split (829→336L); `provider_trait.rs` refactored 983→728L; `env_vars.rs` (1091L) → module tree (36 files, max 107L); largest prod file: 788L |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — zero `#[allow(` remaining; dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |

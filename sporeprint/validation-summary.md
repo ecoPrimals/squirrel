@@ -1,6 +1,6 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,160+ tests, 42+ IPC methods, 90% coverage."
+description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,171 tests, 42+ IPC methods, 90% coverage."
 date = 2026-07-16
 
 [taxonomies]
@@ -14,7 +14,7 @@ springs = []
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
 - **Tests**: 7,171 passing across 16 workspace crates
-- **Source**: 985 `.rs` files, ~307.9k lines
+- **Source**: 989 `.rs` files, ~308k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced

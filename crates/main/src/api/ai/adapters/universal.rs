@@ -56,17 +56,11 @@ struct JsonRpcRequest<T> {
     id: String,
 }
 
-/// JSON-RPC response format
+/// JSON-RPC response format (unread wire fields omitted — serde skips them)
 #[derive(Debug, Clone, Deserialize)]
 struct JsonRpcResponse<T> {
-    #[expect(dead_code, reason = "Deserialized for completeness; not read")]
-    jsonrpc: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<T>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<JsonRpcError>,
-    #[expect(dead_code, reason = "Deserialized for completeness; not read")]
-    id: String,
 }
 
 /// JSON-RPC error details
@@ -74,9 +68,6 @@ struct JsonRpcResponse<T> {
 struct JsonRpcError {
     code: i32,
     message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[expect(dead_code, reason = "Deserialized for completeness; not read")]
-    data: Option<serde_json::Value>,
 }
 
 /// Provider metadata from discovery

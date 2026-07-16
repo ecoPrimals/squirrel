@@ -440,16 +440,10 @@ struct JsonRpcRequest {
     params: JsonValue,
 }
 
-/// JSON-RPC 2.0 response
+/// JSON-RPC 2.0 response (unread wire fields omitted — serde skips them)
 #[derive(Debug, Deserialize)]
 struct JsonRpcResponse {
-    #[expect(dead_code, reason = "deserialized from JSON-RPC at runtime")]
-    jsonrpc: String,
-    #[expect(dead_code, reason = "deserialized from JSON-RPC at runtime")]
-    id: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<JsonValue>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<JsonRpcError>,
 }
 
@@ -458,9 +452,6 @@ struct JsonRpcResponse {
 struct JsonRpcError {
     code: i32,
     message: String,
-    #[expect(dead_code, reason = "deserialized from JSON-RPC at runtime")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data: Option<JsonValue>,
 }
 
 /// Deprecated alias for [`SecurityProviderClientConfig`].
