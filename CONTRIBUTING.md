@@ -69,4 +69,4 @@ The loopback whitelist was hardcoded. Now reads SQUIRREL_RATE_LIMIT_WHITELIST
 ## Handoffs
 
 Session work is tracked via wateringHole handoffs. If your session is
-incomplete, write a handoff to `wateringHole/handoffs/` before stopping.
+incomplete, write a handoff to `ecoPrimals/infra/wateringHole/handoffs/` before stopping.

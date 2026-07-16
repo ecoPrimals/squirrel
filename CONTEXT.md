@@ -16,8 +16,8 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 | Item | Value |
 |------|--------|
 | Language | Rust, **edition 2024** |
-| Workspace | **22** crates (see `Cargo.toml` `members`) |
-| Scale | ~**321k** lines across **~1,023** `.rs` files |
+| Workspace | **16** crates (see `Cargo.toml` `members`) |
+| Scale | ~**307.5k** lines across **983** `.rs` files |
 | Native deps | **Pure Rust** default build — no C dependencies in the standard ecoBin path |
 | Code license | **AGPL-3.0-or-later** (workspace `license`; see License section for full public framing) |
 | Version | **v0.1.0** (root `Cargo.toml` workspace package version); older docs may cite **0.1.0-alpha.*** tags — status **pre-alpha** |
@@ -30,7 +30,6 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 - MCP protocol implementation and coordination.
 - Plugin system (unified plugin manager under `crates/core/plugins`).
 - CLI and developer tools (`squirrel-cli`, `squirrel-ai-tools`).
-- Rule system (`squirrel-rule-system`).
 - Ecosystem integration (capability discovery, `ecosystem-api` client/types).
 
 ## Key crates (names)
@@ -46,7 +45,7 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 | `universal-constants` | Shared constants, identity, sys_info |
 | `ecosystem-api` | Ecosystem API types and client |
 
-Other workspace crates include auth, context, interfaces, plugins, config, commands, SDK, integration adapters, `universal-error`, and adapter-pattern examples/tests.
+Other workspace crates include auth, context, interfaces, plugins, config, commands, SDK, `universal-error`.
 
 ## IPC and discovery (summary)
 
@@ -74,9 +73,8 @@ Other workspace crates include auth, context, interfaces, plugins, config, comma
 
 ## Test suite
 
-- **6,809** tests passing, 0 failures.
+- **7,160** tests passing, 0 failures.
 - **Zero `.unwrap()`** and **zero `panic!()`** in production code — all error handling is typed.
-- **Resilience** and integration tests (e.g. under `crates/main/tests/chaos`).
 - **Property-based** tests (e.g. `proptest` for serialization invariants).
 - **Coverage** **90.1%** region coverage / **89.6%** line coverage (all features; see `CURRENT_STATUS.md` for latest `cargo-llvm-cov` figure). **90% target met.**
 

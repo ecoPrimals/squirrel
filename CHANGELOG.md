@@ -11,6 +11,36 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (July 16, 2026 — Wave 142b-debt: Orphan Purge + Hardcoding Evolution)
+
+- **4 orphan crates purged** (-14,535 lines): `adapter-pattern-examples`, `adapter-pattern-tests`, `integration/*` (umbrella + context-adapter + ecosystem), `rule-system`. All had zero external consumers.
+- **Hardcoded ports centralized**: Server port literals (9010/9011/9012) → named constants `DEFAULT_SQUIRREL_{SERVER,GRPC,WS}_PORT`. IPC service ID `"nat0"` → `identity::DEFAULT_ECOSYSTEM_IPC_SERVICE`.
+- **Security client stubs evolved**: `apply_ai_security_routing` → `Err(NotImplemented)`, `get_ai_security_insights` → honest "not_available" status, `get_config_based_recommendations` → empty until wired.
+- **Clone-in-loop fix**: `self_healing/mod.rs` HashMap clone → collect keys then iterate.
+- **Workspace**: 16 crates, 983 files, ~307.5k lines.
+- **7,160 tests passing**. 0 failed. Clippy clean. Windows cross-compile green.
+
+### Summary (July 16, 2026 — Wave 142b: Phase 2 Transport Abstraction + Deep Debt)
+
+- **Phase 2 transport**: 6 `main/` call sites migrated from raw `#[cfg(unix)]`/`#[cfg(not(unix))]` blocks to `TransportEndpoint` + `connect_transport_with_timeout()`. ~200 lines of duplicated platform-gating removed.
+- **`TimeoutConfig::global()`**: Lazy `OnceLock` singleton; 8 production hot paths wired from inline `Duration::from_secs(N)` to env-overridable config (`SQUIRREL_*_TIMEOUT_SECS`).
+- **`capability_ai.rs` split**: 803 → 700 lines; types extracted to `capability_ai_types.rs`.
+- **Production stubs evolved**: `persist_session_context` → `Err(NotImplemented)`, `swarm.rs` registration comment honesty, registry placeholder cleanup.
+
+### Summary (July 15, 2026 — Wave 141b: Windows Harvest Unblock + Deep Debt)
+
+- **Windows cross-compile unblocked**: 20+ files gated with `#[cfg(unix)]`/`#[cfg(not(unix))]` for `UnixStream`/`UnixListener` imports and `current_uid()` calls. TCP fallback on non-Unix via `get_service_port("jsonrpc")`.
+- **Dead code deleted**: `action_registry.rs` (254 lines, Phase 6 stub with zero callers).
+- **Mocks evolved**: `update_managed_config()` → `Err(NotImplemented)`, `train()` honest no-op, metrics collector fabricated zeros removed, `infer_primal_type_from_capabilities()` replaces hardcoded `BiomeOS`.
+- **Hardcoded `9200` centralized** to `get_service_port("jsonrpc")`.
+- **7,434 all-features tests passing** (pre-orphan purge). Windows `cargo check --target x86_64-pc-windows-gnu` green.
+
+### Summary (July 15, 2026 — Wave 141a: Cross-Architecture UDS→Platform Transport Gating)
+
+- **4 files** migrated from raw `UnixStream` to `#[cfg(unix)]`/`#[cfg(not(unix))]` pattern with TCP fallback: `ipc_client/connection.rs`, `registry/discovery.rs`, `capability_crypto.rs`, `security_provider_client.rs`.
+- **Clippy fixes**: empty line after doc comment, uninlined format args in mDNS/DNS-SD.
+- **6,809 default tests + 7,434 all-features tests passing**. Windows cross-compile green.
+
 ### Summary (June 28, 2026 — Wave 129: Mock Evolution + Timeout Threading + Dead Module Purge)
 
 - **Dead modules purged**: `chaos/mod.rs` (682 lines, zero callers) and `universal_provider.rs` + `universal_provider_tests.rs` (1,128 lines, zero callers) deleted. All production mocks that fabricated success data eliminated.

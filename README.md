@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 6,809 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 3.5 MB | **Methods**: 42+ IPC (42 registered + provenance proxy)
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,160 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 4.4 MB | **Methods**: 42+ IPC (42 registered + provenance proxy)
 
 ---
 
@@ -100,7 +100,7 @@ Runtime registration: any primal can call `inference.register_provider` to dynam
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   6,809 tests passing (0 failures) | ~1,023 `.rs` files | ~321k lines | zero Box<dyn Error> in prod
+Fitness:   7,160 tests passing (0 failures) | 983 `.rs` files | ~307.5k lines | zero Box<dyn Error> in prod
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
@@ -146,10 +146,9 @@ squirrel/
 │   │   ├── interfaces/       # Core trait definitions
 │   │   └── plugins/          # Plugin system (unified manager)
 │   ├── config/               # Unified configuration
-│   ├── tools/                # CLI, AI tools, rule system
+│   ├── tools/                # CLI, AI tools
 │   ├── services/             # Command services
 │   ├── sdk/                  # SDK for integration
-│   ├── integration/          # Context adapter, ecosystem integration
 │   ├── ecosystem-api/        # Ecosystem API types and client
 │   ├── universal-constants/  # Shared constants, primal identity, sys_info
 │   ├── universal-error/      # Unified error types
@@ -190,7 +189,7 @@ Storage endpoint resolution uses defaults. No primal dependency is hard-gated.
 
 ## Code Standards
 
-- `unsafe_code = "forbid"` in workspace `[lints.rust]` — enforced across all 22 crates
+- `unsafe_code = "forbid"` in workspace `[lints.rust]` — enforced across all 16 crates
 - `clippy::expect_used` + `clippy::unwrap_used` = `deny` workspace-wide (test-only `cfg_attr` allows)
 - `#![warn(missing_docs)]` on all library crates
 - `cargo clippy` with `pedantic` + `nursery` + `cargo` lints — zero errors under `-D warnings`
@@ -199,7 +198,7 @@ Storage endpoint resolution uses defaults. No primal dependency is hard-gated.
 - Pure Rust: zero C dependencies in default build (ecoBin v3.0 compliant — `sysinfo` removed)
 - Production files under 800 lines (test-only files may be larger)
 - SPDX `AGPL-3.0-or-later` license header on all `.rs` files
-- Edition 2024 across all 22 workspace crates
+- Edition 2024 across all 16 workspace crates
 - `tracing` for structured logging (no `println!` in production code)
 - Typed errors via `thiserror`; `.context()` on all key error paths
 - Zero-copy patterns: `Arc<str>`, `bytes::Bytes`, `Cow<str>` on hot paths

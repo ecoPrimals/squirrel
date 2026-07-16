@@ -1,7 +1,7 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 6,809+ tests, 42+ IPC methods, 90% coverage."
-date = 2026-06-28
+description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,160+ tests, 42+ IPC methods, 90% coverage."
+date = 2026-07-16
 
 [taxonomies]
 primals = ["squirrel"]
@@ -13,16 +13,16 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: 6,809 passing across 22 workspace crates
-- **Source**: ~1,023 `.rs` files, ~321k lines
+- **Tests**: 7,160 passing across 16 workspace crates
+- **Source**: 983 `.rs` files, ~307.5k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced
 - **Coverage**: 90.14% region / 89.67% line (cargo-llvm-cov)
-- **Binary**: 3.5 MB static-pie musl, stripped, BLAKE3 checksummed, zero host paths
+- **Binary**: 4.4 MB static-pie musl, stripped, BLAKE3 checksummed, zero host paths
 - **Transport**: Full Phase 2 — `TRANSPORT_ENDPOINT` accepted + `connect_transport()` for all outbound IPC + Eukaryotic riboCipher: MitoBeacon (`0xEC`/`0xED`) accepted + outbound `[0xEC, 0x01]` preamble on all UDS
 - **HTTP IPC**: Raw TCP JSON-RPC delegation (zero external HTTP deps, uniBin compliant)
-- **Files >800L (prod)**: 0 — `jsonrpc_server.rs` split (829L → 339L server + 474L connection handler); `env_vars.rs` refactored to module tree
+- **Files >800L (prod)**: 0 — all production files under 800 lines
 - **Hardcoding**: Evolved — 14 production files migrated from literal localhost/ports to capability-based discovery
 - **TRUE PRIMAL**: `niche::REQUIRED_CAPABILITIES` replaces named-primal `DEPENDENCIES`; `capability_id` field on `EcosystemServiceRegistration`; `EcosystemPrimalType` production uses annotated `#[expect(deprecated)]`
 - **Metrics**: Real `/proc` reads (CPU, memory, disk I/O, network I/O) replace simulated values; `RequestTracker` unified between `JsonRpcServer` and `MetricsCollector` — single `Arc` shared at startup. `context_state.active_sessions` live from `ContextManager`. Dead helpers (`get_cpu_usage`, `get_memory_usage`, `get_memory_percentage`) wired, `#[expect(dead_code)]` removed.
@@ -116,6 +116,16 @@ Squirrel is the **intelligence router** for all compositions requiring AI infere
 - Replaced hardcoded `0.0.0.0` fallbacks with `LOCALHOST_IPV4`
 - Expanded `extract_input_data` to recognize `system_message`, `query`, `content`, `input`
 - 13 new depth tests (security concurrency, RPC edge cases, malformed input)
+
+## Wave 142b — Phase 2 Transport Abstraction + Orphan Purge (July 16, 2026)
+
+- Phase 2 transport: 6 main/ call sites migrated from raw #[cfg] blocks to TransportEndpoint + connect_transport_with_timeout()
+- TimeoutConfig::global() lazy accessor; 8 production hot paths wired from inline Duration literals to env-overridable config
+- Split capability_ai.rs (803→700L) — types extracted to capability_ai_types.rs
+- Removed 4 orphan crates (-14,535 lines): adapter-pattern-examples, adapter-pattern-tests, integration/*, rule-system
+- Centralized hardcoded ports to named constants; IPC service ID to identity constant
+- Security client stubs evolved to honest behavior (NotImplemented / empty / real validation)
+- Clone-in-loop fix in self_healing/mod.rs
 
 ## Degradation
 
