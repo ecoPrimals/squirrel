@@ -280,8 +280,14 @@ pub const DEFAULT_DISCOVERY_PORT: u16 = 8001;
 )]
 pub const DEFAULT_SONGBIRD_PORT: u16 = DEFAULT_DISCOVERY_PORT;
 
-/// Fallback Squirrel main server port
+/// Fallback Squirrel HTTP server port
 pub const DEFAULT_SQUIRREL_SERVER_PORT: u16 = 9010;
+
+/// Fallback Squirrel gRPC server port
+pub const DEFAULT_SQUIRREL_GRPC_PORT: u16 = 9011;
+
+/// Fallback Squirrel WebSocket server port
+pub const DEFAULT_SQUIRREL_WS_PORT: u16 = 9012;
 
 /// Default port for JSON-RPC / MCP API server (HTTP)
 ///

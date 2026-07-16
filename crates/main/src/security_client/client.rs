@@ -475,61 +475,38 @@ impl UniversalSecurityClient {
         &self,
         _request: &mut SecurityRequest,
     ) -> Result<(), PrimalError> {
-        // Use ai_metadata field for intelligent security request routing
-        debug!("Applying AI-enhanced security routing for request");
-
-        // Simplified AI routing without accessing undefined fields
-        // Apply basic security enhancements
-        debug!("AI applied security routing enhancements");
-
-        Ok(())
+        Err(PrimalError::NotImplemented(
+            "AI-enhanced security routing requires BearDog security provider IPC".into(),
+        ))
     }
 
     /// Get AI security insights using `ai_metadata`
+    #[must_use]
     pub fn get_ai_security_insights(&self) -> serde_json::Value {
-        // Use ai_metadata field to generate AI-powered security insights
-        debug!("Generating AI-powered security insights");
-
         serde_json::json!({
-            "threat_landscape": "moderate",
-            // ✅ NEW: Capability-based recommendations (no hardcoded provider names)
+            "status": "not_available",
+            "reason": "AI security insights require BearDog security provider IPC",
             "recommended_capabilities": ["security.authentication", "security.encryption"],
-            // NOTE: Discover actual providers at runtime via UniversalAdapterV2
-            "optimization_suggestions": ["enable_batching", "increase_timeout"],
-            "risk_assessment": "low",
-            "ai_confidence": 0.85,
-            "last_updated": chrono::Utc::now().to_rfc3339()
+            "last_checked": chrono::Utc::now().to_rfc3339()
         })
     }
 
-    /// Validate configuration compatibility with AI metadata using both fields
+    /// Validate configuration compatibility with AI metadata
     pub fn validate_ai_config_compatibility(&self) -> Result<bool, PrimalError> {
-        // Use both config and ai_metadata fields for comprehensive validation
-        debug!("Validating AI-config compatibility");
-
-        // Simplified validation without accessing undefined fields
-        info!("AI-config compatibility validation passed");
-        Ok(true)
+        let has_capabilities = !self.config.preferred_capabilities.is_empty();
+        if !has_capabilities {
+            debug!("Security config has no preferred capabilities configured");
+        }
+        Ok(has_capabilities)
     }
 
-    /// Get configuration-based security recommendations using config field
-    pub fn get_config_based_recommendations(&self) -> Vec<serde_json::Value> {
-        // Use config field to generate configuration-specific recommendations
-        let mut recommendations = Vec::new();
-
-        // Simplified recommendations without accessing undefined fields
-        recommendations.push(serde_json::json!({
-            "category": "optimization",
-            "severity": "medium",
-            "description": "Enable AI enhancement for intelligent security routing",
-            "suggested_value": "true"
-        }));
-
-        debug!(
-            "Generated {} configuration-based security recommendations",
-            recommendations.len()
-        );
-        recommendations
+    /// Get configuration-based security recommendations.
+    ///
+    /// Returns an empty list — real recommendations require runtime analysis
+    /// via the `BearDog` security provider.
+    #[must_use]
+    pub const fn get_config_based_recommendations(&self) -> Vec<serde_json::Value> {
+        Vec::new()
     }
 
     /// Update AI metadata based on security patterns using `ai_metadata` field

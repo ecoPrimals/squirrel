@@ -3,24 +3,6 @@
 version = 4
 
 [[package]]
-name = "adapter-pattern-examples"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "thiserror 1.0.69",
- "tokio",
- "tokio-test",
- "uuid",
-]
-
-[[package]]
-name = "adapter-pattern-tests"
-version = "0.1.0"
-dependencies = [
- "tokio",
-]
-
-[[package]]
 name = "aead"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3217,23 +3199,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "squirrel-context-adapter"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "serde",
- "serde_json",
- "squirrel-context",
- "squirrel-interfaces",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
- "tokio-test",
- "universal-constants",
-]
-
-[[package]]
 name = "squirrel-core"
 version = "0.1.0"
 dependencies = [
@@ -3260,32 +3225,6 @@ dependencies = [
  "universal-constants",
  "universal-patterns",
  "url",
- "uuid",
-]
-
-[[package]]
-name = "squirrel-ecosystem-integration"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tracing",
-]
-
-[[package]]
-name = "squirrel-integration"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "futures",
- "serde",
- "serde_json",
- "squirrel-ai-tools",
- "thiserror 1.0.69",
- "tokio",
- "tokio-test",
- "tracing",
- "universal-constants",
  "uuid",
 ]
 
@@ -3400,26 +3339,6 @@ dependencies = [
  "toml",
  "tracing",
  "universal-constants",
- "uuid",
-]
-
-[[package]]
-name = "squirrel-rule-system"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "glob",
- "regex",
- "serde",
- "serde_json",
- "serde_yaml_ng",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
- "tokio-test",
- "toml",
- "tracing",
  "uuid",
 ]
 

@@ -3,7 +3,7 @@ resolver = "2"
 members = [
     # Main application
     "crates/main",
-    
+
     # Core components
     "crates/core/interfaces",
     "crates/core/context",
@@ -11,39 +11,27 @@ members = [
     "crates/core/core",
     "crates/core/plugins",
     "crates/core/auth",
-    
-    # Integration components (vendor-agnostic patterns)
-    "crates/integration/context-adapter",
-    "crates/integration/ecosystem",
-    
+
     # Service components
     "crates/services/commands",
-    
+
     # Tool components
     "crates/tools/ai-tools",
     "crates/tools/cli",
-    "crates/tools/rule-system",
-    
+
     # SDK components
     "crates/sdk",
-    
+
     # Configuration
     "crates/config",
-    
+
     # Universal
     "crates/universal-patterns",
     "crates/universal-constants",
     "crates/universal-error",
-    
-    # Integration (umbrella)
-    "crates/integration",
-    
+
     # Ecosystem API
     "crates/ecosystem-api",
-    
-    # Adapter patterns
-    "crates/adapter-pattern-examples",
-    "crates/adapter-pattern-tests",
 ]
 
 [workspace.package]
@@ -137,7 +125,6 @@ futures-util = "0.3"
 # Internal crate dependencies
 squirrel-ai-tools = { path = "crates/tools/ai-tools", version = "0.1.0" }
 squirrel-mcp-config = { path = "crates/config", version = "0.1.0" }
-squirrel-integration = { path = "crates/integration", version = "0.1.0" }
 ecosystem-api = { path = "crates/ecosystem-api", version = "0.1.0" }
 squirrel-interfaces = { path = "crates/core/interfaces", version = "0.1.0" }
 squirrel-context = { path = "crates/core/context", version = "0.1.0" }

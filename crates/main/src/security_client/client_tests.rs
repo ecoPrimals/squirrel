@@ -12,6 +12,7 @@ mod tests {
         LocationContext, RiskLevel, SecurityClientConfig, SecurityContext, SecurityOperation,
         SecurityPayload, TemporalContext, TrustLevel, UniversalSecurityRequest,
     };
+    use crate::error::PrimalError;
     use crate::security::types::{
         SecurityContext as LegacySecurityContext, SecurityRequest, SecurityRequestType,
     };
@@ -86,7 +87,7 @@ mod tests {
     }
 
     #[test]
-    fn test_apply_ai_security_routing() {
+    fn test_apply_ai_security_routing_returns_not_implemented() {
         let ecosystem = Arc::new(UniversalPrimalEcosystem::new(test_context()));
         let config = SecurityClientConfig::default();
         let client = UniversalSecurityClient::new(ecosystem, config, test_context());
@@ -98,9 +99,13 @@ mod tests {
             context: LegacySecurityContext::default(),
             timestamp: chrono::Utc::now(),
         };
-        client
+        let err = client
             .apply_ai_security_routing(&mut request)
-            .expect("apply routing");
+            .expect_err("should return NotImplemented");
+        assert!(
+            matches!(err, PrimalError::NotImplemented(_)),
+            "Expected NotImplemented, got {err:?}"
+        );
     }
 
     #[test]
@@ -109,9 +114,8 @@ mod tests {
         let config = SecurityClientConfig::default();
         let client = UniversalSecurityClient::new(ecosystem, config, test_context());
         let insights = client.get_ai_security_insights();
-        assert!(insights.get("threat_landscape").is_some());
+        assert!(insights.get("status").is_some());
         assert!(insights.get("recommended_capabilities").is_some());
-        assert!(insights.get("ai_confidence").is_some());
     }
 
     #[test]
@@ -120,17 +124,19 @@ mod tests {
         let config = SecurityClientConfig::default();
         let client = UniversalSecurityClient::new(ecosystem, config, test_context());
         let result = client.validate_ai_config_compatibility().expect("validate");
-        assert!(result);
+        assert!(result, "Default config has preferred capabilities seeded");
     }
 
     #[test]
-    fn test_get_config_based_recommendations() {
+    fn test_get_config_based_recommendations_empty_until_wired() {
         let ecosystem = Arc::new(UniversalPrimalEcosystem::new(test_context()));
         let config = SecurityClientConfig::default();
         let client = UniversalSecurityClient::new(ecosystem, config, test_context());
         let recommendations = client.get_config_based_recommendations();
-        assert!(!recommendations.is_empty());
-        assert!(recommendations[0].get("category").is_some());
+        assert!(
+            recommendations.is_empty(),
+            "No recommendations without BearDog provider"
+        );
     }
 
     #[test]

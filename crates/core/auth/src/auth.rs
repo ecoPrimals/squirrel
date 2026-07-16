@@ -35,7 +35,10 @@ struct StoredUser {
 impl AuthService {
     /// Create a new standalone auth service.
     ///
-    /// Seeds a default `admin` / `admin123` user for development.
+    /// Seeds a default `admin` user for development.
+    ///
+    /// Production deployments MUST use `BearDog` delegated JWT auth instead of
+    /// this standalone service. The seeded credentials are intentionally weak.
     ///
     /// # Errors
     ///
@@ -54,7 +57,7 @@ impl AuthService {
             },
         );
 
-        debug!("AuthService initialized (standalone mode, 1 seeded user)");
+        debug!("AuthService initialized (standalone dev mode, 1 seeded user)");
 
         Ok(Self {
             sessions: SessionManager::new(),

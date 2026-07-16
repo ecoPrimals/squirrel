@@ -28,3 +28,10 @@ pub const PRIMAL_DOMAIN: &str = "ai";
 ///
 /// Overridable via `JWT_KEY_ID` environment variable at runtime.
 pub const JWT_SIGNING_KEY_ID: &str = "squirrel-jwt-signing-key";
+
+/// Default ecosystem router IPC service identifier.
+///
+/// Used when resolving the IPC endpoint for ecosystem routing (biomeOS Neural
+/// API). Overridable via `SQUIRREL_ECOSYSTEM_IPC_SERVICE` or
+/// `ECOSYSTEM_ROUTER_SERVICE_ID` environment variables.
+pub const DEFAULT_ECOSYSTEM_IPC_SERVICE: &str = "nat0";

@@ -109,7 +109,9 @@ fn ipc_service_id() -> String {
     use universal_constants::env_vars;
     std::env::var(env_vars::squirrel::ECOSYSTEM_IPC_SERVICE)
         .or_else(|_| std::env::var(env_vars::ecosystem::ECOSYSTEM_ROUTER_SERVICE_ID))
-        .unwrap_or_else(|_| "nat0".to_string())
+        .unwrap_or_else(|_| {
+            universal_constants::identity::DEFAULT_ECOSYSTEM_IPC_SERVICE.to_string()
+        })
 }
 
 /// HTTP AI access delegated through IPC (`http.client` / neural proxy).

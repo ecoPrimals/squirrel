@@ -215,7 +215,8 @@ impl SelfHealingManager {
 
         let mut check_results = Vec::new();
 
-        for component_id in self.component_health.clone().keys() {
+        let component_ids: Vec<String> = self.component_health.keys().cloned().collect();
+        for component_id in &component_ids {
             let (status, message) =
                 self.evaluate_component_health(component_id, now, stale_threshold, fail_threshold);
             self.update_component_health(component_id, status, message);
