@@ -73,7 +73,7 @@ Other workspace crates include auth, context, interfaces, plugins, config, comma
 
 ## Test suite
 
-- **7,160** tests passing, 0 failures.
+- **7,171** tests passing, 0 failures.
 - **Zero `.unwrap()`** and **zero `panic!()`** in production code — all error handling is typed.
 - **Property-based** tests (e.g. `proptest` for serialization invariants).
 - **Coverage** **90.1%** region coverage / **89.6%** line coverage (all features; see `CURRENT_STATUS.md` for latest `cargo-llvm-cov` figure). **90% target met.**

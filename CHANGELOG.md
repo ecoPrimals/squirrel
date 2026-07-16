@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (July 16, 2026 — Wave 144a: Phase 2 Transport SHIPPED + SecretStore + Mock Evolution)
+
+- **Phase 2 transport SHIPPED**: `TransportEndpoint`, `TransportStream`, `connect_transport*` extracted from `main/transport.rs` to `universal-patterns/transport/endpoint.rs`. 12 call sites across 6 crates migrated from raw `#[cfg]` blocks. ~564 lines of duplicated platform-gating eliminated. MCP task client: missing connect timeout added, EOF-on-split bug fixed.
+- **`SecretStore` trait**: Platform-agnostic credential persistence in `core/mcp/src/security/secret_store.rs`. `InMemorySecretStore` (volatile), `FileSecretStore` (persistent JSON, base64, `0o600` Unix perms), `SecretStoreBackend` enum dispatch via `from_config()`. Wires up dormant `CredentialStorage::File` config. Foundation for Android Keystore + Windows Credential Manager backends.
+- **Production mocks evolved**: `auth.rs` password hashing via blake3 (was plaintext comparison). `local.rs` hardcoded `"local-token"` → blake3-derived session-unique token + `trust_level: "local-fallback"` metadata. `crypto.rs` `from_seed()`/`seed()` for deterministic Ed25519 key persistence via `SecretStore`.
+- **Deep debt scan**: 0 prod files >800L, 0 unsafe blocks, 0 TODO/FIXME, 0 hardcoded localhost/ports in production.
+- **Workspace**: 16 crates, 985 files, ~307.9k lines.
+- **7,171 tests passing**. 0 failed. Clippy clean. Windows cross-compile green.
+
 ### Summary (July 16, 2026 — Wave 142b-debt: Orphan Purge + Hardcoding Evolution)
 
 - **4 orphan crates purged** (-14,535 lines): `adapter-pattern-examples`, `adapter-pattern-tests`, `integration/*` (umbrella + context-adapter + ecosystem), `rule-system`. All had zero external consumers.

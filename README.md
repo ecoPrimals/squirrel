@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,160 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 4.4 MB | **Methods**: 42+ IPC (42 registered + provenance proxy)
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,171 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 4.4 MB | **Methods**: 42+ IPC (42 registered + provenance proxy)
 
 ---
 
@@ -100,7 +100,7 @@ Runtime registration: any primal can call `inference.register_provider` to dynam
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   7,160 tests passing (0 failures) | 983 `.rs` files | ~307.5k lines | zero Box<dyn Error> in prod
+Fitness:   7,171 tests passing (0 failures) | 985 `.rs` files | ~307.9k lines | zero Box<dyn Error> in prod
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
