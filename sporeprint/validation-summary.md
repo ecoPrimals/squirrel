@@ -13,7 +13,7 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: 7,160 passing across 16 workspace crates
+- **Tests**: 7,169 passing across 16 workspace crates
 - **Source**: 983 `.rs` files, ~307.5k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)
@@ -117,9 +117,12 @@ Squirrel is the **intelligence router** for all compositions requiring AI infere
 - Expanded `extract_input_data` to recognize `system_message`, `query`, `content`, `input`
 - 13 new depth tests (security concurrency, RPC edge cases, malformed input)
 
-## Wave 142b — Phase 2 Transport Abstraction + Orphan Purge (July 16, 2026)
+## Wave 144a — Phase 2 Transport SHIPPED + Orphan Purge (July 16, 2026)
 
-- Phase 2 transport: 6 main/ call sites migrated from raw #[cfg] blocks to TransportEndpoint + connect_transport_with_timeout()
+- Phase 2 transport SHIPPED: TransportEndpoint extracted to universal-patterns/transport/endpoint.rs
+- 12 call sites across 6 crates migrated from raw #[cfg] blocks to connect_transport_with_timeout()
+- ~564 lines of duplicated platform-gating code eliminated
+- MCP task client: missing connect timeout added, EOF-on-split bug fixed
 - TimeoutConfig::global() lazy accessor; 8 production hot paths wired from inline Duration literals to env-overridable config
 - Split capability_ai.rs (803→700L) — types extracted to capability_ai_types.rs
 - Removed 4 orphan crates (-14,535 lines): adapter-pattern-examples, adapter-pattern-tests, integration/*, rule-system
