@@ -81,10 +81,12 @@ impl UniversalSecurityService for LocalSecurityProvider {
         &self,
         request: SecurityRequest,
     ) -> Result<SecurityResponse, SecurityError> {
-        // Local implementation - simplified operations
         Ok(SecurityResponse::success(
             request.request_id,
-            "Local operation completed".to_string(),
+            format!(
+                "Local fallback: {:?} (no external provider)",
+                request.operation
+            ),
         ))
     }
 
@@ -109,7 +111,17 @@ impl crate::security::traits::UniversalSecurityProvider for LocalSecurityProvide
         &self,
         _credentials: &crate::traits::Credentials,
     ) -> Result<crate::traits::AuthResult, SecurityError> {
-        // Local authentication - simplified for testing
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+            .to_le_bytes();
+        let token = blake3::derive_key("ecoPrimals local auth token v1", &nonce);
+        let token_hex = blake3::Hash::from(token).to_hex().to_string();
+
+        let mut metadata = std::collections::HashMap::new();
+        metadata.insert("trust_level".to_string(), "local-fallback".to_string());
+
         Ok(crate::traits::AuthResult {
             principal: crate::traits::Principal {
                 id: "local-user".to_string(),
@@ -119,10 +131,10 @@ impl crate::security::traits::UniversalSecurityProvider for LocalSecurityProvide
                 permissions: vec!["read".to_string()],
                 metadata: std::collections::HashMap::new(),
             },
-            token: "local-token".to_string(),
+            token: token_hex,
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             permissions: vec!["read".to_string()],
-            metadata: std::collections::HashMap::new(),
+            metadata,
         })
     }
 

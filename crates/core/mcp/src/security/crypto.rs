@@ -40,10 +40,25 @@ impl DefaultCryptoProvider {
     pub fn new() -> Self {
         let mut secret = [0u8; 32];
         rand::fill(&mut secret);
-        let signing_key = SigningKey::from_bytes(&secret);
+        Self::from_seed(&secret)
+    }
+
+    /// Create a crypto provider from a deterministic 32-byte seed.
+    ///
+    /// Use this with [`super::secret_store::SecretStore`] to persist and
+    /// restore the signing key across process restarts.
+    #[must_use]
+    pub fn from_seed(seed: &[u8; 32]) -> Self {
+        let signing_key = SigningKey::from_bytes(seed);
         Self {
             state: Arc::new(CryptoState { signing_key }),
         }
+    }
+
+    /// Export the raw 32-byte seed for persistence via [`super::secret_store::SecretStore`].
+    #[must_use]
+    pub fn seed(&self) -> [u8; 32] {
+        self.state.signing_key.to_bytes()
     }
 
     /// Encrypt `data` using a keyed BLAKE3 XOF stream (prepends a random 32-byte nonce).
@@ -164,5 +179,25 @@ mod tests {
         let msg = b"message";
         let sig = p.sign(msg);
         assert!(p.verify_signature(msg, sig.as_slice()).expect("verify"));
+    }
+
+    #[test]
+    fn from_seed_deterministic() {
+        let seed = [42u8; 32];
+        let p1 = DefaultCryptoProvider::from_seed(&seed);
+        let p2 = DefaultCryptoProvider::from_seed(&seed);
+
+        let msg = b"deterministic signing";
+        assert_eq!(p1.sign(msg), p2.sign(msg));
+        assert_eq!(p1.seed(), seed);
+    }
+
+    #[test]
+    fn seed_roundtrip() {
+        let p = DefaultCryptoProvider::new();
+        let seed = p.seed();
+        let p2 = DefaultCryptoProvider::from_seed(&seed);
+        let msg = b"roundtrip";
+        assert_eq!(p.sign(msg), p2.sign(msg));
     }
 }

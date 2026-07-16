@@ -29,7 +29,14 @@ pub struct AuthService {
 
 struct StoredUser {
     user: User,
+    /// BLAKE3 hash of the password (hex-encoded).
     password_hash: String,
+}
+
+/// Hash a password using BLAKE3 with a domain-separation context.
+fn hash_password(password: &str) -> String {
+    let key = blake3::derive_key("ecoPrimals squirrel auth password v1", password.as_bytes());
+    blake3::Hash::from(key).to_hex().to_string()
 }
 
 impl AuthService {
@@ -53,7 +60,7 @@ impl AuthService {
             "admin".to_string(),
             StoredUser {
                 user: admin,
-                password_hash: "admin123".to_string(),
+                password_hash: hash_password("admin123"),
             },
         );
 
@@ -94,7 +101,7 @@ impl AuthService {
             });
         };
 
-        if stored.password_hash != req_password {
+        if stored.password_hash != hash_password(&req_password) {
             warn!("Failed login for user: {}", req_username);
             drop(users);
             return Ok(LoginResponse {

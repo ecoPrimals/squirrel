@@ -152,10 +152,7 @@ impl FileSecretStore {
             ))
         })?;
         let envelope: FileStoreEnvelope = serde_json::from_slice(&bytes).map_err(|e| {
-            MCPError::Internal(format!(
-                "Corrupt secret store at {}: {e}",
-                path.display()
-            ))
+            MCPError::Internal(format!("Corrupt secret store at {}: {e}", path.display()))
         })?;
         let mut map = HashMap::with_capacity(envelope.entries.len());
         for (key, entry) in envelope.entries {
@@ -189,9 +186,8 @@ impl FileSecretStore {
             entries,
         };
 
-        let json = serde_json::to_vec_pretty(&envelope).map_err(|e| {
-            MCPError::Internal(format!("Failed to serialize secret store: {e}"))
-        })?;
+        let json = serde_json::to_vec_pretty(&envelope)
+            .map_err(|e| MCPError::Internal(format!("Failed to serialize secret store: {e}")))?;
 
         if let Some(parent) = self.path.parent() {
             tokio::fs::create_dir_all(parent).await.map_err(|e| {
@@ -438,11 +434,10 @@ mod tests {
         use universal_patterns::config::CredentialStorage;
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("backend-test.json");
-        let backend = SecretStoreBackend::from_config(&CredentialStorage::File {
-            path: path.clone(),
-        })
-        .await
-        .unwrap();
+        let backend =
+            SecretStoreBackend::from_config(&CredentialStorage::File { path: path.clone() })
+                .await
+                .unwrap();
         backend.set("hello", b"world".to_vec()).await.unwrap();
 
         let backend2 = SecretStoreBackend::from_config(&CredentialStorage::File { path })
