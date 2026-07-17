@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Platform-native credential storage abstraction.
+//! Platform credential cache — file-based fallback for offline/bootstrap.
 //!
-//! `PlatformSecretStore` auto-detects the best available credential backend
-//! for the current operating system.  Today every platform uses a
-//! [`FileSecretStore`] at an OS-appropriate path; the abstraction layer is
-//! designed so that native credential stores (Windows Credential Manager,
-//! Android Keystore, macOS Keychain) can replace the file backend without
-//! changing any call-site or config.
+//! `PlatformSecretStore` provides a file-backed [`SecretStore`] at an
+//! OS-appropriate path.  It is a **local cache**, not a credential authority.
+//!
+//! - For production-grade HSM-backed credentials, use
+//!   `CredentialStorage::SecurityProvider` which delegates to bearDog via IPC.
+//! - `PlatformSecretStore` is appropriate for bootstrap credentials before
+//!   bearDog is available, MCP session state, cache keys, and offline
+//!   operation.
+//!
+//! Native credential store backends (Windows Credential Manager, Android
+//! Keystore, macOS Keychain) are **bearDog's domain**.  When bearDog ships
+//! those backends, squirrel accesses them via the `SecurityProvider` IPC path.
 //!
 //! ## Path selection
 //!
@@ -19,58 +25,47 @@
 //! | Windows | `%APPDATA%\squirrel\secrets.json` |
 //! | Android | `<app_data>/squirrel/secrets.json` |
 //! | Other | `~/.squirrel/secrets.json` |
-//!
-//! ## Extension points
-//!
-//! To wire a native credential store (e.g. Windows Credential Manager):
-//!
-//! 1. Implement [`SecretStore`] for the new backend.
-//! 2. Add a variant to [`PlatformBackend`].
-//! 3. Update [`PlatformSecretStore::detect`] with a `#[cfg]` branch.
-//! 4. The `SecretStoreBackend::Platform` config path will pick it up
-//!    automatically — no config or call-site changes needed.
 
 use super::secret_store::{FileSecretStore, SecretStore};
 use crate::error::Result;
 use std::path::{Path, PathBuf};
 use tracing::info;
 
-/// Metadata describing a platform credential store's capabilities.
+/// Metadata describing the platform credential cache.
 #[derive(Debug, Clone)]
 pub struct PlatformStoreInfo {
-    /// Human-readable backend name (e.g. "XDG file store", "Windows Credential Manager")
+    /// Human-readable backend name (e.g. "XDG file store", "AppData file store")
     pub backend_name: &'static str,
     /// Whether secrets are encrypted at rest by the OS
     pub os_encrypted: bool,
-    /// Whether the store is hardware-backed (TPM, Secure Enclave, TEE)
+    /// Whether the store is hardware-backed (always false — hw-backed is bearDog's domain)
     pub hardware_backed: bool,
     /// Whether secrets are scoped to the current user session
     pub session_scoped: bool,
-    /// Path used for file-based backends (None for native stores)
+    /// Path used for the file-based backend
     pub file_path: Option<PathBuf>,
 }
 
-/// Platform-native secret store that auto-detects the best backend.
+/// Platform credential cache — file-backed at an OS-appropriate path.
 ///
+/// This is a **local cache**, not a credential authority.  For HSM-backed
+/// storage, use `CredentialStorage::SecurityProvider` (bearDog IPC).
 /// The inner backend is selected at construction time via [`PlatformSecretStore::detect`].
-/// All trait methods delegate to the selected backend.
 #[derive(Debug, Clone)]
 pub struct PlatformSecretStore {
     inner: PlatformBackend,
     info: PlatformStoreInfo,
 }
 
-/// The concrete backend selected for the current platform.
+/// The concrete backend for the platform credential cache.
 ///
-/// New variants can be added here for native credential stores.
+/// File-based only.  Native credential stores (Windows Credential Manager,
+/// Android Keystore, macOS Keychain) are bearDog's domain — squirrel
+/// accesses them via `CredentialStorage::SecurityProvider` IPC.
 #[derive(Debug, Clone)]
 enum PlatformBackend {
     /// File-based store at a platform-appropriate path.
     File(FileSecretStore),
-    // Future variants:
-    // WindowsCredentialManager(WindowsCredentialStore),
-    // AndroidKeystore(AndroidKeystoreStore),
-    // MacOSKeychain(KeychainStore),
 }
 
 impl PlatformSecretStore {

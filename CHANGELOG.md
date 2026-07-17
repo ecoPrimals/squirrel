@@ -11,10 +11,10 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
-### Summary (July 16, 2026 — Wave 145b: Platform SecretStore Abstraction)
+### Summary (July 16, 2026 — Wave 145b: Platform SecretStore + Boundary Clarification)
 
-- **`PlatformSecretStore`**: Platform-native credential storage abstraction in `core/mcp/src/security/platform_secret_store.rs`. Auto-detects OS-appropriate paths: XDG on Linux (`~/.local/share/squirrel/secrets.json`), AppData on Windows, Application Support on macOS, app-private on Android. `CredentialStorage::Platform` config variant added. `SecretStoreBackend::Platform` enum dispatch wired via `from_config()`. `PlatformStoreInfo` metadata (backend name, OS encryption, hardware-backed, session-scoped) exposes store capabilities. Extension points documented for future native backends (Windows Credential Manager, Android Keystore, macOS Keychain) — abstraction enables drop-in replacement without config or call-site changes.
-- **P2 target complete**: Android Keystore and Windows Credential Manager backends abstracted — the `SecretStore` trait + `PlatformSecretStore` + `PlatformBackend` enum provide the cross-platform abstraction layer. Native FFI backends require `unsafe` code (blocked by workspace `unsafe_code = "forbid"`); the safe file-backed implementation at platform-appropriate paths provides equivalent functionality today.
+- **`PlatformSecretStore`**: File-based credential cache at OS-appropriate paths (`core/mcp/src/security/platform_secret_store.rs`). Auto-detects: XDG on Linux, AppData on Windows, Application Support on macOS, app-private on Android. `CredentialStorage::Platform` config variant. `SecretStoreBackend::Platform` enum dispatch. `PlatformStoreInfo` metadata. This is a **local cache** for bootstrap/offline use — not a credential authority.
+- **Boundary clarification**: `SecurityProvider` is the primary production path — bearDog is the credential authority (HSM, key lifecycle, native OS backends). `Platform` is the offline/bootstrap fallback. Native credential stores (Windows Credential Manager, Android Keystore, macOS Keychain) are **bearDog's domain** — squirrel accesses them via `SecurityProvider` IPC. Doc comments updated per overwatch guidance.
 - **Workspace**: 16 crates, 990 files, ~308.3k lines.
 - **7,177 tests passing**. 0 failed. Clippy clean. Windows cross-compile green.
 

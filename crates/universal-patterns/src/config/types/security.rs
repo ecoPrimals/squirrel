@@ -81,17 +81,17 @@ pub enum CredentialStorage {
     /// Security-provider-managed storage
     #[serde(rename = "security_provider", alias = "Beardog", alias = "beardog")]
     SecurityProvider,
-    /// Platform-native credential storage.
+    /// Platform credential cache — file-based fallback for offline/bootstrap.
     ///
-    /// Auto-detects the best available backend for the current OS:
-    /// - **Linux/Unix**: XDG-compliant file store (`$XDG_DATA_HOME/squirrel/secrets.json`, `0o600`)
-    /// - **Windows**: AppData file store (`%APPDATA%\squirrel\secrets.json`)
-    /// - **macOS**: Application Support file store (`~/Library/Application Support/squirrel/secrets.json`)
+    /// Auto-detects the OS-appropriate file path:
+    /// - **Linux/Unix**: `$XDG_DATA_HOME/squirrel/secrets.json` (`0o600`)
+    /// - **Windows**: `%APPDATA%\squirrel\secrets.json`
+    /// - **macOS**: `~/Library/Application Support/squirrel/secrets.json`
     /// - **Android**: App-private file store (via data dir)
     ///
-    /// Future: native credential stores (Windows Credential Manager, Android
-    /// Keystore, macOS Keychain) can be wired as backends without changing
-    /// this config variant.
+    /// This is a **local cache** for bootstrap/offline use.  For
+    /// production-grade HSM-backed credentials, use [`SecurityProvider`]
+    /// which delegates to bearDog via IPC.
     Platform,
 }
 

@@ -6,17 +6,18 @@
 //! `SecretStore` is the trait that credential/token persistence backends
 //! implement.  Squirrel ships four built-in backends:
 //!
-//! | Backend | Config variant | Persistence |
-//! |---------|----------------|-------------|
-//! | [`InMemorySecretStore`] | `CredentialStorage::Memory` | None (process lifetime) |
-//! | [`FileSecretStore`] | `CredentialStorage::File { path }` | Base64-encoded JSON |
-//! | (IPC delegation) | `CredentialStorage::SecurityProvider` | External (BearDog) |
-//! | [`super::platform_secret_store::PlatformSecretStore`] | `CredentialStorage::Platform` | OS-native path (XDG/AppData) |
+//! | Backend | Config variant | Persistence | Role |
+//! |---------|----------------|-------------|------|
+//! | [`InMemorySecretStore`] | `CredentialStorage::Memory` | None (process lifetime) | Dev / bootstrap |
+//! | [`FileSecretStore`] | `CredentialStorage::File { path }` | Base64-encoded JSON | Explicit path |
+//! | [`super::platform_secret_store::PlatformSecretStore`] | `CredentialStorage::Platform` | OS-native path (XDG/AppData) | Offline cache |
+//! | (IPC delegation) | `CredentialStorage::SecurityProvider` | External (bearDog HSM) | **Production** |
 //!
-//! `Platform` auto-detects the best path per OS.  Future native credential
-//! stores (Windows Credential Manager, Android Keystore, macOS Keychain)
-//! can replace the file backend inside `PlatformSecretStore` without
-//! changing config or call-sites.
+//! `SecurityProvider` is the primary path — bearDog is the credential
+//! authority.  `Platform` is the offline/bootstrap fallback (file-based
+//! cache at OS-appropriate paths).  Native credential stores (Windows
+//! Credential Manager, Android Keystore, macOS Keychain) are bearDog's
+//! domain; squirrel accesses them via `SecurityProvider` IPC.
 
 use crate::error::{MCPError, Result};
 use serde::{Deserialize, Serialize};
