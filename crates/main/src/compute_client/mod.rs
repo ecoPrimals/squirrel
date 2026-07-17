@@ -6,6 +6,7 @@
 //! This module provides modular, capability-based compute integration.
 
 pub mod client;
+pub mod compute_request_types;
 pub mod provider_trait;
 pub mod providers;
 pub mod types;

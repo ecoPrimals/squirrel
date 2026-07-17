@@ -216,7 +216,7 @@ pub async fn read_encrypted_frame<R: AsyncRead + Unpin>(
 }
 
 /// Encrypt plaintext and write as a length-prefixed frame to the stream.
-#[allow(dead_code)] // used by test clients, not the server's encrypted_frame_loop
+#[expect(dead_code, reason = "used by test clients, not the server's encrypted_frame_loop")]
 pub async fn write_encrypted_frame<W: AsyncWrite + Unpin>(
     writer: &mut W,
     key: &[u8; 32],

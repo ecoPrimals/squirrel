@@ -20,7 +20,7 @@ impl SwarmManager for FederationService {
 
         let node_ip = std::env::var(universal_constants::env_vars::deploy::NODE_IP)
             .or_else(|_| std::env::var(universal_constants::env_vars::mcp::HOST))
-            .unwrap_or_else(|_| "localhost".to_string());
+            .unwrap_or_else(|_| universal_constants::network::DEFAULT_LOCALHOST.to_string());
         let instance = SquirrelInstance {
             id: instance_id.clone(),
             node_id: self.config.node_id.clone(),

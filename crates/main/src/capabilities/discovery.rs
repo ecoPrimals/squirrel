@@ -624,12 +624,12 @@ fn get_socket_directories() -> Vec<PathBuf> {
 
     // Priority 1: Standard biomeOS socket directory (NUCLEUS-compliant!)
     #[cfg(unix)]
-    let uid = universal_constants::sys_info::current_uid();
-    #[cfg(not(unix))]
-    let uid = 0u32;
-    let biomeos_dir = PathBuf::from(format!("/run/user/{uid}/biomeos"));
-    if biomeos_dir.exists() {
-        dirs.push(biomeos_dir);
+    {
+        let uid = universal_constants::sys_info::current_uid();
+        let biomeos_dir = PathBuf::from(format!("/run/user/{uid}/biomeos"));
+        if biomeos_dir.exists() {
+            dirs.push(biomeos_dir);
+        }
     }
 
     // Priority 2: XDG Runtime Directory with biomeos subdirectory
@@ -643,6 +643,7 @@ fn get_socket_directories() -> Vec<PathBuf> {
 
     // Priority 3: Fallback to standard temp/run directories (dev/testing)
     dirs.push(std::env::temp_dir());
+    #[cfg(unix)]
     dirs.push(PathBuf::from("/var/run"));
 
     debug!("Socket scan directories (in order): {:?}", dirs);

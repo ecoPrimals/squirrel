@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (July 17, 2026 — Wave 145a-r: Deep Debt Sweep — File Splits + Hardcode Evolve + Policy Fix)
+
+- **File splits**: `compute_client/types.rs` (788→482L) — request/response types extracted to `compute_request_types.rs` (320L). `federation/service.rs` (784→449L) — background tasks, scaling, and instance management extracted to `service_scaling.rs` (325L). Both now well under the 800-line threshold. Zero production files >800L.
+- **Hardcode evolution**: `admin@localhost` literal → `identity::BOOTSTRAP_ADMIN_EMAIL` constant. `"localhost"` federation fallback → `network::DEFAULT_LOCALHOST`. `/var/run` hardcoded path → `#[cfg(unix)]` gated.
+- **Policy compliance**: 2 `#[allow(dead_code)]` violations → `#[expect(reason)]` (btsp encrypted framing, security service trait).
+- **Bootstrap identity constants**: `BOOTSTRAP_ADMIN_USER` and `BOOTSTRAP_ADMIN_EMAIL` added to `universal-constants/identity.rs`.
+- **Workspace**: 16 crates, 990 files, ~308.2k lines.
+- **7,177 tests passing** (`--all-features`). 0 failed. Clippy clean. Windows cross-compile green.
+
 ### Summary (July 16, 2026 — Wave 145b: Platform SecretStore + Boundary Clarification)
 
 - **`PlatformSecretStore`**: File-based credential cache at OS-appropriate paths (`core/mcp/src/security/platform_secret_store.rs`). Auto-detects: XDG on Linux, AppData on Windows, Application Support on macOS, app-private on Android. `CredentialStorage::Platform` config variant. `SecretStoreBackend::Platform` enum dispatch. `PlatformStoreInfo` metadata. This is a **local cache** for bootstrap/offline use — not a credential authority.

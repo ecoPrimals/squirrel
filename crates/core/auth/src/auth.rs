@@ -12,6 +12,7 @@ use crate::session::SessionManager;
 use crate::types::{AuthContext, AuthProvider, LoginResponse, Session, User};
 
 use chrono::Duration;
+use universal_constants::identity;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
@@ -53,11 +54,11 @@ impl AuthService {
     pub fn new() -> AuthResult<Self> {
         let mut users = HashMap::new();
 
-        let mut admin = User::new("admin", "admin@localhost");
+        let mut admin = User::new(identity::BOOTSTRAP_ADMIN_USER, identity::BOOTSTRAP_ADMIN_EMAIL);
         admin.roles = vec!["admin".to_string()];
 
         users.insert(
-            "admin".to_string(),
+            identity::BOOTSTRAP_ADMIN_USER.to_string(),
             StoredUser {
                 user: admin,
                 password_hash: hash_password("admin123"),

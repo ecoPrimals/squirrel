@@ -7,6 +7,7 @@
 //! and observability types live in [`types`].
 
 mod service;
+mod service_scaling;
 mod service_swarm;
 mod service_types;
 mod types;

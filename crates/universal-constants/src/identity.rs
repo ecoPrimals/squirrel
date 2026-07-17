@@ -29,6 +29,15 @@ pub const PRIMAL_DOMAIN: &str = "ai";
 /// Overridable via `JWT_KEY_ID` environment variable at runtime.
 pub const JWT_SIGNING_KEY_ID: &str = "squirrel-jwt-signing-key";
 
+/// Bootstrap admin username for standalone dev mode (intentionally weak).
+pub const BOOTSTRAP_ADMIN_USER: &str = "admin";
+
+/// Bootstrap admin email for standalone dev mode.
+///
+/// Not used for actual email delivery — only as a placeholder identity
+/// in the seeded dev user.
+pub const BOOTSTRAP_ADMIN_EMAIL: &str = "admin@localhost";
+
 /// Default ecosystem router IPC service identifier.
 ///
 /// Used when resolving the IPC endpoint for ecosystem routing (biomeOS Neural
