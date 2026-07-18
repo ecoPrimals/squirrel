@@ -12,12 +12,9 @@
 pub mod config;
 pub mod core;
 pub mod display;
-pub mod theme;
 
-// Re-export commonly used types for backward compatibility
 pub use config::*;
 pub use core::*;
-pub use theme::*;
 
 // Display trait implementations are in the display module but don't need re-export
 // as they're automatically available through trait imports
@@ -102,211 +99,13 @@ mod tests {
         assert_eq!(deserialized, vt);
     }
 
-    // -- Theme defaults --
-
-    #[test]
-    fn test_visualization_theme_default() {
-        let theme = VisualizationTheme::default();
-        assert_eq!(theme.primary_color, "#3498db");
-        assert_eq!(theme.font_size, 14);
-        assert!(!theme.dark_mode);
-        assert!(!theme.color_palette.is_empty());
-    }
-
-    #[test]
-    fn test_visualization_theme_serde() {
-        let theme = VisualizationTheme::default();
-        let json = serde_json::to_string(&theme).expect("should succeed");
-        let deserialized: VisualizationTheme = serde_json::from_str(&json).expect("should succeed");
-        assert_eq!(deserialized.primary_color, theme.primary_color);
-        assert_eq!(deserialized.font_size, theme.font_size);
-    }
-
-    #[test]
-    fn test_visualization_layout_default() {
-        let layout = VisualizationLayout::default();
-        assert_eq!(layout.width, 800);
-        assert_eq!(layout.height, 600);
-        assert!(layout.responsive);
-    }
-
-    #[test]
-    fn test_margin_config_default() {
-        let margin = MarginConfig::default();
-        assert_eq!(margin.top, 20);
-        assert_eq!(margin.right, 20);
-        assert_eq!(margin.bottom, 20);
-        assert_eq!(margin.left, 20);
-    }
-
-    #[test]
-    fn test_padding_config_default() {
-        let padding = PaddingConfig::default();
-        assert_eq!(padding.top, 10);
-        assert_eq!(padding.right, 10);
-        assert_eq!(padding.bottom, 10);
-        assert_eq!(padding.left, 10);
-    }
-
     // -- Config defaults --
 
     #[test]
     fn test_visualization_config_default() {
         let config = VisualizationConfig::default();
-        assert_eq!(config.format, "html");
-        assert!(config.interactive);
+        assert_eq!(config.format, "json");
         assert!(config.custom_options.is_empty());
     }
 
-    #[test]
-    fn test_grid_config_default() {
-        let grid = GridConfig::default();
-        assert!(grid.enabled);
-        assert_eq!(grid.color, "#f0f0f0");
-        assert_eq!(grid.line_width, 1);
-        assert_eq!(grid.spacing, 20);
-    }
-
-    #[test]
-    fn test_animation_config_default() {
-        let anim = AnimationConfig::default();
-        assert!(anim.enabled);
-        assert_eq!(anim.duration, 1000);
-        assert_eq!(anim.easing, "ease-in-out");
-        assert_eq!(anim.delay, 0);
-    }
-
-    #[test]
-    fn test_export_config_default() {
-        let export = ExportConfig::default();
-        assert_eq!(export.default_format, "png");
-        assert!(export.formats.contains(&"png".to_string()));
-        assert!(export.formats.contains(&"svg".to_string()));
-        assert!(export.formats.contains(&"pdf".to_string()));
-        assert!(export.formats.contains(&"json".to_string()));
-    }
-
-    #[test]
-    fn test_quality_config_default() {
-        let quality = QualityConfig::default();
-        assert_eq!(quality.image_quality, 95);
-        assert_eq!(quality.dpi, 300);
-        assert_eq!(quality.compression, 80);
-    }
-
-    #[test]
-    fn test_quality_config_serde() {
-        let quality = QualityConfig::default();
-        let json = serde_json::to_string(&quality).expect("should succeed");
-        let deserialized: QualityConfig = serde_json::from_str(&json).expect("should succeed");
-        assert_eq!(deserialized, quality);
-    }
-
-    // -- Core types serde --
-
-    #[test]
-    fn test_data_point_serde() {
-        let dp = DataPoint {
-            x: 1.0,
-            y: 2.0,
-            z: Some(3.0),
-            value: serde_json::json!(42),
-            label: Some("point".into()),
-            color: Some("#ff0000".into()),
-            size: Some(5.0),
-        };
-        let json = serde_json::to_string(&dp).expect("should succeed");
-        let deserialized: DataPoint = serde_json::from_str(&json).expect("should succeed");
-        assert!((deserialized.x - 1.0).abs() < 1e-9);
-        assert!((deserialized.y - 2.0).abs() < 1e-9);
-        assert_eq!(deserialized.z, Some(3.0));
-    }
-
-    #[test]
-    fn test_visualization_series_serde() {
-        let series = VisualizationSeries {
-            name: "series1".into(),
-            data: vec![],
-            color: Some("#00ff00".into()),
-            series_type: "line".into(),
-            metadata: std::collections::HashMap::new(),
-        };
-        let json = serde_json::to_string(&series).expect("should succeed");
-        let deserialized: VisualizationSeries =
-            serde_json::from_str(&json).expect("should succeed");
-        assert_eq!(deserialized.name, "series1");
-        assert_eq!(deserialized.series_type, "line");
-    }
-
-    #[test]
-    fn test_interactive_element_serde() {
-        let elem = InteractiveElement {
-            element_type: "button".into(),
-            id: "btn-1".into(),
-            properties: std::collections::HashMap::new(),
-            event_handlers: std::collections::HashMap::new(),
-        };
-        let json = serde_json::to_string(&elem).expect("should succeed");
-        let deserialized: InteractiveElement = serde_json::from_str(&json).expect("should succeed");
-        assert_eq!(deserialized.element_type, "button");
-        assert_eq!(deserialized.id, "btn-1");
-    }
-
-    #[test]
-    fn test_filter_config_serde() {
-        let filter = FilterConfig {
-            filter_type: "range".into(),
-            parameters: std::collections::HashMap::new(),
-            enabled: true,
-        };
-        let json = serde_json::to_string(&filter).expect("should succeed");
-        let deserialized: FilterConfig = serde_json::from_str(&json).expect("should succeed");
-        assert_eq!(deserialized.filter_type, "range");
-        assert!(deserialized.enabled);
-    }
-
-    #[test]
-    fn test_axis_and_tick_config_serde() {
-        let axis = AxisConfig {
-            label: "X".into(),
-            axis_type: "linear".into(),
-            min: Some(0.0),
-            max: Some(1.0),
-            ticks: TickConfig {
-                count: 5,
-                format: "%.1f".into(),
-                rotation: 0.0,
-            },
-            grid_lines: true,
-        };
-        let json = serde_json::to_string(&axis).expect("should succeed");
-        let deserialized: AxisConfig = serde_json::from_str(&json).expect("should succeed");
-        assert_eq!(deserialized.label, "X");
-        assert_eq!(deserialized.ticks.count, 5);
-    }
-
-    #[test]
-    fn test_legend_config_serde() {
-        let legend = LegendConfig {
-            enabled: true,
-            position: "top".into(),
-            orientation: "horizontal".into(),
-            styling: std::collections::HashMap::new(),
-        };
-        let json = serde_json::to_string(&legend).expect("should succeed");
-        let deserialized: LegendConfig = serde_json::from_str(&json).expect("should succeed");
-        assert!(deserialized.enabled);
-    }
-
-    #[test]
-    fn test_tooltip_config_serde() {
-        let tooltip = TooltipConfig {
-            enabled: true,
-            format: "plain".into(),
-            styling: std::collections::HashMap::new(),
-        };
-        let json = serde_json::to_string(&tooltip).expect("should succeed");
-        let deserialized: TooltipConfig = serde_json::from_str(&json).expect("should succeed");
-        assert!(deserialized.enabled);
-    }
 }

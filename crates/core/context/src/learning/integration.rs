@@ -24,11 +24,6 @@ use crate::visualization::VisualizationSystem;
 
 // Re-export planned feature types (available for downstream consumers)
 #[expect(unused_imports, reason = "re-export for planned consumer")]
-pub use super::integration_types::{
-    ContextUsagePattern, LearningRequest, LearningRequestType, StateChange,
-    StateChangePatternAnalysis, analyze_state_change_patterns,
-};
-
 pub use super::integration_data::{
     ContextMonitoringResults, IntegrationError, IntegrationRefs, IntegrationState,
     IntegrationStats, IntegrationStatus, LearningIntegrationConfig,
@@ -645,54 +640,6 @@ impl LearningIntegration {
     /// Get integration statistics
     pub async fn get_stats(&self) -> IntegrationStats {
         self.stats.lock().await.clone()
-    }
-
-    /// Update integration statistics
-    ///
-    /// Note: Internal method for future integration statistics - implementation in progress
-    #[expect(dead_code, reason = "planned feature not yet wired")]
-    async fn update_stats(&self, operation_success: bool, operation_time: f64) -> Result<()> {
-        let mut stats = self.stats.lock().await;
-
-        stats.total_operations += 1;
-        if operation_success {
-            stats.successful_operations += 1;
-        } else {
-            stats.failed_operations += 1;
-        }
-
-        // Update average operation time
-        stats.average_operation_time =
-            (stats.average_operation_time * (stats.total_operations - 1) as f64 + operation_time)
-                / stats.total_operations as f64;
-
-        stats.last_operation = Utc::now();
-
-        Ok(())
-    }
-
-    /// Record integration error
-    ///
-    /// Note: Internal method for future error tracking - implementation in progress
-    #[expect(dead_code, reason = "planned feature not yet wired")]
-    async fn record_error(&self, error_type: &str, message: &str, component: &str) -> Result<()> {
-        let error = IntegrationError {
-            id: uuid::Uuid::new_v4().to_string(),
-            error_type: error_type.to_string(),
-            message: message.to_string(),
-            timestamp: Utc::now(),
-            component: component.to_string(),
-        };
-
-        let mut state = self.state.write().await;
-        state.errors.push(error);
-
-        // Keep error history manageable
-        if state.errors.len() > 100 {
-            state.errors.remove(0);
-        }
-
-        Ok(())
     }
 
     /// Get learning system status

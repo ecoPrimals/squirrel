@@ -55,52 +55,6 @@ impl TerminalRenderer {
     }
 }
 
-/// HTML renderer for visualization data
-#[derive(Debug)]
-pub struct HtmlRenderer;
-
-impl Default for HtmlRenderer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HtmlRenderer {
-    /// Create a new HTML renderer
-    pub fn new() -> Self {
-        Self
-    }
-
-    /// Render data as HTML
-    pub async fn render(&self, data: &Value) -> Result<String> {
-        let html = format_as_html(data);
-        Ok(html)
-    }
-}
-
-/// Markdown renderer for visualization data
-#[derive(Debug)]
-pub struct MarkdownRenderer;
-
-impl Default for MarkdownRenderer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl MarkdownRenderer {
-    /// Create a new Markdown renderer
-    pub fn new() -> Self {
-        Self
-    }
-
-    /// Render data as Markdown
-    pub async fn render(&self, data: &Value) -> Result<String> {
-        let markdown = format_as_markdown(data);
-        Ok(markdown)
-    }
-}
-
 // Helper functions for terminal formatting
 fn format_for_terminal(value: &Value, indent: usize) -> String {
     let indent_str = "  ".repeat(indent);
@@ -138,40 +92,6 @@ fn format_for_terminal(value: &Value, indent: usize) -> String {
             result
         }
     }
-}
-
-// Helper functions for HTML formatting
-fn format_as_html(value: &Value) -> String {
-    let mut html = String::new();
-    html.push_str("<!DOCTYPE html>\n<html>\n<head>\n");
-    html.push_str("<title>Visualization</title>\n");
-    html.push_str("<style>\n");
-    html.push_str("body { font-family: Arial, sans-serif; margin: 20px; }\n");
-    html.push_str("pre { background-color: #f5f5f5; padding: 10px; border-radius: 5px; }\n");
-    html.push_str("</style>\n");
-    html.push_str("</head>\n<body>\n");
-    html.push_str("<h1>Visualization Data</h1>\n");
-    html.push_str("<pre>");
-    html.push_str(
-        &serde_json::to_string_pretty(value)
-            .unwrap_or_else(|_| "Error formatting data".to_string()),
-    );
-    html.push_str("</pre>\n");
-    html.push_str("</body>\n</html>");
-    html
-}
-
-// Helper functions for Markdown formatting
-fn format_as_markdown(value: &Value) -> String {
-    let mut markdown = String::new();
-    markdown.push_str("# Visualization Data\n\n");
-    markdown.push_str("```json\n");
-    markdown.push_str(
-        &serde_json::to_string_pretty(value)
-            .unwrap_or_else(|_| "Error formatting data".to_string()),
-    );
-    markdown.push_str("\n```\n");
-    markdown
 }
 
 #[cfg(test)]
@@ -279,58 +199,6 @@ mod tests {
         assert!(output.contains("test"));
     }
 
-    // HtmlRenderer tests
-    #[tokio::test]
-    async fn test_html_renderer_new() {
-        let renderer = HtmlRenderer::new();
-        let _ = format!("{:?}", renderer);
-    }
-
-    #[tokio::test]
-    async fn test_html_renderer_default() {
-        let renderer = HtmlRenderer;
-        let _ = format!("{:?}", renderer);
-    }
-
-    #[tokio::test]
-    async fn test_html_renderer_render() {
-        let renderer = HtmlRenderer::new();
-        let data = json!({"key": "value"});
-        let result = renderer.render(&data).await;
-        assert!(result.is_ok());
-        let output = result.expect("should succeed");
-        assert!(output.contains("<!DOCTYPE html>"));
-        assert!(output.contains("<html>"));
-        assert!(output.contains("</html>"));
-        assert!(output.contains("key"));
-    }
-
-    // MarkdownRenderer tests
-    #[tokio::test]
-    async fn test_markdown_renderer_new() {
-        let renderer = MarkdownRenderer::new();
-        let _ = format!("{:?}", renderer);
-    }
-
-    #[tokio::test]
-    async fn test_markdown_renderer_default() {
-        let renderer = MarkdownRenderer;
-        let _ = format!("{:?}", renderer);
-    }
-
-    #[tokio::test]
-    async fn test_markdown_renderer_render() {
-        let renderer = MarkdownRenderer::new();
-        let data = json!({"key": "value"});
-        let result = renderer.render(&data).await;
-        assert!(result.is_ok());
-        let output = result.expect("should succeed");
-        assert!(output.contains("# Visualization Data"));
-        assert!(output.contains("```json"));
-        assert!(output.contains("key"));
-    }
-
-    // format_for_terminal helper tests
     #[test]
     fn test_format_for_terminal_nested_object() {
         let data = json!({"outer": {"inner": "value"}});
@@ -347,18 +215,4 @@ mod tests {
         assert!(output.starts_with("    ")); // 2 levels of indent
     }
 
-    #[test]
-    fn test_format_as_html_empty_object() {
-        let output = format_as_html(&json!({}));
-        assert!(output.contains("<!DOCTYPE html>"));
-        assert!(output.contains("<pre>"));
-        assert!(output.contains("</pre>"));
-    }
-
-    #[test]
-    fn test_format_as_markdown_empty_object() {
-        let output = format_as_markdown(&json!({}));
-        assert!(output.contains("# Visualization Data"));
-        assert!(output.contains("```json"));
-    }
 }

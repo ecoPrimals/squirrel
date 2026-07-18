@@ -37,7 +37,6 @@ mod experience;
 mod experience_types;
 mod integration;
 mod integration_data;
-mod integration_types;
 mod manager;
 mod manager_types;
 mod metrics;
@@ -342,8 +341,8 @@ pub struct LearningSystem {
     /// Event broadcaster
     event_broadcaster: Arc<broadcast::Sender<LearningEvent>>,
 
-    /// Event processor background task handle (used for cleanup on drop)
-    #[expect(dead_code, reason = "planned feature not yet wired")]
+    /// Event processor background task handle — held to keep the task alive
+    #[expect(dead_code, reason = "RAII: dropping this would abort the background task")]
     event_processor_handle: Arc<tokio::task::JoinHandle<()>>,
 
     /// System statistics

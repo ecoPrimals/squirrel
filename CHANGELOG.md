@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (July 18, 2026 — Wave 149b: Learning + Visualization Architectural Evolution)
+
+- **Visualization system thinned**: Deleted `web.rs` (77L stub), `interactive.rs` (102L stub), `controllers.rs` (96L stub) — petalTongue's domain. Removed `HtmlRenderer` + `MarkdownRenderer` (JSON-in-`<pre>` is not rendering). Deleted 8 dead chart schema types (`VisualizationSeries`, `InteractiveElement`, `FilterConfig`, `AxisConfig`, `TickConfig`, `LegendConfig`, `TooltipConfig`, `DataPoint`), `theme.rs` (269L), `GridConfig`, and presentation config types (`AnimationConfig`, `ExportConfig`, `QualityConfig`). Deleted orphan test files (`renderers_tests.rs`, `types_tests.rs`). ~1,800 LOC removed, 8 `dead_code` attrs eliminated.
+- **Learning system cleanup**: Removed dead `config` fields from `RewardSystem` and `AdaptiveRuleSystem`. Wired `ContextLearningManager.rule_manager` — `set_rule_manager()` now actually stores the reference. Removed dead `update_stats()` and `record_error()` methods from `LearningIntegration`. Deleted `integration_types.rs` (343L, all dead scaffold behind module-level `#![expect(dead_code)]`).
+- **Capability naming alignment**: `UI_CAPABILITY = "ui"` → `VISUALIZATION_CAPABILITY = "visualization"`. Deploy graph already uses `"visualization.render"` — now code and deploy graphs agree. Port map supports both `"ui"` and `"visualization"` as aliases for port 3000.
+- **Architectural boundary docs**: Visualization `mod.rs`, `VisualizationSystem`, and `VisualizationConfig` now document petalTongue delegation explicitly.
+- **7,111 tests passing** (`--all-features`). 0 failed. Clippy clean. Windows cross-compile green.
+
 ### Summary (July 18, 2026 — Wave 149b: Accept null params + Deep Debt Continuation)
 
 - **P1 fix: Accept `null` params on health endpoint** (`jsonrpc_request_processing.rs`). `"params": null` is now treated as equivalent to omitted params per JSON-RPC 2.0. Previously rejected with `-32602 Invalid params`. Affects all methods, not just health. Normalize: `null` → `None` before dispatch. 2 new tests: `null_params_accepted_on_health`, `null_params_accepted_on_ping`. Demand signal from esotericWebb.

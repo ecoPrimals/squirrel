@@ -15,7 +15,7 @@ use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
 use super::VisualizationSystemConfig;
-use super::renderers::{HtmlRenderer, JsonRenderer, MarkdownRenderer, TerminalRenderer};
+use super::renderers::{JsonRenderer, TerminalRenderer};
 use super::types::{
     VisualizationConfig, VisualizationRequest, VisualizationResponse, VisualizationType,
 };
@@ -32,12 +32,6 @@ pub struct VisualizationManager {
 
     /// Terminal renderer
     terminal_renderer: Arc<TerminalRenderer>,
-
-    /// HTML renderer
-    html_renderer: Arc<HtmlRenderer>,
-
-    /// Markdown renderer
-    markdown_renderer: Arc<MarkdownRenderer>,
 
     /// Active visualizations
     active_visualizations: Arc<RwLock<HashMap<String, ActiveVisualization>>>,
@@ -156,15 +150,11 @@ impl VisualizationManager {
     pub async fn new(config: Arc<VisualizationSystemConfig>) -> Result<Self> {
         let json_renderer = Arc::new(JsonRenderer::new());
         let terminal_renderer = Arc::new(TerminalRenderer::new());
-        let html_renderer = Arc::new(HtmlRenderer::new());
-        let markdown_renderer = Arc::new(MarkdownRenderer::new());
 
         Ok(Self {
             config,
             json_renderer,
             terminal_renderer,
-            html_renderer,
-            markdown_renderer,
             active_visualizations: Arc::new(RwLock::new(HashMap::new())),
             visualization_cache: Arc::new(RwLock::new(HashMap::new())),
             visualization_history: Arc::new(RwLock::new(Vec::new())),
@@ -353,10 +343,6 @@ impl VisualizationManager {
             "json" if self.config.enable_json => self.json_renderer.render(&data).await?,
             "terminal" if self.config.enable_terminal => {
                 self.terminal_renderer.render(&data).await?
-            }
-            "html" if self.config.enable_html => self.html_renderer.render(&data).await?,
-            "markdown" if self.config.enable_markdown => {
-                self.markdown_renderer.render(&data).await?
             }
             _ => {
                 return Err(crate::error::ContextError::InvalidFormat(format!(

@@ -226,7 +226,7 @@ async fn test_visualization_manager_multiple_renderings() {
         .expect("Should create visualization");
 
     // Render multiple formats (each format is a cache miss on first render)
-    for format in ["json", "html", "terminal"] {
+    for format in ["json", "terminal"] {
         manager
             .render_visualization(&response.visualization_id, format)
             .await
@@ -234,7 +234,7 @@ async fn test_visualization_manager_multiple_renderings() {
     }
 
     let stats = manager.get_stats().await;
-    assert!(stats.total_renderings >= 3);
+    assert!(stats.total_renderings >= 2);
 }
 
 #[test]
@@ -344,7 +344,7 @@ async fn test_multiple_format_renders() {
         .await
         .expect("Should create visualization");
 
-    let formats = vec!["json", "html", "markdown", "terminal"];
+    let formats = vec!["json", "terminal"];
     for format in formats {
         let rendered = manager
             .render_visualization(&response.visualization_id, format)
@@ -482,64 +482,6 @@ fn create_test_request() -> VisualizationRequest {
 fn create_test_config() -> VisualizationConfig {
     VisualizationConfig {
         format: "json".to_string(),
-        theme: create_test_theme(),
-        layout: create_test_layout(),
-        interactive: false,
-        animation: AnimationConfig {
-            enabled: false,
-            duration: 0,
-            easing: "none".to_string(),
-            delay: 0,
-        },
-        export: ExportConfig {
-            formats: vec![],
-            default_format: "json".to_string(),
-            quality: QualityConfig {
-                image_quality: 100,
-                dpi: 300,
-                compression: 80,
-            },
-        },
         custom_options: HashMap::new(),
-    }
-}
-
-fn create_test_theme() -> VisualizationTheme {
-    VisualizationTheme {
-        primary_color: "#000000".to_string(),
-        secondary_color: "#ffffff".to_string(),
-        background_color: "#f0f0f0".to_string(),
-        text_color: "#333333".to_string(),
-        border_color: "#cccccc".to_string(),
-        font_family: "monospace".to_string(),
-        font_size: 12,
-        color_palette: vec!["#000000".to_string()],
-        dark_mode: false,
-    }
-}
-
-fn create_test_layout() -> VisualizationLayout {
-    VisualizationLayout {
-        width: 800,
-        height: 600,
-        margin: MarginConfig {
-            top: 0,
-            right: 0,
-            bottom: 0,
-            left: 0,
-        },
-        padding: PaddingConfig {
-            top: 0,
-            right: 0,
-            bottom: 0,
-            left: 0,
-        },
-        grid: GridConfig {
-            enabled: false,
-            color: "#000000".to_string(),
-            line_width: 1,
-            spacing: 10,
-        },
-        responsive: false,
     }
 }

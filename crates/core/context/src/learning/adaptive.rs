@@ -22,10 +22,6 @@ use crate::rules::Rule;
 /// Adaptive rule system
 #[derive(Debug)]
 pub struct AdaptiveRuleSystem {
-    /// System configuration (reserved for future use)
-    #[expect(dead_code, reason = "planned feature not yet wired")]
-    config: Arc<LearningSystemConfig>,
-
     /// Adaptive rules
     adaptive_rules: Arc<RwLock<HashMap<String, AdaptiveRule>>>,
 
@@ -240,9 +236,8 @@ impl Default for AdaptationStats {
 
 impl AdaptiveRuleSystem {
     /// Create a new adaptive rule system
-    pub async fn new(config: Arc<LearningSystemConfig>) -> Result<Self> {
+    pub async fn new(_config: Arc<LearningSystemConfig>) -> Result<Self> {
         Ok(Self {
-            config,
             adaptive_rules: Arc::new(RwLock::new(HashMap::new())),
             adaptations: Arc::new(RwLock::new(Vec::new())),
             stats: Arc::new(Mutex::new(AdaptationStats::default())),

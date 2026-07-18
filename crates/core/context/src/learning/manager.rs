@@ -46,9 +46,8 @@ pub struct ContextLearningManager {
     /// Context manager
     context_manager: Arc<ContextManager>,
 
-    /// Rule manager (planned future integration)
-    #[expect(dead_code, reason = "planned feature not yet wired")]
-    rule_manager: Option<Arc<RuleManager>>,
+    /// Rule manager for learning-rule coordination
+    rule_manager: Arc<RwLock<Option<Arc<RuleManager>>>>,
 
     /// Active episodes
     active_episodes: Arc<RwLock<HashMap<String, LearningEpisode>>>,
@@ -134,7 +133,7 @@ impl ContextLearningManager {
             config,
             learning_engine,
             context_manager,
-            rule_manager: None,
+            rule_manager: Arc::new(RwLock::new(None)),
             active_episodes: Arc::new(RwLock::new(HashMap::new())),
             episode_history: Arc::new(RwLock::new(Vec::new())),
             context_observations: Arc::new(RwLock::new(HashMap::new())),
@@ -149,14 +148,12 @@ impl ContextLearningManager {
     pub async fn set_rule_manager(&self, rule_manager: Arc<RuleManager>) {
         info!("Integrating rule manager with learning system");
 
-        // Enhanced learning-rule coordination
         if let Some(current_session) = self.current_session.read().await.as_ref() {
             debug!(
                 "Coordinating rule manager with active learning session: {}",
                 current_session.id
             );
 
-            // Trigger learning system update when rule manager changes
             if let Err(e) = self.update_learning_state_with_rules(&rule_manager).await {
                 warn!(
                     "Failed to update learning state with new rule manager: {}",
@@ -165,6 +162,7 @@ impl ContextLearningManager {
             }
         }
 
+        *self.rule_manager.write().await = Some(rule_manager);
         debug!("Rule manager integration completed successfully");
     }
 

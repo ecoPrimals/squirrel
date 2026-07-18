@@ -344,7 +344,7 @@ impl PluginConfig {
                 .permissions
                 .iter()
                 .any(|p| matches!(p, Permission::LocalStorage | Permission::SessionStorage)),
-            "ui" => self.ui.as_ref().is_some_and(|ui| ui.has_web_ui),
+            "ui" | "visualization" => self.ui.as_ref().is_some_and(|ui| ui.has_web_ui),
             _ => false,
         }
     }

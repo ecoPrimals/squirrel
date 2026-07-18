@@ -22,10 +22,6 @@ pub use super::reward_types::*;
 /// Reward system for calculating learning rewards
 #[derive(Debug)]
 pub struct RewardSystem {
-    /// System configuration
-    #[expect(dead_code, reason = "planned feature not yet wired")]
-    config: Arc<LearningSystemConfig>,
-
     /// Reward calculators
     calculators: Arc<RwLock<HashMap<String, RewardBackend>>>,
 
@@ -309,9 +305,8 @@ impl RewardCalculator for RewardBackend {
 
 impl RewardSystem {
     /// Create a new reward system
-    pub async fn new(config: Arc<LearningSystemConfig>) -> Result<Self> {
+    pub async fn new(_config: Arc<LearningSystemConfig>) -> Result<Self> {
         let system = Self {
-            config,
             calculators: Arc::new(RwLock::new(HashMap::new())),
             reward_history: Arc::new(RwLock::new(Vec::new())),
             metrics: Arc::new(Mutex::new(RewardMetrics::default())),

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: July 18, 2026 (Wave 149b — Accept null params + Deep Debt Continuation)
+**Last Updated**: July 18, 2026 (Wave 149b — Learning + Visualization Architectural Evolution)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -12,7 +12,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,179 passing / 0 failures across 16 workspace crates; 990 `.rs` files, ~308.2k lines |
+| Tests | 7,111 passing / 0 failures across 16 workspace crates |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all 64 `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn` + `#[expect(async_fn_in_trait)]`; `async-trait` only remains as transitive dep from external crates (`config`, `wiremock`) |
 | Clippy | CLEAN — `pedantic + nursery + cargo`, `expect_used/unwrap_used = deny` workspace-wide; zero warnings under `-D warnings` |
@@ -26,7 +26,7 @@
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors + `anyhow::Result` (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`, `anyhow::Error`) |
 | Crates | 16 workspace members |
-| Files >800 lines (prod) | 0 — `compute_client/types.rs` split (788→482L req/resp extracted); `federation/service.rs` split (784→449L scaling extracted); `universal_executor.rs` split (794→633L); `routing/agent.rs` split (794→479L); `jsonrpc_server.rs` split (829→336L); `provider_trait.rs` refactored 983→728L; `env_vars.rs` (1091L) → module tree (36 files, max 107L); largest prod file: 777L |
+| Files >800 lines (prod) | 0 — `compute_client/types.rs` split (788→482L); `federation/service.rs` split (784→449L); `universal_executor.rs` split (794→633L); `routing/agent.rs` split (794→479L); `jsonrpc_server.rs` split (829→336L); `provider_trait.rs` refactored 983→728L; `env_vars.rs` (1091L) → module tree (36 files, max 107L); visualization thinned (~1,800L removed); largest prod file: 777L |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]`; 1 `#[allow(dead_code)]` remains on trait method (Rust 1.94 edge case: `#[expect]` unfulfilled in check but needed under clippy); dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |

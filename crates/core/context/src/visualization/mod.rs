@@ -3,18 +3,16 @@
 
 //! Context Visualization System
 //!
-//! This module provides comprehensive visualization capabilities for the Context Management System.
-//! It includes visualization of context state, rule impact, metrics, and interactive control interfaces.
+//! Context-state serialization, event emission, and debug/CLI output for the CMS.
+//! Presentation (dashboards, charts, web UI) is petalTongue's domain, accessed
+//! via `visualization.render.*` capability IPC.
 
-mod controllers;
-mod interactive;
 mod manager;
 #[cfg(test)]
 mod manager_tests;
 mod metrics;
 mod renderers;
 mod types;
-mod web;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -25,16 +23,12 @@ use tokio::sync::{Mutex, broadcast};
 
 use crate::error::Result;
 
-// Re-export public types
-pub use controllers::ContextController;
-pub use interactive::{InteractiveSession, InteractiveVisualization};
 pub use manager::VisualizationManager;
 pub use metrics::VisualizationMetrics;
-pub use renderers::{HtmlRenderer, JsonRenderer, MarkdownRenderer, TerminalRenderer};
+pub use renderers::{JsonRenderer, TerminalRenderer};
 pub use types::{
     VisualizationConfig, VisualizationRequest, VisualizationResponse, VisualizationType,
 };
-pub use web::WebVisualizationServer;
 
 /// Visualization system configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,21 +38,6 @@ pub struct VisualizationSystemConfig {
 
     /// Enable terminal rendering
     pub enable_terminal: bool,
-
-    /// Enable HTML rendering
-    pub enable_html: bool,
-
-    /// Enable markdown rendering
-    pub enable_markdown: bool,
-
-    /// Enable interactive visualization
-    pub enable_interactive: bool,
-
-    /// Enable web interface
-    pub enable_web: bool,
-
-    /// Web server port
-    pub web_port: u16,
 
     /// Update interval for real-time visualization
     pub update_interval: Duration,
@@ -75,11 +54,6 @@ impl Default for VisualizationSystemConfig {
         Self {
             enable_json: true,
             enable_terminal: true,
-            enable_html: true,
-            enable_markdown: true,
-            enable_interactive: true,
-            enable_web: true,
-            web_port: universal_constants::network::DEFAULT_JSON_RPC_PORT,
             update_interval: Duration::from_secs(1),
             max_history: 1000,
             enable_metrics: true,
@@ -87,30 +61,21 @@ impl Default for VisualizationSystemConfig {
     }
 }
 
-/// Visualization system for context management
+/// Visualization system for context management.
+///
+/// Squirrel owns context-state serialization and event emission.
+/// Presentation (dashboards, charts, web UI) is petalTongue's domain,
+/// accessed via `visualization.render.*` capability IPC.
 #[derive(Debug)]
 pub struct VisualizationSystem {
-    /// Configuration
-    #[expect(dead_code, reason = "planned feature not yet wired")]
-    config: Arc<VisualizationSystemConfig>,
-
     /// Visualization manager
     manager: Arc<VisualizationManager>,
-
-    /// Context controller
-    controller: Arc<ContextController>,
-
-    /// Interactive visualization
-    interactive: Arc<InteractiveVisualization>,
 
     /// Metrics collector
     metrics: Arc<Mutex<VisualizationMetrics>>,
 
     /// Event broadcaster
     event_broadcaster: Arc<broadcast::Sender<VisualizationEvent>>,
-
-    /// Web server
-    web_server: Option<Arc<WebVisualizationServer>>,
 }
 
 /// Visualization event
@@ -141,20 +106,8 @@ pub enum VisualizationEventType {
     /// Visualization updated
     VisualizationUpdated,
 
-    /// Interactive session started
-    InteractiveSessionStarted,
-
-    /// Interactive session ended
-    InteractiveSessionEnded,
-
     /// Metrics updated
     MetricsUpdated,
-
-    /// Web server started
-    WebServerStarted,
-
-    /// Web server stopped
-    WebServerStopped,
 }
 
 impl VisualizationSystem {
@@ -163,86 +116,26 @@ impl VisualizationSystem {
         let config = Arc::new(config);
         let (event_tx, _) = broadcast::channel(1000);
 
-        // Create visualization manager
-        let manager = Arc::new(VisualizationManager::new(config.clone()).await?);
-
-        // Create context controller
-        let controller = Arc::new(ContextController::new(config.clone()).await?);
-
-        // Create interactive visualization
-        let interactive = Arc::new(InteractiveVisualization::new(config.clone()).await?);
-
-        // Create metrics
+        let manager = Arc::new(VisualizationManager::new(config).await?);
         let metrics = Arc::new(Mutex::new(VisualizationMetrics::new()));
 
-        // Create web server if enabled
-        let web_server = if config.enable_web {
-            Some(Arc::new(
-                WebVisualizationServer::new(config.clone(), event_tx.clone()).await?,
-            ))
-        } else {
-            None
-        };
-
         Ok(Self {
-            config,
             manager,
-            controller,
-            interactive,
             metrics,
             event_broadcaster: Arc::new(event_tx),
-            web_server,
         })
     }
 
     /// Start the visualization system
     pub async fn start(&self) -> Result<()> {
-        // Start visualization manager
         self.manager.start().await?;
-
-        // Start context controller
-        self.controller.start().await?;
-
-        // Start interactive visualization
-        self.interactive.start().await?;
-
-        // Start web server if enabled
-        if let Some(web_server) = &self.web_server {
-            web_server.start().await?;
-        }
-
-        // Start metrics collection
         self.start_metrics_collection().await?;
-
-        // Emit start event
-        self.emit_event(
-            VisualizationEventType::WebServerStarted,
-            serde_json::json!({}),
-        )
-        .await;
-
         Ok(())
     }
 
     /// Stop the visualization system
     pub async fn stop(&self) -> Result<()> {
-        // Stop web server if enabled
-        if let Some(web_server) = &self.web_server {
-            web_server.stop().await?;
-        }
-
-        // Stop components
-        self.interactive.stop().await?;
-        self.controller.stop().await?;
         self.manager.stop().await?;
-
-        // Emit stop event
-        self.emit_event(
-            VisualizationEventType::WebServerStopped,
-            serde_json::json!({}),
-        )
-        .await;
-
         Ok(())
     }
 
@@ -292,22 +185,6 @@ impl VisualizationSystem {
         .await;
 
         Ok(response)
-    }
-
-    /// Start an interactive session
-    pub async fn start_interactive_session(&self, config: Value) -> Result<String> {
-        let session_id = self.interactive.start_session(config).await?;
-
-        // Emit event
-        self.emit_event(
-            VisualizationEventType::InteractiveSessionStarted,
-            serde_json::json!({
-                "session_id": session_id
-            }),
-        )
-        .await;
-
-        Ok(session_id)
     }
 
     /// Get visualization metrics
@@ -366,7 +243,6 @@ mod tests {
         let config = VisualizationSystemConfig::default();
         assert!(config.enable_json);
         assert!(config.enable_terminal);
-        assert!(config.enable_html);
         assert!(config.enable_metrics);
         assert_eq!(config.max_history, 1000);
         assert_eq!(config.update_interval, Duration::from_secs(1));
@@ -390,15 +266,11 @@ mod tests {
         let _ = VisualizationEventType::RuleApplied;
         let _ = VisualizationEventType::VisualizationCreated;
         let _ = VisualizationEventType::MetricsUpdated;
-        let _ = VisualizationEventType::WebServerStarted;
     }
 
     #[tokio::test]
-    async fn test_visualization_system_new_without_web() {
-        let config = VisualizationSystemConfig {
-            enable_web: false,
-            ..Default::default()
-        };
+    async fn test_visualization_system_new() {
+        let config = VisualizationSystemConfig::default();
         let system = VisualizationSystem::new(config).await.expect("create");
         let _metrics = system.get_metrics().await;
         let _rx = system.subscribe_to_events();
@@ -409,7 +281,6 @@ mod tests {
         let cfg = VisualizationSystemConfig::default();
         let json = serde_json::to_string(&cfg).expect("ser");
         let back: VisualizationSystemConfig = serde_json::from_str(&json).expect("de");
-        assert_eq!(back.web_port, cfg.web_port);
         assert_eq!(back.max_history, cfg.max_history);
         assert_eq!(back.enable_metrics, cfg.enable_metrics);
     }
@@ -421,11 +292,7 @@ mod tests {
             VisualizationEventType::RuleApplied,
             VisualizationEventType::VisualizationCreated,
             VisualizationEventType::VisualizationUpdated,
-            VisualizationEventType::InteractiveSessionStarted,
-            VisualizationEventType::InteractiveSessionEnded,
             VisualizationEventType::MetricsUpdated,
-            VisualizationEventType::WebServerStarted,
-            VisualizationEventType::WebServerStopped,
         ];
         for t in types {
             let json = serde_json::to_string(&t).expect("ser");
@@ -450,9 +317,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn visualization_start_stop_without_web() {
+    async fn visualization_start_stop() {
         let config = VisualizationSystemConfig {
-            enable_web: false,
             enable_metrics: true,
             ..Default::default()
         };

@@ -273,9 +273,9 @@ pub const REQUIRED_CAPABILITIES: &[(&str, bool, &str)] = &[
         "coordination validation and BYOB graph execution",
     ),
     (
-        cap_ids::UI_CAPABILITY,
+        cap_ids::VISUALIZATION_CAPABILITY,
         false,
-        "visualization and user interface rendering",
+        "visualization and user interface rendering (petalTongue domain)",
     ),
 ];
 
@@ -665,7 +665,7 @@ mod tests {
             cap_ids::COMPUTE_CAPABILITY,
             cap_ids::STORAGE_CAPABILITY,
             cap_ids::COORDINATION_CAPABILITY,
-            cap_ids::UI_CAPABILITY,
+            cap_ids::VISUALIZATION_CAPABILITY,
         ];
         for (cap_id, _, _) in REQUIRED_CAPABILITIES {
             assert!(

@@ -63,10 +63,11 @@ pub const NETWORK_CAPABILITY: &str = "network";
 /// Discover providers with: `discover_capability(COORDINATION_CAPABILITY)`
 pub const COORDINATION_CAPABILITY: &str = "coordination";
 
-/// UI / visualization capability (formerly petaltongue)
+/// Visualization capability (petalTongue).
 ///
-/// Discover providers with: `discover_capability(UI_CAPABILITY)`
-pub const UI_CAPABILITY: &str = "ui";
+/// Methods: `visualization.render.*` — dashboards, charts, web UI.
+/// Discover providers with: `discover_capability(VISUALIZATION_CAPABILITY)`
+pub const VISUALIZATION_CAPABILITY: &str = "visualization";
 
 /// All capabilities this Squirrel primal exposes to biomeOS (niche self-knowledge).
 ///
