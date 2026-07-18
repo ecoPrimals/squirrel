@@ -291,15 +291,9 @@ mod tests {
         }
 
         {
-            let store = PlatformSecretStore::with_path(path)
-                .await
-                .expect("reopen");
+            let store = PlatformSecretStore::with_path(path).await.expect("reopen");
             assert_eq!(
-                store
-                    .get("persist_key")
-                    .await
-                    .expect("get")
-                    .expect("some"),
+                store.get("persist_key").await.expect("get").expect("some"),
                 b"persist_value"
             );
         }

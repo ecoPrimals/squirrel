@@ -173,6 +173,7 @@ impl JsonRpcServer {
         };
 
         if let Some(p) = obj.get("params")
+            && !p.is_null()
             && !p.is_object()
             && !p.is_array()
         {
@@ -187,7 +188,8 @@ impl JsonRpcServer {
             ));
         }
 
-        let params = obj.get("params").cloned();
+        // Normalize: `"params": null` is equivalent to omitted params per JSON-RPC 2.0
+        let params = obj.get("params").filter(|p| !p.is_null()).cloned();
 
         // JH-0/JH-2: pre-dispatch capability gate
         let gate = MethodGate::permissive();

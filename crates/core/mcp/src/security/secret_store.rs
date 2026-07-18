@@ -296,8 +296,7 @@ impl SecretStoreBackend {
                 Ok(Self::File(store))
             }
             CredentialStorage::Platform => {
-                let store =
-                    super::platform_secret_store::PlatformSecretStore::detect().await?;
+                let store = super::platform_secret_store::PlatformSecretStore::detect().await?;
                 Ok(Self::Platform(store))
             }
         }
@@ -484,11 +483,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            backend
-                .get("platform_test")
-                .await
-                .unwrap()
-                .unwrap(),
+            backend.get("platform_test").await.unwrap().unwrap(),
             b"platform_val"
         );
         assert!(backend.delete("platform_test").await.unwrap());

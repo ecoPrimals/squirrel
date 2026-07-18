@@ -474,8 +474,7 @@ mod tests {
 
         let _: CredentialStorage = serde_json::from_str(&memory_json).expect("should succeed");
         let _: CredentialStorage = serde_json::from_str(&file_json).expect("should succeed");
-        let _: CredentialStorage =
-            serde_json::from_str(&platform_json).expect("should succeed");
+        let _: CredentialStorage = serde_json::from_str(&platform_json).expect("should succeed");
     }
 
     #[test]

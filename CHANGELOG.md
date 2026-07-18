@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (July 18, 2026 — Wave 149b: Accept null params + Deep Debt Continuation)
+
+- **P1 fix: Accept `null` params on health endpoint** (`jsonrpc_request_processing.rs`). `"params": null` is now treated as equivalent to omitted params per JSON-RPC 2.0. Previously rejected with `-32602 Invalid params`. Affects all methods, not just health. Normalize: `null` → `None` before dispatch. 2 new tests: `null_params_accepted_on_health`, `null_params_accepted_on_ping`. Demand signal from esotericWebb.
+- **btsp `#[expect]` edge case**: `write_encrypted_frame` now uses `#[cfg_attr(not(test), expect(dead_code, ...))]` — function IS used by test clients, so the expectation was unfulfilled under test compilation.
+- **cargo fmt**: All formatting drift resolved.
+- **Workspace**: 16 crates, 990 files, ~308.2k lines.
+- **7,179 tests passing** (`--all-features`). 0 failed. Clippy clean. Windows cross-compile green.
+
 ### Summary (July 17, 2026 — Wave 145a-r: Deep Debt Sweep — File Splits + Hardcode Evolve + Policy Fix)
 
 - **File splits**: `compute_client/types.rs` (788→482L) — request/response types extracted to `compute_request_types.rs` (320L). `federation/service.rs` (784→449L) — background tasks, scaling, and instance management extracted to `service_scaling.rs` (325L). Both now well under the 800-line threshold. Zero production files >800L.

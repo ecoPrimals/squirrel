@@ -572,6 +572,40 @@ async fn params_primitive_invalid_params() {
 }
 
 #[tokio::test]
+async fn null_params_accepted_on_health() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-null-params-health.sock".to_string());
+    let req = r#"{"jsonrpc":"2.0","method":"health","params":null,"id":1}"#;
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
+    assert!(
+        v.get("error").is_none(),
+        "null params should not produce an error: {v}"
+    );
+    assert_eq!(
+        v.pointer("/result/status").and_then(Value::as_str),
+        Some("healthy")
+    );
+}
+
+#[tokio::test]
+async fn null_params_accepted_on_ping() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-null-params-ping.sock".to_string());
+    let req = r#"{"jsonrpc":"2.0","method":"system.ping","params":null,"id":1}"#;
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
+    assert!(
+        v.get("error").is_none(),
+        "null params should not produce an error: {v}"
+    );
+}
+
+#[tokio::test]
 async fn single_notification_returns_no_body() {
     let server = JsonRpcServer::new("/tmp/jsonrpc-single-notify.sock".to_string());
     let req = r#"{"jsonrpc":"2.0","method":"system.ping"}"#;
