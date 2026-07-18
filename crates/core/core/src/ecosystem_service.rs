@@ -45,7 +45,7 @@ impl EcosystemService {
             .unwrap_or_else(|_| format!("node-{}", uuid::Uuid::new_v4()));
 
         let state = Arc::new(EcosystemState {
-            service_id,
+            _service_id: service_id,
             node_id,
             status: RwLock::new(ServiceStatus::Starting),
             registration_time: Utc::now(),

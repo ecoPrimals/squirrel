@@ -273,26 +273,50 @@ impl Default for TimingHook {
     }
 }
 
-/// Hook for validating command arguments
+/// A validation lifecycle hook parameterized by name.
+///
+/// Consolidates the argument, environment, and resource validation hooks
+/// which were identical except for the name string.
 #[derive(Debug, Clone)]
-pub struct ArgumentValidationHook {
-    /// The validator component that performs argument validation
+pub struct ValidationLifecycleHook {
+    /// Hook identity string returned by `LifecycleHook::name()`
+    hook_name: &'static str,
+    /// The validator component that performs validation
     validator: Arc<RwLock<CommandValidator>>,
 }
 
-impl ArgumentValidationHook {
-    /// Creates a new `ArgumentValidationHook`
+impl ValidationLifecycleHook {
+    /// Creates a new validation lifecycle hook with the given name.
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(hook_name: &'static str) -> Self {
         Self {
+            hook_name,
             validator: Arc::new(RwLock::new(CommandValidator::new())),
         }
     }
+
+    /// Creates an argument validation hook.
+    #[must_use]
+    pub fn argument() -> Self {
+        Self::new("argument_validation")
+    }
+
+    /// Creates an environment validation hook.
+    #[must_use]
+    pub fn environment() -> Self {
+        Self::new("environment_validation")
+    }
+
+    /// Creates a resource validation hook.
+    #[must_use]
+    pub fn resource() -> Self {
+        Self::new("resource_validation")
+    }
 }
 
-impl LifecycleHook for ArgumentValidationHook {
+impl LifecycleHook for ValidationLifecycleHook {
     fn name(&self) -> &'static str {
-        "argument_validation"
+        self.hook_name
     }
 
     fn stages(&self) -> Vec<LifecycleStage> {
@@ -317,111 +341,14 @@ impl LifecycleHook for ArgumentValidationHook {
     }
 }
 
-impl Default for ArgumentValidationHook {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+/// Hook for validating command arguments (backward-compatible alias)
+pub type ArgumentValidationHook = ValidationLifecycleHook;
 
-/// Hook for validating environment requirements
-#[derive(Debug, Clone)]
-pub struct EnvironmentValidationHook {
-    /// The validator component that performs environment validation
-    validator: Arc<RwLock<CommandValidator>>,
-}
+/// Hook for validating environment requirements (backward-compatible alias)
+pub type EnvironmentValidationHook = ValidationLifecycleHook;
 
-impl EnvironmentValidationHook {
-    /// Creates a new `EnvironmentValidationHook`
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            validator: Arc::new(RwLock::new(CommandValidator::new())),
-        }
-    }
-}
-
-impl LifecycleHook for EnvironmentValidationHook {
-    fn name(&self) -> &'static str {
-        "environment_validation"
-    }
-
-    fn stages(&self) -> Vec<LifecycleStage> {
-        vec![LifecycleStage::Validation]
-    }
-
-    fn on_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), CommandError> {
-        if *stage == LifecycleStage::Validation {
-            let validator = self
-                .validator
-                .read()
-                .map_err(|e| CommandError::Lock(format!("Failed to acquire read lock: {e}")))?;
-
-            validator.validate(command)?;
-        }
-
-        Ok(())
-    }
-
-    fn clone_box(&self) -> Box<dyn LifecycleHook> {
-        Box::new(self.clone())
-    }
-}
-
-impl Default for EnvironmentValidationHook {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Hook for validating resource requirements
-#[derive(Debug, Clone)]
-pub struct ResourceValidationHook {
-    /// The validator component that performs resource validation
-    validator: Arc<RwLock<CommandValidator>>,
-}
-
-impl ResourceValidationHook {
-    /// Creates a new `ResourceValidationHook`
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            validator: Arc::new(RwLock::new(CommandValidator::new())),
-        }
-    }
-}
-
-impl LifecycleHook for ResourceValidationHook {
-    fn name(&self) -> &'static str {
-        "resource_validation"
-    }
-
-    fn stages(&self) -> Vec<LifecycleStage> {
-        vec![LifecycleStage::Validation]
-    }
-
-    fn on_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), CommandError> {
-        if *stage == LifecycleStage::Validation {
-            let validator = self
-                .validator
-                .read()
-                .map_err(|e| CommandError::Lock(format!("Failed to acquire read lock: {e}")))?;
-
-            validator.validate(command)?;
-        }
-
-        Ok(())
-    }
-
-    fn clone_box(&self) -> Box<dyn LifecycleHook> {
-        Box::new(self.clone())
-    }
-}
-
-impl Default for ResourceValidationHook {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+/// Hook for validating resource requirements (backward-compatible alias)
+pub type ResourceValidationHook = ValidationLifecycleHook;
 
 /// A manager for command hooks
 pub struct HookManager {
@@ -740,9 +667,9 @@ mod tests {
             LifecycleStage::Cleanup,
             LifecycleStage::ErrorHandling,
         ];
-        let arg_hook = ArgumentValidationHook::default();
-        let env_hook = EnvironmentValidationHook::default();
-        let res_hook = ResourceValidationHook::default();
+        let arg_hook = ValidationLifecycleHook::argument();
+        let env_hook = ValidationLifecycleHook::environment();
+        let res_hook = ValidationLifecycleHook::resource();
         for s in stages {
             arg_hook.on_stage(&s, &cmd).expect("should succeed");
             env_hook.on_stage(&s, &cmd).expect("should succeed");

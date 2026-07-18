@@ -153,7 +153,11 @@ impl Default for PortManagementConfig {
             },
             lease_duration_minutes: 60,
             allocation_strategy: PortAllocationStrategy::Sequential,
-            reserved_ports: vec![8080, 8443, 9090],
+            reserved_ports: vec![
+                universal_constants::network::get_service_port("websocket"),
+                universal_constants::network::DEFAULT_SECURITY_PORT,
+                universal_constants::network::DEFAULT_METRICS_LISTEN_PORT,
+            ],
         }
     }
 }
@@ -234,8 +238,8 @@ impl Default for MonitoringConfig {
     fn default() -> Self {
         Self {
             metrics_enabled: true,
-            metrics_endpoint: "/metrics".to_string(),
-            metrics_port: 9090,
+            metrics_endpoint: universal_constants::network::METRICS_ENDPOINT.to_string(),
+            metrics_port: universal_constants::network::DEFAULT_METRICS_LISTEN_PORT,
             tracing: TracingConfig::default(),
         }
     }

@@ -164,11 +164,11 @@ impl PrimalConfig {
         }
 
         // Update other fields if they're not defaults
-        if other.network.port != 8080 {
+        if other.network.port != universal_constants::network::get_service_port("websocket") {
             self.network.port = other.network.port;
         }
 
-        if other.network.bind_address != "127.0.0.1" {
+        if other.network.bind_address != universal_constants::network::LOCALHOST_IPV4 {
             self.network.bind_address = other.network.bind_address;
         }
 

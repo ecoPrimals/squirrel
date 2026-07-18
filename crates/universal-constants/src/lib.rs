@@ -49,17 +49,10 @@
 //!
 //! # Migration Guide
 //!
-//! Old code:
-//! ```ignore
-//! use squirrel_mcp_config::constants::timeouts::DEFAULT_CONNECTION_TIMEOUT;
-//! use squirrel_mcp::constants::network::DEFAULT_WEBSOCKET_PORT;
-//! ```
-//!
-//! New code:
 //! ```ignore
 //! use universal_constants::{timeouts, network};
 //! let timeout = timeouts::DEFAULT_CONNECTION_TIMEOUT;
-//! let port = network::DEFAULT_WEBSOCKET_PORT;
+//! let port = network::get_service_port("websocket");
 //! ```
 
 // Module declarations

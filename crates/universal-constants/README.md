@@ -212,17 +212,6 @@ use squirrel_mcp_config::constants::limits;
 use universal_constants::{timeouts, limits};
 ```
 
-### From `squirrel_mcp::constants`
-
-```rust
-// ❌ Old (deprecated)
-use squirrel_mcp::constants::network;
-use squirrel_mcp::constants::protocol;
-
-// ✅ New
-use universal_constants::{network, protocol};
-```
-
 ### Type-Safe Timeouts
 
 ```rust

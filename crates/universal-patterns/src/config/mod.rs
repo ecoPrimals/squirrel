@@ -360,7 +360,7 @@ pub mod validation_helpers {
         }
 
         // Try to bind to the port to check availability
-        match std::net::TcpListener::bind(("127.0.0.1", port)) {
+        match std::net::TcpListener::bind((universal_constants::network::LOCALHOST_IPV4, port)) {
             Ok(_) => Ok(()),
             Err(e) => Err(format!("Port {port} is not available: {e}")),
         }

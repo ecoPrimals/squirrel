@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (July 18, 2026 — Wave 150b: Deep Debt — Dead Code + Hardcode Dedup + Hooks Consolidation)
+
+- **Delete deprecated `core/mcp/src/constants.rs`**: 303 lines of dead, deprecated code (zero consumers). All constants already consolidated in `universal-constants`. Module removed from `lib.rs`. Migration doc comments cleaned up.
+- **Consolidate validation hooks**: Three identical `LifecycleHook` implementations (`ArgumentValidationHook`, `EnvironmentValidationHook`, `ResourceValidationHook`) consolidated into single `ValidationLifecycleHook` with named constructors. `hooks.rs` reduced 773→700 lines. Type aliases preserve backward compatibility.
+- **Hardcode evolution**: 4 production sites migrated from literal `"127.0.0.1"` / port numbers to `universal_constants::network::*` constants — `config/methods.rs`, `config/mod.rs`, `config/presets.rs`, `sdk/infrastructure/config.rs`. Reserved port list now uses constants.
+- **Dead code elimination**: Deleted `ecosystem_types.rs` (51L, 3 dead structs — `ServiceRegistration` duplicated in `service_discovery/memory.rs`). Deleted `NodeInfo` + `JoinRequest` from `federation/types.rs` (22L dead scaffold). Removed `federation_nodes` dead field from `routing/mod.rs`. Prefixed `EcosystemState.service_id` → `_service_id` (stored but never read). Net: 6 `#[expect(dead_code)]` attrs eliminated.
+- **7,108 tests passing** (`--all-features`). 0 failed. Clippy clean. Windows cross-compile green.
+
 ### Summary (July 18, 2026 — Wave 149b: Learning + Visualization Architectural Evolution)
 
 - **Visualization system thinned**: Deleted `web.rs` (77L stub), `interactive.rs` (102L stub), `controllers.rs` (96L stub) — petalTongue's domain. Removed `HtmlRenderer` + `MarkdownRenderer` (JSON-in-`<pre>` is not rendering). Deleted 8 dead chart schema types (`VisualizationSeries`, `InteractiveElement`, `FilterConfig`, `AxisConfig`, `TickConfig`, `LegendConfig`, `TooltipConfig`, `DataPoint`), `theme.rs` (269L), `GridConfig`, and presentation config types (`AnimationConfig`, `ExportConfig`, `QualityConfig`). Deleted orphan test files (`renderers_tests.rs`, `types_tests.rs`). ~1,800 LOC removed, 8 `dead_code` attrs eliminated.

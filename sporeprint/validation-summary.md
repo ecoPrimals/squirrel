@@ -1,6 +1,6 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,111 tests, 42+ IPC methods, 90% coverage."
+description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,108 tests, 42+ IPC methods, 90% coverage."
 date = 2026-07-18
 
 [taxonomies]
@@ -13,7 +13,7 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: 7,111 passing across 16 workspace crates
+- **Tests**: 7,108 passing across 16 workspace crates
 - **Source**: 990 `.rs` files, ~308.2k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)

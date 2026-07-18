@@ -9,8 +9,6 @@ mod ecosystem_coordination;
 mod ecosystem_service;
 #[path = "ecosystem_state.rs"]
 mod ecosystem_state;
-#[path = "ecosystem_types.rs"]
-mod ecosystem_types;
 
 pub use ecosystem_service::EcosystemService;
 pub use ecosystem_state::ServiceStatus;

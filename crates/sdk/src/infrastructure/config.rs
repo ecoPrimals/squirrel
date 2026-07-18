@@ -266,7 +266,7 @@ impl NetworkConfig {
         Self {
             host: std::env::var(env_vars::network::NETWORK_HOST).unwrap_or_else(|_| {
                 std::env::var(env_vars::network::DEV_SERVER_HOST)
-                    .unwrap_or_else(|_| "127.0.0.1".to_string())
+                    .unwrap_or_else(|_| universal_constants::network::LOCALHOST_IPV4.to_string())
             }),
             port: std::env::var(env_vars::network::NETWORK_PORT)
                 .ok()

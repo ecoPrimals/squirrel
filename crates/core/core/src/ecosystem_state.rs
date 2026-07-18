@@ -33,9 +33,8 @@ pub enum ServiceStatus {
 }
 
 #[derive(Debug)]
-#[expect(dead_code, reason = "internal state — fields used via RwLock access")]
 pub struct EcosystemState {
-    pub service_id: String,
+    pub _service_id: String,
     pub node_id: String,
     pub status: RwLock<ServiceStatus>,
     pub registration_time: DateTime<Utc>,

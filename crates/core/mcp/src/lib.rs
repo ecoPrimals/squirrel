@@ -32,7 +32,6 @@
     clippy::similar_names,
     reason = "Large MCP crate; progressive documentation and refactor")]
 
-pub mod constants;
 pub mod error;
 pub mod logging;
 pub mod protocol;

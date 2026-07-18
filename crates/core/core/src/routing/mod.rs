@@ -102,9 +102,6 @@ struct RoutingState {
     average_response_time: RwLock<f64>,
     /// Last scaling event
     last_scale_event: RwLock<Option<DateTime<Utc>>>,
-    /// Federation nodes
-    #[expect(dead_code, reason = "Reserved for federation routing")]
-    federation_nodes: RwLock<Vec<String>>,
 }
 
 impl McpRoutingService {
@@ -136,7 +133,6 @@ impl McpRoutingService {
             failed_tasks: RwLock::new(0),
             average_response_time: RwLock::new(0.0),
             last_scale_event: RwLock::new(None),
-            federation_nodes: RwLock::new(Vec::new()),
         });
 
         Ok(Self {

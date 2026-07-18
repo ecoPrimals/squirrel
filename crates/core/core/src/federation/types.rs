@@ -102,30 +102,6 @@ pub struct ScalingPolicy {
     pub scale_factor: f64,
 }
 
-// Supporting types
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-#[expect(dead_code, reason = "deserialized from JSON at runtime")]
-struct NodeInfo {
-    node_id: String,
-    region: Option<String>,
-    zone: Option<String>,
-    capabilities: Vec<String>,
-    capacity: u32,
-    current_load: u32,
-    metadata: HashMap<String, String>,
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-#[expect(dead_code, reason = "deserialized from JSON at runtime")]
-struct JoinRequest {
-    node_id: String,
-    endpoint: String,
-    region: Option<String>,
-    zone: Option<String>,
-    capabilities: Vec<String>,
-    capacity: u32,
-}
-
 /// Point-in-time summary of federation membership and load for observability.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FederationStats {
