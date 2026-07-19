@@ -75,4 +75,3 @@ pub struct VisualizationResponse {
     /// Last update timestamp
     pub updated_at: DateTime<Utc>,
 }
-

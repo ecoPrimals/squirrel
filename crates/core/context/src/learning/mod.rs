@@ -342,7 +342,10 @@ pub struct LearningSystem {
     event_broadcaster: Arc<broadcast::Sender<LearningEvent>>,
 
     /// Event processor background task handle — held to keep the task alive
-    #[expect(dead_code, reason = "RAII: dropping this would abort the background task")]
+    #[expect(
+        dead_code,
+        reason = "RAII: dropping this would abort the background task"
+    )]
     event_processor_handle: Arc<tokio::task::JoinHandle<()>>,
 
     /// System statistics

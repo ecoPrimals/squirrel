@@ -214,5 +214,4 @@ mod tests {
         let output = format_for_terminal(&data, 2);
         assert!(output.starts_with("    ")); // 2 levels of indent
     }
-
 }

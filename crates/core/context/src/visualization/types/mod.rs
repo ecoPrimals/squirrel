@@ -107,5 +107,4 @@ mod tests {
         assert_eq!(config.format, "json");
         assert!(config.custom_options.is_empty());
     }
-
 }

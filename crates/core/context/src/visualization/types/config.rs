@@ -31,8 +31,6 @@ impl Default for VisualizationConfig {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
