@@ -47,3 +47,4 @@ tarpaulin-report.json
 # LLVM coverage
 *.profraw
 *.profdata
+command_history.json
