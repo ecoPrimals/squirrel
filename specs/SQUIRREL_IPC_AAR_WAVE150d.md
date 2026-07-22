@@ -25,7 +25,7 @@ Squirrel is **converged and stable**. All standing debt swept:
 | Visualization | Thinned — petalTongue domain code deleted (~1,800L) |
 | Learning | Cleaned — dead fields removed, wiring fixed |
 | Capability naming | `"visualization"` canonical (code + deploy graphs agree) |
-| SecretStore | File-based cache with `SecurityProvider` IPC path to bearDog |
+| SecretStore | **INTEGRATED** — `SecurityProvider` delegates to bearDog `secrets.*` JSON-RPC over IPC (Wave 150u) |
 | Deprecated code | `core/mcp/src/constants.rs` deleted (303L, zero consumers) |
 | Hardcoding | Evolved to `universal_constants::network::*` throughout |
 | `null` params | Fixed — JSON-RPC accepts `null` params per spec (esotericWebb P1) |
@@ -184,7 +184,8 @@ evolution that can proceed independently.
 | squirrel transport layer | DONE | — |
 | squirrel capability discovery | DONE | — |
 | squirrel `send_to_primal` dispatch | BLOCKED | songBird endpoint resolution |
-| squirrel `security_client` | BLOCKED | bearDog method signatures |
+| squirrel `security_client` (secrets) | **DONE** (Wave 150u) | bearDog `secrets.*` JSON-RPC integrated |
+| squirrel `security_client` (auth/crypto) | BLOCKED | bearDog `auth.*`/`crypto.*` method signatures |
 | squirrel `storage_client` | BLOCKED | nestGate CAS method signatures |
 | squirrel `compute_client` | BLOCKED | toadStool/barraCuda method signatures |
 | squirrel visualization IPC | BLOCKED (P2) | petalTongue render method signatures |
@@ -196,5 +197,6 @@ upstream primals to wire the last mile.
 
 ---
 
-*AAR from squirrel team. Converged at Wave 150b. 7,108 tests, 0 debt,
-0 unsafe. Ready for IPC composition wiring. Awaiting upstream.*
+*AAR from squirrel team. Converged at Wave 150b, CredentialStore integrated
+Wave 150u. 7,122 tests, 0 debt, 0 unsafe. Ready for IPC composition wiring.
+Awaiting upstream.*

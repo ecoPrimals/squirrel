@@ -274,6 +274,8 @@ pub enum SecretStoreBackend {
     File(FileSecretStore),
     /// Platform-native store (auto-detected per OS).
     Platform(super::platform_secret_store::PlatformSecretStore),
+    /// IPC delegation to the security capability provider (bearDog).
+    SecurityProvider(super::security_provider_secret_store::SecurityProviderSecretStore),
 }
 
 impl SecretStoreBackend {
@@ -288,8 +290,11 @@ impl SecretStoreBackend {
     ) -> Result<Self> {
         use universal_patterns::config::CredentialStorage;
         match storage {
-            CredentialStorage::Memory | CredentialStorage::SecurityProvider => {
-                Ok(Self::Memory(InMemorySecretStore::new()))
+            CredentialStorage::Memory => Ok(Self::Memory(InMemorySecretStore::new())),
+            CredentialStorage::SecurityProvider => {
+                Ok(Self::SecurityProvider(
+                    super::security_provider_secret_store::SecurityProviderSecretStore::discover(),
+                ))
             }
             CredentialStorage::File { path } => {
                 let store = FileSecretStore::open(path).await?;
@@ -309,6 +314,7 @@ impl SecretStore for SecretStoreBackend {
             Self::Memory(s) => s.get(name).await,
             Self::File(s) => s.get(name).await,
             Self::Platform(s) => s.get(name).await,
+            Self::SecurityProvider(s) => s.get(name).await,
         }
     }
 
@@ -317,6 +323,7 @@ impl SecretStore for SecretStoreBackend {
             Self::Memory(s) => s.set(name, value).await,
             Self::File(s) => s.set(name, value).await,
             Self::Platform(s) => s.set(name, value).await,
+            Self::SecurityProvider(s) => s.set(name, value).await,
         }
     }
 
@@ -325,6 +332,7 @@ impl SecretStore for SecretStoreBackend {
             Self::Memory(s) => s.delete(name).await,
             Self::File(s) => s.delete(name).await,
             Self::Platform(s) => s.delete(name).await,
+            Self::SecurityProvider(s) => s.delete(name).await,
         }
     }
 
@@ -333,6 +341,7 @@ impl SecretStore for SecretStoreBackend {
             Self::Memory(s) => s.list_keys().await,
             Self::File(s) => s.list_keys().await,
             Self::Platform(s) => s.list_keys().await,
+            Self::SecurityProvider(s) => s.list_keys().await,
         }
     }
 }
@@ -468,8 +477,9 @@ mod tests {
         let backend = SecretStoreBackend::from_config(&CredentialStorage::SecurityProvider)
             .await
             .unwrap();
-        backend.set("cached", b"val".to_vec()).await.unwrap();
-        assert_eq!(backend.get("cached").await.unwrap().unwrap(), b"val");
+        // SecurityProvider resolves to IPC backend; without bearDog running,
+        // operations will fail — just verify the variant was constructed.
+        assert!(matches!(backend, SecretStoreBackend::SecurityProvider(_)));
     }
 
     #[tokio::test]

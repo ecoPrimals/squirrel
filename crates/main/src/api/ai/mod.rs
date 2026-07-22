@@ -7,6 +7,7 @@
 //! Parallel adapter/bridge/discovery stacks removed in Wave 124 (1,811 lines of dead code).
 
 pub mod adapters;
+pub mod api_key_resolver;
 pub mod constraint_router;
 pub mod constraints;
 pub mod dignity;

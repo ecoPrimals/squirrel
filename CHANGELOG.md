@@ -11,6 +11,16 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (July 22, 2026 — Wave 150u: CredentialStore Integration via bearDog `secrets.*` JSON-RPC)
+
+- **`SecurityProviderSecretStore`**: New `SecretStore` implementation that connects to bearDog's `secrets.*` JSON-RPC over IPC (UDS/TCP). Supports `store`, `retrieve`, `list`, `delete`. Tiered endpoint discovery: `SECURITY_ENDPOINT` → `BEARDOG_ENDPOINT` → socket auto-detect. 5s connection/response timeout.
+- **`SecretStoreBackend::SecurityProvider` variant**: `CredentialStorage::SecurityProvider` config now wires to the real IPC backend instead of falling through to in-memory. The enum dispatch handles all four `SecretStore` methods.
+- **AI key resolution via `secrets.retrieve`**: New `api_key_resolver` module provides `resolve_api_key()`, `is_api_key_available()`, and `filter_providers_with_keys()`. HTTP provider discovery (`discover_http_providers`) now tries bearDog's credential store before falling back to env vars.
+- **`resolve_secret_or_env` convenience**: Generic helper tries the store first, falls back to `std::env::var`. Recommended pattern for all secret consumption.
+- **Graceful degradation**: When bearDog is not running, all operations fail gracefully — existing env-var setups continue working unchanged.
+- **14 new tests**: 8 in `security_provider_secret_store` (endpoint parsing, discovery priority, store/env fallback, none-when-missing), 6 in `api_key_resolver` (name lowercasing, store resolution, env fallback, availability check, filter).
+- **7,122 tests passing** (`--all-features`). 0 failed. Clippy clean.
+
 ### Summary (July 18, 2026 — Wave 150b: Deep Debt — Dead Code + Hardcode Dedup + Hooks Consolidation)
 
 - **Delete deprecated `core/mcp/src/constants.rs`**: 303 lines of dead, deprecated code (zero consumers). All constants already consolidated in `universal-constants`. Module removed from `lib.rs`. Migration doc comments cleaned up.

@@ -13,7 +13,8 @@ use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 use super::adapters::{AiProvider, AiProviderAdapter};
-use super::http_provider_config::get_enabled_http_providers;
+use super::api_key_resolver;
+use super::http_provider_config::{get_enabled_http_providers, get_http_provider_configs};
 use super::router::{AiRouter, compute_capability_unix_socket};
 use crate::error::PrimalError;
 
@@ -56,10 +57,23 @@ async fn discover_all_providers() -> Result<Vec<Arc<AiProvider>>, PrimalError> {
 
 async fn discover_http_providers(providers: &mut Vec<Arc<AiProvider>>) {
     info!("Discovering HTTP-based AI providers from configuration...");
-    let enabled = get_enabled_http_providers();
+
+    // Try bearDog's credential store first, fall back to env-var resolution.
+    let security_store =
+        squirrel_mcp::security::security_provider_secret_store::SecurityProviderSecretStore::discover();
+    let enabled = {
+        let all_configs = get_http_provider_configs();
+        let from_secrets =
+            api_key_resolver::filter_providers_with_keys(&security_store, all_configs).await;
+        if from_secrets.is_empty() {
+            get_enabled_http_providers()
+        } else {
+            from_secrets
+        }
+    };
 
     if enabled.is_empty() {
-        info!("No HTTP providers enabled. Set AI_HTTP_PROVIDERS or API keys to enable.");
+        info!("No HTTP providers enabled. Set AI_HTTP_PROVIDERS, API keys, or store secrets in bearDog.");
         return;
     }
 
@@ -260,7 +274,8 @@ pub fn log_discovery_summary(count: usize) {
         );
         warn!("  - Or start Ollama (auto-discovered at default port)");
         warn!("For external AI APIs:");
-        warn!("  - Set ANTHROPIC_API_KEY or OPENAI_API_KEY");
+        warn!("  - Store keys in bearDog: secrets.store({{name, value}})");
+        warn!("  - Or set ANTHROPIC_API_KEY or OPENAI_API_KEY env vars (legacy)");
         warn!("For Unix socket providers:");
         warn!("  - Set AI_PROVIDER_SOCKETS=/tmp/provider.sock");
     } else {
