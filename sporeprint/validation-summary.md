@@ -1,7 +1,7 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,108 tests, 42+ IPC methods, 90% coverage."
-date = 2026-07-18
+description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,132 tests, 42+ IPC methods, 90% coverage."
+date = 2026-07-26
 
 [taxonomies]
 primals = ["squirrel"]
@@ -13,8 +13,8 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: 7,108 passing across 16 workspace crates
-- **Source**: 990 `.rs` files, ~308.2k lines
+- **Tests**: 7,132 passing across 16 workspace crates
+- **Source**: 984 `.rs` files, ~306k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced
@@ -96,6 +96,30 @@ Squirrel is the **intelligence router** for all compositions requiring AI infere
 - primalSpring (graph validation, coordination)
 - wetSpring (sovereign pipeline — inference for Barrick clone)
 - NestGate (model weight storage)
+
+## Wave 152a — Deep Debt Sweep + SDK Alignment (July 26, 2026)
+
+- Deleted 11 dead_code items (5 unused plugin consts, ExampleData struct, 2 dead example handlers, 3 empty recovery stubs)
+- Aligned 9 SDK deps to `workspace = true` (serde, serde_json, thiserror, futures, tokio, tracing, uuid, chrono, semver)
+- Fixed pre-existing timeout test race condition (env var pollution between concurrent tests)
+- Clippy: `map_or` → `is_some_and`, redundant closures → method refs, stale `#[expect]` → `#[cfg_attr]`
+- Audit confirmed: all mocks `#[cfg(test)]`, all hardcoded hosts via `universal-constants`, 0 unsafe, 0 TODO/FIXME
+
+## Wave 151b — BTSP Client Handshake for bearDog Strict Mode (July 26, 2026)
+
+- Client-side 4-step BTSP handshake: ClientHello → ServerHello → ChallengeResponse → HandshakeComplete
+- HMAC-SHA256 with FAMILY_SEED (env-tiered: FAMILY_SEED → BEARDOG_FAMILY_SEED → BIOMEOS_FAMILY_SEED)
+- Wired into `SecurityProviderSecretStore.rpc_call` via `maybe_client_handshake`
+- Strict mode detection: `BEARDOG_UDS_REQUIRE_BTSP=1` or `BTSP_STRICT_MODE=1`
+- 10 new tests (strict mode, seed resolution, HMAC computation, wire serialization)
+
+## Wave 150u — CredentialStore Integration via bearDog secrets.* JSON-RPC (July 22, 2026)
+
+- `SecurityProviderSecretStore`: IPC backend for bearDog's `secrets.store/retrieve/list/delete`
+- `SecretStoreBackend::SecurityProvider` variant wired in `from_config`
+- `api_key_resolver`: AI key resolution via `secrets.retrieve` with env-var fallback
+- `discover_http_providers` tries bearDog credential store before legacy env vars
+- 14 new tests (endpoint parsing, discovery priority, store/env fallback, key filtering)
 
 ## Wave 129 — Mock Evolution + Timeout Threading + Dead Module Purge (June 28, 2026)
 
