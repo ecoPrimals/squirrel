@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (July 26, 2026 — Wave 151b: BTSP Client Handshake for bearDog Strict Mode)
+
+- **BTSP client-side handshake**: New `btsp_client` module implements the 4-step BTSP `ClientHello` handshake for authenticating to bearDog in strict mode. Uses HMAC-SHA256 with FAMILY_SEED, ephemeral key exchange, and cipher negotiation. Reference: songBird's `btsp_client.rs`.
+- **SecurityProvider IPC wired**: `SecurityProviderSecretStore.rpc_call` now performs `maybe_client_handshake` before sending JSON-RPC — seamless BTSP when strict mode is active, graceful fallback to plain JSON-RPC when not.
+- **Env-tiered family seed resolution**: `FAMILY_SEED` → `BEARDOG_FAMILY_SEED` → `BIOMEOS_FAMILY_SEED`.
+- **Strict mode detection**: `btsp_strict_mode_expected()` checks `BEARDOG_UDS_REQUIRE_BTSP=1` or `BTSP_STRICT_MODE=1`.
+- **10 new tests**: strict mode detection (3), family seed resolution (3), HMAC computation, wire serialization (2), conditional skip.
+- **New workspace deps**: `hmac = "0.12"`, `getrandom = "0.3"` (both already transitive; now direct for BTSP crypto).
+
 ### Summary (July 22, 2026 — Wave 150u: CredentialStore Integration via bearDog `secrets.*` JSON-RPC)
 
 - **`SecurityProviderSecretStore`**: New `SecretStore` implementation that connects to bearDog's `secrets.*` JSON-RPC over IPC (UDS/TCP). Supports `store`, `retrieve`, `list`, `delete`. Tiered endpoint discovery: `SECURITY_ENDPOINT` → `BEARDOG_ENDPOINT` → socket auto-detect. 5s connection/response timeout.

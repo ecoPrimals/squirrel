@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: July 22, 2026 (Wave 150u — CredentialStore integration via bearDog `secrets.*` JSON-RPC)
+**Last Updated**: July 26, 2026 (Wave 151b — BTSP client handshake for bearDog strict mode)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 

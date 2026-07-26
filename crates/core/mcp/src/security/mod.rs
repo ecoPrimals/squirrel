@@ -6,6 +6,7 @@
 //! Provides security management, RBAC, audit, and related functionality.
 
 pub mod audit;
+pub mod btsp_client;
 #[cfg(feature = "local-crypto")]
 pub mod crypto;
 pub mod identity;

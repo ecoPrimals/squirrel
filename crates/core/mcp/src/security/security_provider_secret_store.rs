@@ -80,6 +80,11 @@ impl SecurityProviderSecretStore {
                     ))
                 })?;
 
+        // BTSP handshake when strict mode is active (sporeGate LIVE, eastGate next)
+        if let Err(e) = super::btsp_client::maybe_client_handshake(&mut stream).await {
+            warn!(error = %e, "BTSP client handshake failed — falling back to plain JSON-RPC");
+        }
+
         stream.write_all(&request_bytes).await.map_err(|e| {
             MCPError::Internal(format!("Failed to send to security provider: {e}"))
         })?;

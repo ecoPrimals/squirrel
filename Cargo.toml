@@ -83,6 +83,8 @@ ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 chacha20poly1305 = "0.10"
 hkdf = "0.12"
 sha2 = "0.10"
+hmac = "0.12"
+getrandom = { version = "0.3", default-features = false, features = ["std"] }
 # axum/tower: optional HTTP API surface (feature-gated, off by default). Declared below.
 
 # CLI and command dependencies
