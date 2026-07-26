@@ -484,36 +484,6 @@ impl ErrorHandler {
         Ok(())
     }
 
-    /// Attempts to recover a connection
-    ///
-    /// # Arguments
-    ///
-    /// * `_context` - The error context containing information about the error
-    #[expect(dead_code, reason = "planned feature not yet wired")]
-    const fn recover_connection(_context: &LocalErrorContext) {
-        // Implementation would go here
-    }
-
-    /// Attempts to recover state after an error
-    ///
-    /// # Arguments
-    ///
-    /// * `_context` - The error context containing information about the error
-    #[expect(dead_code, reason = "planned feature not yet wired")]
-    const fn recover_state(_context: &LocalErrorContext) {
-        // Implementation would go here
-    }
-
-    /// Attempts to recover protocol functionality after an error
-    ///
-    /// # Arguments
-    ///
-    /// * `_context` - The error context containing information about the error
-    #[expect(dead_code, reason = "planned feature not yet wired")]
-    const fn recover_protocol(_context: &LocalErrorContext) {
-        // Implementation would go here
-    }
-
     /// Applies a recovery strategy to an error context
     ///
     /// # Arguments

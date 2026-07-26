@@ -365,9 +365,17 @@ mod tests {
 
     #[test]
     fn test_timeout_config_default() {
-        let config = TimeoutConfig::default();
-        assert!(config.connection_timeout_secs > 0);
-        assert!(config.request_timeout_secs > 0);
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_CONNECTION_TIMEOUT_SECS", None::<&str>),
+                ("SQUIRREL_REQUEST_TIMEOUT_SECS", None),
+            ],
+            || {
+                let config = TimeoutConfig::default();
+                assert!(config.connection_timeout_secs > 0);
+                assert!(config.request_timeout_secs > 0);
+            },
+        );
     }
 
     #[test]

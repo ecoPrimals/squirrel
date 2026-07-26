@@ -89,25 +89,25 @@ web-sys = { version = "0.3", features = [
 ] }
 
 # Serialization
-serde = { version = "1.0", features = ["derive"] }
+serde.workspace = true
 serde-wasm-bindgen = "0.6"
-serde_json = "1.0"
+serde_json.workspace = true
 
 # Error handling
 anyhow.workspace = true
-thiserror = "1.0"
+thiserror.workspace = true
 
 # Async runtime
-futures = "0.3"
-tokio = { version = "1.0", features = ["full"] }
+futures.workspace = true
+tokio.workspace = true
 
 # Logging
-tracing = "0.1"
+tracing.workspace = true
 
 # Utilities
-uuid = { version = "1.0", features = ["v4", "serde"] }
-chrono = { version = "0.4", features = ["serde"] }
-semver = "1.0"
+uuid.workspace = true
+chrono.workspace = true
+semver.workspace = true
 
 # Optional dependencies
 console_error_panic_hook = { version = "0.1", optional = true }

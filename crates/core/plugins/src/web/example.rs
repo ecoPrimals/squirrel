@@ -34,20 +34,6 @@ pub struct ExampleWebPlugin {
     data: RwLock<HashMap<String, Value>>,
 }
 
-/// Example data
-#[expect(dead_code, reason = "Reserved for example plugin data structures")]
-#[derive(Clone, Debug)]
-struct ExampleData {
-    /// Example ID
-    id: String,
-    /// Example name
-    name: String,
-    /// Example description
-    description: String,
-    /// Example status
-    active: bool,
-}
-
 impl Default for ExampleWebPlugin {
     fn default() -> Self {
         Self::new()
@@ -219,56 +205,6 @@ impl ExampleWebPlugin {
 
         if let Some(item) = data.get(id) {
             Ok(WebResponse::ok(item.clone()))
-        } else {
-            Ok(WebResponse::not_found(&format!(
-                "Example with ID {id} not found"
-            )))
-        }
-    }
-
-    /// Handle GET /api/examples/{id}/details request
-    #[expect(dead_code, reason = "Reserved for example plugin endpoint handlers")]
-    async fn handle_get_example_details(&self, id: &str) -> Result<WebResponse> {
-        let data = self.data.read().await;
-
-        if let Some(item) = data.get(id) {
-            // Generate some mock details
-            let details = json!({
-                "id": id,
-                "item": item,
-                "created_at": "2023-08-01T12:00:00Z",
-                "updated_at": "2023-08-15T14:30:00Z",
-                "stats": {
-                    "views": 42,
-                    "likes": 7
-                }
-            });
-
-            Ok(WebResponse::ok(details))
-        } else {
-            Ok(WebResponse::not_found(&format!(
-                "Example with ID {id} not found"
-            )))
-        }
-    }
-
-    /// Handle POST /api/examples/{id}/activate request
-    #[expect(dead_code, reason = "Reserved for example plugin endpoint handlers")]
-    async fn handle_activate_example(&self, id: &str) -> Result<WebResponse> {
-        let mut data = self.data.write().await;
-
-        if let Some(item) = data.get_mut(id) {
-            // Update the item to mark it as active
-            if let Some(obj) = item.as_object_mut() {
-                obj.insert("active".to_string(), json!(true));
-                obj.insert("activated_at".to_string(), json!("2023-08-15T14:30:00Z"));
-            }
-
-            Ok(WebResponse::ok(json!({
-                "id": id,
-                "status": "activated",
-                "message": "Item successfully activated"
-            })))
         } else {
             Ok(WebResponse::not_found(&format!(
                 "Example with ID {id} not found"

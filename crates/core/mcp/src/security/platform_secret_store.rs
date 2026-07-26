@@ -303,7 +303,7 @@ mod tests {
     fn platform_secret_path_is_not_empty() {
         let path = platform_secret_path();
         assert!(
-            path.to_str().map_or(false, |s| !s.is_empty()),
+            path.to_str().is_some_and(|s| !s.is_empty()),
             "platform path should not be empty"
         );
         assert!(

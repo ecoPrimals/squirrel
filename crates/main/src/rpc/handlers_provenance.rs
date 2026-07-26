@@ -511,7 +511,7 @@ mod tests {
             result.get("session_id").and_then(|v| v.as_str()),
             Some("mock-session-001")
         );
-        assert_eq!(result.get("created").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(result.get("created").and_then(serde_json::Value::as_bool), Some(true));
     }
 
     #[tokio::test]

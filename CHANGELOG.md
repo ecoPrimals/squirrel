@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (July 26, 2026 — Wave 152a: Deep Debt Sweep + SDK Alignment)
+
+- **Plugin dead code elimination**: Deleted 5 unused `PLUGIN_TYPE_*` string constants (never consumed), `ExampleData` struct, and 2 dead example handlers (`handle_get_example_details`, `handle_activate_example`) from `web/example.rs` — 8 `#[expect(dead_code)]` attrs removed.
+- **Error scaffolding cleanup**: Deleted 3 empty `const fn` recovery stubs (`recover_connection`, `recover_state`, `recover_protocol`) from `error/context.rs` — 3 `#[expect(dead_code)]` attrs removed.
+- **SDK workspace dep alignment**: Aligned 9 SDK dependencies (`serde`, `serde_json`, `thiserror`, `futures`, `tokio`, `tracing`, `uuid`, `chrono`, `semver`) from pinned versions to `workspace = true` — prevents version drift.
+- **Clippy evolution**: Fixed `map_or` → `is_some_and` in `platform_secret_store.rs`, redundant closures in 2 test files, stale `#[expect(unused_imports)]` → `#[cfg_attr(not(test), allow(unused_imports))]` in `integration.rs`.
+- **Test robustness**: Fixed pre-existing race condition in `test_timeout_config_default` — concurrent `temp_env` env-var mutation from parallel tests caused intermittent failure; now guarded with `temp_env::with_vars`.
+- **Audit findings**: All hardcoded hosts/ports already evolved to `universal-constants` (remaining in test assertions only); all mocks already `#[cfg(test)]` gated; no `unsafe` blocks; no TODO/FIXME markers; `network.rs` (777L) well-structured, no split needed.
+
 ### Summary (July 26, 2026 — Wave 151b: BTSP Client Handshake for bearDog Strict Mode)
 
 - **BTSP client-side handshake**: New `btsp_client` module implements the 4-step BTSP `ClientHello` handshake for authenticating to bearDog in strict mode. Uses HMAC-SHA256 with FAMILY_SEED, ephemeral key exchange, and cipher negotiation. Reference: songBird's `btsp_client.rs`.

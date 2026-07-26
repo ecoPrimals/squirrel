@@ -22,8 +22,7 @@ use crate::manager::ContextManager;
 use crate::rules::RuleManager;
 use crate::visualization::VisualizationSystem;
 
-// Re-export planned feature types (available for downstream consumers)
-#[expect(unused_imports, reason = "re-export for planned consumer")]
+#[cfg_attr(not(test), allow(unused_imports))]
 pub use super::integration_data::{
     ContextMonitoringResults, IntegrationError, IntegrationRefs, IntegrationState,
     IntegrationStats, IntegrationStatus, LearningIntegrationConfig,

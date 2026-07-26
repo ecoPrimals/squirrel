@@ -215,7 +215,7 @@ async fn signal_plan_mode_dispatches_to_router_and_parses_steps() {
         .await
         .expect("signal_plan should succeed");
 
-    assert!(result.get("success").and_then(|v| v.as_bool()) == Some(true));
+    assert!(result.get("success").and_then(serde_json::Value::as_bool) == Some(true));
     let plan = result.get("plan").and_then(|v| v.as_array()).expect("plan");
     assert_eq!(plan.len(), 1);
     assert_eq!(

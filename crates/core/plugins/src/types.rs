@@ -12,18 +12,6 @@ use crate::Result;
 use crate::plugin::Plugin;
 use universal_constants::limits;
 
-/// Plugin type identifiers (reserved for plugin type filtering)
-#[expect(dead_code, reason = "planned feature not yet wired")]
-pub const PLUGIN_TYPE_CORE: &str = "core";
-#[expect(dead_code, reason = "planned feature not yet wired")]
-pub const PLUGIN_TYPE_WEB: &str = "web";
-#[expect(dead_code, reason = "planned feature not yet wired")]
-pub const PLUGIN_TYPE_MCP: &str = "mcp";
-#[expect(dead_code, reason = "planned feature not yet wired")]
-pub const PLUGIN_TYPE_TOOL: &str = "tool";
-#[expect(dead_code, reason = "planned feature not yet wired")]
-pub const PLUGIN_TYPE_CLI: &str = "cli";
-
 /// Plugin type enumeration
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginType {
