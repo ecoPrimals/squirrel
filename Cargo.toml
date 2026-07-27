@@ -39,6 +39,8 @@ authors = ["ecoPrimals Contributors"]
 edition = "2024"
 license = "AGPL-3.0-or-later"
 version = "0.1.0"
+homepage = "https://sporeprint.primals.eco"
+documentation = "https://sporeprint.primals.eco/lab/"
 
 [workspace.dependencies]
 # Core dependencies - shared across workspace
