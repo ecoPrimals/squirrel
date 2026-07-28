@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Comprehensive Benchmarking Framework for ecoPrimals Ecosystem
-#![expect(dead_code, reason = "Benchmarking infrastructure awaiting activation")]
 //!
 //! This module provides a unified benchmarking framework for measuring performance
 //! across all ecosystem components including:

@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,132 passing | **Edition**: 2024 | **Coverage**: 90.1% region | **ecoBin**: 4.4 MB | **Methods**: 42+ IPC (42 registered + provenance proxy)
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 763 passing (4,946 `#[test]` attrs) | **Edition**: 2024 | **ecoBin**: 4.4 MB | **Methods**: 42+ IPC
 
 ---
 
@@ -79,7 +79,7 @@ Pre-dispatch capability gate at `crates/main/src/rpc/method_gate.rs`. Ships in *
 
 ### Compute Delegation
 
-Squirrel delegates compute workloads to the ecosystem compute primal (toadStool) via JSON-RPC IPC. Detection order: `COMPUTE_SERVICE_ENDPOINT` → `COMPUTE_ENDPOINT` → `TOADSTOOL_ENDPOINT` → local dev fallback. The `RemoteComputeProvider` translates `WorkloadExecutionSpec` into toadStool's `compute.execute` wire format and speaks JSON-RPC 2.0 over Unix socket or TCP.
+Squirrel delegates compute workloads to the ecosystem compute capability provider via JSON-RPC IPC. Detection order: `COMPUTE_SERVICE_ENDPOINT` → `COMPUTE_ENDPOINT` → `COMPUTE_SOCKET` → capability discovery. The `UniversalComputeAdapter` resolves the provider socket via capability discovery and forwards `compute.*` operations over JSON-RPC 2.0.
 
 ### Inference Provider Discovery
 
@@ -100,7 +100,7 @@ Runtime registration: any primal can call `inference.register_provider` to dynam
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   7,132 tests passing (0 failures) | 984 `.rs` files | ~306k lines | zero Box<dyn Error> in prod
+Fitness:   763 tests passing (0 failures) | 986 `.rs` files | ~306k lines | zero Box<dyn Error> in prod
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
@@ -173,8 +173,8 @@ When Squirrel is unavailable, downstream consumers degrade as follows:
 | `provider.*` | Spring registration queued; springs retry on reconnect | LOW |
 
 **Standalone mode**: Squirrel operates fully without other primals. AI routing degrades
-to local-only providers. Compute delegation falls back to `LocalProcessProvider`.
-Storage endpoint resolution uses defaults. No primal dependency is hard-gated.
+to local-only providers. Adapter operations return clear errors when no capability
+provider is discovered. No primal dependency is hard-gated.
 
 ## Stadial Pairing
 

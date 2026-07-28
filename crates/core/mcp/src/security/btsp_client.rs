@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! BTSP client-side handshake for connecting to bearDog in strict mode.
+//! BTSP client-side handshake for connecting to the security provider in strict mode.
 //!
 //! When `BEARDOG_UDS_REQUIRE_BTSP=1` is set (sporeGate LIVE, eastGate next),
-//! bearDog rejects plain JSON-RPC with `-32600`. This module implements the
+//! the security provider rejects plain JSON-RPC with `-32600`. This module implements the
 //! consumer-side 4-step BTSP handshake so squirrel can authenticate before
 //! sending `secrets.*` requests.
 //!
 //! The challenge response uses LOCAL HMAC-SHA256 with the family seed — no
 //! chicken-and-egg: squirrel computes HMAC locally to authenticate itself TO
-//! bearDog, then sends JSON-RPC over the authenticated session.
+//! the security provider, then sends JSON-RPC over the authenticated session.
 //!
 //! ## Wire Format (NDJSON — newline-delimited)
 //!
@@ -124,7 +124,7 @@ fn resolve_family_seed_raw() -> Option<String> {
         .filter(|s| !s.trim().is_empty())
 }
 
-/// Check whether BTSP strict mode is expected (bearDog requires handshake).
+/// Check whether BTSP strict mode is expected (security provider requires handshake).
 ///
 /// Returns `true` if `BEARDOG_UDS_REQUIRE_BTSP=1` or `BTSP_STRICT_MODE=1`.
 #[must_use]
@@ -136,7 +136,7 @@ pub fn btsp_strict_mode_expected() -> bool {
 
 /// Perform the client-side BTSP handshake over an NDJSON stream.
 ///
-/// Authenticates to bearDog using the family seed from environment.
+/// Authenticates to the security provider using the family seed from environment.
 /// After success, the stream is ready for JSON-RPC traffic.
 pub async fn perform_client_handshake<S>(
     stream: &mut S,

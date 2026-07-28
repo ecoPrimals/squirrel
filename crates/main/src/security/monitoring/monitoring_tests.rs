@@ -2,6 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use super::*;
+use crate::error::PrimalError;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -183,7 +184,7 @@ async fn test_start_noop_when_real_time_disabled() {
 }
 
 #[tokio::test]
-async fn test_failed_auth_event_generates_alert_after_start() {
+async fn test_failed_auth_event_logged_without_local_classification() {
     let config = SecurityMonitoringConfig {
         enable_behavioral_analysis: false,
         ..Default::default()
@@ -204,13 +205,13 @@ async fn test_failed_auth_event_generates_alert_after_start() {
     );
     system.record_event(event).await;
     tokio::time::sleep(Duration::from_millis(250)).await;
+    // Without defense provider, squirrel logs only — no local threat classification
     let alerts = system.get_active_alerts().await;
-    assert_eq!(alerts.len(), 1);
-    assert_eq!(alerts[0].alert_type, AlertType::BruteForceAttempt);
+    assert_eq!(alerts.len(), 0);
 }
 
 #[tokio::test]
-async fn test_critical_input_validation_event_generates_alert() {
+async fn test_critical_input_validation_event_logged_without_local_classification() {
     let config = SecurityMonitoringConfig {
         enable_behavioral_analysis: false,
         ..Default::default()
@@ -232,8 +233,28 @@ async fn test_critical_input_validation_event_generates_alert() {
     system.record_event(event).await;
     tokio::time::sleep(Duration::from_millis(250)).await;
     let alerts = system.get_active_alerts().await;
-    assert_eq!(alerts.len(), 1);
-    assert_eq!(alerts[0].alert_type, AlertType::InputValidationAbuse);
+    assert_eq!(alerts.len(), 0);
+}
+
+#[tokio::test]
+async fn test_classify_threat_delegates_to_defense_provider() {
+    let config = SecurityMonitoringConfig::default();
+    let system = SecurityMonitoringSystem::new(config);
+
+    let event = SecurityEvent::new(
+        SecurityEventType::Authentication {
+            success: false,
+            user_id: None,
+            method: "password".to_string(),
+        },
+        "10.0.0.1".to_string(),
+        EventSeverity::Warning,
+        "auth".to_string(),
+        CorrelationId::new(),
+    );
+
+    let err = system.classify_threat(&event).await.unwrap_err();
+    assert!(matches!(err, PrimalError::ResourceNotFound(_)));
 }
 
 #[tokio::test]

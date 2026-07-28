@@ -58,7 +58,7 @@ async fn discover_all_providers() -> Result<Vec<Arc<AiProvider>>, PrimalError> {
 async fn discover_http_providers(providers: &mut Vec<Arc<AiProvider>>) {
     info!("Discovering HTTP-based AI providers from configuration...");
 
-    // Try bearDog's credential store first, fall back to env-var resolution.
+    // Try the security provider's credential store first, fall back to env-var resolution.
     let security_store =
         squirrel_mcp::security::security_provider_secret_store::SecurityProviderSecretStore::discover();
     let enabled = {
@@ -73,7 +73,9 @@ async fn discover_http_providers(providers: &mut Vec<Arc<AiProvider>>) {
     };
 
     if enabled.is_empty() {
-        info!("No HTTP providers enabled. Set AI_HTTP_PROVIDERS, API keys, or store secrets in bearDog.");
+        info!(
+            "No HTTP providers enabled. Set AI_HTTP_PROVIDERS, API keys, or store secrets in the security provider."
+        );
         return;
     }
 
@@ -274,7 +276,7 @@ pub fn log_discovery_summary(count: usize) {
         );
         warn!("  - Or start Ollama (auto-discovered at default port)");
         warn!("For external AI APIs:");
-        warn!("  - Store keys in bearDog: secrets.store({{name, value}})");
+        warn!("  - Store keys in security provider: secrets.store({{name, value}})");
         warn!("  - Or set ANTHROPIC_API_KEY or OPENAI_API_KEY env vars (legacy)");
         warn!("For Unix socket providers:");
         warn!("  - Set AI_PROVIDER_SOCKETS=/tmp/provider.sock");

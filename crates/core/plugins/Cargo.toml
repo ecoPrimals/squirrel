@@ -36,6 +36,7 @@ dashmap = "5.0"
 # Add interfaces dependency for canonical types
 squirrel-interfaces = { path = "../interfaces", version = "0.1.0" }
 universal-constants = { path = "../../universal-constants", version = "0.1.0" }
+strum.workspace = true
 
 [dev-dependencies]
 tokio-test = "0.4"

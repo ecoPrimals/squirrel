@@ -214,15 +214,20 @@ impl ConfigBuilder {
         self
     }
 
-    /// Set security provider endpoint (optional, legacy alias).
-    #[deprecated(since = "0.2.0", note = "use security_provider_endpoint")]
-    pub fn beardog_endpoint_optional(mut self, endpoint: Option<String>) -> Self {
+    /// Set security provider endpoint (optional).
+    pub fn security_provider_endpoint_optional(mut self, endpoint: Option<String>) -> Self {
         if let Some(endpoint_str) = endpoint
             && let Ok(url) = Url::parse(&endpoint_str)
         {
             self.config.security.security_endpoint = Some(url);
         }
         self
+    }
+
+    /// Set security provider endpoint (optional, legacy alias).
+    #[deprecated(since = "0.2.0", note = "use security_provider_endpoint_optional")]
+    pub fn beardog_endpoint_optional(self, endpoint: Option<String>) -> Self {
+        self.security_provider_endpoint_optional(endpoint)
     }
 
     /// Set discovery service endpoint

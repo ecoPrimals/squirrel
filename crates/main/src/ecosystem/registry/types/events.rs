@@ -3,6 +3,8 @@
 
 //! Ecosystem registry events emitted during discovery, registration, and health transitions.
 
+#![allow(deprecated)]
+
 use std::sync::Arc;
 
 use crate::ecosystem::EcosystemPrimalType;

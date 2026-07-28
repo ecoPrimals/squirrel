@@ -11,7 +11,8 @@
 //! - Authentication and authorization with security primal integration
 //! - Rate limiting and `DoS` protection
 //! - Input validation and injection attack prevention
-//! - Real-time security monitoring and threat detection
+//! - Real-time security event logging (passive observation)
+//! - Threat detection and anomaly classification delegated to defense provider (skunkBat) via IPC
 //! - Automated security response and incident handling
 //! - Security audit logging and compliance
 

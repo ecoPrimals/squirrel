@@ -147,7 +147,6 @@ impl SquirrelBiomeOSIntegration {
                     "ecosystem_intelligence".to_string(),
                     "predictive_analytics".to_string(),
                     "optimization_recommendations".to_string(),
-                    "anomaly_detection".to_string(),
                     "performance_analysis".to_string(),
                     "resource_prediction".to_string(),
                     "failure_prediction".to_string(),

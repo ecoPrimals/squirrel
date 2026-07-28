@@ -11,6 +11,20 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (July 28, 2026 — Wave 155g: Deep Debt Evolution + Capability Purification)
+
+- **Capability-based naming purification**: All `beardog`/`BearDog` references in production code evolved to `security_provider`/`SecurityProvider` capability stems. `BEARDOG_ENDPOINT` → `SECURITY_ENDPOINT` (with env fallback chain). `mod beardog` → `mod security_provider`. `beardog_endpoint()` → `security_provider_endpoint()` (deprecated aliases preserved).
+- **Local crypto overstep elimination**: Removed local password hashing (blake3), local XOR encryption, and local rand key generation from production code. These belonged to the security capability provider — squirrel now delegates or returns clear errors.
+- **Adapter IPC wiring**: `UniversalComputeAdapter`, `StorageAdapter`, `SecurityAdapter`, `OrchestrationAdapter` now resolve capability provider sockets via `ipc_client` and forward JSON-RPC operations instead of returning `NotImplemented` stubs.
+- **Anomaly detection delegation**: Removed fake anomaly detection results from `optimized_implementations.rs` and `ai_intelligence.rs`. `AnomalyDetection` is now a delegation wrapper forwarding to `defense.*` capability via IPC.
+- **`EcosystemPrimalType` / `PrimalType` deprecated**: Enum-based primal identity replaced by string-based `CapabilityIdentifier` for runtime discovery.
+- **Security monitoring delegation**: `SecurityMonitor` local threat logic removed; `detect_anomaly` and `classify_threat` now delegate to `defense.*` capability provider.
+- **Dependency cleanup**: `wiremock` removed from `universal-patterns` dev-deps (unused). `tempfile` moved to `[dev-dependencies]` in `commands` and `ai-tools`. `strum` added for `Display` derives replacing manual impls.
+- **Lint refinement**: Stale `#[expect]` suppressions cleaned in `context/lib.rs` and `security/monitoring/types.rs`. Precise `#![expect]` block restored for context crate.
+- **Format drift**: 5 files re-formatted (`cargo fmt`).
+- **Test evolution**: 14 tests updated from `NotImplemented` → `OperationFailed` assertions to match new adapter delegation behavior. Nuclear signal test expectation updated.
+- **763 tests passing** (`--workspace --lib --tests`). 0 failed. Clippy clean. `cargo fmt --check` clean.
+
 ### Summary (July 26, 2026 — Wave 152a: Deep Debt Sweep + SDK Alignment)
 
 - **Plugin dead code elimination**: Deleted 5 unused `PLUGIN_TYPE_*` string constants (never consumed), `ExampleData` struct, and 2 dead example handlers (`handle_get_example_details`, `handle_activate_example`) from `web/example.rs` — 8 `#[expect(dead_code)]` attrs removed.

@@ -4,6 +4,8 @@
 
 //! Ecosystem service registration and primal type definitions.
 
+#![allow(deprecated)]
+
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 

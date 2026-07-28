@@ -7,14 +7,14 @@
 //! OS-appropriate path.  It is a **local cache**, not a credential authority.
 //!
 //! - For production-grade HSM-backed credentials, use
-//!   `CredentialStorage::SecurityProvider` which delegates to bearDog via IPC.
+//!   `CredentialStorage::SecurityProvider` which delegates to the security provider via IPC.
 //! - `PlatformSecretStore` is appropriate for bootstrap credentials before
-//!   bearDog is available, MCP session state, cache keys, and offline
+//!   the security provider is available, MCP session state, cache keys, and offline
 //!   operation.
 //!
 //! Native credential store backends (Windows Credential Manager, Android
-//! Keystore, macOS Keychain) are **bearDog's domain**.  When bearDog ships
-//! those backends, squirrel accesses them via the `SecurityProvider` IPC path.
+//! Keystore, macOS Keychain) are the **security provider's domain**.  When the
+//! security provider ships those backends, squirrel accesses them via the `SecurityProvider` IPC path.
 //!
 //! ## Path selection
 //!
@@ -38,7 +38,7 @@ pub struct PlatformStoreInfo {
     pub backend_name: &'static str,
     /// Whether secrets are encrypted at rest by the OS
     pub os_encrypted: bool,
-    /// Whether the store is hardware-backed (always false — hw-backed is bearDog's domain)
+    /// Whether the store is hardware-backed (always false — hw-backed is the security provider's domain)
     pub hardware_backed: bool,
     /// Whether secrets are scoped to the current user session
     pub session_scoped: bool,
@@ -49,7 +49,7 @@ pub struct PlatformStoreInfo {
 /// Platform credential cache — file-backed at an OS-appropriate path.
 ///
 /// This is a **local cache**, not a credential authority.  For HSM-backed
-/// storage, use `CredentialStorage::SecurityProvider` (bearDog IPC).
+/// storage, use `CredentialStorage::SecurityProvider` (security provider IPC).
 /// The inner backend is selected at construction time via [`PlatformSecretStore::detect`].
 #[derive(Debug, Clone)]
 pub struct PlatformSecretStore {
@@ -60,7 +60,7 @@ pub struct PlatformSecretStore {
 /// The concrete backend for the platform credential cache.
 ///
 /// File-based only.  Native credential stores (Windows Credential Manager,
-/// Android Keystore, macOS Keychain) are bearDog's domain — squirrel
+/// Android Keystore, macOS Keychain) are the security provider's domain — squirrel
 /// accesses them via `CredentialStorage::SecurityProvider` IPC.
 #[derive(Debug, Clone)]
 enum PlatformBackend {

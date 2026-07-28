@@ -3,7 +3,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Squirrel Commands Service
-#![expect(dead_code, reason = "Command service awaiting full wiring")]
 #![expect(
     clippy::redundant_else,
     clippy::uninlined_format_args,

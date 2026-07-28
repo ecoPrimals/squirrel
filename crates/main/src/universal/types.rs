@@ -9,6 +9,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use strum::Display;
 
 /// Information about a primal's identity and capabilities
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,7 +34,7 @@ pub struct PrimalInfo {
 }
 
 /// Types of primals in the ecosystem
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Display)]
 pub enum PrimalType {
     /// AI/ML inference and model serving primal
     AI,
@@ -47,19 +48,6 @@ pub enum PrimalType {
     Security,
     /// Coordination and orchestration primal
     Coordination,
-}
-
-impl std::fmt::Display for PrimalType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::AI => write!(f, "AI"),
-            Self::Storage => write!(f, "Storage"),
-            Self::Compute => write!(f, "Compute"),
-            Self::Network => write!(f, "Network"),
-            Self::Security => write!(f, "Security"),
-            Self::Coordination => write!(f, "Coordination"),
-        }
-    }
 }
 
 /// Capabilities that primals can provide

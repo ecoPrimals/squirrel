@@ -3,6 +3,8 @@
 
 //! Service discovery query and result types used by [`super::ServiceMeshClient`].
 
+#![allow(deprecated)]
+
 use crate::types::{HealthStatus, PrimalType};
 use serde::{Deserialize, Serialize};
 

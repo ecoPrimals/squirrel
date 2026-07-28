@@ -8,8 +8,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::Result;
-use crate::plugin::Plugin;
 use universal_constants::limits;
 
 /// Plugin type enumeration
@@ -23,42 +21,6 @@ pub enum PluginType {
     WebAssembly,
     /// Script plugin
     Script,
-}
-
-/// Plugin state enumeration (reserved for plugin state management system)
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "Phase 2 / reserved for plugin state management")
-)]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PluginState {
-    /// Plugin is loaded and ready
-    Loaded,
-    /// Plugin is currently loading
-    Loading,
-    /// Plugin failed to load
-    Failed,
-    /// Plugin is unloading
-    Unloading,
-    /// Plugin is unloaded
-    Unloaded,
-}
-
-/// Plugin data format enumeration (reserved for plugin data serialization system)
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "Phase 2 / reserved for plugin data serialization")
-)]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PluginDataFormat {
-    /// JSON format
-    Json,
-    /// Binary format
-    Binary,
-    /// Text format
-    Text,
-    /// Custom format
-    Custom(String),
 }
 
 /// Plugin resource usage information
@@ -136,95 +98,6 @@ pub enum PluginStatus {
 // PluginMetadata removed - use squirrel_interfaces::plugins::PluginMetadata instead
 // This was duplicate/unused code. The canonical version is in squirrel-interfaces crate.
 
-/// Core plugin trait for core system extensions (reserved for plugin specialization system)
-#[expect(dead_code, reason = "planned feature not yet wired")]
-pub trait CorePlugin: Plugin {
-    /// Get the core plugin name
-    fn get_core_name(&self) -> &str;
-
-    /// Execute core plugin functionality
-    async fn execute(&self, args: &[&str]) -> Result<String>;
-}
-
-/// Web plugin trait for web interface extensions
-#[cfg(feature = "web")]
-#[expect(dead_code, reason = "used when feature web is enabled")]
-pub trait WebPlugin: Plugin {
-    /// Get the web plugin assets directory
-    fn get_assets_dir(&self) -> Option<&str>;
-
-    /// Get the web plugin routes
-    fn get_routes(&self) -> Vec<crate::web::WebPluginRoute>;
-
-    /// Get the web plugin UI components
-    fn get_ui_components(&self) -> Vec<crate::web::WebPluginComponent>;
-
-    /// Get the web plugin API endpoints
-    fn get_api_endpoints(&self) -> Vec<crate::web::WebPluginEndpoint>;
-
-    /// Initialize the web plugin
-    async fn web_initialize(&self) -> Result<()>;
-
-    /// Shutdown the web plugin
-    async fn web_shutdown(&self) -> Result<()>;
-}
-
-/// MCP plugin trait for MCP protocol extensions
-#[cfg(feature = "mcp")]
-#[expect(dead_code, reason = "used when feature mcp is enabled")]
-pub trait McpPlugin: Plugin {
-    /// Get the MCP plugin name
-    fn get_mcp_name(&self) -> &str;
-
-    /// Register MCP plugin commands
-    async fn register_commands(&self) -> Result<()>;
-
-    /// Handle MCP plugin message
-    async fn handle_message(
-        &self,
-        message: crate::mcp::McpMessage,
-    ) -> Result<crate::mcp::McpMessage>;
-
-    /// Initialize the MCP plugin
-    async fn mcp_initialize(&self) -> Result<()>;
-
-    /// Shutdown the MCP plugin
-    async fn mcp_shutdown(&self) -> Result<()>;
-}
-
-/// Tool plugin trait for tool implementations (reserved for plugin specialization system)
-#[expect(dead_code, reason = "planned feature not yet wired")]
-pub trait ToolPlugin: Plugin {
-    /// Get the tool plugin name
-    fn get_tool_name(&self) -> &str;
-
-    /// Get the tool plugin description
-    fn get_tool_description(&self) -> &str;
-
-    /// Get the tool plugin version
-    fn get_tool_version(&self) -> &str;
-
-    /// Execute the tool plugin
-    async fn execute_tool(&self, args: &[&str]) -> Result<String>;
-}
-
-/// CLI plugin trait for CLI interface extensions
-#[cfg(feature = "cli")]
-#[expect(dead_code, reason = "used when feature cli is enabled")]
-pub trait CliPlugin: Plugin {
-    /// Get the CLI plugin name
-    fn get_cli_name(&self) -> &str;
-
-    /// Get the CLI plugin commands
-    fn get_cli_commands(&self) -> Vec<crate::cli::CliCommand>;
-
-    /// Initialize the CLI plugin
-    async fn cli_initialize(&self) -> Result<()>;
-
-    /// Shutdown the CLI plugin
-    async fn cli_shutdown(&self) -> Result<()>;
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -294,22 +167,5 @@ mod tests {
         assert!((resources.cpu_usage - 0.0).abs() < f64::EPSILON);
         assert_eq!(resources.file_handles, 0);
         assert_eq!(resources.network_connections, 0);
-    }
-
-    #[test]
-    fn test_plugin_state_serde() {
-        serde_roundtrip(&PluginState::Loaded);
-        serde_roundtrip(&PluginState::Loading);
-        serde_roundtrip(&PluginState::Failed);
-        serde_roundtrip(&PluginState::Unloading);
-        serde_roundtrip(&PluginState::Unloaded);
-    }
-
-    #[test]
-    fn test_plugin_data_format_serde() {
-        serde_roundtrip(&PluginDataFormat::Json);
-        serde_roundtrip(&PluginDataFormat::Binary);
-        serde_roundtrip(&PluginDataFormat::Text);
-        serde_roundtrip(&PluginDataFormat::Custom("custom".to_string()));
     }
 }

@@ -1,45 +1,29 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! # Production Security Monitoring & Threat Detection
+//! # Production Security Monitoring
 //!
-//! This module provides real-time security monitoring including:
-//! - Security event collection and analysis
-//! - Threat pattern detection
-//! - Behavioral anomaly detection
-//! - Security metrics and alerting
-//! - Integration with SIEM systems
+//! This module provides security event collection, logging, and alerting via
+//! delegation to the defense capability provider (skunkBat):
 //!
-//! ## Architecture
+//! - Security event collection and passive logging
+//! - Threat classification delegated via IPC (`defense.classify_threat`)
+//! - Behavioral anomaly detection delegated via IPC (`defense.detect_anomaly`)
+//! - Security metrics and alert forwarding from defense responses
 //!
-//! The security monitoring system is organized into focused modules:
-//!
-//! - `types`: Core types (events, severity, patterns)
-//! - `config`: Configuration and thresholds
-//! - `alerts`: Alert generation and management
-//! - `stats`: Statistics collection and reporting
-//!
-//! ## Usage
-//!
-//! ```no_run
-//! use squirrel::security::monitoring::{SecurityMonitoringSystem, SecurityMonitoringConfig};
-//!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! let config = SecurityMonitoringConfig::default();
-//! let monitor = SecurityMonitoringSystem::new(config);
-//! monitor.start().await?;
-//! # Ok(())
-//! # }
-//! ```
+//! Squirrel **observes and logs** suspicious activity but does **not** perform
+//! local threat detection or classification — that is skunkBat's domain.
 
 mod alerts;
 mod config;
+mod defense_client;
 mod stats;
 mod types;
 
 // Re-export public API
 pub use alerts::{AlertBuilder, AlertType, SecurityAlert};
 pub use config::{AlertThresholds, SecurityMonitoringConfig};
+pub use defense_client::DefenseClient;
 pub use stats::SecurityMonitoringStats;
 pub use types::{EventSeverity, SecurityEvent, SecurityEventType};
 
@@ -60,11 +44,14 @@ use crate::shutdown::{ShutdownHandler, ShutdownPhase};
 
 /// Security monitoring system
 ///
-/// Centralized security monitoring with real-time threat detection,
-/// behavioral analysis, and automated alerting.
+/// Collects and logs security events locally, delegating threat classification
+/// and anomaly detection to the defense capability provider via IPC.
 pub struct SecurityMonitoringSystem {
     /// Configuration
     config: SecurityMonitoringConfig,
+
+    /// IPC client for defense capability delegation
+    defense_client: DefenseClient,
 
     /// Event buffer for batching
     event_buffer: Arc<Mutex<Vec<SecurityEvent>>>,
@@ -100,6 +87,7 @@ impl SecurityMonitoringSystem {
 
         Self {
             config,
+            defense_client: DefenseClient::new(),
             event_buffer: Arc::new(Mutex::new(Vec::new())),
             event_history: Arc::new(RwLock::new(VecDeque::new())),
             active_alerts: Arc::new(RwLock::new(HashMap::new())),
@@ -211,6 +199,22 @@ impl SecurityMonitoringSystem {
         );
     }
 
+    /// Classify a security event as a potential threat via the defense provider.
+    pub async fn classify_threat(
+        &self,
+        event: &SecurityEvent,
+    ) -> Result<Option<SecurityAlert>, PrimalError> {
+        self.defense_client.classify_threat(event).await
+    }
+
+    /// Detect behavioral anomalies via the defense provider.
+    pub async fn detect_anomaly(
+        &self,
+        pattern: &BehavioralPattern,
+    ) -> Result<Option<SecurityAlert>, PrimalError> {
+        self.defense_client.detect_anomaly(pattern).await
+    }
+
     /// Get current security statistics
     pub async fn get_statistics(&self) -> SecurityMonitoringStats {
         self.stats.read().await.clone()
@@ -241,8 +245,8 @@ impl SecurityMonitoringSystem {
 
         let active_alerts = Arc::clone(&self.active_alerts);
         let shutdown_requested = Arc::clone(&self.shutdown_requested);
-        let config = self.config.clone();
         let stats = Arc::clone(&self.stats);
+        let defense_client = self.defense_client.clone();
 
         let task = tokio::spawn(async move {
             let mut receiver = receiver;
@@ -254,27 +258,44 @@ impl SecurityMonitoringSystem {
                     break;
                 }
 
-                // Process event for immediate threats
-                if let Some(alert) = Self::analyze_event_for_threats(&event, &config).await {
-                    // Store alert
-                    {
-                        let mut alerts = active_alerts.write().await;
-                        alerts.insert(alert.alert_id, alert.clone());
-                    }
+                // Log event for passive observation
+                debug!(
+                    event_id = %event.event_id,
+                    event_type = ?event.event_type,
+                    severity = ?event.severity,
+                    source_ip = %event.source_ip,
+                    operation = "security_event_observed",
+                    "Security event observed — delegating classification to defense provider"
+                );
 
-                    // Update stats
-                    {
-                        let mut stats_guard = stats.write().await;
-                        stats_guard.alerts_generated += 1;
+                // Delegate threat classification to defense provider (skunkBat)
+                match defense_client.classify_threat(&event).await {
+                    Ok(Some(alert)) => {
+                        {
+                            let mut alerts = active_alerts.write().await;
+                            alerts.insert(alert.alert_id, alert.clone());
+                        }
+                        {
+                            let mut stats_guard = stats.write().await;
+                            stats_guard.alerts_generated += 1;
+                        }
+                        warn!(
+                            alert_id = %alert.alert_id,
+                            alert_type = ?alert.alert_type,
+                            severity = ?alert.severity,
+                            operation = "defense_alert_received",
+                            "Defense provider alert: {}", alert.title
+                        );
                     }
-
-                    warn!(
-                        alert_id = %alert.alert_id,
-                        alert_type = ?alert.alert_type,
-                        severity = ?alert.severity,
-                        operation = "security_alert_generated",
-                        "Security alert generated: {}", alert.title
-                    );
+                    Ok(None) => {}
+                    Err(e) => {
+                        debug!(
+                            event_id = %event.event_id,
+                            error = %e,
+                            operation = "defense_classify_unavailable",
+                            "Defense provider unavailable — event logged only"
+                        );
+                    }
                 }
 
                 // Update stats
@@ -296,7 +317,7 @@ impl SecurityMonitoringSystem {
         let behavioral_patterns = Arc::clone(&self.behavioral_patterns);
         let active_alerts = Arc::clone(&self.active_alerts);
         let shutdown_requested = Arc::clone(&self.shutdown_requested);
-        let config = self.config.clone();
+        let defense_client = self.defense_client.clone();
 
         tokio::spawn(async move {
             let mut analysis_interval = tokio::time::interval(Duration::from_secs(300)); // 5 minutes
@@ -309,30 +330,39 @@ impl SecurityMonitoringSystem {
                     break;
                 }
 
-                // Analyze behavioral patterns
+                // Forward behavioral patterns to defense provider for anomaly detection
                 let patterns = behavioral_patterns.read().await;
                 for (client_key, pattern) in patterns.iter() {
-                    if let Some(alert) = Self::analyze_behavioral_pattern(pattern, &config).await {
-                        // Store alert
-                        {
-                            let mut alerts = active_alerts.write().await;
-                            alerts.insert(alert.alert_id, alert.clone());
+                    match defense_client.detect_anomaly(pattern).await {
+                        Ok(Some(alert)) => {
+                            {
+                                let mut alerts = active_alerts.write().await;
+                                alerts.insert(alert.alert_id, alert.clone());
+                            }
+                            info!(
+                                alert_id = %alert.alert_id,
+                                client = %client_key,
+                                alert_type = ?alert.alert_type,
+                                operation = "defense_anomaly_alert_received",
+                                "Defense provider anomaly alert received"
+                            );
                         }
-
-                        info!(
-                            alert_id = %alert.alert_id,
-                            client = %client_key,
-                            alert_type = ?alert.alert_type,
-                            operation = "behavioral_alert_generated",
-                            "Behavioral analysis alert generated"
-                        );
+                        Ok(None) => {}
+                        Err(e) => {
+                            debug!(
+                                client = %client_key,
+                                error = %e,
+                                operation = "defense_anomaly_unavailable",
+                                "Defense provider unavailable — pattern logged only"
+                            );
+                        }
                     }
                 }
 
                 debug!(
                     analyzed_patterns = patterns.len(),
-                    operation = "behavioral_analysis_complete",
-                    "Completed behavioral analysis cycle"
+                    operation = "behavioral_analysis_delegation_complete",
+                    "Completed behavioral analysis delegation cycle"
                 );
             }
         })
@@ -458,77 +488,6 @@ impl SecurityMonitoringSystem {
                 );
             }
         })
-    }
-
-    /// Analyze event for immediate threats
-    async fn analyze_event_for_threats(
-        event: &SecurityEvent,
-        _config: &SecurityMonitoringConfig,
-    ) -> Option<SecurityAlert> {
-        match &event.event_type {
-            SecurityEventType::Authentication { success: false, .. } => {
-                // Check for brute force patterns
-                Some(
-                    SecurityAlert::new(
-                        AlertType::BruteForceAttempt,
-                        EventSeverity::High,
-                        "Failed Authentication Attempt",
-                        "Failed authentication attempt detected",
-                    )
-                    .with_event(event.event_id)
-                    .with_affected_entity(&event.source_ip)
-                    .with_action("Monitor IP for additional failed attempts")
-                    .with_action("Consider rate limiting"),
-                )
-            }
-            SecurityEventType::InputValidationViolation { risk_level, .. } => {
-                if risk_level == "Critical" || risk_level == "High" {
-                    Some(
-                        SecurityAlert::new(
-                            AlertType::InputValidationAbuse,
-                            EventSeverity::High,
-                            "High-Risk Input Violation",
-                            "High-risk input validation violation detected",
-                        )
-                        .with_event(event.event_id)
-                        .with_affected_entity(&event.source_ip)
-                        .with_action("Block suspicious IP")
-                        .with_action("Review input validation rules"),
-                    )
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
-    }
-
-    /// Analyze behavioral pattern for anomalies
-    async fn analyze_behavioral_pattern(
-        pattern: &BehavioralPattern,
-        config: &SecurityMonitoringConfig,
-    ) -> Option<SecurityAlert> {
-        let failure_rate = pattern.failure_rate();
-
-        if failure_rate > config.alert_thresholds.max_failed_requests_ratio {
-            Some(
-                SecurityAlert::new(
-                    AlertType::HighFailureRate,
-                    EventSeverity::Warning,
-                    "High Failure Rate Detected",
-                    format!(
-                        "High failure rate detected: {:.1}% from IP {}",
-                        failure_rate * 100.0,
-                        pattern.client_ip
-                    ),
-                )
-                .with_affected_entity(&pattern.client_ip)
-                .with_action("Investigate client behavior")
-                .with_action("Consider blocking if malicious"),
-            )
-        } else {
-            None
-        }
     }
 
     /// Flush events to history

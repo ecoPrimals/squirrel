@@ -9,10 +9,10 @@
 //! Instead of hardcoding specific provider names, we define what capabilities
 //! security services should provide and how they integrate universally.
 
-mod beardog;
 mod boxed;
 mod local;
 mod registry;
+mod security_provider;
 mod types;
 
 #[cfg(test)]
@@ -22,6 +22,16 @@ mod tests_registry;
 #[cfg(test)]
 mod tests_types;
 
+pub use boxed::UniversalSecurityProviderBox;
+pub use local::LocalSecurityProvider;
+#[cfg_attr(
+    not(test),
+    expect(
+        unused_imports,
+        reason = "Re-export surface for consumers; unused in this module"
+    )
+)]
+pub use registry::{UniversalSecurityRegistry, capabilities_match, register_security_service};
 #[cfg_attr(
     not(test),
     expect(
@@ -33,23 +43,13 @@ mod tests_types;
     deprecated,
     reason = "legacy wire id constants re-exported for backward compatibility"
 )]
-pub use beardog::{BEARDOG_SECURITY_SERVICE_ID, SECURITY_PRIMARY_SERVICE_ID};
+pub use security_provider::{BEARDOG_SECURITY_SERVICE_ID, SECURITY_PRIMARY_SERVICE_ID};
 #[expect(
     deprecated,
     reason = "legacy type and factory aliases re-exported for backward compatibility"
 )]
-pub use beardog::{
+pub use security_provider::{
     BeardogIntegration, BeardogSecurityProvider, SECURITY_SERVICE_ID, SecurityProviderFactory,
     SecurityProviderIntegration,
 };
-pub use boxed::UniversalSecurityProviderBox;
-pub use local::LocalSecurityProvider;
-#[cfg_attr(
-    not(test),
-    expect(
-        unused_imports,
-        reason = "Re-export surface for consumers; unused in this module"
-    )
-)]
-pub use registry::{UniversalSecurityRegistry, capabilities_match, register_security_service};
 pub use types::*;

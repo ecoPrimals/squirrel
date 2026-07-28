@@ -960,7 +960,7 @@ async fn uds_nuclear_signal_returns_json_error_for_ndjson() {
     );
     assert_eq!(
         v.pointer("/error/data/resolution").and_then(Value::as_str),
-        Some("awaiting_beardog_keys"),
+        Some("awaiting_security_keys"),
         "resolution field must guide client"
     );
     assert_eq!(

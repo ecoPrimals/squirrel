@@ -27,6 +27,7 @@ use super::status::{
 };
 use super::types::{
     EcosystemPrimalType, HealthCheckConfig, SecurityConfig, ServiceCapabilities, ServiceEndpoints,
+    primary_capability_from_iter,
 };
 
 /// Ecosystem manager for service discovery and communication
@@ -118,10 +119,7 @@ impl EcosystemManager {
         Ok(())
     }
 
-    #[expect(
-        deprecated,
-        reason = "EcosystemPrimalType kept for serde backward compat"
-    )]
+    #[allow(deprecated)]
     fn create_service_registration<S: SessionManager>(
         &self,
         provider: &SquirrelPrimalProvider<S>,
@@ -210,25 +208,22 @@ impl EcosystemManager {
         let services: Vec<super::registry::types::DiscoveredService> = matches
             .into_iter()
             .map(|m| {
-                let inferred = infer_primal_type_from_capabilities(
+                let primary = primary_capability_from_iter(
                     std::iter::once(capability).chain(
                         m.matched_capabilities
                             .iter()
                             .map(std::string::String::as_str),
                     ),
                 );
-                super::registry::types::DiscoveredService {
-                    service_id: Arc::from(m.service.service_id.as_str()),
-                    primal_type: inferred,
-                    endpoint: Arc::from(m.service.endpoint.as_str()),
-                    health_endpoint: Arc::from(format!("{}/health", m.service.endpoint)),
-                    api_version: Arc::from("1.0"),
-                    capabilities: vec![Arc::from(capability)],
-                    metadata: std::collections::HashMap::new(),
-                    discovered_at: chrono::Utc::now(),
-                    last_health_check: None,
-                    health_status: super::registry::types::ServiceHealthStatus::Healthy,
-                }
+                super::registry::types::DiscoveredService::new(
+                    &m.service.service_id,
+                    primary.as_str(),
+                    &m.service.endpoint,
+                    &format!("{}/health", m.service.endpoint),
+                    "1.0",
+                    vec![capability],
+                    std::collections::HashMap::new(),
+                )
             })
             .collect();
 
@@ -333,7 +328,7 @@ impl EcosystemManager {
                                     .iter()
                                     .map(|(k, v)| (k.as_str(), v.as_str()))
                                     .collect();
-                                let inferred = infer_primal_type_from_capabilities(
+                                let primary = primary_capability_from_iter(
                                     provider
                                         .capabilities
                                         .iter()
@@ -341,7 +336,7 @@ impl EcosystemManager {
                                 );
                                 services.push(super::registry::types::DiscoveredService::new(
                                     &provider.id,
-                                    inferred,
+                                    primary.as_str(),
                                     &format!("unix://{socket_str}"),
                                     &format!("unix://{socket_str}"),
                                     "1.0",
@@ -580,26 +575,4 @@ pub async fn initialize_ecosystem_integration(
         .context("Failed to initialize ecosystem integration")?;
     tracing::info!("Ecosystem integration initialized successfully");
     Ok(manager)
-}
-
-#[expect(
-    deprecated,
-    reason = "Bridges capability strings back to the deprecated EcosystemPrimalType enum during migration"
-)]
-fn infer_primal_type_from_capabilities<'a>(
-    capabilities: impl Iterator<Item = &'a str>,
-) -> EcosystemPrimalType {
-    use universal_constants::capabilities;
-    for cap in capabilities {
-        match cap {
-            capabilities::COMPUTE_CAPABILITY => return EcosystemPrimalType::ToadStool,
-            capabilities::SERVICE_MESH_CAPABILITY => return EcosystemPrimalType::Songbird,
-            capabilities::SECURITY_CAPABILITY => return EcosystemPrimalType::BearDog,
-            capabilities::STORAGE_CAPABILITY => return EcosystemPrimalType::NestGate,
-            capabilities::SELF_PRIMAL_NAME => return EcosystemPrimalType::Squirrel,
-            capabilities::ECOSYSTEM_CAPABILITY => return EcosystemPrimalType::BiomeOS,
-            _ => {}
-        }
-    }
-    EcosystemPrimalType::BiomeOS
 }

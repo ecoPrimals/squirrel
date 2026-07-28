@@ -3,6 +3,8 @@
 
 //! Core primal and ecosystem integration traits.
 
+#![allow(deprecated)]
+
 use std::future::Future;
 use std::pin::Pin;
 

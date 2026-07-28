@@ -17,7 +17,7 @@
 //! - display / logging messages are consistent
 //! - legacy type-mapping code has a single source of truth
 //!
-//! Actual routing goes through Songbird (`discovery.find_primals`) or
+//! Actual routing goes through the discovery service (`discovery.find_primals`) or
 //! biomeOS (`capability.call`).
 //!
 //! Machine identifiers are re-exported from [`universal_constants::primal_names`].
@@ -44,16 +44,16 @@ pub const NEURAL_API_SOCKET_NAME: &str = "neural-api.sock";
 // They do NOT name a specific primal — any primal exposing the capability
 // can satisfy the dependency.
 
-/// Crypto/auth capability domain (typically BearDog).
+/// Crypto/auth capability domain.
 pub const CAP_DOMAIN_CRYPTO: &str = "crypto";
 
-/// Compute capability domain (typically ToadStool).
+/// Compute capability domain.
 pub const CAP_DOMAIN_COMPUTE: &str = "compute";
 
-/// Storage capability domain (typically NestGate).
+/// Storage capability domain.
 pub const CAP_DOMAIN_STORAGE: &str = "storage";
 
-/// Discovery capability domain (typically Songbird).
+/// Discovery capability domain.
 pub const CAP_DOMAIN_DISCOVERY: &str = "discovery";
 
 #[cfg(test)]

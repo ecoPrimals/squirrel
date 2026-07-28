@@ -2,6 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::super::*;
     use std::collections::HashMap;

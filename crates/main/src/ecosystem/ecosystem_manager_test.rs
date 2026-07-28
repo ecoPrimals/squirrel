@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#[expect(deprecated)]
+#![allow(deprecated)]
 // Tests deprecated path for backward compatibility // Tests deprecated path for backward compatibility
 use crate::ecosystem::{ComponentHealth, EcosystemConfig, EcosystemManager, EcosystemPrimalType};
 use crate::monitoring::metrics::MetricsCollector;

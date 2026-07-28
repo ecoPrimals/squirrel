@@ -17,8 +17,6 @@
 //! 3. **Primal Agnostic** - Work with any monitoring system
 //! 4. **Extensible** - Support new monitoring systems without core changes
 
-#![expect(dead_code, reason = "Monitoring infrastructure awaiting activation")]
-
 mod config;
 mod fallback;
 mod monitoring_provider;

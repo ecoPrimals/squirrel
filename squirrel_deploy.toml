@@ -46,6 +46,6 @@ description = "Model cache and context persistence"
 
 # Health check for biomeOS orchestrator
 [deploy.health]
-method = "system.health"
+method = "health.check"
 interval_secs = 30
 timeout_secs = 5

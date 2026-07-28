@@ -194,6 +194,7 @@ pub trait SwarmManager: Send + Sync {
 }
 
 // Re-export canonical PrimalType from ecosystem-api for ecosystem-wide consistency
+#[allow(deprecated)]
 pub use ecosystem_api::PrimalType;
 
 /// Squirrel MCP protocol version.

@@ -3,6 +3,8 @@
 
 //! Core types for Squirrel ecosystem coordination.
 
+#![allow(deprecated)]
+
 use ecosystem_api::PrimalType;
 
 /// Endpoint for a primal in the ecosystem.

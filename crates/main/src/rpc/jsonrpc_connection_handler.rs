@@ -27,7 +27,7 @@ impl JsonRpcServer {
     ///   byte (protocol type) and routes: `0x01` → NDJSON JSON-RPC, `0x02`/`0x03`
     ///   → BTSP handshake.
     /// - `0xEE` — **Nuclear Lineage** (per-user). Reads the protocol type byte,
-    ///   then returns a structured JSON-RPC error indicating BearDog key material
+    ///   then returns a structured JSON-RPC error indicating security provider key material
     ///   is required. Full encrypted channel is Phase 2.
     /// - Anything else — passed to `maybe_handshake` for BTSP/JSON auto-detect.
     pub(super) async fn handle_uds_connection(
@@ -100,7 +100,7 @@ impl JsonRpcServer {
 
                 warn!(
                     protocol_type = proto_byte,
-                    "riboCipher Nuclear Lineage (0xEE) requires BearDog key material"
+                    "riboCipher Nuclear Lineage (0xEE) requires security provider key material"
                 );
 
                 if proto_byte == NDJSON_JSONRPC {
@@ -109,10 +109,10 @@ impl JsonRpcServer {
                         "id": null,
                         "error": {
                             "code": -32050,
-                            "message": "Nuclear Lineage (0xEE) requires BearDog key material",
+                            "message": "Nuclear Lineage (0xEE) requires security provider key material",
                             "data": {
                                 "tier": "nuclear",
-                                "resolution": "awaiting_beardog_keys",
+                                "resolution": "awaiting_security_keys",
                                 "protocol_type": proto_byte
                             }
                         }

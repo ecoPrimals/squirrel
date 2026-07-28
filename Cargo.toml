@@ -91,6 +91,7 @@ getrandom = { version = "0.3", default-features = false, features = ["std"] }
 
 # CLI and command dependencies
 clap = { version = "4.4", features = ["derive"] }
+strum = { version = "0.27", features = ["derive"] }
 
 # gRPC (prost/tonic) not used — ecoPrimals uses JSON-RPC + tarpc
 

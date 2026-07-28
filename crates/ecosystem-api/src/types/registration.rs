@@ -3,6 +3,8 @@
 
 //! Service registration and resource specification types.
 
+#![allow(deprecated)]
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -7,6 +7,7 @@
 //! the execution environment, user, device, and security requirements.
 
 use serde::{Deserialize, Serialize};
+use strum::Display;
 
 /// Context for primal operations with user/device awareness
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -65,7 +66,7 @@ impl Default for NetworkLocation {
 }
 
 /// Security level requirements for operations
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, Display)]
 pub enum SecurityLevel {
     /// Basic security - standard operations
     #[default]
@@ -89,25 +90,8 @@ pub enum SecurityLevel {
     /// Maximum security - highly sensitive operations
     Maximum,
     /// Custom security level
+    #[strum(serialize = "Custom({0})")]
     Custom(String),
-}
-
-impl std::fmt::Display for SecurityLevel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Basic => write!(f, "Basic"),
-            Self::Standard => write!(f, "Standard"),
-            Self::Public => write!(f, "Public"),
-            Self::Enhanced => write!(f, "Enhanced"),
-            Self::Advanced => write!(f, "Advanced"),
-            Self::High => write!(f, "High"),
-            Self::Critical => write!(f, "Critical"),
-            Self::Administrative => write!(f, "Administrative"),
-            Self::Internal => write!(f, "Internal"),
-            Self::Maximum => write!(f, "Maximum"),
-            Self::Custom(level) => write!(f, "Custom({level})"),
-        }
-    }
 }
 
 /// Universal security context for authentication and authorization

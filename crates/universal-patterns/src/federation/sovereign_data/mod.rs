@@ -123,16 +123,34 @@ where
         metadata: &mut EncryptionMetadata,
     ) -> FederationResult<Vec<u8>> {
         if self.config.auto_encrypt && !metadata.encrypted {
-            let key = self.key_manager.generate_key(&metadata.algorithm).await?;
-            let encrypted = self
+            let key = match self.key_manager.generate_key(&metadata.algorithm).await {
+                Ok(key) => key,
+                Err(err) => {
+                    tracing::warn!(
+                        error = %err,
+                        "Skipping sovereign data encryption: security capability provider required"
+                    );
+                    return Ok(data.to_vec());
+                }
+            };
+            match self
                 .key_manager
                 .encrypt(data, &key, &metadata.algorithm)
-                .await?;
-
-            metadata.encrypted = true;
-            metadata.iv = key; // Simplified - in real implementation, IV would be separate
-
-            Ok(encrypted)
+                .await
+            {
+                Ok(encrypted) => {
+                    metadata.encrypted = true;
+                    metadata.iv = key; // Simplified - in real implementation, IV would be separate
+                    Ok(encrypted)
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        error = %err,
+                        "Skipping sovereign data encryption: security capability provider required"
+                    );
+                    Ok(data.to_vec())
+                }
+            }
         } else {
             Ok(data.to_vec())
         }
@@ -280,26 +298,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_data_encryption() {
+    async fn test_data_encryption_requires_security_provider() {
         let key_manager = DefaultEncryptionKeyManager::new();
 
-        let data = b"sensitive data";
-        let key = key_manager
+        let err = key_manager
             .generate_key("AES-256-GCM")
             .await
-            .expect("should succeed");
-
-        let encrypted = key_manager
-            .encrypt(data, &key, "AES-256-GCM")
-            .await
-            .expect("should succeed");
-        assert_ne!(encrypted, data);
-
-        let decrypted = key_manager
-            .decrypt(&encrypted, &key, "AES-256-GCM")
-            .await
-            .expect("should succeed");
-        assert_eq!(decrypted, data);
+            .expect_err("crypto should delegate to security capability provider");
+        assert!(
+            matches!(err, FederationError::SecurityViolation(_)),
+            "expected SecurityViolation, got {err:?}"
+        );
     }
 
     #[tokio::test]
@@ -437,24 +446,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_derive_key_deterministic() {
+    async fn test_derive_key_requires_security_provider() {
         let key_mgr = DefaultEncryptionKeyManager::new();
-        let key1 = key_mgr
+        let err = key_mgr
             .derive_key("password", b"salt123")
             .await
-            .expect("derive1");
-        let key2 = key_mgr
-            .derive_key("password", b"salt123")
-            .await
-            .expect("derive2");
-        assert_eq!(key1, key2);
-        assert!(!key1.is_empty());
-
-        let key3 = key_mgr
-            .derive_key("password", b"different_salt")
-            .await
-            .expect("derive3");
-        assert_ne!(key1, key3);
+            .expect_err("key derivation should delegate to security capability provider");
+        assert!(
+            matches!(err, FederationError::SecurityViolation(_)),
+            "expected SecurityViolation, got {err:?}"
+        );
     }
 
     #[tokio::test]

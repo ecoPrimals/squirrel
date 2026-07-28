@@ -38,7 +38,7 @@ impl UniversalSecurityAdapter {
     pub async fn coordinate_security(
         &mut self,
         operation: &str,
-        _parameters: HashMap<String, serde_json::Value>,
+        parameters: HashMap<String, serde_json::Value>,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
             "🔒 Coordinating security operation: {} via universal adapter",
@@ -55,10 +55,23 @@ impl UniversalSecurityAdapter {
             PrimalError::ResourceNotFound("No security service available".to_string())
         })?;
 
-        Err(PrimalError::OperationFailed(format!(
-            "Security operation '{}' cannot be executed — IPC to security capability provider '{}' ({}) not yet wired",
-            operation, security_service.name, security_service.service_id
-        )))
+        const CAPABILITY: &str = "security";
+        let socket = self
+            .registry
+            .resolve_socket_for_capability(CAPABILITY, security_service)
+            .await
+            .map_err(|e| {
+                PrimalError::OperationFailed(format!("No provider for {CAPABILITY}: {e}"))
+            })?;
+
+        let method = format!("security.{operation}");
+        let params = serde_json::to_value(parameters).map_err(|e| {
+            PrimalError::SerializationError(format!("Failed to serialize security params: {e}"))
+        })?;
+
+        super::ipc::send_rpc_request(&socket, &method, Some(params))
+            .await
+            .map_err(|e| PrimalError::OperationFailed(format!("IPC to {CAPABILITY}: {e}")))
     }
 
     /// Authenticate using any available security primal
@@ -369,7 +382,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn coordinate_security_happy_path() {
+    async fn coordinate_security_fails_without_provider() {
         let reg = registry_with_security().await;
         let mut adapter = UniversalSecurityAdapter::new(reg);
         let params = HashMap::from([("k".to_string(), serde_json::json!(1))]);
@@ -378,11 +391,11 @@ mod tests {
             .await
             .unwrap_err();
         let PrimalError::OperationFailed(msg) = err else {
-            panic!("expected OperationFailed, got {err:?}");
+            panic!("expected OperationFailed when no provider, got {err:?}");
         };
         assert!(
-            msg.contains("token_validate") && msg.contains("not yet wired"),
-            "{msg}"
+            msg.contains("IPC") && msg.contains("token_validate"),
+            "expected token_validate IPC failure, got {msg}"
         );
     }
 
@@ -395,7 +408,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn authorize_universal_errors_without_authorized_field() {
+    async fn authorize_universal_fails_without_provider() {
         let reg = registry_with_security().await;
         let mut adapter = UniversalSecurityAdapter::new(reg);
         let err = adapter
@@ -403,11 +416,11 @@ mod tests {
             .await
             .unwrap_err();
         let PrimalError::OperationFailed(msg) = err else {
-            panic!("expected OperationFailed, got {err:?}");
+            panic!("expected OperationFailed when no provider, got {err:?}");
         };
         assert!(
-            msg.contains("authorize") && msg.contains("not yet wired"),
-            "{msg}"
+            msg.contains("IPC") && msg.contains("authorize"),
+            "expected authorize IPC failure, got {msg}"
         );
     }
 

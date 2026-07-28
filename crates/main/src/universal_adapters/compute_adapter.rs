@@ -38,7 +38,7 @@ impl UniversalComputeAdapter {
     pub async fn coordinate_computation(
         &mut self,
         operation: &str,
-        _workload: serde_json::Value,
+        workload: serde_json::Value,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
             "🍄 Coordinating compute operation: {} via universal adapter",
@@ -54,10 +54,19 @@ impl UniversalComputeAdapter {
             PrimalError::ResourceNotFound("No compute service available".to_string())
         })?;
 
-        Err(PrimalError::NotImplemented(format!(
-            "Compute operation '{}' via {} — IPC transport to compute primal not yet wired",
-            operation, compute_service.name
-        )))
+        const CAPABILITY: &str = "compute";
+        let socket = self
+            .registry
+            .resolve_socket_for_capability(CAPABILITY, compute_service)
+            .await
+            .map_err(|e| {
+                PrimalError::OperationFailed(format!("No provider for {CAPABILITY}: {e}"))
+            })?;
+
+        let method = format!("compute.{operation}");
+        super::ipc::send_rpc_request(&socket, &method, Some(workload))
+            .await
+            .map_err(|e| PrimalError::OperationFailed(format!("IPC to {CAPABILITY}: {e}")))
     }
 
     /// Execute AI workload using any available compute primal
@@ -469,7 +478,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn coordinate_computation_returns_not_implemented() {
+    async fn coordinate_computation_fails_without_provider() {
         let reg = registry_with_compute().await;
         let mut adapter = UniversalComputeAdapter::new(reg);
 
@@ -478,15 +487,18 @@ mod tests {
                 .coordinate_computation(op, serde_json::json!({}))
                 .await
                 .unwrap_err();
+            let PrimalError::OperationFailed(msg) = err else {
+                panic!("expected OperationFailed when no provider for '{op}', got {err:?}");
+            };
             assert!(
-                matches!(err, PrimalError::NotImplemented(_)),
-                "expected NotImplemented for '{op}', got {err:?}"
+                msg.contains("IPC"),
+                "expected IPC failure for '{op}', got {msg}"
             );
         }
     }
 
     #[tokio::test]
-    async fn execute_ai_workload_propagates_not_implemented() {
+    async fn execute_ai_workload_fails_without_provider() {
         let reg = registry_with_compute().await;
         let mut adapter = UniversalComputeAdapter::new(reg);
         let mut params = HashMap::new();
@@ -495,17 +507,26 @@ mod tests {
             .execute_ai_workload("inference", params)
             .await
             .unwrap_err();
-        assert!(matches!(err, PrimalError::NotImplemented(_)));
+        assert!(
+            matches!(err, PrimalError::OperationFailed(_)),
+            "expected OperationFailed when no provider, got {err:?}"
+        );
     }
 
     #[tokio::test]
-    async fn scale_and_monitor_propagate_not_implemented() {
+    async fn scale_and_monitor_fail_without_provider() {
         let reg = registry_with_compute().await;
         let mut adapter = UniversalComputeAdapter::new(reg);
         let err = adapter.scale_compute_resources("up", 2).await.unwrap_err();
-        assert!(matches!(err, PrimalError::NotImplemented(_)));
+        assert!(
+            matches!(err, PrimalError::OperationFailed(_)),
+            "expected OperationFailed when no provider, got {err:?}"
+        );
         let err = adapter.monitor_compute_performance().await.unwrap_err();
-        assert!(matches!(err, PrimalError::NotImplemented(_)));
+        assert!(
+            matches!(err, PrimalError::OperationFailed(_)),
+            "expected OperationFailed when no provider, got {err:?}"
+        );
     }
 
     #[tokio::test]
@@ -548,14 +569,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn submit_batch_job_propagates_not_implemented() {
+    async fn submit_batch_job_fails_without_provider() {
         let reg = registry_with_compute().await;
         let mut adapter = UniversalComputeAdapter::new(reg);
         let err = adapter
             .submit_batch_job(serde_json::json!({}))
             .await
             .unwrap_err();
-        assert!(matches!(err, PrimalError::NotImplemented(_)));
+        assert!(
+            matches!(err, PrimalError::OperationFailed(_)),
+            "expected OperationFailed when no provider, got {err:?}"
+        );
     }
 
     #[tokio::test]
@@ -570,7 +594,7 @@ mod tests {
     async fn get_resource_availability_ok_with_service() {
         let reg = registry_with_compute().await;
         let mut adapter = UniversalComputeAdapter::new(reg);
-        // Trigger discovery (the coordinate call itself returns NotImplemented)
+        // Trigger discovery (coordinate IPC fails without a live provider)
         let _ = adapter
             .coordinate_computation("execute", serde_json::json!({}))
             .await;
@@ -616,7 +640,7 @@ mod tests {
         .await
         .expect("should succeed");
         let mut adapter = UniversalComputeAdapter::new(reg);
-        // Trigger discovery (coordinate itself returns NotImplemented)
+        // Trigger discovery (coordinate IPC fails without a live provider)
         let _ = adapter
             .coordinate_computation("execute", serde_json::json!({}))
             .await;

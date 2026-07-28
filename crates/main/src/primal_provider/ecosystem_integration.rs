@@ -44,7 +44,7 @@ impl EcosystemIntegration {
                 provider.instance_id
             )),
             capability_id: Some(Arc::from(crate::niche::DOMAIN)),
-            #[expect(deprecated, reason = "serde backward compat")]
+            #[allow(deprecated)]
             primal_type: crate::ecosystem::EcosystemPrimalType::Squirrel,
             name: "Squirrel AI Primal".to_string(),
             version: "1.0.0".to_string(),

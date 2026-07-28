@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! IPC-backed secret store — delegates to bearDog's `secrets.*` JSON-RPC.
+//! IPC-backed secret store — delegates to the security provider's `secrets.*` JSON-RPC.
 //!
 //! [`SecurityProviderSecretStore`] implements [`SecretStore`] by connecting to
-//! the security capability provider (bearDog) over Unix socket or TCP and
-//! calling `secrets.store`, `secrets.retrieve`, `secrets.list`, and
-//! `secrets.delete`.
+//! the security capability provider over Unix socket or TCP and calling
+//! `secrets.store`, `secrets.retrieve`, `secrets.list`, and `secrets.delete`.
 //!
 //! Discovery follows the standard tiered resolution:
 //! 1. `SECURITY_ENDPOINT` env var (full URL)
-//! 2. `BEARDOG_ENDPOINT` env var (fallback)
+//! 2. `BEARDOG_ENDPOINT` env var (deprecated fallback)
 //! 3. Socket discovery via `resolve_capability_unix_socket`
 //!
-//! When bearDog is unreachable, all operations return graceful errors —
+//! When the security provider is unreachable, all operations return graceful errors —
 //! callers should fall back to env vars or the platform cache.
 
 use super::secret_store::SecretStore;
@@ -26,10 +25,10 @@ use universal_patterns::transport::{TransportEndpoint, connect_transport_with_ti
 
 const IPC_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// Secret store that delegates to bearDog's `secrets.*` JSON-RPC interface.
+/// Secret store that delegates to the security provider's `secrets.*` JSON-RPC interface.
 ///
-/// This is the **production** secret store — bearDog is the credential
-/// authority.  When bearDog is not running, operations fail gracefully
+/// This is the **production** secret store — the security provider is the credential
+/// authority. When the security provider is not running, operations fail gracefully
 /// and callers should fall back to env vars or the platform cache.
 #[derive(Debug, Clone)]
 pub struct SecurityProviderSecretStore {
@@ -53,7 +52,7 @@ impl SecurityProviderSecretStore {
         Self { endpoint }
     }
 
-    /// Send a JSON-RPC request to bearDog and parse the response.
+    /// Send a JSON-RPC request to the security provider and parse the response.
     async fn rpc_call(&self, method: &str, params: serde_json::Value) -> Result<serde_json::Value> {
         let request = serde_json::json!({
             "jsonrpc": "2.0",
@@ -70,24 +69,24 @@ impl SecurityProviderSecretStore {
             buf
         };
 
-        let mut stream =
-            connect_transport_with_timeout(&self.endpoint, IPC_TIMEOUT)
-                .await
-                .map_err(|e| {
-                    MCPError::Internal(format!(
-                        "Failed to connect to security provider at {:?}: {e}",
-                        self.endpoint
-                    ))
-                })?;
+        let mut stream = connect_transport_with_timeout(&self.endpoint, IPC_TIMEOUT)
+            .await
+            .map_err(|e| {
+                MCPError::Internal(format!(
+                    "Failed to connect to security provider at {:?}: {e}",
+                    self.endpoint
+                ))
+            })?;
 
         // BTSP handshake when strict mode is active (sporeGate LIVE, eastGate next)
         if let Err(e) = super::btsp_client::maybe_client_handshake(&mut stream).await {
             warn!(error = %e, "BTSP client handshake failed — falling back to plain JSON-RPC");
         }
 
-        stream.write_all(&request_bytes).await.map_err(|e| {
-            MCPError::Internal(format!("Failed to send to security provider: {e}"))
-        })?;
+        stream
+            .write_all(&request_bytes)
+            .await
+            .map_err(|e| MCPError::Internal(format!("Failed to send to security provider: {e}")))?;
         stream.flush().await.map_err(|e| {
             MCPError::Internal(format!("Failed to flush to security provider: {e}"))
         })?;
@@ -102,9 +101,11 @@ impl SecurityProviderSecretStore {
                 MCPError::Internal(format!("Failed to read from security provider: {e}"))
             })?;
 
-        let response: serde_json::Value = serde_json::from_str(response_line.trim())
-            .map_err(|e| {
-                MCPError::Internal(format!("Invalid JSON-RPC response from security provider: {e}"))
+        let response: serde_json::Value =
+            serde_json::from_str(response_line.trim()).map_err(|e| {
+                MCPError::Internal(format!(
+                    "Invalid JSON-RPC response from security provider: {e}"
+                ))
             })?;
 
         if let Some(error) = response.get("error") {
@@ -118,9 +119,7 @@ impl SecurityProviderSecretStore {
         }
 
         response.get("result").cloned().ok_or_else(|| {
-            MCPError::Internal(format!(
-                "Security provider returned no result for {method}"
-            ))
+            MCPError::Internal(format!("Security provider returned no result for {method}"))
         })
     }
 }
@@ -142,7 +141,7 @@ impl SecretStore for SecurityProviderSecretStore {
                 warn!(
                     name,
                     error = %e,
-                    "secrets.retrieve failed — bearDog may be unavailable"
+                    "secrets.retrieve failed — security provider may be unavailable"
                 );
                 Err(e)
             }
@@ -174,9 +173,7 @@ impl SecretStore for SecurityProviderSecretStore {
     }
 
     async fn list_keys(&self) -> Result<Vec<String>> {
-        let result = self
-            .rpc_call("secrets.list", serde_json::json!({}))
-            .await?;
+        let result = self.rpc_call("secrets.list", serde_json::json!({})).await?;
 
         let keys = result
             .get("secrets")
@@ -203,13 +200,15 @@ fn resolve_security_endpoint() -> TransportEndpoint {
 
     if let Ok(url) = std::env::var("BEARDOG_ENDPOINT")
         && !url.is_empty()
-        && let Some(ep) = parse_endpoint_url(&url)
     {
-        return ep;
+        warn!("BEARDOG_ENDPOINT is deprecated — use SECURITY_ENDPOINT");
+        if let Some(ep) = parse_endpoint_url(&url) {
+            return ep;
+        }
     }
 
     let socket_path =
-        universal_constants::network::resolve_capability_unix_socket("SECURITY_SOCKET", "beardog");
+        universal_constants::network::resolve_capability_unix_socket("SECURITY_SOCKET", "security");
     TransportEndpoint::uds(socket_path.to_string_lossy())
 }
 
@@ -244,7 +243,7 @@ fn parse_endpoint_url(url: &str) -> Option<TransportEndpoint> {
 // ---------------------------------------------------------------------------
 
 /// Try to retrieve a secret from the security provider, falling back to an
-/// environment variable if bearDog is unavailable.
+/// environment variable if the security provider is unavailable.
 ///
 /// This is the recommended pattern for AI API keys and other runtime secrets:
 /// ```ignore
@@ -281,8 +280,8 @@ pub async fn resolve_secret_or_env(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::secret_store::InMemorySecretStore;
+    use super::*;
 
     #[test]
     fn parse_endpoint_url_uds() {
@@ -310,15 +309,21 @@ mod tests {
 
     #[test]
     fn discover_uses_default_socket() {
-        temp_env::with_vars_unset(["SECURITY_ENDPOINT", "BEARDOG_ENDPOINT", "SECURITY_SOCKET"], || {
-            let store = SecurityProviderSecretStore::discover();
-            match &store.endpoint {
-                TransportEndpoint::Uds { path } => {
-                    assert!(path.contains("beardog"), "should resolve to beardog socket: {path}");
+        temp_env::with_vars_unset(
+            ["SECURITY_ENDPOINT", "BEARDOG_ENDPOINT", "SECURITY_SOCKET"],
+            || {
+                let store = SecurityProviderSecretStore::discover();
+                match &store.endpoint {
+                    TransportEndpoint::Uds { path } => {
+                        assert!(
+                            path.contains("security"),
+                            "should resolve to security provider socket: {path}"
+                        );
+                    }
+                    other => panic!("Expected UDS endpoint, got {other:?}"),
                 }
-                other => panic!("Expected UDS endpoint, got {other:?}"),
-            }
-        });
+            },
+        );
     }
 
     #[test]
@@ -330,10 +335,7 @@ mod tests {
             ],
             || {
                 let store = SecurityProviderSecretStore::discover();
-                assert_eq!(
-                    store.endpoint,
-                    TransportEndpoint::tcp("10.0.0.1", 7700)
-                );
+                assert_eq!(store.endpoint, TransportEndpoint::tcp("10.0.0.1", 7700));
             },
         );
     }

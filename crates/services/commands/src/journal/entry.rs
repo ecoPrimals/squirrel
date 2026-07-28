@@ -5,12 +5,13 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use strum::Display;
 use uuid::Uuid;
 
 use crate::error::CommandError;
 
 /// State of a journal entry
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Display)]
 pub enum JournalEntryState {
     /// Command execution has started
     Started,
@@ -23,17 +24,6 @@ pub enum JournalEntryState {
 
     /// Command execution was recovered
     Recovered,
-}
-
-impl std::fmt::Display for JournalEntryState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            JournalEntryState::Started => write!(f, "Started"),
-            JournalEntryState::Completed => write!(f, "Completed"),
-            JournalEntryState::Failed => write!(f, "Failed"),
-            JournalEntryState::Recovered => write!(f, "Recovered"),
-        }
-    }
 }
 
 /// Journal entry for command execution

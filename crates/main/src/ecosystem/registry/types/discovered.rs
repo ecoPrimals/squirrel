@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::ecosystem::EcosystemPrimalType;
+use crate::ecosystem::{EcosystemPrimalType, infer_primal_type_from_capability};
 
 use super::arc_serde::{
     deserialize_arc_str, deserialize_arc_str_map, deserialize_arc_str_vec, serialize_arc_str,
@@ -26,7 +26,14 @@ pub struct DiscoveredService {
         deserialize_with = "deserialize_arc_str"
     )]
     pub service_id: Arc<str>,
-    /// Type of primal providing this service
+    /// Primary capability domain — routing key for discovery (e.g. `"security"`, `"storage"`)
+    #[serde(
+        serialize_with = "serialize_arc_str",
+        deserialize_with = "deserialize_arc_str"
+    )]
+    pub primary_capability: Arc<str>,
+    /// Type of primal providing this service (deprecated — use `primary_capability`)
+    #[serde(default = "default_primal_type_for_deserialize")]
     pub primal_type: EcosystemPrimalType,
     /// Endpoint as `Arc<str>` for efficient sharing
     #[serde(
@@ -66,19 +73,27 @@ pub struct DiscoveredService {
     pub health_status: ServiceHealthStatus,
 }
 
+#[allow(deprecated)]
+fn default_primal_type_for_deserialize() -> EcosystemPrimalType {
+    EcosystemPrimalType::BiomeOS
+}
+
 impl DiscoveredService {
     /// Create new `DiscoveredService` with string interning optimization
     pub fn new(
         service_id: &str,
-        primal_type: EcosystemPrimalType,
+        primary_capability: &str,
         endpoint: &str,
         health_endpoint: &str,
         api_version: &str,
         capabilities: Vec<&str>,
         metadata: HashMap<&str, &str>,
     ) -> Self {
+        #[allow(deprecated)]
+        let primal_type = infer_primal_type_from_capability(primary_capability);
         Self {
             service_id: intern_registry_string(service_id),
+            primary_capability: intern_registry_string(primary_capability),
             primal_type,
             endpoint: Arc::from(endpoint),
             health_endpoint: Arc::from(health_endpoint),

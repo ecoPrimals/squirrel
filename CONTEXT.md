@@ -17,7 +17,7 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 |------|--------|
 | Language | Rust, **edition 2024** |
 | Workspace | **16** crates (see `Cargo.toml` `members`) |
-| Scale | ~**305k** lines across **981** `.rs` files |
+| Scale | ~**306k** lines across **986** `.rs` files |
 | Native deps | **Pure Rust** default build — no C dependencies in the standard ecoBin path |
 | Code license | **AGPL-3.0-or-later** (workspace `license`; see License section for full public framing) |
 | Version | **v0.1.0** (root `Cargo.toml` workspace package version); older docs may cite **0.1.0-alpha.*** tags — status **pre-alpha** |
@@ -73,10 +73,10 @@ Other workspace crates include auth, context, interfaces, plugins, config, comma
 
 ## Test suite
 
-- **7,132** tests passing, 0 failures.
+- **763** tests passing (4,946 `#[test]` attrs; balance behind feature gates), 0 failures.
 - **Zero `.unwrap()`** and **zero `panic!()`** in production code — all error handling is typed.
 - **Property-based** tests (e.g. `proptest` for serialization invariants).
-- **Coverage** **90.1%** region coverage / **89.6%** line coverage (all features; see `CURRENT_STATUS.md` for latest `cargo-llvm-cov` figure). **90% target met.**
+- Coverage target: 90% (see `CURRENT_STATUS.md` for latest figures).
 
 ## What this does NOT do
 

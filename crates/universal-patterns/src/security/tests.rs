@@ -453,7 +453,7 @@ mod tests {
         assert!(fallback_health.expect("should succeed").is_ok());
     }
 
-    /// Test local provider functionality
+    /// Test local provider functionality (authorization and health locally; crypto via IPC)
     #[tokio::test]
     async fn test_local_provider_functionality() {
         let config = test_security_config();
@@ -463,17 +463,19 @@ mod tests {
             .await
             .expect("Failed to create LocalSecurityProvider");
 
-        // Test authentication
+        // Authentication delegates to security capability provider
         let credentials = Credentials::Test {
             service_id: "test-service".to_string(),
         };
-
-        let auth_result = UniversalSecurityProvider::authenticate(&provider, &credentials)
+        let auth_err = UniversalSecurityProvider::authenticate(&provider, &credentials)
             .await
-            .expect("Authentication failed");
-        assert_eq!(auth_result.principal.id, "local-user");
+            .expect_err("authentication should delegate when IPC unavailable");
+        assert!(
+            matches!(auth_err, SecurityError::Other(_)),
+            "expected delegation error, got {auth_err:?}"
+        );
 
-        // Test authorization
+        // Authorization still works locally (permission check only)
         let principal = Principal {
             id: "test-user".to_string(),
             name: "Test User".to_string(),
@@ -487,28 +489,30 @@ mod tests {
             UniversalSecurityProvider::authorize(&provider, &principal, "read", "resource")
                 .await
                 .expect("Authorization failed");
-        assert!(authorized); // Principal has "read" permission
+        assert!(authorized);
 
-        // Test encryption/decryption
+        // Crypto operations delegate to security capability provider
         let data = b"test data";
-        let encrypted = UniversalSecurityProvider::encrypt(&provider, data)
+        for result in [
+            UniversalSecurityProvider::encrypt(&provider, data).await,
+            UniversalSecurityProvider::decrypt(&provider, b"cipher").await,
+            UniversalSecurityProvider::sign(&provider, data).await,
+        ] {
+            let err = result.expect_err("crypto should delegate when IPC unavailable");
+            assert!(
+                matches!(err, SecurityError::Other(_)),
+                "expected delegation error, got {err:?}"
+            );
+        }
+        let verify_err = UniversalSecurityProvider::verify(&provider, data, b"sig")
             .await
-            .expect("Encryption failed");
-        let decrypted = UniversalSecurityProvider::decrypt(&provider, &encrypted)
-            .await
-            .expect("Decryption failed");
-        assert_eq!(data, decrypted.as_slice());
+            .expect_err("verify should delegate when IPC unavailable");
+        assert!(
+            matches!(verify_err, SecurityError::Other(_)),
+            "expected delegation error, got {verify_err:?}"
+        );
 
-        // Test signing/verification (use explicit trait method to avoid ambiguity)
-        let signature = UniversalSecurityProvider::sign(&provider, data)
-            .await
-            .expect("Signing failed");
-        let valid = UniversalSecurityProvider::verify(&provider, data, &signature)
-            .await
-            .expect("Verification failed");
-        assert!(valid);
-
-        // Test health check
+        // Health check remains local
         let health = UniversalSecurityProvider::health_check(&provider)
             .await
             .expect("Health check failed");

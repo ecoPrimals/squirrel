@@ -33,7 +33,10 @@ mod tests;
 // Re-export all types for backward compatibility
 pub use context::{NetworkLocation, PrimalContext};
 pub use health::{HealthCheckConfig, HealthStatus, PrimalEndpoints, PrimalHealth, ResourceUsage};
-pub use primal::{PrimalCapability, PrimalDependency, PrimalType};
+#[allow(deprecated)]
+pub use primal::{
+    CapabilityDomain, CapabilityIdentifier, PrimalCapability, PrimalDependency, PrimalType,
+};
 pub use registration::{
     DynamicPortInfo, EcosystemServiceRegistration, ResourceSpec, ServiceCapabilities,
     ServiceEndpoints,

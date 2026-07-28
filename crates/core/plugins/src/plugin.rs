@@ -12,6 +12,7 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::future::Future;
 use std::pin::Pin;
+use strum::Display;
 use uuid::Uuid;
 
 /// Legacy Plugin metadata - DEPRECATED
@@ -93,7 +94,8 @@ impl Default for PluginMetadata {
 }
 
 /// Plugin status
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Copy)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Copy, Display)]
+#[strum(serialize_all = "snake_case")]
 pub enum PluginStatus {
     /// Plugin is registered but not initialized
     Registered,
@@ -113,17 +115,6 @@ impl PluginStatus {
     #[must_use]
     pub const fn new() -> Self {
         Self::Registered
-    }
-}
-
-impl std::fmt::Display for PluginStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Registered => write!(f, "registered"),
-            Self::Initialized => write!(f, "initialized"),
-            Self::Unloaded => write!(f, "unloaded"),
-            Self::Failed => write!(f, "failed"),
-        }
     }
 }
 

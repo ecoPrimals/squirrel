@@ -14,6 +14,7 @@ use tracing::{debug, info};
 
 use super::{IntelligenceRequest, IntelligenceResponse, Optimization, Prediction};
 use crate::error::PrimalError;
+use crate::security::monitoring::DefenseClient;
 
 /// AI Intelligence for ecosystem intelligence
 #[derive(Debug, Clone)]
@@ -22,7 +23,7 @@ pub struct AiIntelligence {
     pub intelligence_engine: IntelligenceEngine,
     /// Engine for resource and performance optimization.
     pub optimization_engine: OptimizationEngine,
-    /// Engine for forecasting and anomaly detection.
+    /// Engine for forecasting (anomaly detection delegated to defense provider).
     pub prediction_engine: PredictionEngine,
     /// Engine for self-healing and autonomous operations.
     pub automation_engine: AutomationEngine,
@@ -62,7 +63,7 @@ pub struct OptimizationEngine {
     pub optimization_history: Vec<OptimizationEvent>,
 }
 
-/// Prediction engine for forecasting and anomaly detection
+/// Prediction engine for forecasting (anomaly detection delegated to skunkBat).
 #[derive(Debug, Clone)]
 pub struct PredictionEngine {
     /// Model identifiers for predictions.
@@ -71,7 +72,7 @@ pub struct PredictionEngine {
     pub active_predictions: HashMap<String, Prediction>,
     /// Current prediction accuracy score.
     pub prediction_accuracy: f64,
-    /// Anomaly detection configuration.
+    /// Delegates anomaly detection to the defense capability provider via IPC.
     pub anomaly_detection: AnomalyDetection,
 }
 
@@ -151,15 +152,33 @@ pub struct OptimizationEvent {
     pub improvement: f64,
 }
 
-/// Anomaly detection configuration
-#[derive(Debug, Clone, Default)]
+/// Delegation wrapper for anomaly detection via the defense capability provider.
+///
+/// Squirrel does not perform local anomaly classification — requests are forwarded
+/// to skunkBat over IPC using `defense.detect_anomaly`.
+#[derive(Debug, Clone)]
 pub struct AnomalyDetection {
-    /// Model identifiers for detection.
-    pub detection_models: Vec<String>,
-    /// Threshold values by metric.
-    pub threshold_settings: HashMap<String, f64>,
-    /// Rules for generating alerts.
-    pub alert_rules: Vec<AlertRule>,
+    defense_client: DefenseClient,
+}
+
+impl Default for AnomalyDetection {
+    fn default() -> Self {
+        Self {
+            defense_client: DefenseClient::new(),
+        }
+    }
+}
+
+impl AnomalyDetection {
+    /// Forward an anomaly detection request to the defense capability provider.
+    pub async fn detect(
+        &self,
+        payload: serde_json::Value,
+    ) -> Result<serde_json::Value, PrimalError> {
+        self.defense_client
+            .call_method("defense.detect_anomaly", payload)
+            .await
+    }
 }
 
 /// Automation rule
@@ -635,10 +654,7 @@ impl Default for OptimizationEngine {
 impl Default for PredictionEngine {
     fn default() -> Self {
         Self {
-            prediction_models: vec![
-                "demand_forecasting".to_string(),
-                "anomaly_detection".to_string(),
-            ],
+            prediction_models: vec!["demand_forecasting".to_string()],
             active_predictions: HashMap::new(),
             prediction_accuracy: 0.85,
             anomaly_detection: AnomalyDetection::default(),

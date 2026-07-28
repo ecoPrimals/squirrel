@@ -5,6 +5,7 @@
 
 use chrono::Utc;
 use std::collections::HashMap;
+use std::sync::Once;
 
 use super::super::context::SecurityContext;
 use super::super::errors::SecurityError;
@@ -13,6 +14,24 @@ use super::types::{
     SecurityServiceConfig, SecurityServiceInfo, TrustLevel, UniversalSecurityService,
 };
 use crate::config::AuthMethod;
+
+const CRYPTO_DELEGATION_MESSAGE: &str =
+    "Local crypto operations require security capability provider (IPC not available)";
+
+static CRYPTO_DELEGATION_WARN: Once = Once::new();
+
+fn warn_crypto_delegation_required() {
+    CRYPTO_DELEGATION_WARN.call_once(|| {
+        tracing::warn!(
+            "{CRYPTO_DELEGATION_MESSAGE}; configure a security capability provider via IPC"
+        );
+    });
+}
+
+fn crypto_delegation_error() -> SecurityError {
+    warn_crypto_delegation_required();
+    SecurityError::Other(CRYPTO_DELEGATION_MESSAGE.to_string())
+}
 
 /// Local Security Provider Implementation\
 /// Provides basic local security capabilities for fallback scenarios
@@ -111,31 +130,7 @@ impl crate::security::traits::UniversalSecurityProvider for LocalSecurityProvide
         &self,
         _credentials: &crate::traits::Credentials,
     ) -> Result<crate::traits::AuthResult, SecurityError> {
-        let nonce = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos()
-            .to_le_bytes();
-        let token = blake3::derive_key("ecoPrimals local auth token v1", &nonce);
-        let token_hex = blake3::Hash::from(token).to_hex().to_string();
-
-        let mut metadata = std::collections::HashMap::new();
-        metadata.insert("trust_level".to_string(), "local-fallback".to_string());
-
-        Ok(crate::traits::AuthResult {
-            principal: crate::traits::Principal {
-                id: "local-user".to_string(),
-                name: "Local User".to_string(),
-                principal_type: crate::traits::PrincipalType::User,
-                roles: vec!["user".to_string()],
-                permissions: vec!["read".to_string()],
-                metadata: std::collections::HashMap::new(),
-            },
-            token: token_hex,
-            expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
-            permissions: vec!["read".to_string()],
-            metadata,
-        })
+        Err(crypto_delegation_error())
     }
 
     async fn authorize(
@@ -151,39 +146,20 @@ impl crate::security::traits::UniversalSecurityProvider for LocalSecurityProvide
         Ok(allowed)
     }
 
-    async fn encrypt(&self, data: &[u8]) -> Result<Vec<u8>, SecurityError> {
-        let key = blake3::derive_key(
-            "ecoPrimals local encrypt v1",
-            self.config.service_id.as_bytes(),
-        );
-        let mut reader = blake3::Hasher::new_keyed(&key)
-            .update(b"local-encrypt-stream")
-            .finalize_xof();
-        let mut keystream = vec![0u8; data.len()];
-        reader.fill(&mut keystream);
-        Ok(data
-            .iter()
-            .zip(keystream.iter())
-            .map(|(d, k)| d ^ k)
-            .collect())
+    async fn encrypt(&self, _data: &[u8]) -> Result<Vec<u8>, SecurityError> {
+        Err(crypto_delegation_error())
     }
 
-    async fn decrypt(&self, encrypted_data: &[u8]) -> Result<Vec<u8>, SecurityError> {
-        self.encrypt(encrypted_data).await
+    async fn decrypt(&self, _encrypted_data: &[u8]) -> Result<Vec<u8>, SecurityError> {
+        Err(crypto_delegation_error())
     }
 
-    async fn sign(&self, data: &[u8]) -> Result<Vec<u8>, SecurityError> {
-        let key = blake3::derive_key(
-            "ecoPrimals local sign v1",
-            self.config.service_id.as_bytes(),
-        );
-        let sig = blake3::keyed_hash(&key, data);
-        Ok(sig.as_bytes().to_vec())
+    async fn sign(&self, _data: &[u8]) -> Result<Vec<u8>, SecurityError> {
+        Err(crypto_delegation_error())
     }
 
-    async fn verify(&self, data: &[u8], signature: &[u8]) -> Result<bool, SecurityError> {
-        let expected = self.sign(data).await?;
-        Ok(expected == signature)
+    async fn verify(&self, _data: &[u8], _signature: &[u8]) -> Result<bool, SecurityError> {
+        Err(crypto_delegation_error())
     }
 
     async fn audit_log(

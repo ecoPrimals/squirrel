@@ -63,6 +63,7 @@ base64.workspace = true
 hmac.workspace = true
 sha2.workspace = true
 getrandom.workspace = true
+strum.workspace = true
 
 [dev-dependencies]
 tokio-test = "0.4"

@@ -11,13 +11,13 @@
 //! | [`InMemorySecretStore`] | `CredentialStorage::Memory` | None (process lifetime) | Dev / bootstrap |
 //! | [`FileSecretStore`] | `CredentialStorage::File { path }` | Base64-encoded JSON | Explicit path |
 //! | [`super::platform_secret_store::PlatformSecretStore`] | `CredentialStorage::Platform` | OS-native path (XDG/AppData) | Offline cache |
-//! | (IPC delegation) | `CredentialStorage::SecurityProvider` | External (bearDog HSM) | **Production** |
+//! | (IPC delegation) | `CredentialStorage::SecurityProvider` | External (security provider HSM) | **Production** |
 //!
-//! `SecurityProvider` is the primary path — bearDog is the credential
+//! `SecurityProvider` is the primary path — the security provider is the credential
 //! authority.  `Platform` is the offline/bootstrap fallback (file-based
 //! cache at OS-appropriate paths).  Native credential stores (Windows
-//! Credential Manager, Android Keystore, macOS Keychain) are bearDog's
-//! domain; squirrel accesses them via `SecurityProvider` IPC.
+//! Credential Manager, Android Keystore, macOS Keychain) are the security
+//! provider's domain; squirrel accesses them via `SecurityProvider` IPC.
 
 use crate::error::{MCPError, Result};
 use serde::{Deserialize, Serialize};
@@ -274,7 +274,7 @@ pub enum SecretStoreBackend {
     File(FileSecretStore),
     /// Platform-native store (auto-detected per OS).
     Platform(super::platform_secret_store::PlatformSecretStore),
-    /// IPC delegation to the security capability provider (bearDog).
+    /// IPC delegation to the security capability provider.
     SecurityProvider(super::security_provider_secret_store::SecurityProviderSecretStore),
 }
 
@@ -282,7 +282,7 @@ impl SecretStoreBackend {
     /// Build a backend from the config `CredentialStorage` variant.
     ///
     /// - `Memory` / `SecurityProvider`: in-memory (cache; security provider
-    ///   fetches secrets via RPC to BearDog).
+    ///   fetches secrets via RPC to the security provider).
     /// - `File { path }`: persistent JSON at the given path.
     /// - `Platform`: auto-detects OS-native path (XDG, AppData, etc.).
     pub async fn from_config(
@@ -291,11 +291,9 @@ impl SecretStoreBackend {
         use universal_patterns::config::CredentialStorage;
         match storage {
             CredentialStorage::Memory => Ok(Self::Memory(InMemorySecretStore::new())),
-            CredentialStorage::SecurityProvider => {
-                Ok(Self::SecurityProvider(
-                    super::security_provider_secret_store::SecurityProviderSecretStore::discover(),
-                ))
-            }
+            CredentialStorage::SecurityProvider => Ok(Self::SecurityProvider(
+                super::security_provider_secret_store::SecurityProviderSecretStore::discover(),
+            )),
             CredentialStorage::File { path } => {
                 let store = FileSecretStore::open(path).await?;
                 Ok(Self::File(store))

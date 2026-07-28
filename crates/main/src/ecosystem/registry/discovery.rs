@@ -1,125 +1,201 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 // Backward compatibility: discover_services/DiscoveredService use EcosystemPrimalType for legacy format
-#![expect(deprecated, reason = "Backward compatibility during migration")]
+#![allow(deprecated)]
 
 //! Service discovery operations for the ecosystem registry
 
 use super::types::{DiscoveredService, ServiceHealthStatus, intern_registry_string};
-use crate::ecosystem::EcosystemPrimalType;
+use crate::ecosystem::{CapabilityIdentifier, EcosystemPrimalType};
 use crate::error::PrimalError;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock; // Import from crate root
+use tokio::sync::RwLock;
 
 /// Discovery operations for the ecosystem registry
 pub struct DiscoveryOps;
 
 impl DiscoveryOps {
-    /// Discover services in the ecosystem
+    /// Discover services by capability domain (primary API).
+    ///
+    /// When `capabilities` is empty, probes all available Unix sockets via
+    /// `capability.discover` and registers every provider found.
     pub async fn discover_services(
         service_registry: &Arc<RwLock<HashMap<Arc<str>, Arc<DiscoveredService>>>>,
-        primal_types: Vec<EcosystemPrimalType>,
+        capabilities: Vec<CapabilityIdentifier>,
     ) -> Result<Vec<Arc<DiscoveredService>>, PrimalError> {
-        let mut discovered_services = Vec::new();
-
-        for primal_type in primal_types {
-            let endpoint = Self::build_service_endpoint(primal_type);
-
-            // Perform discovery for this primal type
-            if let Err(e) =
-                Self::perform_service_discovery(service_registry, primal_type, endpoint).await
-            {
-                tracing::error!("Failed to discover service for {primal_type:?}: {e}");
+        if capabilities.is_empty() {
+            Self::discover_from_capability_registry(service_registry).await?;
+        } else {
+            for capability in capabilities {
+                if let Err(e) = Self::discover_capability(service_registry, &capability).await {
+                    tracing::error!(
+                        "Failed to discover provider for capability '{}': {e}",
+                        capability.as_str()
+                    );
+                }
             }
         }
 
-        // Return all discovered services
         let registry = service_registry.read().await;
-        discovered_services.extend(registry.values().cloned());
-
-        Ok(discovered_services)
+        Ok(registry.values().cloned().collect())
     }
 
-    /// Build service endpoint from primal type
-    ///
-    /// This function discovers service endpoints using a **pure capability-based approach**:
+    /// Discover all providers by scanning sockets with `capability.discover`.
+    async fn discover_from_capability_registry(
+        service_registry: &Arc<RwLock<HashMap<Arc<str>, Arc<DiscoveredService>>>>,
+    ) -> Result<(), PrimalError> {
+        let providers = crate::capabilities::discovery::discover_all_capabilities()
+            .await
+            .map_err(|e| {
+                PrimalError::OperationFailed(format!("Capability registry scan failed: {e}"))
+            })?;
+
+        for (capability, provider_list) in providers {
+            for provider in provider_list {
+                let socket_str = provider.socket.display().to_string();
+                let endpoint = format!("unix://{socket_str}");
+                let caps: Vec<&str> = provider
+                    .capabilities
+                    .iter()
+                    .map(std::string::String::as_str)
+                    .collect();
+                let metadata = provider
+                    .metadata
+                    .iter()
+                    .map(|(k, v)| (k.as_str(), v.as_str()))
+                    .collect();
+                Self::register_discovered_service(
+                    service_registry,
+                    &provider.id,
+                    &capability,
+                    &endpoint,
+                    caps,
+                    metadata,
+                )
+                .await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Discover a single capability domain via runtime probes, then env/config fallback.
+    async fn discover_capability(
+        service_registry: &Arc<RwLock<HashMap<Arc<str>, Arc<DiscoveredService>>>>,
+        capability: &CapabilityIdentifier,
+    ) -> Result<(), PrimalError> {
+        let cap_str = capability.as_str();
+
+        if let Ok(provider) = crate::capabilities::discovery::discover_capability(cap_str).await {
+            let socket_str = provider.socket.display().to_string();
+            let endpoint = format!("unix://{socket_str}");
+            let caps: Vec<&str> = provider
+                .capabilities
+                .iter()
+                .map(std::string::String::as_str)
+                .collect();
+            let metadata = provider
+                .metadata
+                .iter()
+                .map(|(k, v)| (k.as_str(), v.as_str()))
+                .collect();
+            return Self::register_discovered_service(
+                service_registry,
+                &provider.id,
+                cap_str,
+                &endpoint,
+                caps,
+                metadata,
+            )
+            .await;
+        }
+
+        let endpoint = Self::build_service_endpoint(cap_str);
+        Self::perform_service_discovery(service_registry, cap_str, endpoint).await
+    }
+
+    async fn register_discovered_service(
+        service_registry: &Arc<RwLock<HashMap<Arc<str>, Arc<DiscoveredService>>>>,
+        service_id: &str,
+        primary_capability: &str,
+        endpoint: &str,
+        capabilities: Vec<&str>,
+        metadata: HashMap<&str, &str>,
+    ) -> Result<(), PrimalError> {
+        let service = Arc::new(DiscoveredService::new(
+            service_id,
+            primary_capability,
+            endpoint,
+            endpoint,
+            "v1",
+            capabilities,
+            metadata,
+        ));
+        service_registry
+            .write()
+            .await
+            .insert(service.service_id.clone(), service);
+        Ok(())
+    }
+
+    /// Discover services by deprecated primal type list (backward compatibility).
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use discover_services with CapabilityIdentifier instead of hardcoded primal types"
+    )]
+    #[allow(deprecated)]
+    pub async fn discover_services_by_primal_types(
+        service_registry: &Arc<RwLock<HashMap<Arc<str>, Arc<DiscoveredService>>>>,
+        primal_types: Vec<EcosystemPrimalType>,
+    ) -> Result<Vec<Arc<DiscoveredService>>, PrimalError> {
+        let capabilities: Vec<_> = primal_types
+            .into_iter()
+            .map(|t| CapabilityIdentifier::new(t.capability()))
+            .collect();
+        Self::discover_services(service_registry, capabilities).await
+    }
+
+    /// Build service endpoint from a capability domain string.
     ///
     /// ## Discovery Priority (Highest to Lowest)
     ///
-    /// 1. **Environment Variables** (Production)
-    ///    - `{CAPABILITY_PREFIX}_ENDPOINT` — prefix from [`EcosystemPrimalType::endpoint_env_prefix`]
-    ///      (capability-derived, e.g. `SERVICE_MESH_ENDPOINT`, `SECURITY_ENDPOINT`)
-    ///
-    /// 2. **Service Discovery Systems** (Production)
-    ///    - `SERVICE_DISCOVERY_URL` - Registry endpoint (Consul, etcd, etc.)
-    ///    - Queries by capability, not by marketing primal name
-    ///    - Example: Query for `service-mesh` / `security` capability identifiers
-    ///
-    /// 3. **Configuration File** (Optional)
-    ///    - `SQUIRREL_CONFIG` - Path to config file with service endpoints
-    ///    - Allows dynamic endpoint specification without env vars
-    ///
-    /// 4. **Development Defaults** (Dev Only)
-    ///    - Localhost with universal-constants defined ports
-    ///    - **NEVER used in production** - fails fast if no discovery configured
-    ///
-    /// ## Capability-Based Philosophy
-    ///
-    /// This function does NOT hardcode primal names. Instead:
-    /// - Primals discover each other by **capability** (e.g., "security", "storage")
-    /// - Each primal only knows its own identity
-    /// - Runtime discovery enables zero vendor lock-in
-    /// - Services can be swapped without code changes
-    fn build_service_endpoint(primal_type: EcosystemPrimalType) -> String {
-        // 1. Try environment variable first (highest priority)
-        let env_var = format!("{}_ENDPOINT", primal_type.endpoint_env_prefix());
+    /// 1. **Environment Variables** — `{CAPABILITY_PREFIX}_ENDPOINT`
+    /// 2. **Service Discovery Systems** — `SERVICE_DISCOVERY_URL` + capability path
+    /// 3. **Configuration File** — `[endpoints]` keyed by capability domain
+    /// 4. **Development Defaults** (debug builds only)
+    fn build_service_endpoint(capability: &str) -> String {
+        let env_prefix = CapabilityIdentifier::new(capability).endpoint_env_prefix();
+        let env_var = format!("{env_prefix}_ENDPOINT");
         if let Ok(endpoint) = std::env::var(&env_var) {
-            tracing::debug!(
-                "Using environment variable {} for {:?}",
-                env_var,
-                primal_type
-            );
+            tracing::debug!("Using environment variable {env_var} for capability {capability}");
             return endpoint;
         }
 
-        // 2. Try SERVICE_DISCOVERY environment variable for dynamic discovery
         if let Ok(discovery_url) =
             std::env::var(universal_constants::env_vars::discovery::SERVICE_DISCOVERY_URL)
         {
             tracing::debug!(
-                "Using service discovery at {} for {:?}",
-                discovery_url,
-                primal_type
+                "Using service discovery at {discovery_url} for capability {capability}"
             );
-            // Registry path uses capability id (not primal product name)
-            return format!("{}/{}", discovery_url, primal_type.capability());
+            return format!("{discovery_url}/{capability}");
         }
 
-        // 3. Try configuration file
         if let Ok(config_path) = std::env::var(universal_constants::env_vars::squirrel::CONFIG)
-            && let Ok(endpoint) = Self::read_endpoint_from_config(&config_path, primal_type)
+            && let Ok(endpoint) = Self::read_endpoint_from_config(&config_path, capability)
         {
-            tracing::debug!("Using config file {} for {:?}", config_path, primal_type);
+            tracing::debug!("Using config file {config_path} for capability {capability}");
             return endpoint;
         }
 
-        // 4. Fall back to development defaults (dev environment only)
-        // In production deployment, this should fail fast with error logging
         if cfg!(debug_assertions) {
             tracing::warn!(
-                "Using development default for {:?} - set environment variables in production!",
-                primal_type
+                "Using development default for capability {capability} — set env vars in production!"
             );
-            Self::get_development_default(primal_type)
+            Self::get_development_default(capability)
         } else {
-            // Production: Fail fast rather than use localhost defaults
             tracing::error!(
-                "No endpoint configured for {:?} - set {}_ENDPOINT or SERVICE_DISCOVERY_URL",
-                primal_type,
-                primal_type.endpoint_env_prefix()
+                "No endpoint configured for capability {capability} — set {env_var} or SERVICE_DISCOVERY_URL"
             );
-            // Return an invalid endpoint that will fail discovery
             "http://unconfigured.endpoint".to_string()
         }
     }
@@ -134,7 +210,7 @@ impl DiscoveryOps {
     /// ```
     fn read_endpoint_from_config(
         config_path: &str,
-        primal_type: EcosystemPrimalType,
+        capability: &str,
     ) -> Result<String, PrimalError> {
         let contents = std::fs::read_to_string(config_path).map_err(|e| {
             PrimalError::Configuration(format!("Cannot read config {config_path}: {e}"))
@@ -148,7 +224,7 @@ impl DiscoveryOps {
             .ok_or_else(|| {
                 PrimalError::Configuration(format!("No [endpoints] table in {config_path}"))
             })?;
-        let key = primal_type.capability();
+        let key = capability;
         endpoints
             .get(key)
             .and_then(|v| v.as_str())
@@ -170,33 +246,33 @@ impl DiscoveryOps {
     /// This function uses universal-constants for all port assignments to ensure
     /// consistency across the ecosystem. It does NOT use hardcoded primal names,
     /// instead deriving endpoints from the capability-based primal type.
-    fn get_development_default(primal_type: EcosystemPrimalType) -> String {
+    fn get_development_default(capability: &str) -> String {
         use universal_constants::builders;
         use universal_constants::capabilities as caps;
         use universal_constants::network;
 
-        // Port lookup follows capability ids (hyphenated in constants; get_service_port normalizes).
-        let svc_for_port = match primal_type.capability() {
+        let svc_for_port = match capability {
             c if c == caps::SELF_PRIMAL_NAME => "http",
             c if c == caps::ECOSYSTEM_CAPABILITY => "ui",
-            c => c,
+            other => other,
         };
         let port = network::get_service_port(svc_for_port);
 
         builders::localhost_http(port)
     }
 
-    /// Perform actual service discovery operations
+    /// Register a service discovered via env/config fallback (no live socket probe).
     async fn perform_service_discovery(
         service_registry: &Arc<RwLock<HashMap<Arc<str>, Arc<DiscoveredService>>>>,
-        primal_type: EcosystemPrimalType,
+        primary_capability: &str,
         endpoint: String,
     ) -> Result<(), PrimalError> {
-        // Create discovered service with Arc<str> optimization (move endpoint, no clone)
         let health_endpoint = Arc::from(format!("{endpoint}/health"));
         let service = Arc::new(DiscoveredService {
-            service_id: intern_registry_string(&format!("{primal_type:?}").to_lowercase()),
-            primal_type,
+            service_id: intern_registry_string(primary_capability),
+            primary_capability: intern_registry_string(primary_capability),
+            #[allow(deprecated)]
+            primal_type: crate::ecosystem::infer_primal_type_from_capability(primary_capability),
             endpoint: Arc::from(endpoint),
             capabilities: vec![
                 intern_registry_string("discovery"),
@@ -210,7 +286,6 @@ impl DiscoveryOps {
             metadata: HashMap::new(),
         });
 
-        // Add to registry with Arc<str> key
         let service_id = service.service_id.clone();
         service_registry.write().await.insert(service_id, service);
 
@@ -264,7 +339,6 @@ impl DiscoveryOps {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
 
     /// Helper to create a test registry
     fn create_test_registry() -> Arc<RwLock<HashMap<Arc<str>, Arc<DiscoveredService>>>> {
@@ -272,23 +346,16 @@ mod tests {
     }
 
     /// Helper to create a test service
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
-    fn create_test_service(primal_type: EcosystemPrimalType) -> Arc<DiscoveredService> {
-        Arc::new(DiscoveredService {
-            service_id: Arc::from(format!("{primal_type:?}-test")),
-            primal_type,
-            endpoint: Arc::from("http://test.local"),
-            health_endpoint: Arc::from("http://test.local/health"),
-            api_version: Arc::from("0.1.0"),
-            capabilities: vec![],
-            metadata: HashMap::new(),
-            discovered_at: Utc::now(),
-            last_health_check: Some(Utc::now()),
-            health_status: ServiceHealthStatus::Healthy,
-        })
+    fn create_test_service(primary_capability: &str) -> Arc<DiscoveredService> {
+        Arc::new(DiscoveredService::new(
+            &format!("{primary_capability}-test"),
+            primary_capability,
+            "http://test.local",
+            "http://test.local/health",
+            "0.1.0",
+            vec![],
+            HashMap::new(),
+        ))
     }
 
     // Tests for get_capabilities_for_service (capability-based, not deprecated)
@@ -397,90 +464,60 @@ mod tests {
 
     // Tests for discover_services
     #[tokio::test]
-    async fn test_discover_services_empty_primal_types() {
+    async fn test_discover_services_empty_capabilities() {
         let registry = create_test_registry();
         let result = DiscoveryOps::discover_services(&registry, vec![]).await;
         assert!(result.is_ok());
-        assert!(result.expect("should succeed").is_empty());
     }
 
     #[tokio::test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
-    async fn test_discover_services_single_primal_type() {
+    async fn test_discover_services_single_capability() {
         let registry = create_test_registry();
-        let primal_types = vec![EcosystemPrimalType::Squirrel];
-        let result = DiscoveryOps::discover_services(&registry, primal_types).await;
+        let capabilities = vec![CapabilityIdentifier::new("squirrel")];
+        let result = DiscoveryOps::discover_services(&registry, capabilities).await;
         assert!(result.is_ok());
-        // The discovery may or may not succeed depending on environment,
-        // but the function should not panic
     }
 
     #[tokio::test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
-    async fn test_discover_services_multiple_primal_types() {
+    async fn test_discover_services_multiple_capabilities() {
         let registry = create_test_registry();
-        let primal_types = vec![
-            EcosystemPrimalType::Squirrel,
-            EcosystemPrimalType::Songbird,
-            EcosystemPrimalType::BearDog,
+        let capabilities = vec![
+            CapabilityIdentifier::new("squirrel"),
+            CapabilityIdentifier::new("service-mesh"),
+            CapabilityIdentifier::new("security"),
         ];
-        let result = DiscoveryOps::discover_services(&registry, primal_types).await;
+        let result = DiscoveryOps::discover_services(&registry, capabilities).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
-    async fn test_discover_services_all_primal_types() {
+    async fn test_discover_services_all_required_capabilities() {
         let registry = create_test_registry();
-        let primal_types = vec![
-            EcosystemPrimalType::Squirrel,
-            EcosystemPrimalType::Songbird,
-            EcosystemPrimalType::ToadStool,
-            EcosystemPrimalType::BearDog,
-            EcosystemPrimalType::NestGate,
-            EcosystemPrimalType::BiomeOS,
-        ];
-        let result = DiscoveryOps::discover_services(&registry, primal_types).await;
+        let capabilities: Vec<_> = crate::niche::REQUIRED_CAPABILITIES
+            .iter()
+            .map(|(cap, _, _)| CapabilityIdentifier::new(*cap))
+            .collect();
+        let result = DiscoveryOps::discover_services(&registry, capabilities).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
     async fn test_discover_services_returns_registered_services() {
         let registry = create_test_registry();
 
-        // Manually register a service
         {
             let mut reg = registry.write().await;
-            let service = create_test_service(EcosystemPrimalType::Squirrel);
+            let service = create_test_service("squirrel");
             reg.insert(service.service_id.clone(), service);
         }
 
-        // Discover services (won't find new ones, but should return existing)
         let result = DiscoveryOps::discover_services(&registry, vec![]).await;
         assert!(result.is_ok());
         let services = result.expect("should succeed");
-        assert_eq!(services.len(), 1);
+        assert!(!services.is_empty());
     }
 
-    // Tests for build_service_endpoint (indirectly through discover_services)
     #[test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
     fn test_build_service_endpoint_uses_env_var() {
         temp_env::with_vars(
             [
@@ -488,17 +525,13 @@ mod tests {
                 ("SERVICE_DISCOVERY_URL", None::<&str>),
             ],
             || {
-                let endpoint = DiscoveryOps::build_service_endpoint(EcosystemPrimalType::Squirrel);
+                let endpoint = DiscoveryOps::build_service_endpoint("squirrel");
                 assert_eq!(endpoint, "http://custom.squirrel");
             },
         );
     }
 
     #[test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
     fn test_build_service_endpoint_uses_service_discovery() {
         temp_env::with_vars(
             [
@@ -506,17 +539,13 @@ mod tests {
                 ("SERVICE_MESH_ENDPOINT", None::<&str>),
             ],
             || {
-                let endpoint = DiscoveryOps::build_service_endpoint(EcosystemPrimalType::Songbird);
+                let endpoint = DiscoveryOps::build_service_endpoint("service-mesh");
                 assert!(endpoint.contains("discovery.local"));
             },
         );
     }
 
     #[test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
     fn test_build_service_endpoint_falls_back_to_default() {
         temp_env::with_vars_unset(
             [
@@ -525,7 +554,7 @@ mod tests {
                 "SQUIRREL_CONFIG",
             ],
             || {
-                let endpoint = DiscoveryOps::build_service_endpoint(EcosystemPrimalType::BearDog);
+                let endpoint = DiscoveryOps::build_service_endpoint("security");
                 if cfg!(debug_assertions) {
                     assert!(endpoint.contains("localhost") || endpoint.contains("127.0.0.1"));
                 } else {
@@ -573,25 +602,19 @@ mod tests {
     }
 
     #[tokio::test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
     async fn test_discover_services_concurrent_access() {
         let registry = create_test_registry();
 
-        // Spawn multiple concurrent discovery operations
         let handles: Vec<_> = (0..5)
             .map(|_| {
                 let reg_clone = Arc::clone(&registry);
                 tokio::spawn(async move {
-                    let primal_types = vec![EcosystemPrimalType::Squirrel];
-                    DiscoveryOps::discover_services(&reg_clone, primal_types).await
+                    let capabilities = vec![CapabilityIdentifier::new("squirrel")];
+                    DiscoveryOps::discover_services(&reg_clone, capabilities).await
                 })
             })
             .collect();
 
-        // Wait for all to complete
         for handle in handles {
             let result = handle.await;
             assert!(result.is_ok());

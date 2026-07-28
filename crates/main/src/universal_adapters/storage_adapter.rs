@@ -38,7 +38,7 @@ impl UniversalStorageAdapter {
     pub async fn coordinate_storage(
         &mut self,
         operation: &str,
-        _data: serde_json::Value,
+        data: serde_json::Value,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
             "🏠 Coordinating storage operation: {} via universal adapter",
@@ -54,10 +54,19 @@ impl UniversalStorageAdapter {
             PrimalError::ResourceNotFound("No storage service available".to_string())
         })?;
 
-        Err(PrimalError::NotImplemented(format!(
-            "Storage operation '{}' via {} — IPC transport to storage primal not yet wired",
-            operation, storage_service.name
-        )))
+        const CAPABILITY: &str = "storage";
+        let socket = self
+            .registry
+            .resolve_socket_for_capability(CAPABILITY, storage_service)
+            .await
+            .map_err(|e| {
+                PrimalError::OperationFailed(format!("No provider for {CAPABILITY}: {e}"))
+            })?;
+
+        let method = format!("storage.{operation}");
+        super::ipc::send_rpc_request(&socket, &method, Some(data))
+            .await
+            .map_err(|e| PrimalError::OperationFailed(format!("IPC to {CAPABILITY}: {e}")))
     }
 
     /// Store AI context data using any available storage primal
@@ -416,7 +425,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn coordinate_storage_returns_not_implemented() {
+    async fn coordinate_storage_fails_without_provider() {
         let reg = registry_with_storage().await;
         let mut adapter = UniversalStorageAdapter::new(reg);
         for op in &["store", "retrieve", "backup", "list"] {
@@ -424,38 +433,50 @@ mod tests {
                 .coordinate_storage(op, serde_json::json!({}))
                 .await
                 .unwrap_err();
+            let PrimalError::OperationFailed(msg) = err else {
+                panic!("expected OperationFailed when no provider for '{op}', got {err:?}");
+            };
             assert!(
-                matches!(err, PrimalError::NotImplemented(_)),
-                "expected NotImplemented for '{op}', got {err:?}"
+                msg.contains("IPC"),
+                "expected IPC failure for '{op}', got {msg}"
             );
         }
     }
 
     #[tokio::test]
-    async fn store_ai_context_propagates_not_implemented() {
+    async fn store_ai_context_fails_without_provider() {
         let reg = registry_with_storage().await;
         let mut adapter = UniversalStorageAdapter::new(reg);
         let err = adapter
             .store_ai_context("ctx-1", serde_json::json!({ "x": 1 }))
             .await
             .unwrap_err();
-        assert!(matches!(err, PrimalError::NotImplemented(_)));
+        assert!(
+            matches!(err, PrimalError::OperationFailed(_)),
+            "expected OperationFailed when no provider, got {err:?}"
+        );
     }
 
     #[tokio::test]
-    async fn retrieve_ai_context_propagates_not_implemented() {
+    async fn retrieve_ai_context_fails_without_provider() {
         let reg = registry_with_storage().await;
         let mut adapter = UniversalStorageAdapter::new(reg);
         let err = adapter.retrieve_ai_context("sid-1").await.unwrap_err();
-        assert!(matches!(err, PrimalError::NotImplemented(_)));
+        assert!(
+            matches!(err, PrimalError::OperationFailed(_)),
+            "expected OperationFailed when no provider, got {err:?}"
+        );
     }
 
     #[tokio::test]
-    async fn backup_ai_data_propagates_not_implemented() {
+    async fn backup_ai_data_fails_without_provider() {
         let reg = registry_with_storage().await;
         let mut adapter = UniversalStorageAdapter::new(reg);
         let err = adapter.backup_ai_data("set-a").await.unwrap_err();
-        assert!(matches!(err, PrimalError::NotImplemented(_)));
+        assert!(
+            matches!(err, PrimalError::OperationFailed(_)),
+            "expected OperationFailed when no provider, got {err:?}"
+        );
     }
 
     #[tokio::test]
@@ -470,7 +491,7 @@ mod tests {
     async fn get_storage_metrics_ok() {
         let reg = registry_with_storage().await;
         let mut adapter = UniversalStorageAdapter::new(reg);
-        // Trigger discovery (coordinate returns NotImplemented)
+        // Trigger discovery (coordinate IPC fails without a live provider)
         let _ = adapter
             .coordinate_storage("store", serde_json::json!({}))
             .await;

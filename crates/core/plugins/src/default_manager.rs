@@ -6,13 +6,11 @@
 //! This module provides the default implementation of the plugin manager.
 
 use crate::Plugin;
-use crate::dependency_resolver::DependencyResolver;
-use crate::discovery::{DefaultPluginDiscovery, create_noop_plugin};
+use crate::discovery::create_noop_plugin;
 use crate::errors::{PluginError, Result};
 use crate::metrics::{PluginManagerMetrics, PluginManagerStatus};
 use crate::plugin::PluginMetadata;
 use crate::registry::PluginRegistry;
-use crate::state::{MemoryStateManager, StateManagerBackend};
 use crate::traits::PluginManagerTrait;
 use crate::types::PluginStatus;
 use std::collections::HashMap;
@@ -31,18 +29,6 @@ pub struct DefaultPluginManager {
     statuses: RwLock<HashMap<Uuid, PluginStatus>>,
     /// Plugin name to ID mapping
     name_to_id: RwLock<HashMap<String, Uuid>>,
-    /// Dependency resolver for initialization order (reserved for dependency resolution system)
-    #[expect(
-        dead_code,
-        reason = "Phase 2 placeholder — dependency resolution system"
-    )]
-    dependency_resolver: Arc<RwLock<DependencyResolver>>,
-    /// State manager for plugin state persistence (reserved for state persistence system)
-    #[expect(dead_code, reason = "Phase 2 placeholder — state persistence system")]
-    state_manager: Arc<StateManagerBackend>,
-    /// Discovery service for plugin loading (reserved for plugin discovery system)
-    #[expect(dead_code, reason = "Phase 2 placeholder — plugin discovery system")]
-    discovery: Arc<DefaultPluginDiscovery>,
     /// Performance metrics
     metrics: Arc<RwLock<PluginManagerMetrics>>,
 }
@@ -55,9 +41,6 @@ impl DefaultPluginManager {
             plugins: Arc::new(RwLock::new(HashMap::new())),
             statuses: RwLock::new(HashMap::new()),
             name_to_id: RwLock::new(HashMap::new()),
-            dependency_resolver: Arc::new(RwLock::new(DependencyResolver::new())),
-            state_manager: Arc::new(StateManagerBackend::Memory(MemoryStateManager::new())),
-            discovery: Arc::new(DefaultPluginDiscovery::new()),
             metrics: Arc::new(RwLock::new(PluginManagerMetrics::new())),
         }
     }
@@ -94,9 +77,6 @@ impl fmt::Debug for DefaultPluginManager {
         f.debug_struct("DefaultPluginManager")
             .field("plugins", &"<plugin map>")
             .field("name_to_id", &"<name mapping>")
-            .field("dependency_resolver", &"<dependency resolver>")
-            .field("state_manager", &"<state manager>")
-            .field("discovery", &"<discovery service>")
             .field("metrics", &"<metrics>")
             .finish()
     }

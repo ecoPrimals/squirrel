@@ -15,7 +15,7 @@ use crate::ecosystem::EcosystemPrimalType;
 fn test_discovered_service_new() {
     let service = DiscoveredService::new(
         "svc-123",
-        EcosystemPrimalType::Squirrel,
+        "storage",
         "unix:///tmp/svc.sock",
         "unix:///tmp/svc.sock",
         "1.0",
@@ -24,6 +24,7 @@ fn test_discovered_service_new() {
     );
 
     assert_eq!(service.service_id.as_ref(), "svc-123");
+    assert_eq!(service.primary_capability.as_ref(), "storage");
     assert!(service.has_capability("storage"));
     assert!(service.has_capability("compute"));
     assert!(!service.has_capability("unknown"));
@@ -37,7 +38,7 @@ fn test_discovered_service_get_metadata() {
 
     let service = DiscoveredService::new(
         "test-svc",
-        EcosystemPrimalType::Songbird,
+        "service-mesh",
         "http://localhost:8080",
         "http://localhost:8080/health",
         "1.0",
@@ -150,7 +151,7 @@ fn intern_registry_string_covers_capability_and_fallback_branches() {
 fn discovered_service_serde_roundtrip() {
     let s = DiscoveredService::new(
         "svc-serde",
-        EcosystemPrimalType::Squirrel,
+        "squirrel",
         "unix:///tmp/x.sock",
         "unix:///tmp/x.sock",
         "2.0",

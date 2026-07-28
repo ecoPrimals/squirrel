@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! AI API key resolution — bearDog `secrets.*` with env-var fallback.
+//! AI API key resolution — security provider `secrets.*` with env-var fallback.
 //!
-//! When bearDog is running, API keys are retrieved via `secrets.retrieve`.
-//! When bearDog is unavailable, the resolver falls back to environment
+//! When the security provider is running, API keys are retrieved via `secrets.retrieve`.
+//! When the security provider is unavailable, the resolver falls back to environment
 //! variables (the legacy path).  This provides zero-downtime migration:
-//! existing env-var setups keep working while bearDog gradually absorbs
+//! existing env-var setups keep working while the security provider gradually absorbs
 //! credential management.
 
 use squirrel_mcp::security::secret_store::SecretStore;
@@ -14,10 +14,10 @@ use tracing::debug;
 
 /// Resolve an AI provider's API key.
 ///
-/// 1. Try `store.get(secret_name)` — bearDog's encrypted credential store.
+/// 1. Try `store.get(secret_name)` — the security provider's encrypted credential store.
 /// 2. Fall back to `std::env::var(env_var)` — legacy env-var path.
 ///
-/// `secret_name` is the bearDog-side key (e.g. `"openai_api_key"`).
+/// `secret_name` is the provider-side key (e.g. `"openai_api_key"`).
 /// `env_var` is the environment variable (e.g. `"OPENAI_API_KEY"`).
 pub async fn resolve_api_key(
     store: &impl SecretStore,
@@ -25,12 +25,14 @@ pub async fn resolve_api_key(
     env_var: &str,
 ) -> Option<String> {
     squirrel_mcp::security::security_provider_secret_store::resolve_secret_or_env(
-        store, secret_name, env_var,
+        store,
+        secret_name,
+        env_var,
     )
     .await
 }
 
-/// Convert an env var name to a bearDog secret name.
+/// Convert an env var name to a security provider secret name.
 ///
 /// `"OPENAI_API_KEY"` → `"openai_api_key"`
 #[must_use]
@@ -41,12 +43,11 @@ pub fn env_var_to_secret_name(env_var: &str) -> String {
 /// Check whether an API key is available for a provider (async).
 ///
 /// Returns `true` if either the security provider or env var yields a key.
-pub async fn is_api_key_available(
-    store: &impl SecretStore,
-    env_var: &str,
-) -> bool {
+pub async fn is_api_key_available(store: &impl SecretStore, env_var: &str) -> bool {
     let secret_name = env_var_to_secret_name(env_var);
-    resolve_api_key(store, &secret_name, env_var).await.is_some()
+    resolve_api_key(store, &secret_name, env_var)
+        .await
+        .is_some()
 }
 
 /// Filter provider configs to only those with available API keys.
@@ -142,10 +143,7 @@ mod tests {
     #[tokio::test]
     async fn filter_providers_keeps_available() {
         let store = InMemorySecretStore::new();
-        store
-            .set("test_key_a", b"val".to_vec())
-            .await
-            .unwrap();
+        store.set("test_key_a", b"val".to_vec()).await.unwrap();
 
         struct FakeProvider(&'static str);
         impl HasApiKeyEnv for FakeProvider {

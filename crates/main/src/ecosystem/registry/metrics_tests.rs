@@ -9,14 +9,13 @@
 mod tests {
     use super::super::metrics::MetricsOps;
     use super::super::types::{DiscoveredService, ServiceHealthStatus};
-    use crate::ecosystem::EcosystemPrimalType;
     use crate::monitoring::metrics::MetricsCollector;
     use chrono::Utc;
     use std::collections::HashMap;
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
-    fn create_test_service(id: &str, primal_type: EcosystemPrimalType) -> DiscoveredService {
+    fn create_test_service(id: &str, primary_capability: &str) -> DiscoveredService {
         let test_port = std::env::var("TEST_REGISTRY_METRICS_PORT")
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
@@ -24,7 +23,9 @@ mod tests {
 
         DiscoveredService {
             service_id: id.into(),
-            primal_type,
+            primary_capability: primary_capability.into(),
+            #[allow(deprecated)]
+            primal_type: crate::ecosystem::infer_primal_type_from_capability(primary_capability),
             endpoint: format!("http://localhost:{test_port}/{id}").into(),
             health_endpoint: format!("http://localhost:{test_port}/{id}/health").into(),
             api_version: "v1".into(),
@@ -52,7 +53,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_service_stats_single_service() {
         let mut services = HashMap::new();
-        let service = create_test_service("test", EcosystemPrimalType::Squirrel);
+        let service = create_test_service("test", "squirrel");
         services.insert("test".to_string(), service);
 
         let registry = Arc::new(RwLock::new(services));
@@ -68,15 +69,15 @@ mod tests {
     async fn test_get_service_stats_mixed_health() {
         let mut services = HashMap::new();
 
-        let mut healthy = create_test_service("healthy", EcosystemPrimalType::Squirrel);
+        let mut healthy = create_test_service("healthy", "squirrel");
         healthy.health_status = ServiceHealthStatus::Healthy;
         services.insert("healthy".to_string(), healthy);
 
-        let mut unhealthy = create_test_service("unhealthy", EcosystemPrimalType::NestGate);
+        let mut unhealthy = create_test_service("unhealthy", "storage");
         unhealthy.health_status = ServiceHealthStatus::Unhealthy;
         services.insert("unhealthy".to_string(), unhealthy);
 
-        let unknown = create_test_service("unknown", EcosystemPrimalType::ToadStool);
+        let unknown = create_test_service("unknown", "compute");
         services.insert("unknown".to_string(), unknown);
 
         let registry = Arc::new(RwLock::new(services));
@@ -95,8 +96,7 @@ mod tests {
         let mut services = HashMap::new();
 
         for i in 0..5 {
-            let service =
-                create_test_service(&format!("squirrel_{i}"), EcosystemPrimalType::Squirrel);
+            let service = create_test_service(&format!("squirrel_{i}"), "squirrel");
             services.insert(format!("squirrel_{i}"), service);
         }
 
@@ -113,8 +113,7 @@ mod tests {
         let mut services = HashMap::new();
 
         for i in 0..10 {
-            let mut service =
-                create_test_service(&format!("service_{i}"), EcosystemPrimalType::Squirrel);
+            let mut service = create_test_service(&format!("service_{i}"), "squirrel");
             service.health_status = ServiceHealthStatus::Healthy;
             services.insert(format!("service_{i}"), service);
         }
@@ -134,8 +133,7 @@ mod tests {
         let mut services = HashMap::new();
 
         for i in 0..5 {
-            let mut service =
-                create_test_service(&format!("service_{i}"), EcosystemPrimalType::Squirrel);
+            let mut service = create_test_service(&format!("service_{i}"), "squirrel");
             service.health_status = ServiceHealthStatus::Unhealthy;
             services.insert(format!("service_{i}"), service);
         }
@@ -157,11 +155,7 @@ mod tests {
         for i in 0..20 {
             let service = create_test_service(
                 &format!("service_{i}"),
-                if i % 2 == 0 {
-                    EcosystemPrimalType::Squirrel
-                } else {
-                    EcosystemPrimalType::NestGate
-                },
+                if i % 2 == 0 { "squirrel" } else { "storage" },
             );
             services.insert(format!("service_{i}"), service);
         }
@@ -195,7 +189,7 @@ mod tests {
     #[tokio::test]
     async fn test_collect_metrics_with_services() {
         let mut services = HashMap::new();
-        let mut service = create_test_service("test", EcosystemPrimalType::Squirrel);
+        let mut service = create_test_service("test", "squirrel");
         service.health_status = ServiceHealthStatus::Healthy;
         services.insert("test".to_string(), service);
 
@@ -230,15 +224,10 @@ mod tests {
     async fn test_service_stats_with_diverse_primal_types() {
         let mut services = HashMap::new();
 
-        let primal_types = [
-            EcosystemPrimalType::Squirrel,
-            EcosystemPrimalType::NestGate,
-            EcosystemPrimalType::ToadStool,
-            EcosystemPrimalType::Songbird,
-        ];
+        let capability_domains = ["squirrel", "storage", "compute", "service-mesh"];
 
-        for (i, primal_type) in primal_types.iter().enumerate() {
-            let service = create_test_service(&format!("service_{i}"), *primal_type);
+        for (i, domain) in capability_domains.iter().enumerate() {
+            let service = create_test_service(&format!("service_{i}"), domain);
             services.insert(format!("service_{i}"), service);
         }
 
@@ -255,8 +244,7 @@ mod tests {
         let mut services = HashMap::new();
 
         for i in 0..10 {
-            let mut service =
-                create_test_service(&format!("service_{i}"), EcosystemPrimalType::Squirrel);
+            let mut service = create_test_service(&format!("service_{i}"), "squirrel");
             service.health_status = if i < 5 {
                 ServiceHealthStatus::Healthy
             } else {
@@ -285,8 +273,7 @@ mod tests {
         // Testing deprecated API for backward compatibility
         let mut services = HashMap::new();
         for i in 0..10 {
-            let service =
-                create_test_service(&format!("service_{i}"), EcosystemPrimalType::Squirrel);
+            let service = create_test_service(&format!("service_{i}"), "squirrel");
             services.insert(format!("service_{i}"), service);
         }
 

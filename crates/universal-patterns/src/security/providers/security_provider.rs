@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Security-provider integration (capability-based; legacy primal id via [`primal_names::BEARDOG`]).
+//! Security-provider integration (capability-based discovery).
 
 use chrono::Utc;
 use std::collections::HashMap;

@@ -350,7 +350,7 @@ impl ContextState {
     ) -> Result<(), PrimalError> {
         debug!("Session context persistence requested for {session_id} — no storage backend wired");
         Err(PrimalError::NotImplemented(
-            "Session context persistence requires a storage provider (nestGate IPC)".into(),
+            "Session context persistence requires a storage capability provider".into(),
         ))
     }
 

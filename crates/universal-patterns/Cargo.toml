@@ -58,7 +58,6 @@ bytes = { version = "1.5", features = ["serde"] }
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = "3.0"
-wiremock = "0.5"
 assert_matches = "1.5"
 proptest.workspace = true
 serial_test = "3.0"

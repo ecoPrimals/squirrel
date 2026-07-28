@@ -130,6 +130,15 @@ impl InMemoryServiceRegistry {
             services: Arc::new(RwLock::new(HashMap::new())),
         }
     }
+
+    /// Resolve the Unix socket path for a discovered capability provider.
+    pub async fn resolve_socket_for_capability(
+        &self,
+        capability: &str,
+        service: &ServiceInfo,
+    ) -> Result<std::path::PathBuf, PrimalError> {
+        super::ipc::resolve_provider_socket(service, capability)
+    }
 }
 
 impl UniversalServiceRegistry for InMemoryServiceRegistry {

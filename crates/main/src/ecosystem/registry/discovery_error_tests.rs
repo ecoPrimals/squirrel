@@ -8,70 +8,72 @@
 
 #[cfg(test)]
 mod error_path_tests {
-    use crate::ecosystem::EcosystemPrimalType;
+    use crate::ecosystem::CapabilityIdentifier;
     use crate::ecosystem::registry::discovery::DiscoveryOps;
     use crate::ecosystem::registry::types::DiscoveredService;
     use std::collections::HashMap;
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
-    /// Test discovery with empty primal types list
+    fn caps(ids: &[&str]) -> Vec<CapabilityIdentifier> {
+        ids.iter()
+            .map(|id| CapabilityIdentifier::new(*id))
+            .collect()
+    }
+
+    /// Test discovery with empty capability list (scans registry when empty)
     #[tokio::test]
     async fn test_discover_services_empty_list() {
         let registry = Arc::new(RwLock::new(HashMap::new()));
-        let primal_types = vec![];
 
-        let result = DiscoveryOps::discover_services(&registry, primal_types).await;
+        let result = DiscoveryOps::discover_services(&registry, vec![]).await;
 
         assert!(result.is_ok());
-        let services = result.expect("should succeed");
-        assert!(services.is_empty());
     }
 
-    /// Test discovery with single primal type
+    /// Test discovery with single capability domain
     #[tokio::test]
     async fn test_discover_single_service() {
         let registry = Arc::new(RwLock::new(HashMap::new()));
-        let primal_types = vec![EcosystemPrimalType::Squirrel];
 
-        let result = DiscoveryOps::discover_services(&registry, primal_types).await;
+        let result = DiscoveryOps::discover_services(&registry, caps(&["squirrel"])).await;
 
         assert!(result.is_ok());
         let services = result.expect("should succeed");
         assert_eq!(services.len(), 1);
-        assert_eq!(services[0].primal_type, EcosystemPrimalType::Squirrel);
+        assert_eq!(services[0].primary_capability.as_ref(), "squirrel");
     }
 
-    /// Test discovery with multiple primal types
+    /// Test discovery with multiple capability domains
     #[tokio::test]
     async fn test_discover_multiple_services() {
         let registry = Arc::new(RwLock::new(HashMap::new()));
-        let primal_types = vec![
-            EcosystemPrimalType::Squirrel,
-            EcosystemPrimalType::BearDog,
-            EcosystemPrimalType::Songbird,
-        ];
 
-        let result = DiscoveryOps::discover_services(&registry, primal_types).await;
+        let result = DiscoveryOps::discover_services(
+            &registry,
+            caps(&["squirrel", "security", "service-mesh"]),
+        )
+        .await;
 
         assert!(result.is_ok());
         let services = result.expect("should succeed");
         assert_eq!(services.len(), 3);
 
-        // Verify all types discovered
-        let types: Vec<_> = services.iter().map(|s| s.primal_type).collect();
-        assert!(types.contains(&EcosystemPrimalType::Squirrel));
-        assert!(types.contains(&EcosystemPrimalType::BearDog));
-        assert!(types.contains(&EcosystemPrimalType::Songbird));
+        let domains: Vec<_> = services
+            .iter()
+            .map(|s| s.primary_capability.as_ref())
+            .collect();
+        assert!(domains.contains(&"squirrel"));
+        assert!(domains.contains(&"security"));
+        assert!(domains.contains(&"service-mesh"));
     }
 
     /// Test Arc<str> efficiency in discovered services
     #[tokio::test]
     async fn test_arc_str_sharing_efficiency() {
         let registry = Arc::new(RwLock::new(HashMap::new()));
-        let primal_types = vec![EcosystemPrimalType::Squirrel];
 
-        let _ = DiscoveryOps::discover_services(&registry, primal_types).await;
+        let _ = DiscoveryOps::discover_services(&registry, caps(&["squirrel"])).await;
 
         let reg = registry.read().await;
         if let Some(service) = reg.values().next() {
@@ -90,9 +92,8 @@ mod error_path_tests {
     #[tokio::test]
     async fn test_has_capability_zero_copy() {
         let registry = Arc::new(RwLock::new(HashMap::new()));
-        let primal_types = vec![EcosystemPrimalType::Squirrel];
 
-        let _ = DiscoveryOps::discover_services(&registry, primal_types).await;
+        let _ = DiscoveryOps::discover_services(&registry, caps(&["squirrel"])).await;
 
         let reg = registry.read().await;
         if let Some(service) = reg.values().next() {
@@ -114,7 +115,7 @@ mod error_path_tests {
 
         let service = Arc::new(DiscoveredService::new(
             "test-service",
-            EcosystemPrimalType::Squirrel,
+            "squirrel",
             "http://localhost:8080",
             "http://localhost:8080/health",
             "v1",
@@ -148,9 +149,8 @@ mod error_path_tests {
             .map(|_i| {
                 let registry = Arc::clone(&registry);
                 tokio::spawn(async move {
-                    let primal_types =
-                        vec![EcosystemPrimalType::Squirrel, EcosystemPrimalType::BearDog];
-                    DiscoveryOps::discover_services(&registry, primal_types).await
+                    DiscoveryOps::discover_services(&registry, caps(&["squirrel", "security"]))
+                        .await
                 })
             })
             .collect();
@@ -171,9 +171,7 @@ mod error_path_tests {
         use crate::ecosystem::registry::types::ServiceHealthStatus;
 
         let registry = Arc::new(RwLock::new(HashMap::new()));
-        let primal_types = vec![EcosystemPrimalType::Squirrel];
-
-        let _ = DiscoveryOps::discover_services(&registry, primal_types).await;
+        let _ = DiscoveryOps::discover_services(&registry, caps(&["squirrel"])).await;
 
         let reg = registry.read().await;
         if let Some(service) = reg.values().next() {
@@ -192,7 +190,7 @@ mod error_path_tests {
     async fn test_endpoint_arc_str_construction() {
         let service = DiscoveredService::new(
             "test",
-            EcosystemPrimalType::Squirrel,
+            "squirrel",
             "http://example.com:8080",
             "http://example.com:8080/health",
             "v1",
@@ -218,7 +216,7 @@ mod error_path_tests {
     async fn test_capability_list_zero_copy() {
         let service = DiscoveredService::new(
             "test",
-            EcosystemPrimalType::Squirrel,
+            "squirrel",
             &format!(
                 "http://localhost:{}",
                 std::env::var("TEST_DISCOVERY_ERROR_PORT")
@@ -252,24 +250,24 @@ mod error_path_tests {
         }
     }
 
-    /// Test service discovery with all primal types
+    /// Test service discovery with all required capability domains
     #[tokio::test]
     async fn test_discover_all_primal_types() {
         let registry = Arc::new(RwLock::new(HashMap::new()));
-        let primal_types = vec![
-            EcosystemPrimalType::Squirrel,
-            EcosystemPrimalType::BearDog,
-            EcosystemPrimalType::Songbird,
-            EcosystemPrimalType::ToadStool,
-            EcosystemPrimalType::NestGate,
-            EcosystemPrimalType::BiomeOS,
+        let capability_ids = [
+            "squirrel",
+            "security",
+            "service-mesh",
+            "compute",
+            "storage",
+            "ecosystem",
         ];
 
-        let result = DiscoveryOps::discover_services(&registry, primal_types.clone()).await;
+        let result = DiscoveryOps::discover_services(&registry, caps(&capability_ids)).await;
 
         assert!(result.is_ok());
         let services = result.expect("should succeed");
-        assert_eq!(services.len(), primal_types.len());
+        assert_eq!(services.len(), capability_ids.len());
     }
 
     /// Test registry read-write lock behavior
@@ -281,8 +279,7 @@ mod error_path_tests {
         let write_handle = {
             let registry = Arc::clone(&registry);
             tokio::spawn(async move {
-                let primal_types = vec![EcosystemPrimalType::Squirrel];
-                DiscoveryOps::discover_services(&registry, primal_types).await
+                DiscoveryOps::discover_services(&registry, caps(&["squirrel"])).await
             })
         };
 
@@ -316,7 +313,7 @@ mod error_path_tests {
 
         let service = DiscoveredService::new(
             "test",
-            EcosystemPrimalType::Squirrel,
+            "squirrel",
             &format!(
                 "http://localhost:{}",
                 std::env::var("TEST_DISCOVERY_ERROR_PORT")
@@ -348,7 +345,7 @@ mod error_path_tests {
     async fn test_api_version_interning() {
         let service1 = DiscoveredService::new(
             "test1",
-            EcosystemPrimalType::Squirrel,
+            "squirrel",
             "http://localhost:8080",
             "http://localhost:8080/health",
             "v1",
@@ -358,7 +355,7 @@ mod error_path_tests {
 
         let service2 = DiscoveredService::new(
             "test2",
-            EcosystemPrimalType::BearDog,
+            "security",
             &format!(
                 "http://localhost:{}",
                 std::env::var("TEST_DISCOVERY_ERROR_PORT")

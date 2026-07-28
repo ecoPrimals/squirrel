@@ -4,9 +4,118 @@
 //! Primal type definitions and capability system.
 
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use universal_constants::primal_names;
 
+/// Runtime capability identifier — accepts any string-based capability domain.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct CapabilityIdentifier(Arc<str>);
+
+impl CapabilityIdentifier {
+    /// Create from a string-based capability domain (e.g. `"security"`, `"storage"`).
+    #[must_use]
+    pub fn new(capability: impl AsRef<str>) -> Self {
+        Self(Arc::from(capability.as_ref()))
+    }
+
+    /// Create from a [`CapabilityDomain`].
+    #[must_use]
+    pub fn from_domain(domain: &CapabilityDomain) -> Self {
+        Self(Arc::from(domain.as_str()))
+    }
+
+    /// View as a [`CapabilityDomain`] for discovery routing.
+    #[must_use]
+    pub fn as_domain(&self) -> CapabilityDomain {
+        CapabilityDomain::new(self.as_str())
+    }
+
+    /// Get the capability domain string.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Prefix for `{PREFIX}_ENDPOINT`-style configuration.
+    #[must_use]
+    pub fn endpoint_env_prefix(&self) -> String {
+        self.as_str().replace('-', "_").to_uppercase()
+    }
+}
+
+/// Capability domain for ecosystem routing — what is needed, not who provides it.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct CapabilityDomain(Arc<str>);
+
+impl CapabilityDomain {
+    /// Create a capability domain from a string (e.g. `"security"`, `"storage"`).
+    #[must_use]
+    pub fn new(domain: impl AsRef<str>) -> Self {
+        Self(Arc::from(domain.as_ref()))
+    }
+
+    /// Get the domain string used for discovery routing.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Prefix for `{PREFIX}_ENDPOINT`-style configuration.
+    #[must_use]
+    pub fn endpoint_env_prefix(&self) -> String {
+        self.as_str().replace('-', "_").to_uppercase()
+    }
+}
+
+impl From<&str> for CapabilityDomain {
+    fn from(s: &str) -> Self {
+        Self::new(s)
+    }
+}
+
+impl From<String> for CapabilityDomain {
+    fn from(s: String) -> Self {
+        Self(Arc::from(s))
+    }
+}
+
+impl From<&str> for CapabilityIdentifier {
+    fn from(s: &str) -> Self {
+        Self::new(s)
+    }
+}
+
+impl From<String> for CapabilityIdentifier {
+    fn from(s: String) -> Self {
+        Self(Arc::from(s))
+    }
+}
+
+impl From<CapabilityDomain> for CapabilityIdentifier {
+    fn from(domain: CapabilityDomain) -> Self {
+        Self::from_domain(&domain)
+    }
+}
+
+impl std::fmt::Display for CapabilityDomain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::fmt::Display for CapabilityIdentifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 /// Standardized primal types
+#[deprecated(
+    since = "0.2.0",
+    note = "Use CapabilityDomain for capability-based discovery instead of hardcoded primal types"
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PrimalType {
     /// `ToadStool` compute platform
@@ -25,9 +134,11 @@ pub enum PrimalType {
     Any,
 }
 
+#[allow(deprecated)]
 impl PrimalType {
     /// Get string representation (for serialization/backward compatibility)
     #[must_use]
+    #[deprecated(since = "0.2.0", note = "Use CapabilityDomain for discovery")]
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::ToadStool => primal_names::TOADSTOOL,
@@ -202,6 +313,7 @@ pub enum PrimalCapability {
 
 /// Dependency on another primal's capabilities
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(deprecated)]
 pub struct PrimalDependency {
     /// Type of primal (or Any for capability-based discovery)
     pub primal_type: PrimalType,
@@ -219,20 +331,20 @@ pub struct PrimalDependency {
 mod tests {
     use super::*;
 
+    #[allow(deprecated)]
     #[test]
-    fn primal_type_as_str_and_capability() {
+    fn capability_domain_is_primary_routing_key() {
         let cases = [
-            (PrimalType::ToadStool, "toadstool", "compute"),
-            (PrimalType::Songbird, "songbird", "service-mesh"),
-            (PrimalType::BearDog, "beardog", "security"),
-            (PrimalType::NestGate, "nestgate", "storage"),
-            (PrimalType::Squirrel, "squirrel", "inference"),
-            (PrimalType::BiomeOS, "biomeos", "ecosystem"),
-            (PrimalType::Any, "any", "any"),
+            (PrimalType::ToadStool, "compute"),
+            (PrimalType::Songbird, "service-mesh"),
+            (PrimalType::BearDog, "security"),
+            (PrimalType::NestGate, "storage"),
+            (PrimalType::Squirrel, "inference"),
+            (PrimalType::BiomeOS, "ecosystem"),
+            (PrimalType::Any, "any"),
         ];
-        for (t, s, cap) in cases {
-            assert_eq!(t.as_str(), s);
-            assert_eq!(t.capability(), cap);
+        for (t, domain) in cases {
+            assert_eq!(t.capability(), domain);
         }
     }
 
@@ -314,6 +426,21 @@ mod tests {
         }
     }
 
+    #[test]
+    fn capability_identifier_and_domain_strings() {
+        let id = CapabilityIdentifier::new("service-mesh");
+        assert_eq!(id.as_str(), "service-mesh");
+        assert_eq!(id.endpoint_env_prefix(), "SERVICE_MESH");
+        let domain: CapabilityDomain = "storage".into();
+        assert_eq!(
+            CapabilityIdentifier::from_domain(&domain).as_str(),
+            "storage"
+        );
+        let id_from_domain: CapabilityIdentifier = domain.into();
+        assert_eq!(id_from_domain.as_str(), "storage");
+    }
+
+    #[allow(deprecated)]
     #[test]
     fn primal_dependency_serde() {
         let d = PrimalDependency {

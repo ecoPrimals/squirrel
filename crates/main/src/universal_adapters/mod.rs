@@ -19,6 +19,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 pub mod compute_adapter;
+mod ipc;
 pub mod orchestration_adapter;
 pub mod registry;
 pub mod security_adapter;

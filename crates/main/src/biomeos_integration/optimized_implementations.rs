@@ -137,7 +137,7 @@ impl OptimizedServiceRegistration {
             name: service_id.clone(),
             description: format!("Ecosystem integration for {service_id}"),
             capability_id: Some(Arc::from(crate::niche::DOMAIN)),
-            #[expect(deprecated, reason = "serde backward compat")]
+            #[allow(deprecated)]
             primal_type: crate::ecosystem::EcosystemPrimalType::Squirrel,
             biome_id: Some(biome_id.map_or_else(
                 || "default-biome".to_string(),
@@ -440,7 +440,11 @@ pub async fn process_intelligence_request(
     let result = match intelligence_type {
         "pattern_recognition" => serde_json::json!({"patterns": []}),
         "predictive_analytics" => serde_json::json!({"predictions": []}),
-        "anomaly_detection" => serde_json::json!({"anomalies": []}),
+        "anomaly_detection" => {
+            return Err(crate::error::PrimalError::NotImplemented(
+                "Anomaly detection requires a defense capability provider (skunkBat) via IPC — not a squirrel capability".into(),
+            ));
+        }
         _ => serde_json::json!({"error": "unsupported intelligence type"}),
     };
 
@@ -538,6 +542,10 @@ mod optimized_impl_tests {
             .await
             .expect("should succeed");
         assert!(v2.result.get("error").is_some());
+        let err = process_intelligence_request("id3", "anomaly_detection", serde_json::json!({}))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, crate::error::PrimalError::NotImplemented(_)));
     }
 
     #[test]

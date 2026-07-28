@@ -1,7 +1,7 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 7,132 tests, 42+ IPC methods, 90% coverage."
-date = 2026-07-26
+description = "AI inference routing, context management, capability discovery, signal composition, provenance proxy. 763 tests (4,946 #[test] attrs), 42+ IPC methods."
+date = 2026-07-28
 
 [taxonomies]
 primals = ["squirrel"]
@@ -13,8 +13,8 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: 7,132 passing across 16 workspace crates
-- **Source**: 984 `.rs` files, ~306k lines
+- **Tests**: 763 passing across 16 workspace crates (4,946 `#[test]` attrs; balance behind feature gates)
+- **Source**: 986 `.rs` files, ~306k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced
@@ -33,8 +33,8 @@ springs = []
 - **tarpc Parity**: `provider.*` and `btsp.negotiate` tarpc stubs delegated to JSON-RPC handlers (mirrors lifecycle pattern)
 - **Identity**: Single canonical source (`universal_constants::capabilities::SELF_PRIMAL_NAME`); `niche::PRIMAL_ID` and `core::PRIMAL_TYPE` are re-exports. Zero hardcoded self-identity string literals in production.
 - **Feature gating**: Context learning subsystem (~14.6k lines, 625 tests) behind `context-learning` feature. Context visualization (~3.1k lines) behind `context-visualization`.
-- **SecretStore**: `InMemorySecretStore` (dev), `FileSecretStore` (explicit path), `PlatformSecretStore` (OS-native cache path), `SecurityProvider` (bearDog IPC — production authority). Native credential stores are bearDog's domain; squirrel caches, bearDog stores.
-- **Nuclear Lineage (0xEE)**: Protocol-aware; NDJSON clients receive JSON-RPC -32050 with `resolution:"awaiting_beardog_keys"`; BTSP closes silently. Full encrypted channel awaits BearDog key material.
+- **SecretStore**: `InMemorySecretStore` (dev), `FileSecretStore` (explicit path), `PlatformSecretStore` (OS-native cache path), `SecurityProvider` (security capability IPC — production authority). Native credential stores are the security provider's domain; squirrel caches, security provider stores.
+- **Nuclear Lineage (0xEE)**: Protocol-aware; NDJSON clients receive JSON-RPC -32050 with `resolution:"awaiting_security_keys"`; BTSP closes silently. Full encrypted channel awaits security provider key material.
 - **Discovery**: Socket registry is canonical for LAN. DNS-SD and mDNS announce/register return explicit `MechanismFailed` errors (no more silent no-ops); discovery falls back to socket registry. Ready for `discovery-mdns` feature flag with hickory-dns.
 - **Security middleware**: `SecurityOrchestrator` wired as pre-dispatch middleware — rate limiting, input validation, and threat detection active when orchestrator attached. Method prefix → `EndpointType` tiering; denied requests receive JSON-RPC `-32003`.
 - **Constraint routing**: `ai.query` now parses routing constraints from raw request params (`privacy_level`, `cost_preference`, `quality`, `speed_preference`, `constraints[]`) and feeds them to `select_provider_with_constraints`.
@@ -96,6 +96,17 @@ Squirrel is the **intelligence router** for all compositions requiring AI infere
 - primalSpring (graph validation, coordination)
 - wetSpring (sovereign pipeline — inference for Barrick clone)
 - NestGate (model weight storage)
+
+## Wave 155g — Deep Debt Evolution + Capability Purification (July 28, 2026)
+
+- All `beardog`/`BearDog` production references → `security_provider`/`SecurityProvider` capability stems (deprecated aliases preserved)
+- Local crypto oversteps eliminated: blake3 hashing, XOR encryption, rand key generation → delegation errors
+- Universal adapters (compute, storage, security, orchestration) wired for IPC delegation via `ipc_client`
+- Anomaly detection + security monitoring → `defense.*` capability delegation
+- `EcosystemPrimalType` / `PrimalType` enums deprecated → `CapabilityIdentifier` string-based
+- `wiremock` removed, `tempfile` → dev-deps, `strum` added for Display derives
+- 14 tests evolved from `NotImplemented` → `OperationFailed` assertions
+- 763 tests passing, 0 failures, clippy clean, fmt clean
 
 ## Wave 152a — Deep Debt Sweep + SDK Alignment (July 26, 2026)
 

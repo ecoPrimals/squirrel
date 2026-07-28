@@ -16,8 +16,8 @@
 //! ## Usage
 //!
 //! ```bash
-//! # Preferred: store API keys in bearDog's credential store
-//! # bearDog → secrets.store({name: "openai_api_key", value: "sk-..."})
+//! # Preferred: store API keys in the security provider's credential store
+//! # security provider → secrets.store({name: "openai_api_key", value: "sk-..."})
 //!
 //! # Legacy: configure via environment variables
 //! export AI_HTTP_PROVIDERS="anthropic,openai"

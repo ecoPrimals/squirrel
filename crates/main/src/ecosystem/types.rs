@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![expect(deprecated, reason = "Backward compatibility during migration")]
-
 //! Ecosystem type definitions and configurations
 //!
 //! This module contains all type definitions for ecosystem integration,
@@ -14,8 +12,8 @@ use universal_constants::primal_names;
 
 /// Standardized primal types for ecosystem integration (canonical definition)
 #[deprecated(
-    since = "0.1.0",
-    note = "Use CapabilityRegistry for capability-based discovery instead of hardcoded primal types"
+    since = "0.2.0",
+    note = "Use CapabilityDomain for capability-based discovery instead of hardcoded primal types"
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EcosystemPrimalType {
@@ -29,7 +27,7 @@ pub enum EcosystemPrimalType {
 
 impl EcosystemPrimalType {
     #[must_use]
-    #[deprecated(since = "0.1.0", note = "Use capability() for discovery")]
+    #[deprecated(since = "0.2.0", note = "Use CapabilityDomain for discovery")]
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::ToadStool => primal_names::TOADSTOOL,
@@ -41,16 +39,13 @@ impl EcosystemPrimalType {
         }
     }
     /// Prefix for `{PREFIX}_ENDPOINT`-style configuration, derived from [`Self::capability`].
-    ///
-    /// Hyphens in capability strings become underscores, then the result is uppercased
-    /// (for example `service-mesh` → `SERVICE_MESH`). This avoids embedding other primals'
-    /// marketing names in env var keys.
     #[must_use]
+    #[deprecated(since = "0.2.0", note = "Use CapabilityDomain::endpoint_env_prefix")]
     pub fn endpoint_env_prefix(&self) -> String {
-        self.capability().replace('-', "_").to_uppercase()
+        CapabilityIdentifier::new(self.capability()).endpoint_env_prefix()
     }
     #[must_use]
-    #[deprecated(since = "0.1.0", note = "Use CapabilityRegistry for discovery")]
+    #[deprecated(since = "0.2.0", note = "Use CapabilityDomain for discovery")]
     pub const fn service_name(&self) -> &'static str {
         self.as_str()
     }
@@ -68,7 +63,7 @@ impl EcosystemPrimalType {
     }
 }
 
-#[expect(deprecated, reason = "backward compat")]
+#[allow(deprecated)]
 impl std::str::FromStr for EcosystemPrimalType {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -84,34 +79,160 @@ impl std::str::FromStr for EcosystemPrimalType {
     }
 }
 
+#[allow(deprecated)]
 impl std::fmt::Display for EcosystemPrimalType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }
 }
 
-/// Runtime capability identifier — replaces hardcoded primal type enum.
-/// Primals discover each other by capability, not by name.
+/// Runtime capability identifier — primary routing key for ecosystem discovery.
+///
+/// Accepts any string-based capability domain (e.g. `"security"`, `"storage"`,
+/// `"ai.coordination"`). Prefer [`CapabilityDomain`] when routing discovery queries.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct CapabilityIdentifier(Arc<str>);
 
 impl CapabilityIdentifier {
-    /// Create a capability identifier from a string.
+    /// Create a capability identifier from a string-based capability domain.
     #[must_use]
     pub fn new(capability: impl AsRef<str>) -> Self {
         Self(Arc::from(capability.as_ref()))
     }
 
-    /// Get the capability string.
+    /// Create from a [`CapabilityDomain`].
+    #[must_use]
+    pub fn from_domain(domain: &CapabilityDomain) -> Self {
+        Self(Arc::from(domain.as_str()))
+    }
+
+    /// View this identifier as a [`CapabilityDomain`] for discovery routing.
+    #[must_use]
+    pub fn as_domain(&self) -> CapabilityDomain {
+        CapabilityDomain::new(self.as_str())
+    }
+
+    /// Get the capability domain string.
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// Prefix for `{PREFIX}_ENDPOINT`-style configuration.
+    ///
+    /// Hyphens in capability strings become underscores, then the result is uppercased
+    /// (for example `service-mesh` → `SERVICE_MESH`).
+    #[must_use]
+    pub fn endpoint_env_prefix(&self) -> String {
+        self.as_str().replace('-', "_").to_uppercase()
+    }
+}
+
+/// Capability domain for ecosystem routing — what Squirrel needs, not who provides it.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct CapabilityDomain(CapabilityIdentifier);
+
+impl CapabilityDomain {
+    /// Create a capability domain from a string (e.g. `"security"`, `"storage"`).
+    #[must_use]
+    pub fn new(domain: impl AsRef<str>) -> Self {
+        Self(CapabilityIdentifier::new(domain))
+    }
+
+    /// Get the domain string used for discovery routing.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    /// Get the underlying capability identifier.
+    #[must_use]
+    pub fn identifier(&self) -> &CapabilityIdentifier {
+        &self.0
+    }
+
+    /// Prefix for `{PREFIX}_ENDPOINT`-style configuration.
+    #[must_use]
+    pub fn endpoint_env_prefix(&self) -> String {
+        self.0.endpoint_env_prefix()
+    }
+}
+
+impl From<&str> for CapabilityDomain {
+    fn from(s: &str) -> Self {
+        Self::new(s)
+    }
+}
+
+impl std::fmt::Display for CapabilityDomain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Infer deprecated [`EcosystemPrimalType`] from a capability domain (serde backward compat only).
+#[deprecated(
+    since = "0.2.0",
+    note = "Use CapabilityDomain for routing; do not infer primal types"
+)]
+#[allow(deprecated)]
+#[must_use]
+pub fn infer_primal_type_from_capability(capability: &str) -> EcosystemPrimalType {
+    use universal_constants::capabilities as caps;
+    match capability {
+        c if c == caps::COMPUTE_CAPABILITY => EcosystemPrimalType::ToadStool,
+        c if c == caps::SERVICE_MESH_CAPABILITY => EcosystemPrimalType::Songbird,
+        c if c == caps::SECURITY_CAPABILITY => EcosystemPrimalType::BearDog,
+        c if c == caps::STORAGE_CAPABILITY => EcosystemPrimalType::NestGate,
+        c if c == caps::SELF_PRIMAL_NAME => EcosystemPrimalType::Squirrel,
+        c if c == caps::ECOSYSTEM_CAPABILITY => EcosystemPrimalType::BiomeOS,
+        _ => EcosystemPrimalType::BiomeOS,
+    }
+}
+
+/// Pick the primary capability domain from a provider's advertised capabilities.
+#[must_use]
+pub fn primary_capability_from_iter<'a>(
+    capabilities: impl IntoIterator<Item = &'a str>,
+) -> CapabilityIdentifier {
+    use universal_constants::capabilities as caps;
+    const DOMAIN_PRIORITY: &[&str] = &[
+        caps::SECURITY_CAPABILITY,
+        caps::SERVICE_MESH_CAPABILITY,
+        caps::STORAGE_CAPABILITY,
+        caps::COMPUTE_CAPABILITY,
+        caps::ECOSYSTEM_CAPABILITY,
+        caps::COORDINATION_CAPABILITY,
+        caps::VISUALIZATION_CAPABILITY,
+    ];
+    let caps: Vec<&str> = capabilities.into_iter().collect();
+    for domain in DOMAIN_PRIORITY {
+        if caps
+            .iter()
+            .any(|c| *c == *domain || c.starts_with(&format!("{domain}.")))
+        {
+            return CapabilityIdentifier::new(domain);
+        }
+    }
+    CapabilityIdentifier::new(caps.first().copied().unwrap_or("unknown"))
 }
 
 impl From<&str> for CapabilityIdentifier {
     fn from(s: &str) -> Self {
         Self::new(s)
+    }
+}
+
+impl From<String> for CapabilityIdentifier {
+    fn from(s: String) -> Self {
+        Self(Arc::from(s))
+    }
+}
+
+impl From<CapabilityDomain> for CapabilityIdentifier {
+    fn from(domain: CapabilityDomain) -> Self {
+        Self::from_domain(&domain)
     }
 }
 
@@ -121,23 +242,24 @@ impl std::fmt::Display for CapabilityIdentifier {
     }
 }
 
-/// Well-known capability constants for discovery.
+/// Well-known capability domain constants for discovery routing.
 ///
-/// Use these as discoverable strings when finding primals by capability.
-/// Primals announce and discover by capability, not by hardcoded primal names.
+/// Use these as discoverable strings when finding providers by capability.
+/// Primals announce and discover by capability domain, not by product name.
 pub mod capabilities {
-    /// Service mesh / orchestration capability
-    pub const SERVICE_MESH: &str = "service_mesh";
-    /// Security and authentication capability
-    pub const SECURITY_AUTH: &str = "security.auth";
-    /// Storage capability
-    pub const STORAGE: &str = "storage";
-    /// Compute capability
-    pub const COMPUTE: &str = "compute";
-    /// AI coordination capability
+    pub use universal_constants::capabilities::{
+        COMPUTE_CAPABILITY as COMPUTE, COORDINATION_CAPABILITY as COORDINATION,
+        ECOSYSTEM_CAPABILITY as ECOSYSTEM, SECURITY_CAPABILITY as SECURITY,
+        SERVICE_MESH_CAPABILITY as SERVICE_MESH, STORAGE_CAPABILITY as STORAGE,
+        VISUALIZATION_CAPABILITY as VISUALIZATION,
+    };
+
+    /// AI coordination capability (method-level)
     pub const AI_COORDINATION: &str = "ai.coordination";
-    /// Lifecycle management capability
+    /// Lifecycle management capability (method-level)
     pub const LIFECYCLE: &str = "lifecycle.management";
+    /// Capability discovery domain
+    pub const DISCOVERY: &str = "discovery";
 }
 
 // EcosystemServiceRegistration is defined in registration.rs with Arc<str> zero-copy service_id
@@ -267,6 +389,31 @@ mod tests {
         let c = CapabilityIdentifier::new("storage");
         assert_eq!(a, b);
         assert_ne!(a, c);
+    }
+
+    #[test]
+    fn capability_identifier_endpoint_env_prefix() {
+        assert_eq!(
+            CapabilityIdentifier::new("service-mesh").endpoint_env_prefix(),
+            "SERVICE_MESH"
+        );
+        assert_eq!(
+            CapabilityIdentifier::new("security").endpoint_env_prefix(),
+            "SECURITY"
+        );
+    }
+
+    #[test]
+    fn capability_domain_routing() {
+        let domain: CapabilityDomain = "storage".into();
+        assert_eq!(domain.as_str(), "storage");
+        assert_eq!(domain.endpoint_env_prefix(), "STORAGE");
+    }
+
+    #[test]
+    fn primary_capability_from_iter_prefers_domain() {
+        let cap = primary_capability_from_iter(["ai.query", "security.auth", "health"]);
+        assert_eq!(cap.as_str(), "security");
     }
 
     // --- ServiceCapabilities ---
@@ -430,6 +577,7 @@ mod tests {
 
     // --- EcosystemPrimalType (deprecated but still used in registration) ---
 
+    #[allow(deprecated)]
     #[test]
     fn ecosystem_primal_type_from_str_accepts_case_insensitive() {
         assert_eq!(
@@ -446,11 +594,13 @@ mod tests {
         );
     }
 
+    #[allow(deprecated)]
     #[test]
     fn ecosystem_primal_type_from_str_rejects_unknown() {
         assert!("unknown".parse::<EcosystemPrimalType>().is_err());
     }
 
+    #[allow(deprecated)]
     #[test]
     fn ecosystem_primal_type_display_and_capability() {
         let t = EcosystemPrimalType::Squirrel;
@@ -458,6 +608,18 @@ mod tests {
         assert!(!t.capability().is_empty());
     }
 
+    #[allow(deprecated)]
+    #[test]
+    fn capability_identifier_from_domain() {
+        let domain = CapabilityDomain::new("security");
+        let id = CapabilityIdentifier::from_domain(&domain);
+        assert_eq!(id.as_str(), "security");
+        assert_eq!(id.as_domain().as_str(), "security");
+        let from: CapabilityIdentifier = domain.clone().into();
+        assert_eq!(from.as_str(), "security");
+    }
+
+    #[allow(deprecated)]
     #[test]
     fn ecosystem_primal_type_endpoint_env_prefix() {
         assert_eq!(

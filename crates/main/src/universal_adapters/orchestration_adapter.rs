@@ -58,10 +58,23 @@ impl UniversalOrchestrationAdapter {
                     PrimalError::ResourceNotFound("No orchestration service available".to_string())
                 })?;
 
-        Err(PrimalError::NotImplemented(format!(
-            "AI workflow '{}' via {} — IPC transport to orchestration primal not yet wired",
-            workflow_type, orchestration_service.name
-        )))
+        const CAPABILITY: &str = "orchestration";
+        let socket = self
+            .registry
+            .resolve_socket_for_capability(CAPABILITY, orchestration_service)
+            .await
+            .map_err(|e| {
+                PrimalError::OperationFailed(format!("No provider for {CAPABILITY}: {e}"))
+            })?;
+
+        let params = serde_json::json!({
+            "workflow_type": workflow_type,
+            "participants": _participants,
+        });
+
+        super::ipc::send_rpc_request(&socket, "orchestration.workflow_coordinate", Some(params))
+            .await
+            .map_err(|e| PrimalError::OperationFailed(format!("IPC to {CAPABILITY}: {e}")))
     }
 
     /// Request service discovery via orchestration primal
@@ -121,10 +134,23 @@ impl UniversalOrchestrationAdapter {
                     PrimalError::ResourceNotFound("No orchestration service available".to_string())
                 })?;
 
-        Err(PrimalError::OperationFailed(format!(
-            "Load balancing for strategy '{}' cannot be executed — IPC to orchestration capability provider '{}' not yet wired",
-            strategy, orchestration_service.name
-        )))
+        const CAPABILITY: &str = "orchestration";
+        let socket = self
+            .registry
+            .resolve_socket_for_capability(CAPABILITY, orchestration_service)
+            .await
+            .map_err(|e| {
+                PrimalError::OperationFailed(format!("No provider for {CAPABILITY}: {e}"))
+            })?;
+
+        let params = serde_json::json!({
+            "target_services": target_services,
+            "strategy": strategy,
+        });
+
+        super::ipc::send_rpc_request(&socket, "orchestration.load_balance", Some(params))
+            .await
+            .map_err(|e| PrimalError::OperationFailed(format!("IPC to {CAPABILITY}: {e}")))
     }
 
     /// Get orchestration service mesh status
@@ -144,10 +170,18 @@ impl UniversalOrchestrationAdapter {
                     PrimalError::ResourceNotFound("No orchestration service available".to_string())
                 })?;
 
-        Err(PrimalError::OperationFailed(format!(
-            "Service mesh status cannot be queried — IPC to orchestration capability provider '{}' not yet wired",
-            orchestration_service.name
-        )))
+        const CAPABILITY: &str = "orchestration";
+        let socket = self
+            .registry
+            .resolve_socket_for_capability(CAPABILITY, orchestration_service)
+            .await
+            .map_err(|e| {
+                PrimalError::OperationFailed(format!("No provider for {CAPABILITY}: {e}"))
+            })?;
+
+        super::ipc::send_rpc_request(&socket, "orchestration.service_mesh_status", None)
+            .await
+            .map_err(|e| PrimalError::OperationFailed(format!("IPC to {CAPABILITY}: {e}")))
     }
 
     /// Discover orchestration services by capability
@@ -404,17 +438,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn coordinate_ai_workflow_returns_not_implemented() {
+    async fn coordinate_ai_workflow_fails_without_provider() {
         let reg = registry_with_orchestration().await;
         let mut adapter = UniversalOrchestrationAdapter::new(reg);
         let err = adapter
             .coordinate_ai_workflow("pipeline", vec!["a".to_string(), "b".to_string()])
             .await
             .unwrap_err();
-        assert!(
-            matches!(err, PrimalError::NotImplemented(_)),
-            "expected NotImplemented, got {err:?}"
-        );
+        let PrimalError::OperationFailed(msg) = err else {
+            panic!("expected OperationFailed when no provider, got {err:?}");
+        };
+        assert!(msg.contains("IPC"), "expected IPC failure, got {msg}");
     }
 
     #[tokio::test]
@@ -438,7 +472,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn request_load_balancing_and_mesh_status() {
+    async fn request_load_balancing_and_mesh_status_fail_without_provider() {
         let reg = registry_with_orchestration().await;
         let mut adapter = UniversalOrchestrationAdapter::new(reg);
         let err = adapter
@@ -446,24 +480,24 @@ mod tests {
             .await
             .unwrap_err();
         let PrimalError::OperationFailed(msg) = err else {
-            panic!("expected OperationFailed, got {err:?}");
+            panic!("expected OperationFailed when no provider, got {err:?}");
         };
         assert!(
-            msg.contains("round_robin") && msg.contains("not yet wired"),
-            "{msg}"
+            msg.contains("IPC") && msg.contains("load_balance"),
+            "expected load_balance IPC failure, got {msg}"
         );
         let err = adapter.get_service_mesh_status().await.unwrap_err();
         let PrimalError::OperationFailed(msg) = err else {
-            panic!("expected OperationFailed, got {err:?}");
+            panic!("expected OperationFailed when no provider, got {err:?}");
         };
         assert!(
-            msg.to_lowercase().contains("service mesh") && msg.contains("not yet wired"),
-            "{msg}"
+            msg.contains("IPC") && msg.contains("service_mesh_status"),
+            "expected service_mesh_status IPC failure, got {msg}"
         );
     }
 
     #[tokio::test]
-    async fn request_load_balancing_empty_targets() {
+    async fn request_load_balancing_empty_targets_fails_without_provider() {
         let reg = registry_with_orchestration().await;
         let mut adapter = UniversalOrchestrationAdapter::new(reg);
         let err = adapter
@@ -471,11 +505,11 @@ mod tests {
             .await
             .unwrap_err();
         let PrimalError::OperationFailed(msg) = err else {
-            panic!("expected OperationFailed, got {err:?}");
+            panic!("expected OperationFailed when no provider, got {err:?}");
         };
         assert!(
-            msg.contains("least_conn") && msg.contains("not yet wired"),
-            "{msg}"
+            msg.contains("IPC") && msg.contains("load_balance"),
+            "expected load_balance IPC failure, got {msg}"
         );
     }
 

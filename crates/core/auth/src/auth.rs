@@ -30,14 +30,27 @@ pub struct AuthService {
 
 struct StoredUser {
     user: User,
-    /// BLAKE3 hash of the password (hex-encoded).
-    password_hash: String,
 }
 
-/// Hash a password using BLAKE3 with a domain-separation context.
-fn hash_password(password: &str) -> String {
-    let key = blake3::derive_key("ecoPrimals squirrel auth password v1", password.as_bytes());
-    blake3::Hash::from(key).to_hex().to_string()
+#[cfg(debug_assertions)]
+const DEV_ADMIN_PASSWORD: &str = "admin123";
+
+#[cfg(debug_assertions)]
+/// Constant-time byte comparison for dev-only credential checks.
+fn constant_time_eq_bytes(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
+#[cfg(debug_assertions)]
+fn verify_dev_admin_password(password: &str) -> bool {
+    constant_time_eq_bytes(password.as_bytes(), DEV_ADMIN_PASSWORD.as_bytes())
 }
 
 impl AuthService {
@@ -62,10 +75,7 @@ impl AuthService {
 
         users.insert(
             identity::BOOTSTRAP_ADMIN_USER.to_string(),
-            StoredUser {
-                user: admin,
-                password_hash: hash_password("admin123"),
-            },
+            StoredUser { user: admin },
         );
 
         debug!("AuthService initialized (standalone dev mode, 1 seeded user)");
@@ -87,54 +97,66 @@ impl AuthService {
         &self,
         request: crate::types::LoginRequest,
     ) -> AuthResult<LoginResponse> {
-        let req_username = request.username.clone();
-        let req_password = request.password.clone();
-        drop(request);
-
-        let users = self.users.read().await;
-
-        let Some(stored) = users.get(&req_username) else {
-            warn!("Login attempt for unknown user: {}", req_username);
-            drop(users);
-            return Ok(LoginResponse {
-                success: false,
-                user_context: None,
-                session_token: None,
-                expires_at: None,
-                error_message: Some("Invalid credentials".to_string()),
-            });
-        };
-
-        if stored.password_hash != hash_password(&req_password) {
-            warn!("Failed login for user: {}", req_username);
-            drop(users);
-            return Ok(LoginResponse {
-                success: false,
-                user_context: None,
-                session_token: None,
-                expires_at: None,
-                error_message: Some("Invalid credentials".to_string()),
-            });
+        #[cfg(not(debug_assertions))]
+        {
+            return Err(AuthError::security_provider_error(
+                "Authentication requires a security capability provider (IPC not available)",
+            ));
         }
 
-        let duration = Duration::hours(8);
-        let session = Session::new(stored.user.id, duration, self.provider.clone());
-        let session_id = session.id;
-        let expires_at = session.expires_at;
-        let ctx = AuthContext::new(&stored.user, session_id, expires_at, self.provider.clone());
-        drop(users);
+        #[cfg(debug_assertions)]
+        {
+            let req_username = request.username.clone();
+            let req_password = request.password.clone();
+            drop(request);
 
-        self.sessions.create_session(session).await?;
+            let users = self.users.read().await;
 
-        debug!("Authenticated user: {}", req_username);
+            let Some(stored) = users.get(&req_username) else {
+                warn!("Login attempt for unknown user: {}", req_username);
+                drop(users);
+                return Ok(LoginResponse {
+                    success: false,
+                    user_context: None,
+                    session_token: None,
+                    expires_at: None,
+                    error_message: Some("Invalid credentials".to_string()),
+                });
+            };
 
-        Ok(LoginResponse {
-            success: true,
-            user_context: Some(ctx),
-            session_token: Some(session_id.to_string()),
-            expires_at: Some(expires_at),
-            error_message: None,
-        })
+            let password_valid = req_username == identity::BOOTSTRAP_ADMIN_USER
+                && verify_dev_admin_password(&req_password);
+            if !password_valid {
+                warn!("Failed login for user: {}", req_username);
+                drop(users);
+                return Ok(LoginResponse {
+                    success: false,
+                    user_context: None,
+                    session_token: None,
+                    expires_at: None,
+                    error_message: Some("Invalid credentials".to_string()),
+                });
+            }
+
+            let duration = Duration::hours(8);
+            let session = Session::new(stored.user.id, duration, self.provider.clone());
+            let session_id = session.id;
+            let expires_at = session.expires_at;
+            let ctx = AuthContext::new(&stored.user, session_id, expires_at, self.provider.clone());
+            drop(users);
+
+            self.sessions.create_session(session).await?;
+
+            debug!("Authenticated user: {}", req_username);
+
+            Ok(LoginResponse {
+                success: true,
+                user_context: Some(ctx),
+                session_token: Some(session_id.to_string()),
+                expires_at: Some(expires_at),
+                error_message: None,
+            })
+        }
     }
 
     /// Validate an existing session token.

@@ -7,6 +7,7 @@ use chrono; // Needed for MCPMessage
 use serde::{Deserialize, Serialize};
 use serde_json; // Needed for MCPMessage
 use std::time::SystemTime;
+use strum::Display;
 
 use crate::error::Result;
 use uuid; // Needed for MessageId
@@ -25,7 +26,7 @@ use uuid; // Needed for MessageId
 /// - Event messages notify about system changes
 /// - Error messages indicate problems
 /// - Setup messages are used during protocol initialization
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Display)]
 pub enum MessageType {
     /// Command message: Requests an action to be performed
     Command,
@@ -43,21 +44,6 @@ pub enum MessageType {
     Sync,
     /// Unknown message type
     Unknown,
-}
-
-impl std::fmt::Display for MessageType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Command => write!(f, "Command"),
-            Self::Response => write!(f, "Response"),
-            Self::Event => write!(f, "Event"),
-            Self::Error => write!(f, "Error"),
-            Self::Setup => write!(f, "Setup"),
-            Self::Heartbeat => write!(f, "Heartbeat"),
-            Self::Sync => write!(f, "Sync"),
-            Self::Unknown => write!(f, "Unknown"),
-        }
-    }
 }
 
 impl std::str::FromStr for MessageType {

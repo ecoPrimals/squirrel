@@ -29,7 +29,7 @@ use serde_json::json;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use universal_constants::network::resolve_capability_unix_socket;
 use universal_patterns::transport::{TransportEndpoint, connect_transport_with_timeout};
 
@@ -64,6 +64,7 @@ fn candidate_crypto_signing_socket_paths() -> Vec<PathBuf> {
     if let Ok(p) = std::env::var(universal_constants::env_vars::primals::BEARDOG_SOCKET)
         && !p.is_empty()
     {
+        warn!("BEARDOG_SOCKET is deprecated — use SECURITY_SOCKET");
         push_unique_path(&mut paths, PathBuf::from(p));
     }
 

@@ -141,12 +141,12 @@ pub enum EventSeverity {
     Critical,
 }
 
-/// Behavioral pattern for anomaly detection
+/// Behavioral pattern data deserialized from defense provider IPC responses.
+///
+/// Squirrel does not classify anomalies locally — these types represent data
+/// returned by the defense capability provider (skunkBat) via `defense.detect_anomaly`.
+/// Squirrel may log observed activity and forward patterns for defense-side analysis.
 #[derive(Debug, Clone)]
-#[expect(
-    dead_code,
-    reason = "Fields populated by security monitoring; read when export/dashboard wired"
-)]
 pub struct BehavioralPattern {
     /// Client IP address
     pub client_ip: String,
@@ -173,12 +173,8 @@ pub struct BehavioralPattern {
     pub violation_count: u32,
 }
 
-/// Request pattern for behavioral analysis
+/// Request pattern included in defense provider behavioral analysis responses.
 #[derive(Debug, Clone)]
-#[expect(
-    dead_code,
-    reason = "Fields populated by behavioral analysis; read when monitoring wired to RPC"
-)]
 pub struct RequestPattern {
     /// Request timestamp
     pub timestamp: Instant,
@@ -229,13 +225,6 @@ impl SecurityEvent {
     }
 }
 
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "Called by SecurityMonitoringSystem; wired when behavioral analysis is on hot path"
-    )
-)]
 impl BehavioralPattern {
     /// Create a new behavioral pattern
     pub fn new(client_ip: String, user_id: Option<String>) -> Self {

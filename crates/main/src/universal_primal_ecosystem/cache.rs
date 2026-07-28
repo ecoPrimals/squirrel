@@ -93,7 +93,7 @@ impl UniversalPrimalEcosystem {
 
         // Include context for context-aware caching
         key_parts.push(format!(
-            "ctx:{}:{}",
+            "ctx:{}:{:?}",
             request.context.user_id, request.context.security_level
         ));
 

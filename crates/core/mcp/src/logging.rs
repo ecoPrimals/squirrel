@@ -8,11 +8,13 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use strum::Display;
 
 use tracing::{debug, error, info, warn};
 
 /// Log level
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash, Display)]
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum LogLevel {
     /// Trace level for detailed tracing information
     Trace,
@@ -26,19 +28,6 @@ pub enum LogLevel {
     Error,
     /// Critical level for critical issues
     Critical,
-}
-
-impl std::fmt::Display for LogLevel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Trace => write!(f, "TRACE"),
-            Self::Debug => write!(f, "DEBUG"),
-            Self::Info => write!(f, "INFO"),
-            Self::Warn => write!(f, "WARN"),
-            Self::Error => write!(f, "ERROR"),
-            Self::Critical => write!(f, "CRITICAL"),
-        }
-    }
 }
 
 /// Log entry

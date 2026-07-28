@@ -332,7 +332,7 @@ fn generate_recommendations(checks: &[HealthCheck]) -> Vec<String> {
         .any(|c| c.name == "AI Providers" && c.status == HealthStatus::Warning)
     {
         recommendations.push(
-            "Store AI keys in bearDog (secrets.store), configure AI_PROVIDER_SOCKETS, or set OPENAI_API_KEY env var".to_string(),
+            "Store AI keys in the security provider (secrets.store), configure AI_PROVIDER_SOCKETS, or set OPENAI_API_KEY env var".to_string(),
         );
     }
 

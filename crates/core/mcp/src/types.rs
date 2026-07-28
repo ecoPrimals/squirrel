@@ -96,61 +96,48 @@
 use crate::protocol::types::MessageId;
 use serde::{Deserialize, Serialize};
 use serde_json;
+use strum::Display;
 
 /// Compression formats supported by the MCP protocol
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Display)]
 pub enum CompressionFormat {
     /// No compression
     #[default]
+    #[strum(serialize = "none")]
     None,
     /// GZIP compression
+    #[strum(serialize = "gzip")]
     Gzip,
     /// LZ4 compression
+    #[strum(serialize = "lz4")]
     Lz4,
     /// Zstandard compression
+    #[strum(serialize = "zstd")]
     Zstd,
     /// Custom compression format
+    #[strum(serialize = "custom-{0}")]
     Custom(u8),
-}
-
-impl std::fmt::Display for CompressionFormat {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::None => write!(f, "none"),
-            Self::Gzip => write!(f, "gzip"),
-            Self::Lz4 => write!(f, "lz4"),
-            Self::Zstd => write!(f, "zstd"),
-            Self::Custom(id) => write!(f, "custom-{id}"),
-        }
-    }
 }
 
 /// Encryption formats supported by the MCP protocol
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Display)]
 pub enum EncryptionFormat {
     /// No encryption
     #[default]
+    #[strum(serialize = "none")]
     None,
     /// AES-256-GCM encryption
+    #[strum(serialize = "aes256-gcm")]
     Aes256Gcm,
     /// ChaCha20-Poly1305 encryption
+    #[strum(serialize = "chacha20-poly1305")]
     ChaCha20Poly1305,
     /// RSA encryption
+    #[strum(serialize = "rsa")]
     Rsa,
     /// Custom encryption format
+    #[strum(serialize = "custom-{0}")]
     Custom(u8),
-}
-
-impl std::fmt::Display for EncryptionFormat {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::None => write!(f, "none"),
-            Self::Aes256Gcm => write!(f, "aes256-gcm"),
-            Self::ChaCha20Poly1305 => write!(f, "chacha20-poly1305"),
-            Self::Rsa => write!(f, "rsa"),
-            Self::Custom(id) => write!(f, "custom-{id}"),
-        }
-    }
 }
 
 /// Message metadata for MCP messages.
