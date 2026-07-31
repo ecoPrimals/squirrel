@@ -11,6 +11,7 @@ specs/
 │   ├── mcp-protocol/  # Gen2 MCP protocol docs
 │   ├── AI_DEVELOPMENT_GUIDE.md
 │   ├── UNIVERSAL_PATTERNS_SPECIFICATION.md
+│   ├── SQUIRREL_IPC_AAR_WAVE150d.md
 │   └── ...
 └── SOCKET_REGISTRY_SPEC.md  # Active socket discovery standard
 ```
@@ -33,6 +34,7 @@ Gen2-era specs (MCP protocol, WebSocket transport, deployment guide) were moved 
 | Spec | Location | Status |
 |------|----------|--------|
 | Socket Registry | `SOCKET_REGISTRY_SPEC.md` | active |
+| IPC AAR (Wave 150d) | `historical/SQUIRREL_IPC_AAR_WAVE150d.md` | fossil record |
 | Universal Patterns | `historical/UNIVERSAL_PATTERNS_SPECIFICATION.md` | fossil record |
 | AI Development | `historical/AI_DEVELOPMENT_GUIDE.md` | fossil record |
 | MCP Protocol (gen2) | `historical/mcp-protocol/` | fossil record |
