@@ -95,6 +95,29 @@ pub const DEFAULT_DATABASE_TIMEOUT: Duration = Duration::from_secs(30);
 pub const DEFAULT_CONTEXT_TTL_SECS: u64 = 3600;
 
 // ============================================================================
+// Storage Timeouts & TTL
+// ============================================================================
+
+/// Default storage operation timeout (5 minutes)
+pub const DEFAULT_STORAGE_OPERATION_TIMEOUT: Duration = Duration::from_secs(300);
+
+/// Default hot data lifetime (1 hour)
+pub const HOT_DATA_LIFETIME: Duration = Duration::from_secs(3600);
+
+/// Default warm data lifetime (1 day)
+pub const WARM_DATA_LIFETIME: Duration = Duration::from_secs(86400);
+
+/// Default capability discovery TTL in seconds (5 minutes)
+pub const DEFAULT_CAPABILITY_DISCOVERY_TTL_SECS: u64 = 300;
+
+// ============================================================================
+// Size Limits
+// ============================================================================
+
+/// Maximum file size for single-part storage operations (100 MB)
+pub const MAX_SINGLE_UPLOAD_BYTES: u64 = 100 * 1024 * 1024;
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 

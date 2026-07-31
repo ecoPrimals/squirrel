@@ -374,7 +374,8 @@ pub async fn register_compute_service(
         integration: super::IntegrationPreferences {
             preferred_protocols: vec!["https".to_string(), "tarpc".to_string()],
             retry_policy: "exponential_backoff".to_string(),
-            timeout_seconds: 300,
+            timeout_seconds: universal_constants::timeouts::DEFAULT_STORAGE_OPERATION_TIMEOUT
+                .as_secs() as u32,
             load_balancing_weight: 14,
         },
         extensions: HashMap::from([

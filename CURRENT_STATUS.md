@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: July 30, 2026 (Wave 155m — Clippy Deep Debt Sweep)
+**Last Updated**: July 30, 2026 (Wave 155n — Hardcode Evolution + Lockfile Purge)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 

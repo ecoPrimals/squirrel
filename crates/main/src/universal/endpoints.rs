@@ -59,7 +59,7 @@ impl Default for PrimalEndpoints {
                     .unwrap_or_else(|_| "development".to_string())
                     .eq_ignore_ascii_case("production")
                 {
-                    network::DEFAULT_BIND_ADDRESS.to_string()
+                    network::get_bind_address()
                 } else {
                     network::DEFAULT_LOCALHOST.to_string()
                 }

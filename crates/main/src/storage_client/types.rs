@@ -321,7 +321,7 @@ pub struct AccessPattern {
 impl Default for StorageClientConfig {
     fn default() -> Self {
         Self {
-            operation_timeout: std::time::Duration::from_secs(300),
+            operation_timeout: universal_constants::timeouts::DEFAULT_STORAGE_OPERATION_TIMEOUT,
             max_retries: 3,
             preferred_capabilities: vec![StorageCapabilityPreference {
                 capability: StorageCapabilityType::ObjectStorage {

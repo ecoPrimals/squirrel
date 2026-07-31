@@ -342,7 +342,7 @@ impl UniversalStorageClient {
             },
             ai_context: AIRequestContext {
                 access_frequency: AccessFrequency::Hot,
-                data_lifetime: std::time::Duration::from_secs(86400),
+                data_lifetime: universal_constants::timeouts::WARM_DATA_LIFETIME,
                 sharing_scope: SharingScope::Private,
                 processing_hints: Vec::new(),
             },
@@ -368,7 +368,7 @@ impl UniversalStorageClient {
             },
             ai_context: AIRequestContext {
                 access_frequency: AccessFrequency::Hot,
-                data_lifetime: std::time::Duration::from_secs(3600),
+                data_lifetime: universal_constants::timeouts::HOT_DATA_LIFETIME,
                 sharing_scope: SharingScope::Private,
                 processing_hints: Vec::new(),
             },
@@ -529,7 +529,7 @@ impl UniversalStorageClient {
         let mut optimizations = Vec::new();
 
         // Configuration-based optimizations using fixed values
-        let max_file_size = 100 * 1024 * 1024; // Fixed 100MB limit
+        let max_file_size = universal_constants::timeouts::MAX_SINGLE_UPLOAD_BYTES;
         if file_size > max_file_size {
             // Suggest chunking for large files - now safe to modify
             request["chunking"] = serde_json::json!({

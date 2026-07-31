@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (July 30, 2026 — Wave 155n: Hardcode Evolution + Lockfile Purge)
+
+- **Magic number evolution**: Extracted hardcoded `86400`, `3600`, `300`, `100*1024*1024` from `storage_client`, `universal_primal_ecosystem`, and `compute_adapter` into `universal_constants::timeouts` named constants (`WARM_DATA_LIFETIME`, `HOT_DATA_LIFETIME`, `DEFAULT_STORAGE_OPERATION_TIMEOUT`, `MAX_SINGLE_UPLOAD_BYTES`, `DEFAULT_CAPABILITY_DISCOVERY_TTL_SECS`).
+- **Deprecated constant migration**: Last caller of deprecated `DEFAULT_BIND_ADDRESS` evolved to `get_bind_address()`. Doc example updated to use `get_service_port()`.
+- **Lockfile hygiene**: Regenerated `Cargo.lock` — purged stale entries. Confirmed `tungstenite`/`tokio-tungstenite` are transitive via `axum` (feature-gated, expected).
+- **Dependency audit**: `lazy_static` confirmed purely transitive (already migrated in-crate). `ring`/`openssl`/`reqwest` confirmed absent. `deny.toml` enforces C-ban.
+- **7,138 tests passing** (`--all-features`), 0 failures, Clippy clean (non-deprecated), fmt clean.
+
 ### Summary (July 30, 2026 — Wave 155m: Clippy Deep Debt Sweep)
 
 - **Clippy zero-warning baseline**: 150+ Clippy warnings fixed (auto-fix for format string inlining, cast-from, mul_add, map_or; manual fixes for dead code fields, let-else conversions, match arm consolidation, case-sensitive extension comparisons, pass-by-value, significant-Drop temporaries). Only expected `deprecated` PrimalType warnings remain (migration-period backward compatibility).

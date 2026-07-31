@@ -162,7 +162,8 @@ pub struct CacheConfig {
 impl Default for CacheConfig {
     fn default() -> Self {
         Self {
-            capability_discovery_ttl: 300, // 5 minutes
+            capability_discovery_ttl:
+                universal_constants::timeouts::DEFAULT_CAPABILITY_DISCOVERY_TTL_SECS,
             service_capabilities_ttl: 600, // 10 minutes
             max_cache_entries: 1000,
             enable_caching: true,
@@ -358,7 +359,10 @@ mod tests {
     fn test_cache_config_default() {
         let config = CacheConfig::default();
 
-        assert_eq!(config.capability_discovery_ttl, 300);
+        assert_eq!(
+            config.capability_discovery_ttl,
+            universal_constants::timeouts::DEFAULT_CAPABILITY_DISCOVERY_TTL_SECS
+        );
         assert_eq!(config.service_capabilities_ttl, 600);
         assert_eq!(config.max_cache_entries, 1000);
         assert!(config.enable_caching);

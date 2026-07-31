@@ -33,7 +33,7 @@
 //! let timeout = timeouts::DEFAULT_CONNECTION_TIMEOUT;
 //!
 //! // Use network constants
-//! let port = network::DEFAULT_WEBSOCKET_PORT;
+//! let port = network::get_service_port("websocket");
 //!
 //! // Use builder helpers
 //! let url = builders::localhost_http(port);
