@@ -670,14 +670,14 @@ impl ContextLearningManager {
 
         // Update averages
         let old_avg_reward = stats.average_reward_per_episode;
-        stats.average_reward_per_episode = (old_avg_reward * (stats.total_episodes - 1) as f64
-            + episode.total_reward)
+        stats.average_reward_per_episode = old_avg_reward
+            .mul_add((stats.total_episodes - 1) as f64, episode.total_reward)
             / stats.total_episodes as f64;
 
         if let Some(duration) = episode.duration {
             let old_avg_length = stats.average_episode_length;
-            stats.average_episode_length = (old_avg_length * (stats.total_episodes - 1) as f64
-                + duration.as_secs_f64())
+            stats.average_episode_length = old_avg_length
+                .mul_add((stats.total_episodes - 1) as f64, duration.as_secs_f64())
                 / stats.total_episodes as f64;
         }
 

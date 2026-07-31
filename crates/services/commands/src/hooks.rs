@@ -41,9 +41,9 @@ pub trait Hook: Send + Sync {
 /// being processed by a hook.
 pub struct HookContext {
     /// Name of the command being processed
-    command_name: String,
+    _command_name: String,
     /// Additional hook data
-    data: RwLock<HashMap<String, String>>,
+    _data: RwLock<HashMap<String, String>>,
 }
 
 /// Type alias for a hook function that returns a Result
@@ -143,21 +143,13 @@ impl HookRegistry {
 }
 
 /// Hook that logs command execution events with descriptive messages
-pub struct LoggingHook {
-    /// Name of the hook for identification
-    name: String,
-    /// Description of the hook's purpose
-    description: String,
-}
+pub struct LoggingHook;
 
 impl LoggingHook {
     /// Creates a new logging hook
     #[must_use]
-    pub fn new() -> Self {
-        Self {
-            name: "logging".to_string(),
-            description: "Logs command execution stages".to_string(),
-        }
+    pub const fn new() -> Self {
+        Self
     }
 }
 
@@ -178,26 +170,18 @@ impl Hook for LoggingHook {
 
 impl Default for LoggingHook {
     fn default() -> Self {
-        Self::new()
+        Self
     }
 }
 
 /// Hook that collects and records command execution metrics
-pub struct MetricsHook {
-    /// Name of the hook for identification
-    name: String,
-    /// Description of the hook's purpose
-    description: String,
-}
+pub struct MetricsHook;
 
 impl MetricsHook {
     /// Creates a new metrics hook
     #[must_use]
-    pub fn new() -> Self {
-        Self {
-            name: "metrics".to_string(),
-            description: "Collects command execution metrics".to_string(),
-        }
+    pub const fn new() -> Self {
+        Self
     }
 }
 
@@ -218,7 +202,7 @@ impl Hook for MetricsHook {
 
 impl Default for MetricsHook {
     fn default() -> Self {
-        Self::new()
+        Self
     }
 }
 
@@ -407,21 +391,21 @@ impl Default for HookManager {
 #[derive(Debug)]
 pub struct ValidationHook {
     /// The validator component that performs the actual validation
-    validator: Arc<RwLock<CommandValidator>>,
+    _validator: Arc<RwLock<CommandValidator>>,
 }
 
 /// Pre-execution lifecycle hook
 #[derive(Debug)]
 pub struct PreExecutionHook {
     /// The validator component that performs pre-execution validation
-    validator: Arc<RwLock<CommandValidator>>,
+    _validator: Arc<RwLock<CommandValidator>>,
 }
 
 /// Post-execution lifecycle hook
 #[derive(Debug)]
 pub struct PostExecutionHook {
     /// The validator component that performs post-execution validation
-    validator: Arc<RwLock<CommandValidator>>,
+    _validator: Arc<RwLock<CommandValidator>>,
 }
 
 /// Result type for command processors
@@ -622,12 +606,8 @@ mod tests {
     #[test]
     fn logging_and_metrics_hooks_run() {
         let cmd = TestCommand;
-        LoggingHook::default()
-            .execute(&cmd)
-            .expect("should succeed");
-        MetricsHook::default()
-            .execute(&cmd)
-            .expect("should succeed");
+        LoggingHook.execute(&cmd).expect("should succeed");
+        MetricsHook.execute(&cmd).expect("should succeed");
     }
 
     #[test]

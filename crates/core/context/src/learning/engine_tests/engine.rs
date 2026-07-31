@@ -101,9 +101,7 @@ async fn test_exploration_rate_decay() {
 
     assert!(
         final_rate < initial_rate,
-        "Exploration rate should decrease: {} -> {}",
-        initial_rate,
-        final_rate
+        "Exploration rate should decrease: {initial_rate} -> {final_rate}"
     );
 }
 
@@ -128,8 +126,7 @@ async fn test_exploration_rate_reaches_minimum() {
     // Should reach minimum exploration rate (0.01)
     assert!(
         final_rate >= 0.01 - 0.001, // Allow small floating point error
-        "Exploration rate should not go below minimum: {}",
-        final_rate
+        "Exploration rate should not go below minimum: {final_rate}"
     );
 }
 
@@ -198,16 +195,16 @@ async fn test_experience_buffer_respects_max_size() {
     // Add more experiences than buffer can hold
     for i in 0..10 {
         let experience = RLExperience {
-            id: format!("exp_{}", i),
+            id: format!("exp_{i}"),
             state: RLState {
-                id: format!("s{}", i),
-                features: vec![i as f64],
+                id: format!("s{i}"),
+                features: vec![f64::from(i)],
                 context_id: "ctx_1".to_string(),
                 timestamp: chrono::Utc::now(),
                 metadata: None,
             },
             action: RLAction {
-                id: format!("a{}", i),
+                id: format!("a{i}"),
                 action_type: "test".to_string(),
                 parameters: serde_json::json!({}),
                 confidence: 0.5,
@@ -230,8 +227,7 @@ async fn test_experience_buffer_respects_max_size() {
 
     assert!(
         buffer_size <= 5,
-        "Buffer size should not exceed maximum: {}",
-        buffer_size
+        "Buffer size should not exceed maximum: {buffer_size}"
     );
 }
 
@@ -284,16 +280,16 @@ async fn test_experience_buffer_grows_with_dqn_updates() {
     // Engine uses Deep Q-Learning by default, which uses experience buffer
     for i in 0..5 {
         let experience = RLExperience {
-            id: format!("exp_{}", i),
+            id: format!("exp_{i}"),
             state: RLState {
-                id: format!("state_{}", i),
-                features: vec![i as f64],
+                id: format!("state_{i}"),
+                features: vec![f64::from(i)],
                 context_id: "ctx_1".to_string(),
                 timestamp: chrono::Utc::now(),
                 metadata: None,
             },
             action: RLAction {
-                id: format!("action_{}", i),
+                id: format!("action_{i}"),
                 action_type: "modify_context".to_string(),
                 parameters: serde_json::json!({}),
                 confidence: 0.5,
@@ -316,9 +312,7 @@ async fn test_experience_buffer_grows_with_dqn_updates() {
 
     assert!(
         final_size > initial_size,
-        "Experience buffer should grow with DQN: {} -> {}",
-        initial_size,
-        final_size
+        "Experience buffer should grow with DQN: {initial_size} -> {final_size}"
     );
 }
 
@@ -404,7 +398,7 @@ async fn test_engine_handles_large_feature_state() {
         .expect("Failed to create engine");
     engine.initialize().await.expect("Failed to initialize");
 
-    let features: Vec<f64> = (0..256).map(|i| i as f64).collect();
+    let features: Vec<f64> = (0..256).map(f64::from).collect();
     let state = RLState {
         id: "large_state".to_string(),
         features,
@@ -471,9 +465,7 @@ async fn test_multiple_engines_independent() {
     // Engine 2 should not be affected
     assert!(
         rate2 > rate1,
-        "Engines should be independent: {} vs {}",
-        rate1,
-        rate2
+        "Engines should be independent: {rate1} vs {rate2}"
     );
 }
 
@@ -568,7 +560,7 @@ async fn test_dqn_train_network_runs_after_batch_size_reached() {
             id: format!("exp_{i}"),
             state: RLState {
                 id: format!("s{i}"),
-                features: vec![i as f64],
+                features: vec![f64::from(i)],
                 context_id: "ctx".to_string(),
                 timestamp: chrono::Utc::now(),
                 metadata: None,

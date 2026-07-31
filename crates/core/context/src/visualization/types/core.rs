@@ -9,7 +9,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 /// Visualization type enumeration
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum VisualizationType {
     /// Context state visualization
     ContextState,

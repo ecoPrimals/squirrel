@@ -684,7 +684,11 @@ mod tests {
             ExperienceReplay::with_sampling_strategy(50, SamplingStrategy::Prioritized(cfg));
         for i in 0..20 {
             replay
-                .add_experience(sample_exp(&format!("e{i}"), 1.0, (i as f64) * 0.01 + 0.1))
+                .add_experience(sample_exp(
+                    &format!("e{i}"),
+                    1.0,
+                    f64::from(i).mul_add(0.01, 0.1),
+                ))
                 .await
                 .expect("add");
         }

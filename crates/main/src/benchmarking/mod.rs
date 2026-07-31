@@ -118,7 +118,7 @@ impl BenchmarkConfig {
 pub struct BenchmarkSuite {
     suite_id: String,
     results: Arc<RwLock<Vec<BenchmarkResult>>>,
-    active_benchmarks: Arc<RwLock<HashMap<String, BenchmarkRunner>>>,
+    _active_benchmarks: Arc<RwLock<HashMap<String, BenchmarkRunner>>>,
     system_metrics: Arc<RwLock<SystemMetrics>>,
 }
 
@@ -165,7 +165,7 @@ impl BenchmarkSuite {
         Self {
             suite_id: format!("{}_{}", name, Uuid::new_v4()),
             results: Arc::new(RwLock::new(Vec::new())),
-            active_benchmarks: Arc::new(RwLock::new(HashMap::new())),
+            _active_benchmarks: Arc::new(RwLock::new(HashMap::new())),
             system_metrics: Arc::new(RwLock::new(SystemMetrics::default())),
         }
     }

@@ -83,13 +83,15 @@ pub type Result<T> = std::result::Result<T, CommandError>;
 
 /// Core command processing service
 pub struct CommandsService {
-    context_manager: Arc<ContextManager>,
+    _context_manager: Arc<ContextManager>,
 }
 
 impl CommandsService {
     /// Create a new commands service
     pub fn new(context_manager: Arc<ContextManager>) -> Self {
-        Self { context_manager }
+        Self {
+            _context_manager: context_manager,
+        }
     }
 
     /// Process a basic command

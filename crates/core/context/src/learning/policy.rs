@@ -192,10 +192,11 @@ impl PolicyNetwork {
             for _ in 0..output_size {
                 let mut neuron_weights = Vec::new();
                 for _ in 0..input_size {
-                    neuron_weights.push(rand::random::<f64>() * xavier_std - xavier_std / 2.0);
+                    neuron_weights
+                        .push(rand::random::<f64>().mul_add(xavier_std, -(xavier_std / 2.0)));
                 }
                 layer_weights.push(neuron_weights);
-                layer_biases.push(rand::random::<f64>() * 0.1 - 0.05);
+                layer_biases.push(rand::random::<f64>().mul_add(0.1, -0.05));
             }
 
             weights.push(layer_weights);
@@ -400,14 +401,14 @@ impl PolicyNetwork {
 
         // Update average confidence
         let old_avg = metrics.average_confidence;
-        metrics.average_confidence = (old_avg * (metrics.total_predictions - 1) as f64
-            + confidence)
+        metrics.average_confidence = old_avg
+            .mul_add((metrics.total_predictions - 1) as f64, confidence)
             / metrics.total_predictions as f64;
 
         // Update average prediction time
         let old_time = metrics.average_prediction_time;
-        metrics.average_prediction_time = (old_time * (metrics.total_predictions - 1) as f64
-            + prediction_time)
+        metrics.average_prediction_time = old_time
+            .mul_add((metrics.total_predictions - 1) as f64, prediction_time)
             / metrics.total_predictions as f64;
 
         metrics.last_evaluation = Utc::now();

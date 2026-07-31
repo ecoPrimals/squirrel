@@ -340,7 +340,7 @@ mod tests {
             let id_owned = id.to_string();
             let found = self.transforms.iter().find(|t| t.get_id() == id).cloned();
             Box::pin(async move {
-                found.ok_or_else(|| anyhow::anyhow!("Transformation not found: {}", id_owned))
+                found.ok_or_else(|| anyhow::anyhow!("Transformation not found: {id_owned}"))
             })
         }
 

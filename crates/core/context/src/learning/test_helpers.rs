@@ -156,7 +156,7 @@ pub fn assert_valid_policy_config(config: &PolicyNetworkConfig) {
         "Should have at least one hidden layer"
     );
     for (i, &size) in config.hidden_layers.iter().enumerate() {
-        assert!(size > 0, "Hidden layer {} size must be positive", i);
+        assert!(size > 0, "Hidden layer {i} size must be positive");
     }
     assert!(
         config.dropout_rate >= 0.0 && config.dropout_rate < 1.0,

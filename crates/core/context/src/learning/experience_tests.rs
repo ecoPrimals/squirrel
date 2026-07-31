@@ -22,7 +22,7 @@ fn test_experience_buffer_add() {
     let mut buffer = ExperienceBuffer::new(10);
     let experience = create_test_experience("exp_1");
 
-    buffer.add(experience.clone());
+    buffer.add(experience);
 
     assert_eq!(buffer.size(), 1);
     assert!(!buffer.is_empty());
@@ -35,7 +35,7 @@ fn test_experience_buffer_circular() {
 
     // Fill buffer beyond capacity
     for i in 0..10 {
-        let experience = create_test_experience(&format!("exp_{}", i));
+        let experience = create_test_experience(&format!("exp_{i}"));
         buffer.add(experience);
     }
 
@@ -49,7 +49,7 @@ fn test_experience_buffer_get() {
     let mut buffer = ExperienceBuffer::new(10);
     let experience = create_test_experience("exp_1");
 
-    buffer.add(experience.clone());
+    buffer.add(experience);
 
     let retrieved = buffer.get(0).expect("Should get experience");
     assert_eq!(retrieved.id, "exp_1");
@@ -60,7 +60,7 @@ fn test_experience_buffer_get_all() {
     let mut buffer = ExperienceBuffer::new(10);
 
     for i in 0..5 {
-        let experience = create_test_experience(&format!("exp_{}", i));
+        let experience = create_test_experience(&format!("exp_{i}"));
         buffer.add(experience);
     }
 
@@ -73,7 +73,7 @@ fn test_experience_buffer_sample_uniform() {
     let mut buffer = ExperienceBuffer::new(100);
 
     for i in 0..50 {
-        let experience = create_test_experience(&format!("exp_{}", i));
+        let experience = create_test_experience(&format!("exp_{i}"));
         buffer.add(experience);
     }
 
@@ -86,7 +86,7 @@ fn test_experience_buffer_clear() {
     let mut buffer = ExperienceBuffer::new(10);
 
     for i in 0..5 {
-        let experience = create_test_experience(&format!("exp_{}", i));
+        let experience = create_test_experience(&format!("exp_{i}"));
         buffer.add(experience);
     }
 
@@ -125,7 +125,7 @@ async fn test_experience_replay_add_multiple() {
 
     let mut experiences = Vec::new();
     for i in 0..10 {
-        experiences.push(create_test_experience(&format!("exp_{}", i)));
+        experiences.push(create_test_experience(&format!("exp_{i}")));
     }
 
     replay
@@ -141,7 +141,7 @@ async fn test_experience_replay_sample_batch_uniform() {
     let replay = ExperienceReplay::new(1000);
 
     for i in 0..50 {
-        let experience = create_test_experience(&format!("exp_{}", i));
+        let experience = create_test_experience(&format!("exp_{i}"));
         replay
             .add_experience(experience)
             .await
@@ -171,8 +171,8 @@ async fn test_experience_replay_with_prioritized_sampling() {
         ExperienceReplay::with_sampling_strategy(1000, SamplingStrategy::Prioritized(config));
 
     for i in 0..50 {
-        let mut experience = create_test_experience(&format!("exp_{}", i));
-        experience.priority = (i as f64) / 50.0; // Varying priorities
+        let mut experience = create_test_experience(&format!("exp_{i}"));
+        experience.priority = f64::from(i) / 50.0; // Varying priorities
         replay
             .add_experience(experience)
             .await
@@ -191,7 +191,7 @@ async fn test_experience_replay_with_temporal_sampling() {
     let replay = ExperienceReplay::with_sampling_strategy(1000, SamplingStrategy::Temporal(config));
 
     for i in 0..50 {
-        let experience = create_test_experience(&format!("exp_{}", i));
+        let experience = create_test_experience(&format!("exp_{i}"));
         replay
             .add_experience(experience)
             .await
@@ -209,7 +209,7 @@ async fn test_experience_replay_with_balanced_sampling() {
     let replay = ExperienceReplay::with_sampling_strategy(1000, SamplingStrategy::Balanced(config));
 
     for i in 0..50 {
-        let experience = create_test_experience(&format!("exp_{}", i));
+        let experience = create_test_experience(&format!("exp_{i}"));
         replay
             .add_experience(experience)
             .await
@@ -226,7 +226,7 @@ async fn test_experience_replay_update_priorities() {
     let replay = ExperienceReplay::new(1000);
 
     for i in 0..10 {
-        let experience = create_test_experience(&format!("exp_{}", i));
+        let experience = create_test_experience(&format!("exp_{i}"));
         replay
             .add_experience(experience)
             .await
@@ -247,7 +247,7 @@ async fn test_experience_replay_get_stats() {
     let replay = ExperienceReplay::new(1000);
 
     for i in 0..10 {
-        let experience = create_test_experience(&format!("exp_{}", i));
+        let experience = create_test_experience(&format!("exp_{i}"));
         replay
             .add_experience(experience)
             .await
@@ -265,7 +265,7 @@ async fn test_experience_replay_clear() {
     let replay = ExperienceReplay::new(1000);
 
     for i in 0..10 {
-        let experience = create_test_experience(&format!("exp_{}", i));
+        let experience = create_test_experience(&format!("exp_{i}"));
         replay
             .add_experience(experience)
             .await
@@ -285,7 +285,7 @@ async fn test_experience_replay_is_full() {
     let replay = ExperienceReplay::new(10);
 
     for i in 0..10 {
-        let experience = create_test_experience(&format!("exp_{}", i));
+        let experience = create_test_experience(&format!("exp_{i}"));
         replay
             .add_experience(experience)
             .await
@@ -300,7 +300,7 @@ async fn test_experience_replay_get_all_experiences() {
     let replay = ExperienceReplay::new(1000);
 
     for i in 0..5 {
-        let experience = create_test_experience(&format!("exp_{}", i));
+        let experience = create_test_experience(&format!("exp_{i}"));
         replay
             .add_experience(experience)
             .await
@@ -395,8 +395,8 @@ async fn test_experience_stats_average_reward() {
     let replay = ExperienceReplay::new(1000);
 
     for i in 0..10 {
-        let mut experience = create_test_experience(&format!("exp_{}", i));
-        experience.reward = i as f64;
+        let mut experience = create_test_experience(&format!("exp_{i}"));
+        experience.reward = f64::from(i);
         replay
             .add_experience(experience)
             .await
@@ -414,7 +414,7 @@ async fn test_experience_stats_success_rate() {
     let replay = ExperienceReplay::new(1000);
 
     for i in 0..10 {
-        let mut experience = create_test_experience(&format!("exp_{}", i));
+        let mut experience = create_test_experience(&format!("exp_{i}"));
         experience.reward = if i % 2 == 0 { 1.0 } else { -1.0 };
         replay
             .add_experience(experience)

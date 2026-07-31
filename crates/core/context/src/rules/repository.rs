@@ -113,10 +113,8 @@ impl RuleRepository {
 
     /// Remove a rule from the in-memory indexes
     async fn remove_rule_from_indexes(&self, id: &str) -> Result<()> {
-        // Get the rule first
-        let rule = match self.get_rule(id).await? {
-            Some(rule) => rule,
-            None => return Err(RuleError::NotFound(id.to_string())),
+        let Some(rule) = self.get_rule(id).await? else {
+            return Err(RuleError::NotFound(id.to_string()));
         };
 
         let category = rule.category().to_string();
@@ -193,10 +191,8 @@ impl RuleRepository {
 
     /// Remove a rule
     pub async fn remove_rule(&self, id: &str) -> Result<()> {
-        // Get the rule first
-        let rule = match self.get_rule(id).await? {
-            Some(rule) => rule,
-            None => return Err(RuleError::NotFound(id.to_string())),
+        let Some(rule) = self.get_rule(id).await? else {
+            return Err(RuleError::NotFound(id.to_string()));
         };
 
         // Remove the rule file
@@ -276,7 +272,7 @@ impl RuleRepository {
         }
 
         // Suffix wildcard: prefix*
-        if pattern.ends_with("*") && !pattern.ends_with(".*") {
+        if pattern.ends_with('*') && !pattern.ends_with(".*") {
             let prefix = &pattern[0..pattern.len() - 1];
             return input.starts_with(prefix);
         }
@@ -288,7 +284,7 @@ impl RuleRepository {
         }
 
         // Prefix wildcard: *suffix
-        if pattern.starts_with("*")
+        if pattern.starts_with('*')
             && let Some(suffix) = pattern.strip_prefix("*")
         {
             return input.ends_with(suffix);

@@ -340,7 +340,7 @@ impl SyncManager {
         self.pending_operations.remove(&message_id);
 
         match result {
-            Ok(Ok(_)) => {
+            Ok(Ok(())) => {
                 // Success - remove from failed operations if it was there
                 self.failed_operations.remove(&message_id);
                 Ok(SyncResult {
@@ -649,7 +649,7 @@ impl SyncManager {
                     ContextError::InvalidState(format!("Failed to get current timestamp: {e}"))
                 })?
                 .as_secs();
-            if *last_retry == 0 || elapsed_secs - (*last_retry as u64) >= retry_delay.as_secs() {
+            if *last_retry == 0 || elapsed_secs - u64::from(*last_retry) >= retry_delay.as_secs() {
                 operations_to_retry.push((id.clone(), message.clone()));
                 *last_retry = elapsed_secs as u32;
             }

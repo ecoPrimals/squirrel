@@ -27,7 +27,11 @@ pub fn resolve_provider_socket(
         if let Some(path) = url.strip_prefix("unix://") {
             return Ok(PathBuf::from(path));
         }
-        if url.starts_with('/') && url.ends_with(".sock") {
+        if url.starts_with('/')
+            && std::path::Path::new(url)
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("sock"))
+        {
             return Ok(PathBuf::from(url));
         }
     }

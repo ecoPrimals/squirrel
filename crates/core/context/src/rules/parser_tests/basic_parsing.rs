@@ -51,7 +51,7 @@ patterns:
 
     let result = RuleParser::parse_string(content);
     if let Err(ref e) = result {
-        eprintln!("Parse error: {:?}", e);
+        eprintln!("Parse error: {e:?}");
     }
     assert!(
         result.is_ok(),

@@ -74,7 +74,7 @@ pub struct DiscoveredService {
 }
 
 #[allow(deprecated)]
-fn default_primal_type_for_deserialize() -> EcosystemPrimalType {
+const fn default_primal_type_for_deserialize() -> EcosystemPrimalType {
     EcosystemPrimalType::BiomeOS
 }
 

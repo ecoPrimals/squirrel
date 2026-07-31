@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: July 28, 2026 (Wave 155g — Deep Debt Evolution + Capability Purification)
+**Last Updated**: July 30, 2026 (Wave 155m — Clippy Deep Debt Sweep)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -12,9 +12,9 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 763 passing / 0 failures across 16 workspace crates (4,946 `#[test]` attrs; balance behind feature gates) |
+| Tests | **7,138** passing / 0 failures across 16 workspace crates (`--all-features`); **6,453** with default features; **763** in main crate |
 | Edition | 2024 (Rust 1.94+) |
-| async-trait | **0 usage** — all `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn`; `async-trait` only remains as transitive dep from external crate `config` (`wiremock` removed Wave 155g) |
+| async-trait | **0 usage** — all `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn`; `async-trait` only remains as transitive dep from external crate `config` |
 | Clippy | CLEAN — `pedantic + nursery + cargo`, `expect_used/unwrap_used = deny` workspace-wide; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
@@ -279,7 +279,7 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 1. **Coverage target met** — 90.1% region coverage (89.6% line). Remaining uncovered: binary entry points, demo binaries, WASM-only SDK paths, live IPC server loops. All production modules have test coverage.
 2. Performance optimizer `batch_processor` / `optimizer` are complete (no deferred stubs)
 3. `base64` duplicate (0.21 via `config`/`ron`, 0.22 direct) — transitive, benign
-4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crates (`config`, `wiremock`)
+4. `async-trait` — **0 annotations** in Squirrel code (migrated from 228 → 0); dyn-safe traits use `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn in trait`; `async-trait` remains only as transitive dep from external crate `config`
 
 ---
 

@@ -224,7 +224,7 @@ async fn test_integration_status_variants() {
     ];
 
     for status in statuses {
-        let debug_str = format!("{:?}", status);
+        let debug_str = format!("{status:?}");
         assert!(!debug_str.is_empty());
     }
 }

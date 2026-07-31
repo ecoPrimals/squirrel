@@ -263,7 +263,7 @@ fn test_visualization_action_variants() {
     ];
 
     for action in actions {
-        let debug_str = format!("{:?}", action);
+        let debug_str = format!("{action:?}");
         assert!(!debug_str.is_empty());
     }
 }

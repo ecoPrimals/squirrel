@@ -140,18 +140,12 @@ impl ContextTracker {
             if self.config.auto_recovery
                 && let Some(manager) = &self.manager
             {
-                // Get state for recovery point
                 let state = self.get_state().await?;
-
-                // Create recovery point
                 manager.create_recovery_point(&state).await?;
             }
-
-            Ok(())
-        } else {
-            // No update needed, same version or older
-            Ok(())
         }
+
+        Ok(())
     }
 
     /// Activate a context by ID
@@ -207,31 +201,23 @@ impl ContextTracker {
     /// - Failed to acquire lock
     /// - Failed to update context state
     pub async fn sync_state(&self) -> Result<()> {
-        if let Some(manager) = &self.manager {
-            // Get the current state
-            let state = self.get_state().await?;
+        let Some(manager) = &self.manager else {
+            return Err(ContextError::NotInitialized);
+        };
 
-            // Get active context ID without holding lock across await
-            let active_id_option = self.active_context_id.read().await.clone();
+        let state = self.get_state().await?;
+        let active_id_option = self.active_context_id.read().await.clone();
 
-            if let Some(id) = active_id_option {
-                // Update the context state in the manager
-                manager.update_context_state(&id, state).await?;
+        let Some(id) = active_id_option else {
+            return Err(ContextError::NotInitialized);
+        };
 
-                // Update the last sync time
-                {
-                    let mut last_sync = self.last_sync.write().await;
-                    *last_sync = Instant::now();
-                } // Lock is dropped here
+        manager.update_context_state(&id, state).await?;
 
-                return Ok(());
-            }
+        let mut last_sync = self.last_sync.write().await;
+        *last_sync = Instant::now();
 
-            // If no active context, return an error
-            Err(ContextError::NotInitialized)
-        } else {
-            Err(ContextError::NotInitialized)
-        }
+        Ok(())
     }
 
     /// Start automatic synchronization for this tracker
@@ -338,7 +324,7 @@ impl ContextTrackerFactory {
             // Set manager if provided
             if self.manager.is_some() {
                 // Create a new tracker with our configuration and manager
-                let config = tracker.config.clone();
+                let config = tracker.config;
                 let manager_clone = self.manager.clone();
 
                 // Create a new state

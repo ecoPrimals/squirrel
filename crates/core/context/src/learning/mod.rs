@@ -99,6 +99,7 @@ pub use reward_types::{
 
 /// Learning system configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct LearningSystemConfig {
     /// Enable reinforcement learning
     pub enable_reinforcement_learning: bool,

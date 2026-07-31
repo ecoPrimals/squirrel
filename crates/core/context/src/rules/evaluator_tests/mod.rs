@@ -17,7 +17,7 @@ use std::sync::Arc;
 pub fn create_test_rule(id: &str, priority: i32, conditions: Vec<RuleCondition>) -> Arc<Rule> {
     Arc::new(Rule {
         id: id.to_string(),
-        name: format!("Test Rule {}", id),
+        name: format!("Test Rule {id}"),
         description: "Test rule".to_string(),
         version: "1.0.0".to_string(),
         category: "test".to_string(),

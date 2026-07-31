@@ -265,12 +265,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
     async fn test_concurrent_metrics_collection() {
-        // Testing deprecated API for backward compatibility
         let mut services = HashMap::new();
         for i in 0..10 {
             let service = create_test_service(&format!("service_{i}"), "squirrel");

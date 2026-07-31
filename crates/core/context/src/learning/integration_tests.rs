@@ -135,17 +135,17 @@ async fn test_multiple_episodes_in_session() {
     // Run multiple episodes
     for i in 0..3 {
         let episode_id = manager
-            .start_episode(&format!("context_{}", i))
+            .start_episode(&format!("context_{i}"))
             .await
             .unwrap_or_else(|_| unreachable!("Failed to start episode {}", i));
 
         manager
-            .take_action(&episode_id, &format!("context_{}", i))
+            .take_action(&episode_id, &format!("context_{i}"))
             .await
             .expect("Failed to take action");
 
         manager
-            .provide_reward(&episode_id, (i + 1) as f64)
+            .provide_reward(&episode_id, f64::from(i + 1))
             .await
             .expect("Failed to provide reward");
 
@@ -230,7 +230,7 @@ async fn test_episode_with_multiple_actions_and_rewards() {
             .unwrap_or_else(|_| unreachable!("Failed to take action {}", i));
 
         manager
-            .provide_reward(&episode_id, (i + 1) as f64)
+            .provide_reward(&episode_id, f64::from(i + 1))
             .await
             .unwrap_or_else(|_| unreachable!("Failed to provide reward {}", i));
     }
@@ -556,11 +556,11 @@ async fn test_exploration_decay_over_multiple_episodes() {
     // Run multiple episodes (exploration should decay)
     for i in 0..5 {
         let episode_id = manager
-            .start_episode(&format!("ctx_{}", i))
+            .start_episode(&format!("ctx_{i}"))
             .await
             .expect("Failed");
         manager
-            .take_action(&episode_id, &format!("ctx_{}", i))
+            .take_action(&episode_id, &format!("ctx_{i}"))
             .await
             .expect("Failed");
         manager
@@ -581,9 +581,7 @@ async fn test_exploration_decay_over_multiple_episodes() {
     // Exploration rate should have decreased
     assert!(
         final_exploration < initial_exploration,
-        "Exploration should decay: {} -> {}",
-        initial_exploration,
-        final_exploration
+        "Exploration should decay: {initial_exploration} -> {final_exploration}"
     );
 }
 
@@ -601,15 +599,15 @@ async fn test_engine_experience_buffer_grows_with_episodes() {
     // Run episodes to generate experiences
     for i in 0..3 {
         let episode_id = manager
-            .start_episode(&format!("ctx_{}", i))
+            .start_episode(&format!("ctx_{i}"))
             .await
             .expect("Failed");
         manager
-            .take_action(&episode_id, &format!("ctx_{}", i))
+            .take_action(&episode_id, &format!("ctx_{i}"))
             .await
             .expect("Failed");
         manager
-            .provide_reward(&episode_id, (i + 1) as f64)
+            .provide_reward(&episode_id, f64::from(i + 1))
             .await
             .expect("Failed");
         manager

@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (July 30, 2026 — Wave 155m: Clippy Deep Debt Sweep)
+
+- **Clippy zero-warning baseline**: 150+ Clippy warnings fixed (auto-fix for format string inlining, cast-from, mul_add, map_or; manual fixes for dead code fields, let-else conversions, match arm consolidation, case-sensitive extension comparisons, pass-by-value, significant-Drop temporaries). Only expected `deprecated` PrimalType warnings remain (migration-period backward compatibility).
+- **Dead code elimination**: Deleted `cleanup_if_needed` dead method from `CommandHistory`. Stripped unused struct fields from `LoggingHook`, `MetricsHook` (now unit structs), `HookContext`, `ValidationHook`, `PreExecutionHook`, `PostExecutionHook`, `CommandValidator`, `ValidationContext`, `MonitoringServiceProvider`, `BenchmarkSuite`. Prefix-marked Phase 2 placeholder fields.
+- **Idiomatic Rust evolution**: Converted `match ... Some/None` patterns to `let...else` in `RuleRepository`. Extracted significant-Drop temporaries in `DefenseClient::resolve_provider`. Consolidated duplicate `Ok(())`/`Err(...)` branches in `ContextTracker`. Added `#[must_use]` to `RuleBuilder` struct. Fixed underscore-prefixed binding that was actually used in `OrchestrationAdapter`.
+- **Config struct refinement**: Added `#[allow(clippy::struct_excessive_bools)]` to `LearningIntegrationConfig` and `LearningSystemConfig` (config structs with legitimately many boolean flags).
+- **7,138 tests passing** (`--all-features`), 0 failures, Clippy clean (non-deprecated), fmt clean.
+
 ### Summary (July 28, 2026 — Wave 155g: Deep Debt Evolution + Capability Purification)
 
 - **Capability-based naming purification**: All `beardog`/`BearDog` references in production code evolved to `security_provider`/`SecurityProvider` capability stems. `BEARDOG_ENDPOINT` → `SECURITY_ENDPOINT` (with env fallback chain). `mod beardog` → `mod security_provider`. `beardog_endpoint()` → `security_provider_endpoint()` (deprecated aliases preserved).

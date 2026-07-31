@@ -59,7 +59,7 @@ fn test_feature_extraction_method_variants() {
     ];
 
     for method in methods {
-        let debug_str = format!("{:?}", method);
+        let debug_str = format!("{method:?}");
         assert!(!debug_str.is_empty());
     }
 }

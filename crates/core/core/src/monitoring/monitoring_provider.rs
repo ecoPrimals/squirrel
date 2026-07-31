@@ -24,7 +24,7 @@ use universal_constants::capabilities;
 /// Monitoring service provider that delegates to whichever ecosystem service exposes
 /// `monitoring.*` capabilities (capability-first — we never hardcode a primal name for routing).
 pub struct MonitoringServiceProvider {
-    pub(super) config: MonitoringServiceConfig,
+    pub(super) _config: MonitoringServiceConfig,
     ipc: Option<IpcClient>,
     connected: AtomicBool,
 }
@@ -59,7 +59,7 @@ impl MonitoringServiceProvider {
         };
         let connected = AtomicBool::new(ipc.is_some());
         Ok(Self {
-            config,
+            _config: config,
             ipc,
             connected,
         })

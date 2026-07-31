@@ -240,7 +240,7 @@ mod tests {
         };
         let adapter: Arc<dyn DynContextAdapterPlugin> = Arc::new(StaticAdapter {
             plugin_meta: plugin_meta.clone(),
-            adapter_meta: adapter_meta.clone(),
+            adapter_meta,
         });
         Box::new(MetaPlugin {
             meta: plugin_meta,

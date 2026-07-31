@@ -48,7 +48,7 @@ async fn test_policy_network_forward() {
         .await
         .expect("Should create network");
 
-    let input: Vec<f64> = (0..10).map(|x| x as f64).collect();
+    let input: Vec<f64> = (0..10).map(f64::from).collect();
     let action = network.forward(&input).await.expect("Should forward");
 
     assert_eq!(action.action_probabilities.len(), 3);
@@ -409,7 +409,7 @@ async fn test_evaluate_mixed_confidence_counts_accuracy() {
         .map(|i| RLState {
             id: format!("s{i}"),
             context_id: "c".to_string(),
-            features: vec![i as f64 * 0.1; 4],
+            features: vec![f64::from(i) * 0.1; 4],
             metadata: None,
             timestamp: Utc::now(),
         })

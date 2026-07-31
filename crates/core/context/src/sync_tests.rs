@@ -342,10 +342,10 @@ mod tests {
 
     #[test]
     fn test_partition_with_many_peers() {
-        let peers: Vec<String> = (0..100).map(|i| format!("node-{}", i)).collect();
+        let peers: Vec<String> = (0..100).map(|i| format!("node-{i}")).collect();
         let partition = PartitionInfo {
             detected_at: SystemTime::now(),
-            affected_peers: peers.clone(),
+            affected_peers: peers,
             partition_duration: Duration::from_secs(300),
             recovery_strategy: PartitionRecoveryStrategy::FailoverToBackup,
         };

@@ -297,9 +297,9 @@ impl AdaptiveRuleSystem {
                 performance.success_count as f64 / performance.application_count as f64;
 
             // Update average execution time
-            performance.avg_execution_time = (performance.avg_execution_time
-                * (performance.application_count - 1) as f64
-                + execution_time)
+            performance.avg_execution_time = performance
+                .avg_execution_time
+                .mul_add((performance.application_count - 1) as f64, execution_time)
                 / performance.application_count as f64;
 
             // Calculate effectiveness (simplified)
@@ -559,10 +559,10 @@ impl AdaptiveRuleSystem {
             .sum::<f64>()
             / adaptations.len() as f64;
 
-        stats.average_improvement = (stats.average_improvement
-            * (stats.total_adaptations - adaptations.len()) as f64
-            + improvement * adaptations.len() as f64)
-            / stats.total_adaptations as f64;
+        stats.average_improvement = stats.average_improvement.mul_add(
+            (stats.total_adaptations - adaptations.len()) as f64,
+            improvement * adaptations.len() as f64,
+        ) / stats.total_adaptations as f64;
 
         debug!(
             "Updated adaptation statistics: total={}, avg_improvement={:.2}",

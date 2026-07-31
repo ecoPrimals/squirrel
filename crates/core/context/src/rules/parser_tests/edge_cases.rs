@@ -56,7 +56,7 @@ fn test_parse_name_exactly_100_chars() {
     let content = format!(
         r#"---
 id: boundary-name-rule
-name: "{}"
+name: "{name_100}"
 description: Testing 100 char name boundary
 patterns:
   - "test"
@@ -85,8 +85,7 @@ patterns:
   }}
 }}
 ```
-"#,
-        name_100
+"#
     );
 
     let result = RuleParser::parse_string(&content);
@@ -101,7 +100,7 @@ fn test_parse_description_exactly_1000_chars() {
         r#"---
 id: boundary-desc-rule
 name: Boundary Description Rule
-description: "{}"
+description: "{desc_1000}"
 patterns:
   - "test"
 ---
@@ -129,8 +128,7 @@ patterns:
   }}
 }}
 ```
-"#,
-        desc_1000
+"#
     );
 
     let result = RuleParser::parse_string(&content);
@@ -283,7 +281,7 @@ fn test_parse_valid_id_formats() {
     for test_id in valid_ids {
         let content = format!(
             r#"---
-id: {}
+id: {test_id}
 name: Test Rule
 description: Testing valid ID format
 patterns:
@@ -313,12 +311,11 @@ patterns:
   }}
 }}
 ```
-"#,
-            test_id
+"#
         );
 
         let result = RuleParser::parse_string(&content);
-        assert!(result.is_ok(), "Should accept valid ID format: {}", test_id);
+        assert!(result.is_ok(), "Should accept valid ID format: {test_id}");
     }
 }
 
@@ -425,18 +422,7 @@ patterns:
 ```
 "#;
 
-    let result = RuleParser::parse_string(content);
-    // The parser may or may not handle trailing whitespace in section names
-    // Check that it either parses or fails gracefully
-    match result {
-        Ok(_) => {
-            // Success case: parser handles trailing whitespace
-        }
-        Err(_) => {
-            // Expected failure: parser is strict about section names
-            // This is acceptable behavior
-        }
-    }
+    let _result = RuleParser::parse_string(content);
 }
 
 /// Test MDC generation and roundtrip parsing

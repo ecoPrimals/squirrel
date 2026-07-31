@@ -306,8 +306,9 @@ impl LearningMetrics {
 
         // Update policy stability (simplified)
         let stability_factor = 1.0 - loss.min(1.0);
-        performance.policy_stability =
-            (performance.policy_stability * 0.9) + (stability_factor * 0.1);
+        performance.policy_stability = performance
+            .policy_stability
+            .mul_add(0.9, stability_factor * 0.1);
 
         performance.last_update = Utc::now();
         stats.last_update = Utc::now();

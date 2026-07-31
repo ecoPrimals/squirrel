@@ -341,7 +341,7 @@ fn test_cleanup_no_excess_returns_zero() {
 }
 
 #[test]
-fn test_cleanup_if_needed() {
+fn test_cleanup_trims_to_max() {
     let dir = tempdir().expect("should succeed");
     let path = dir.path().join("cleanup_needed.json");
     let mut history = CommandHistory::with_options(2, &path).expect("should succeed");
@@ -359,7 +359,7 @@ fn test_cleanup_if_needed() {
         }
     }
 
-    history.cleanup_if_needed().expect("cleanup_if_needed");
+    history.cleanup().expect("cleanup");
     let entries = history.get_last(100).expect("get");
     assert_eq!(entries.len(), 2);
 }

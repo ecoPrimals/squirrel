@@ -529,13 +529,6 @@ impl CommandHistory {
 
         Ok(entries_to_remove)
     }
-
-    /// Cleans up old entries if the history size exceeds the maximum limit
-    /// This is used internally when adding new entries to maintain size limits
-    fn cleanup_if_needed(&mut self) -> Result<(), CommandError> {
-        self.cleanup()?;
-        Ok(())
-    }
 }
 
 // Implement Default for CommandHistory

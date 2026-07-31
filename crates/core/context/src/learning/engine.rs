@@ -299,12 +299,10 @@ impl NeuralNetwork {
         let mut h = Vec::with_capacity(hidden);
         for i in 0..hidden {
             let row = self.weights.get(i);
-            let sum: f64 = row
-                .map(|rw| {
-                    rw.iter().zip(x.iter()).map(|(a, b)| a * b).sum::<f64>()
-                        + b0.get(i).copied().unwrap_or(0.0)
-                })
-                .unwrap_or(0.0);
+            let sum: f64 = row.map_or(0.0, |rw| {
+                rw.iter().zip(x.iter()).map(|(a, b)| a * b).sum::<f64>()
+                    + b0.get(i).copied().unwrap_or(0.0)
+            });
             h.push(Self::relu(sum));
         }
         let b1 = self.biases.get(1).map_or(&[] as &[f64], Vec::as_slice);
@@ -530,7 +528,7 @@ impl LearningEngine {
                 "q_value": best_q_value,
                 "greedy": true
             }),
-            confidence: (best_q_value + 1.0) / 2.0, // Normalize to 0-1
+            confidence: f64::midpoint(best_q_value, 1.0), // Normalize to 0-1
             expected_reward: best_q_value,
         })
     }
@@ -575,7 +573,7 @@ impl LearningEngine {
                 "q_value": best_q_value,
                 "network": true
             }),
-            confidence: (best_q_value + 1.0) / 2.0,
+            confidence: f64::midpoint(best_q_value, 1.0),
             expected_reward: best_q_value,
         })
     }
@@ -583,7 +581,6 @@ impl LearningEngine {
     /// Update Q-values based on experience
     pub async fn update_q_values(&self, experience: &RLExperience) -> Result<()> {
         match self.config.algorithm {
-            LearningAlgorithm::QLearning => self.update_q_learning(experience).await,
             LearningAlgorithm::DeepQLearning
             | LearningAlgorithm::DoubleDQN
             | LearningAlgorithm::DuelingDQN => self.update_dqn(experience).await,
@@ -611,20 +608,24 @@ impl LearningEngine {
                 .map(|(_, q)| q.value)
                 .fold(f64::NEG_INFINITY, f64::max);
 
-            experience.reward + self.config.discount_factor * max_next_q
+            self.config
+                .discount_factor
+                .mul_add(max_next_q, experience.reward)
         } else {
             experience.reward
         };
 
         // Update Q-value using Q-learning update rule
-        let new_q = current_q + self.config.learning_rate * (target_q - current_q);
+        let new_q = self
+            .config
+            .learning_rate
+            .mul_add(target_q - current_q, current_q);
 
         // Get current update count before inserting
         let state_action_key = format!("{}_{}", experience.state.id, experience.action.action_type);
         let update_count = q_table
             .get(&state_action_key)
-            .map(|q| q.update_count + 1)
-            .unwrap_or(1);
+            .map_or(1, |q| q.update_count + 1);
 
         // Store updated Q-value
         q_table.insert(

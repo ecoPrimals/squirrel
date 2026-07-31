@@ -23,15 +23,15 @@ async fn test_manager_learning_stats_after_multiple_episodes() {
 
     for i in 0..5 {
         let episode_id = manager
-            .start_episode(&format!("context_{}", i))
+            .start_episode(&format!("context_{i}"))
             .await
             .expect("Failed to start episode");
         manager
-            .take_action(&episode_id, &format!("context_{}", i))
+            .take_action(&episode_id, &format!("context_{i}"))
             .await
             .expect("Failed to take action");
         manager
-            .provide_reward(&episode_id, (i + 1) as f64)
+            .provide_reward(&episode_id, f64::from(i + 1))
             .await
             .expect("Failed to provide reward");
         manager
@@ -229,7 +229,7 @@ async fn test_manager_learning_stats_success_rate() {
 
     for i in 0..5 {
         let ep = manager
-            .start_episode(&format!("ctx_{}", i))
+            .start_episode(&format!("ctx_{i}"))
             .await
             .expect("Failed");
         manager.provide_reward(&ep, 1.0).await.expect("Failed");

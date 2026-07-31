@@ -450,7 +450,7 @@ impl RewardSystem {
             ErrorSeverity::Critical => 15.0,
         };
 
-        let impact_multiplier = (error_info.impact + 1.0).ln();
+        let impact_multiplier = error_info.impact.ln_1p();
         let recovery_factor = if error_info.recoverable { 0.5 } else { 1.0 };
 
         Ok(base_penalty * impact_multiplier * recovery_factor)
@@ -503,8 +503,8 @@ impl RewardSystem {
 
         // Update average
         let old_avg = metrics.average_reward;
-        metrics.average_reward =
-            (old_avg * (metrics.total_rewards - 1) as f64 + reward) / metrics.total_rewards as f64;
+        metrics.average_reward = old_avg.mul_add((metrics.total_rewards - 1) as f64, reward)
+            / metrics.total_rewards as f64;
 
         // Update min/max
         if reward > metrics.max_reward {
@@ -523,8 +523,9 @@ impl RewardSystem {
 
         // Update variance (simplified)
         let diff = reward - metrics.average_reward;
-        metrics.reward_variance = (metrics.reward_variance * (metrics.total_rewards - 1) as f64
-            + diff * diff)
+        metrics.reward_variance = metrics
+            .reward_variance
+            .mul_add((metrics.total_rewards - 1) as f64, diff * diff)
             / metrics.total_rewards as f64;
 
         metrics.last_calculation = Utc::now();

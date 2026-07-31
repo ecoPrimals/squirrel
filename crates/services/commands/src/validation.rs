@@ -69,7 +69,7 @@ pub struct ValidationContext {
     data: RwLock<HashMap<String, String>>,
     /// Rules for validation (currently unused)
     #[serde(skip)]
-    rules: HashMap<String, Arc<dyn ValidationRule>>,
+    _rules: HashMap<String, Arc<dyn ValidationRule>>,
 }
 
 impl ValidationContext {
@@ -80,7 +80,7 @@ impl ValidationContext {
             arguments: HashMap::new(),
             environment: HashMap::new(),
             data: RwLock::new(HashMap::new()),
-            rules: HashMap::new(),
+            _rules: HashMap::new(),
         }
     }
 
@@ -134,9 +134,9 @@ impl Default for ValidationContext {
 #[derive(Debug)]
 pub struct CommandValidator {
     /// Map of pattern names to regex patterns used for validation
-    patterns: HashMap<String, Regex>,
+    _patterns: HashMap<String, Regex>,
     /// Context for validation operations containing metadata about the command being validated
-    context: ValidationContext,
+    _context: ValidationContext,
     /// List of validation rules (Arc for O(1) clone when sharing)
     rules: RwLock<Vec<Arc<dyn ValidationRule>>>,
 }
@@ -146,8 +146,8 @@ impl CommandValidator {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            patterns: HashMap::new(),
-            context: ValidationContext::new(),
+            _patterns: HashMap::new(),
+            _context: ValidationContext::new(),
             rules: RwLock::new(Vec::new()),
         }
     }

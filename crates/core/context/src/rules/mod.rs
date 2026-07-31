@@ -199,7 +199,7 @@ impl ContextPlugin for NoOpPluginManager {
     ) -> Pin<Box<dyn Future<Output = AnyhowResult<Arc<dyn DynContextTransformation>>> + Send + '_>>
     {
         let id = id.to_string();
-        Box::pin(async move { Err(anyhow::anyhow!("Transformation not found: {}", id)) })
+        Box::pin(async move { Err(anyhow::anyhow!("Transformation not found: {id}")) })
     }
 
     fn get_adapter(
@@ -207,7 +207,7 @@ impl ContextPlugin for NoOpPluginManager {
         id: &str,
     ) -> Pin<Box<dyn Future<Output = AnyhowResult<Arc<dyn ContextAdapterDyn>>> + Send + '_>> {
         let id = id.to_string();
-        Box::pin(async move { Err(anyhow::anyhow!("Adapter not found: {}", id)) })
+        Box::pin(async move { Err(anyhow::anyhow!("Adapter not found: {id}")) })
     }
 
     fn get_transformations(
@@ -228,6 +228,7 @@ impl ContextPlugin for NoOpPluginManager {
 
 /// Rule builder for creating rules
 #[derive(Debug, Default)]
+#[must_use]
 pub struct RuleBuilder {
     id: Option<String>,
     name: Option<String>,

@@ -61,7 +61,7 @@ impl DefenseClient {
             )
             .await?;
 
-        Ok(parse_defense_alert(response))
+        Ok(parse_defense_alert(&response))
     }
 
     /// Detect behavioral anomalies via the defense provider.
@@ -85,7 +85,7 @@ impl DefenseClient {
             )
             .await?;
 
-        Ok(parse_defense_alert(response))
+        Ok(parse_defense_alert(&response))
     }
 
     async fn call_defense_rpc(
@@ -127,7 +127,8 @@ impl DefenseClient {
     }
 
     async fn resolve_provider(&self) -> Result<CapabilityProvider, PrimalError> {
-        if let Some(provider) = self.cached_provider.read().await.clone() {
+        let cached = self.cached_provider.read().await.clone();
+        if let Some(provider) = cached {
             return Ok(provider);
         }
 
@@ -164,10 +165,10 @@ impl DefenseClient {
 }
 
 /// Parse a defense provider IPC response into a [`SecurityAlert`], if present.
-fn parse_defense_alert(response: serde_json::Value) -> Option<SecurityAlert> {
+fn parse_defense_alert(response: &serde_json::Value) -> Option<SecurityAlert> {
     let alert_value = response.get("alert").or_else(|| {
         if response.get("alert_type").is_some() || response.get("title").is_some() {
-            Some(&response)
+            Some(response)
         } else {
             None
         }
@@ -180,14 +181,12 @@ fn parse_defense_alert(response: serde_json::Value) -> Option<SecurityAlert> {
     let alert_type = alert_value
         .get("alert_type")
         .and_then(|v| v.as_str())
-        .map(parse_alert_type)
-        .unwrap_or(AlertType::SuspiciousBehavior);
+        .map_or(AlertType::SuspiciousBehavior, parse_alert_type);
 
     let severity = alert_value
         .get("severity")
         .and_then(|v| v.as_str())
-        .map(parse_severity)
-        .unwrap_or(EventSeverity::Warning);
+        .map_or(EventSeverity::Warning, parse_severity);
 
     let title = alert_value
         .get("title")
@@ -246,7 +245,6 @@ fn parse_alert_type(value: &str) -> AlertType {
 fn parse_severity(value: &str) -> EventSeverity {
     match value {
         "Info" | "info" => EventSeverity::Info,
-        "Warning" | "warning" => EventSeverity::Warning,
         "High" | "high" => EventSeverity::High,
         "Critical" | "critical" => EventSeverity::Critical,
         _ => EventSeverity::Warning,
@@ -271,7 +269,7 @@ mod tests {
             }
         });
 
-        let alert = parse_defense_alert(response).expect("should parse");
+        let alert = parse_defense_alert(&response).expect("should parse");
         assert_eq!(alert.alert_type, AlertType::BruteForceAttempt);
         assert_eq!(alert.severity, EventSeverity::High);
         assert_eq!(alert.affected_entities, vec!["10.0.0.1".to_string()]);
@@ -279,7 +277,7 @@ mod tests {
 
     #[test]
     fn parse_defense_alert_null_returns_none() {
-        assert!(parse_defense_alert(serde_json::json!({ "alert": null })).is_none());
+        assert!(parse_defense_alert(&serde_json::json!({ "alert": null })).is_none());
     }
 
     #[tokio::test]

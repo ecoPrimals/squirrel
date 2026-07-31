@@ -38,7 +38,7 @@ impl UniversalOrchestrationAdapter {
     pub async fn coordinate_ai_workflow(
         &mut self,
         workflow_type: &str,
-        _participants: Vec<String>,
+        participants: Vec<String>,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
             "🎼 Coordinating AI workflow '{}' via universal adapter",
@@ -69,7 +69,7 @@ impl UniversalOrchestrationAdapter {
 
         let params = serde_json::json!({
             "workflow_type": workflow_type,
-            "participants": _participants,
+            "participants": participants,
         });
 
         super::ipc::send_rpc_request(&socket, "orchestration.workflow_coordinate", Some(params))

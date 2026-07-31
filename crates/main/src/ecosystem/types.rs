@@ -148,7 +148,7 @@ impl CapabilityDomain {
 
     /// Get the underlying capability identifier.
     #[must_use]
-    pub fn identifier(&self) -> &CapabilityIdentifier {
+    pub const fn identifier(&self) -> &CapabilityIdentifier {
         &self.0
     }
 
@@ -615,7 +615,7 @@ mod tests {
         let id = CapabilityIdentifier::from_domain(&domain);
         assert_eq!(id.as_str(), "security");
         assert_eq!(id.as_domain().as_str(), "security");
-        let from: CapabilityIdentifier = domain.clone().into();
+        let from: CapabilityIdentifier = domain.into();
         assert_eq!(from.as_str(), "security");
     }
 

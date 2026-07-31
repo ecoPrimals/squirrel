@@ -53,7 +53,7 @@ fn test_learning_algorithm_variants() {
 
     for algo in algorithms {
         let cloned = algo.clone();
-        let debug_str = format!("{:?}", cloned);
+        let debug_str = format!("{cloned:?}");
         assert!(!debug_str.is_empty());
     }
 }
@@ -166,7 +166,7 @@ fn test_rl_experience_clone() {
         priority: 1.0,
     };
 
-    let cloned = exp.clone();
+    let cloned = exp;
     assert_eq!(cloned.reward, 1.5);
     assert!(!cloned.done);
 }
@@ -226,7 +226,7 @@ fn test_rl_action_empty_params() {
         expected_reward: 0.0,
     };
 
-    let debug_str = format!("{:?}", action);
+    let debug_str = format!("{action:?}");
     assert!(debug_str.contains("action_1"));
 }
 
@@ -280,7 +280,7 @@ fn test_learning_engine_config_exploration() {
 #[test]
 fn test_learning_engine_config_debug() {
     let config = LearningEngineConfig::default();
-    let debug_str = format!("{:?}", config);
+    let debug_str = format!("{config:?}");
     assert!(debug_str.contains("LearningEngineConfig"));
 }
 
@@ -344,7 +344,7 @@ fn test_learning_algorithm_equality() {
 
 #[test]
 fn test_rl_state_large_features() {
-    let features: Vec<f64> = (0..128).map(|i| i as f64).collect();
+    let features: Vec<f64> = (0..128).map(f64::from).collect();
     let state = RLState {
         id: "large_state".to_string(),
         features,

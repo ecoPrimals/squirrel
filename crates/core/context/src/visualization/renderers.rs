@@ -103,13 +103,13 @@ mod tests {
     #[tokio::test]
     async fn test_json_renderer_new() {
         let renderer = JsonRenderer::new();
-        let _ = format!("{:?}", renderer);
+        let _ = format!("{renderer:?}");
     }
 
     #[tokio::test]
     async fn test_json_renderer_default() {
         let renderer = JsonRenderer;
-        let _ = format!("{:?}", renderer);
+        let _ = format!("{renderer:?}");
     }
 
     #[tokio::test]
@@ -136,13 +136,13 @@ mod tests {
     #[tokio::test]
     async fn test_terminal_renderer_new() {
         let renderer = TerminalRenderer::new();
-        let _ = format!("{:?}", renderer);
+        let _ = format!("{renderer:?}");
     }
 
     #[tokio::test]
     async fn test_terminal_renderer_default() {
         let renderer = TerminalRenderer;
-        let _ = format!("{:?}", renderer);
+        let _ = format!("{renderer:?}");
     }
 
     #[tokio::test]
@@ -183,9 +183,9 @@ mod tests {
         let result = renderer.render(&json!([1, 2, 3])).await;
         assert!(result.is_ok());
         let output = result.expect("should succeed");
-        assert!(output.contains("["));
-        assert!(output.contains("]"));
-        assert!(output.contains("1"));
+        assert!(output.contains('['));
+        assert!(output.contains(']'));
+        assert!(output.contains('1'));
     }
 
     #[tokio::test]

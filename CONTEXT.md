@@ -73,7 +73,7 @@ Other workspace crates include auth, context, interfaces, plugins, config, comma
 
 ## Test suite
 
-- **763** tests passing (4,946 `#[test]` attrs; balance behind feature gates), 0 failures.
+- **7,138** tests passing (`--all-features`), 0 failures.
 - **Zero `.unwrap()`** and **zero `panic!()`** in production code — all error handling is typed.
 - **Property-based** tests (e.g. `proptest` for serialization invariants).
 - Coverage target: 90% (see `CURRENT_STATUS.md` for latest figures).

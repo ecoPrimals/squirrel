@@ -271,7 +271,7 @@ fn test_experience_buffer_add_and_get() {
 fn test_experience_buffer_sample_uniform() {
     let mut buf = ExperienceBuffer::new(100);
     for i in 0..20 {
-        buf.add(make_rl_experience(&format!("e{}", i), 1.0));
+        buf.add(make_rl_experience(&format!("e{i}"), 1.0));
     }
     let sample = buf.sample_uniform(5);
     assert_eq!(sample.len(), 5);
@@ -301,8 +301,8 @@ async fn test_experience_replay_prioritized_sampling() {
     let replay =
         ExperienceReplay::with_sampling_strategy(50, SamplingStrategy::Prioritized(config));
     for i in 0..20 {
-        let mut exp = make_rl_experience(&format!("e{}", i), 1.0);
-        exp.priority = (i as f64) / 20.0;
+        let mut exp = make_rl_experience(&format!("e{i}"), 1.0);
+        exp.priority = f64::from(i) / 20.0;
         replay.add_experience(exp).await.expect("add");
     }
     let batch = replay.sample_batch(5).await.expect("sample");
@@ -405,7 +405,7 @@ async fn test_policy_network_new() {
 async fn test_policy_network_forward() {
     let config = test_helpers::create_test_policy_config();
     let net = PolicyNetwork::new(config).await.expect("create");
-    let input: Vec<f64> = (0..10).map(|i| i as f64 / 10.0).collect();
+    let input: Vec<f64> = (0..10).map(|i| f64::from(i) / 10.0).collect();
     let action = net.forward(&input).await.expect("forward");
     assert_eq!(action.action_probabilities.len(), 5);
     assert!(action.selected_action < 5);
@@ -434,7 +434,7 @@ async fn test_policy_network_train() {
     let config = test_helpers::create_test_policy_config();
     let net = PolicyNetwork::new(config).await.expect("create");
     let exps: Vec<RLExperience> = (0..5)
-        .map(|i| make_rl_experience(&format!("e{}", i), 1.0))
+        .map(|i| make_rl_experience(&format!("e{i}"), 1.0))
         .collect();
     net.train(&exps).await.expect("train");
     let state = net.get_training_state().await;

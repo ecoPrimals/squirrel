@@ -169,7 +169,7 @@ mod tests {
     #[test]
     fn test_error_debug() {
         let err = ContextError::PluginsDisabled;
-        let debug_str = format!("{:?}", err);
+        let debug_str = format!("{err:?}");
         assert!(debug_str.contains("PluginsDisabled"));
     }
 

@@ -488,8 +488,9 @@ impl VisualizationManager {
         stats.total_renderings += 1;
 
         // Update running average
-        let total_time =
-            stats.average_render_time_ms * (stats.total_renderings - 1) as f64 + render_time_ms;
+        let total_time = stats
+            .average_render_time_ms
+            .mul_add((stats.total_renderings - 1) as f64, render_time_ms);
         stats.average_render_time_ms = total_time / stats.total_renderings as f64;
 
         stats.last_updated = Utc::now();
