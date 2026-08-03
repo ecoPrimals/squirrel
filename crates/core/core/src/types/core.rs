@@ -3,17 +3,13 @@
 
 //! Core types for Squirrel ecosystem coordination.
 
-#![allow(deprecated)]
-
-use ecosystem_api::PrimalType;
-
 /// Endpoint for a primal in the ecosystem.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PrimalEndpoint {
     /// Unique primal identifier.
     pub id: String,
-    /// Type of primal (MCP, AI, etc.).
-    pub primal_type: PrimalType,
+    /// Primary capability domain (e.g. "ai", "neural", "compute").
+    pub capability_domain: String,
     /// Network endpoint URL.
     pub endpoint: String,
     /// Capabilities this primal provides.
@@ -105,8 +101,8 @@ pub struct TaskRequirements {
     pub network: Option<f64>,
     /// Required capabilities.
     pub required_capabilities: Vec<String>,
-    /// Preferred primal types.
-    pub preferred_primals: Vec<PrimalType>,
+    /// Preferred capability domains (e.g. "ai", "neural").
+    pub preferred_domains: Vec<String>,
     /// Additional constraints.
     pub constraints: std::collections::HashMap<String, String>,
 }

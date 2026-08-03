@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 3, 2026 — Wave 156a: PrimalType Deprecation + Test Consolidation)
+
+- **`PrimalType` eliminated from `squirrel-core`**: Migrated all 7 deprecated `PrimalType` usages in `routing/config.rs` and `types/mesh.rs` to capability-domain `String` types. `RoutingCondition::PrimalType` → `CapabilityDomain`, `RoutingAction::UsePrimal` → `UseCapabilityDomain`, `ScalingAction::RequestPrimalAssistance` → `RequestCapabilityAssistance`, `CrossPrimalRoute.source_primal/target_primal` → `source_domain/target_domain`, `PrimalEndpoint.primal_type` → `capability_domain`, `TaskRequirements.preferred_primals` → `preferred_domains`. Zero compiler warnings across workspace.
+- **Stale `allow(dead_code)` removed**: `jsonrpc_server.rs` `socket_path` field was incorrectly marked dead — it is used in production at socket bind. Removed spurious lint suppression.
+- **Integration test consolidation**: 34 separate integration test files (each compiled as an independent ~130MB binary, 34 link cycles) consolidated into a single `tests/main.rs` binary via `#[path]` module tree. Files moved to `tests/integration/` subdirectory. Build artifacts reduced from **9.5 GB to 4.1 GB** (57%). Incremental test compilation drops from ~5 min to ~15 sec. 7,243 tests preserved, zero test regressions.
+- **`chaos_testing.rs` shim deleted**: Was a 52-line file that only did `mod chaos;`. The chaos module is now loaded directly from `main.rs`.
+- **7,243 tests passing** (`--all-features`), Clippy clean, fmt clean, zero warnings.
+
 ### Summary (Aug 3, 2026 — Wave 155p: G18 Signal Graph Dispatch + Niche Completeness)
 
 - **`signal.dispatch` wired**: Implemented end-to-end signal dispatch through biomeOS signal graphs. Four-strategy resolution cascade: (1) local JSON-RPC methods, (2) registered providers (`provider.register`'d springs), (3) spring tools (`mcp.tools.list` discovery), (4) capability-based socket discovery. `Box::pin` breaks async recursion cycle.

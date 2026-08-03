@@ -79,7 +79,7 @@ impl PrimalCoordinator for EcosystemService {
                 .monitoring
                 .record_event(MonitoringEvent::PrimalDiscovered {
                     primal_id: primal.id.clone(),
-                    primal_type: format!("{:?}", primal.primal_type),
+                    primal_type: primal.capability_domain.clone(),
                     endpoint: primal.endpoint.clone(),
                     timestamp: Utc::now(),
                 })
@@ -256,11 +256,11 @@ impl EcosystemService {
     ///
     /// Resolution order:
     /// 1. Match discovered primals by `task.requirements.required_capabilities`
-    /// 2. Prefer primals in `task.requirements.preferred_primals`
+    /// 2. Prefer primals in `task.requirements.preferred_domains`
     /// 3. If no match, return error (caller may fall back to local execution in sovereign mode)
     fn route_task_to_primal(&self, task: &Task) -> Result<serde_json::Value> {
         let required = &task.requirements.required_capabilities;
-        let preferred = &task.requirements.preferred_primals;
+        let preferred = &task.requirements.preferred_domains;
 
         let candidate_ids: Vec<String> = self
             .discovered_primals
@@ -296,7 +296,7 @@ impl EcosystemService {
                 .find(|id| {
                     self.discovered_primals
                         .get(id.as_str())
-                        .is_some_and(|p| preferred.contains(&p.primal_type))
+                        .is_some_and(|p| preferred.contains(&p.capability_domain))
                 })
                 .cloned()
                 .unwrap_or_else(|| candidate_ids[0].clone())
@@ -326,7 +326,7 @@ impl EcosystemService {
             "result": "task_routed",
             "task_id": task.id,
             "primal_id": selected.id,
-            "primal_type": format!("{:?}", selected.primal_type),
+            "capability_domain": &selected.capability_domain,
             "endpoint": selected.endpoint,
             "timestamp": Utc::now().to_rfc3339()
         }))

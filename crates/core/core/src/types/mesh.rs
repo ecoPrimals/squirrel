@@ -3,8 +3,6 @@
 
 //! Mesh-related types for federation and load balancing.
 
-use ecosystem_api::PrimalType;
-
 use super::core::{HealthStatus, TaskPriority, TaskType};
 
 /// Result of agent coordination.
@@ -260,17 +258,17 @@ pub enum ScaleAction {
     RebalanceLoad,
     /// Delegate to federation.
     DelegateToFederation,
-    /// Request assistance from primal type.
-    RequestPrimalAssistance(PrimalType),
+    /// Request assistance from a capability domain.
+    RequestCapabilityAssistance(String),
 }
 
 /// Route for cross-primal task delegation.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CrossPrimalRoute {
-    /// Source primal type.
-    pub source_primal: PrimalType,
-    /// Target primal type.
-    pub target_primal: PrimalType,
+    /// Source capability domain (e.g. "ai", "neural").
+    pub source_domain: String,
+    /// Target capability domain.
+    pub target_domain: String,
     /// Task types for this route.
     pub task_types: Vec<TaskType>,
     /// Estimated benefit.

@@ -13,7 +13,6 @@ use crate::{
 use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode};
 use chrono::Duration as ChronoDuration;
-use ecosystem_api::PrimalType;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tower05::util::ServiceExt;
@@ -206,7 +205,7 @@ async fn coordinate_task_returns_503_when_routing_fails() {
             storage: None,
             network: None,
             required_capabilities: vec!["missing".to_string()],
-            preferred_primals: vec![PrimalType::Squirrel],
+            preferred_domains: vec!["ai".to_string()],
             constraints: HashMap::new(),
         },
         context: serde_json::json!({}),

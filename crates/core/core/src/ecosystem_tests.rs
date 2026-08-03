@@ -8,7 +8,6 @@ use crate::{
     PrimalCoordinator, Task, TaskPriority, TaskRequirements, TaskType,
 };
 use chrono::Duration as ChronoDuration;
-use ecosystem_api::PrimalType;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -31,7 +30,7 @@ fn sample_task() -> Task {
             storage: None,
             network: None,
             required_capabilities: vec!["nonexistent-cap".to_string()],
-            preferred_primals: vec![PrimalType::Squirrel],
+            preferred_domains: vec!["ai".to_string()],
             constraints: HashMap::new(),
         },
         context: serde_json::json!({}),

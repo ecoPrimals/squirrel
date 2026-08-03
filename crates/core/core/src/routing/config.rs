@@ -6,7 +6,7 @@
 //! This module contains all configuration structures and enums for the MCP routing service,
 //! including load balancing strategies, agent selection, and manual routing rules.
 
-use crate::{PrimalType, TaskPriority};
+use crate::TaskPriority;
 use chrono::Duration;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -148,8 +148,8 @@ pub enum RoutingCondition {
     TaskType(String),
     /// Match by required capability
     RequiredCapability(String),
-    /// Match by primal type
-    PrimalType(PrimalType),
+    /// Match by capability domain (e.g. "ai", "neural", "compute")
+    CapabilityDomain(String),
     /// Match by user request
     UserRequest(String),
     /// Match by task tag
@@ -167,8 +167,8 @@ pub enum RoutingAction {
     UseAgent(String),
     /// Use specific agent group
     UseAgentGroup(String),
-    /// Use specific primal type
-    UsePrimal(PrimalType),
+    /// Route to capability domain
+    UseCapabilityDomain(String),
     /// Set task priority
     SetPriority(TaskPriority),
     /// Reject the task with reason

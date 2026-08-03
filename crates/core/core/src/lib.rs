@@ -193,10 +193,6 @@ pub trait SwarmManager: Send + Sync {
     async fn balance_load(&self, load: LoadMetrics) -> Result<LoadBalanceResult>;
 }
 
-// Re-export canonical PrimalType from ecosystem-api for ecosystem-wide consistency
-#[allow(deprecated)]
-pub use ecosystem_api::PrimalType;
-
 /// Squirrel MCP protocol version.
 pub const SQUIRREL_MCP_VERSION: &str = "2.2.0";
 /// Primal type identifier for Squirrel (canonical source: `universal_constants::capabilities`).
