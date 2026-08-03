@@ -493,9 +493,9 @@ mod tests {
     #[tokio::test]
     async fn test_discover_services_all_required_capabilities() {
         let registry = create_test_registry();
-        let capabilities: Vec<_> = crate::niche::REQUIRED_CAPABILITIES
+        let capabilities: Vec<_> = crate::niche::CONSUMED_CAPABILITIES
             .iter()
-            .map(|(cap, _, _)| CapabilityIdentifier::new(*cap))
+            .map(|cap| CapabilityIdentifier::new(cap))
             .collect();
         let result = DiscoveryOps::discover_services(&registry, capabilities).await;
         assert!(result.is_ok());

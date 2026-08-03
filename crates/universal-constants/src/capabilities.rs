@@ -86,6 +86,9 @@ pub const SQUIRREL_EXPOSED_CAPABILITIES: &[&str] = &[
     "ai.complete",
     "ai.chat",
     "ai.list_providers",
+    // Signal graph dispatch — G18 spring orchestration
+    "signal.plan",
+    "signal.dispatch",
     // Capability routing (capabilities.list is canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1)
     "capabilities.list",
     "capability.announce",

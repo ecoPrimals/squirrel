@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! AI domain JSON-RPC handlers — `ai.query`, `ai.list_providers`, `ai.complete`, `ai.chat`.
+//! AI domain JSON-RPC handlers — `ai.query`, `ai.list_providers`, `signal.plan`, `signal.dispatch`.
 
 use super::jsonrpc_server::{JsonRpcError, JsonRpcServer, error_codes};
 use super::types::{
-    ListProvidersResponse, ProviderInfo, QueryAiRequest, QueryAiResponse, SignalPlanResponse,
-    SignalPlanStep, SignalToolDef,
+    ListProvidersResponse, ProviderInfo, QueryAiRequest, QueryAiResponse, SignalDispatchResponse,
+    SignalPlanResponse, SignalPlanStep, SignalToolDef,
 };
 use serde_json::Value;
 use std::time::Instant;
-use tracing::info;
+use tracing::{debug, info, warn};
 
 impl JsonRpcServer {
     /// Handle `ai.query` / `query_ai` method.
@@ -166,6 +166,153 @@ impl JsonRpcServer {
             code: error_codes::INTERNAL_ERROR,
             message: format!("Serialization error: {e}"),
             data: None,
+        })
+    }
+
+    /// Execute a single signal step by routing to the appropriate provider.
+    ///
+    /// Resolution order:
+    /// 1. Local JSON-RPC methods (squirrel-native capabilities)
+    /// 2. Registered providers (springs that called `provider.register`)
+    /// 3. Spring tools (discovered via `mcp.tools.list`)
+    /// 4. Capability-based socket discovery (provenance proxy pattern)
+    #[expect(
+        clippy::too_many_lines,
+        reason = "four-strategy resolution cascade — splitting loses dispatch context"
+    )]
+    pub(crate) async fn handle_signal_dispatch(
+        &self,
+        params: Option<Value>,
+    ) -> Result<Value, JsonRpcError> {
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: error_codes::INVALID_PARAMS,
+            message: "signal.dispatch requires params with 'signal' field".into(),
+            data: None,
+        })?;
+
+        let signal = params
+            .get("signal")
+            .and_then(Value::as_str)
+            .ok_or_else(|| JsonRpcError {
+                code: error_codes::INVALID_PARAMS,
+                message: "signal.dispatch requires 'signal' (method name string)".into(),
+                data: None,
+            })?;
+
+        let step_params = params.get("params").cloned();
+        let start = Instant::now();
+
+        info!(signal, "signal.dispatch: resolving route");
+
+        // Strategy 1: Local dispatch — method is handled by squirrel itself.
+        // Skip signal.* namespace to avoid recursive re-entry. Box::pin breaks
+        // the infinite-future-size cycle for the remaining local methods.
+        if !signal.starts_with("signal.") {
+            let local_result =
+                Box::pin(self.dispatch_jsonrpc_method(signal, step_params.clone())).await;
+            if let Ok(result) = local_result {
+                let response = SignalDispatchResponse {
+                    signal: signal.to_string(),
+                    success: true,
+                    result,
+                    routed_via: "local".to_string(),
+                    latency_ms: start.elapsed().as_millis() as u64,
+                };
+                return serde_json::to_value(response).map_err(|e| JsonRpcError {
+                    code: error_codes::INTERNAL_ERROR,
+                    message: format!("Serialization error: {e}"),
+                    data: None,
+                });
+            }
+        }
+
+        // Strategy 2: Registered providers (provider.register'd springs)
+        let domain = signal.split('.').next().unwrap_or(signal);
+        if let Some(socket) = self.find_provider_socket(domain).await {
+            debug!(
+                signal,
+                socket = socket.as_str(),
+                "Routing via provider registry"
+            );
+            let result = self
+                .forward_jsonrpc(signal, step_params.as_ref(), &socket)
+                .await?;
+            let response = SignalDispatchResponse {
+                signal: signal.to_string(),
+                success: true,
+                result,
+                routed_via: format!("provider:{domain}"),
+                latency_ms: start.elapsed().as_millis() as u64,
+            };
+            return serde_json::to_value(response).map_err(|e| JsonRpcError {
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("Serialization error: {e}"),
+                data: None,
+            });
+        }
+
+        // Strategy 3: Spring tool routing (mcp.tools.list discovery)
+        let spring_discovery = super::spring_tools::SpringToolDiscovery::new();
+        let routing_table = spring_discovery.build_routing_table().await;
+        if let Some(socket_path) = routing_table.get(signal) {
+            debug!(
+                signal,
+                socket = &**socket_path,
+                "Routing via spring tool discovery"
+            );
+            let result = self
+                .forward_jsonrpc(signal, step_params.as_ref(), socket_path)
+                .await?;
+            let response = SignalDispatchResponse {
+                signal: signal.to_string(),
+                success: true,
+                result,
+                routed_via: "spring".to_string(),
+                latency_ms: start.elapsed().as_millis() as u64,
+            };
+            return serde_json::to_value(response).map_err(|e| JsonRpcError {
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("Serialization error: {e}"),
+                data: None,
+            });
+        }
+
+        // Strategy 4: Capability-based socket discovery
+        if let Some(socket) = self.discover_capability_socket(domain).await {
+            debug!(
+                signal,
+                socket = socket.as_str(),
+                "Routing via socket discovery"
+            );
+            let result = self
+                .forward_jsonrpc(signal, step_params.as_ref(), &socket)
+                .await?;
+            let response = SignalDispatchResponse {
+                signal: signal.to_string(),
+                success: true,
+                result,
+                routed_via: format!("discovered:{domain}"),
+                latency_ms: start.elapsed().as_millis() as u64,
+            };
+            return serde_json::to_value(response).map_err(|e| JsonRpcError {
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("Serialization error: {e}"),
+                data: None,
+            });
+        }
+
+        warn!(signal, domain, "No route found for signal");
+        Err(JsonRpcError {
+            code: error_codes::INTERNAL_ERROR,
+            message: format!(
+                "No provider found for signal '{signal}'. \
+                 Ensure a spring or primal providing '{domain}.*' is registered or discoverable."
+            ),
+            data: Some(serde_json::json!({
+                "signal": signal,
+                "domain": domain,
+                "resolution": "awaiting_provider",
+            })),
         })
     }
 

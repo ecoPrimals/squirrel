@@ -91,7 +91,7 @@ impl JsonRpcServer {
     }
 
     /// Search the provider registry for a socket offering the given capability domain.
-    async fn find_provider_socket(&self, domain: &str) -> Option<String> {
+    pub(crate) async fn find_provider_socket(&self, domain: &str) -> Option<String> {
         use crate::universal_adapters::registry::UniversalServiceRegistry;
 
         let services = self.provider_registry.list_all_services().await.ok()?;
@@ -121,7 +121,7 @@ impl JsonRpcServer {
     }
 
     /// Scan the biomeos socket directory for a primal advertising the capability.
-    async fn discover_capability_socket(&self, domain: &str) -> Option<String> {
+    pub(crate) async fn discover_capability_socket(&self, domain: &str) -> Option<String> {
         let socket_dir = universal_constants::network::get_socket_dir();
         let dir = socket_dir.as_path();
         if !dir.is_dir() {
@@ -193,7 +193,7 @@ impl JsonRpcServer {
     }
 
     /// Forward a JSON-RPC request to a remote socket (or TCP fallback on non-Unix).
-    async fn forward_jsonrpc(
+    pub(crate) async fn forward_jsonrpc(
         &self,
         method: &str,
         params: Option<&Value>,

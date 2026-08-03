@@ -23,6 +23,7 @@ impl JsonRpcServer {
             "ai.query" | "ai.complete" | "ai.chat" | "signal.plan" => {
                 self.handle_query_ai(params).await
             }
+            "signal.dispatch" => self.handle_signal_dispatch(params).await,
             "ai.list_providers" => self.handle_list_providers(params).await,
 
             // Inference domain — vendor-agnostic wire standard

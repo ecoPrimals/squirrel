@@ -11,6 +11,17 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 3, 2026 — Wave 155p: G18 Signal Graph Dispatch + Niche Completeness)
+
+- **`signal.dispatch` wired**: Implemented end-to-end signal dispatch through biomeOS signal graphs. Four-strategy resolution cascade: (1) local JSON-RPC methods, (2) registered providers (`provider.register`'d springs), (3) spring tools (`mcp.tools.list` discovery), (4) capability-based socket discovery. `Box::pin` breaks async recursion cycle.
+- **`signal.plan` + `signal.dispatch` registered**: Added both methods to `CAPABILITIES`, `COST_ESTIMATES`, `SEMANTIC_MAPPINGS`, `operation_dependencies()`, `cost_estimates_json()`, `semantic_mappings_json()`, `capability_registry.toml`, and niche dispatch table. Full G18 signal-graph pipeline: plan → dispatch → route → execute.
+- **Niche completeness sweep**: Added 12 previously missing capabilities to `niche::CAPABILITIES` (`inference.register_provider`, `inference.unregister_provider`, `capabilities.announce`, `primal.announce`, `health`, `provider.register`, `provider.list`, `provider.deregister`, `btsp.negotiate`, `ipc.register`). Added `CAPABILITY_GROUP_DESCRIPTIONS` constant (19 domain descriptions).
+- **`cost_estimates_json()` refactored**: Replaced 40-entry `serde_json::json!` macro (hit recursion limit) with programmatic builder derived from `COST_ESTIMATES` constant — single source of truth, no duplication.
+- **Pre-existing debt fixed**: `REQUIRED_CAPABILITIES` → `CONSUMED_CAPABILITIES` rename in discovery test, `capability_registry.toml` path fix (`include_str!`), TOML type inference annotations, bare `"health"` method exclusion from domain.method format validation.
+- **Provenance methods promoted**: `find_provider_socket`, `forward_jsonrpc`, `discover_capability_socket` promoted from private to `pub(crate)` for cross-handler reuse (signal dispatch shares the provenance proxy's resolution pipeline).
+- **7 new signal.dispatch tests**: Missing params, missing signal field, local method resolution (system.ping, health.check), unknown signal error, dispatch-table routing, response shape validation.
+- **6,986 tests passing** (`--all-features`), Clippy clean (non-deprecated), fmt clean.
+
 ### Summary (July 30, 2026 — Wave 155n: Hardcode Evolution + Lockfile Purge)
 
 - **Magic number evolution**: Extracted hardcoded `86400`, `3600`, `300`, `100*1024*1024` from `storage_client`, `universal_primal_ecosystem`, and `compute_adapter` into `universal_constants::timeouts` named constants (`WARM_DATA_LIFETIME`, `HOT_DATA_LIFETIME`, `DEFAULT_STORAGE_OPERATION_TIMEOUT`, `MAX_SINGLE_UPLOAD_BYTES`, `DEFAULT_CAPABILITY_DISCOVERY_TTL_SECS`).

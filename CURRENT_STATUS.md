@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: July 30, 2026 (Wave 155n — Hardcode Evolution + Lockfile Purge)
+**Last Updated**: Aug 3, 2026 (Wave 155p — G18 Signal Graph Dispatch)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -12,7 +12,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | **7,138** passing / 0 failures across 16 workspace crates (`--all-features`); **6,453** with default features; **763** in main crate |
+| Tests | **6,986** passing / 0 failures across 16 workspace crates (`--all-features`) |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn`; `async-trait` only remains as transitive dep from external crate `config` |
 | Clippy | CLEAN — `pedantic + nursery + cargo`, `expect_used/unwrap_used = deny` workspace-wide; zero warnings under `-D warnings` |

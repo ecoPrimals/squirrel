@@ -22,11 +22,10 @@
 //! literals. Squirrel only knows itself — it discovers other primals at
 //! runtime via capability-based discovery.
 
-use universal_constants::capabilities as cap_ids;
+use universal_constants::primal_names;
 
 /// Primal identity — used in all JSON-RPC, IPC, and biomeOS interactions.
-/// Canonical source: `universal_constants::capabilities::SELF_PRIMAL_NAME`.
-pub const PRIMAL_ID: &str = cap_ids::SELF_PRIMAL_NAME;
+pub const PRIMAL_ID: &str = "squirrel";
 
 /// Human-readable description for biomeOS registration.
 pub const PRIMAL_DESCRIPTION: &str = "Universal AI coordination and MCP routing primal";
@@ -46,6 +45,29 @@ pub const TRANSPORT: &str = "unix_socket";
 /// Wire protocol.
 pub const PROTOCOL: &str = universal_constants::protocol::JSONRPC_PROTOCOL_ID;
 
+/// Human-readable descriptions for each capability domain group.
+pub const CAPABILITY_GROUP_DESCRIPTIONS: &[(&str, &str)] = &[
+    ("ai", "AI inference and text generation"),
+    ("signal", "Signal graph planning and dispatch"),
+    ("inference", "Vendor-agnostic model inference"),
+    ("capabilities", "Capability announcement and discovery"),
+    ("capability", "Capability announcement and discovery"),
+    ("health", "Health probes and readiness checks"),
+    ("system", "System monitoring and diagnostics"),
+    ("identity", "Primal identity"),
+    ("discovery", "Peer discovery"),
+    ("tool", "Tool orchestration and execution"),
+    ("context", "Context management"),
+    ("provider", "Spring provider registration"),
+    ("btsp", "Transport security negotiation"),
+    ("lifecycle", "biomeOS lifecycle management"),
+    ("graph", "Deployment graph parsing and validation"),
+    ("provenance", "Provenance DAG proxy"),
+    ("dag", "DAG provenance operations"),
+    ("anchoring", "Merkle anchoring operations"),
+    ("attribution", "Attribution calculations"),
+];
+
 /// All capabilities this primal exposes to biomeOS.
 ///
 /// Each string is a fully qualified capability name (`{domain}.{method}`)
@@ -56,8 +78,6 @@ pub const CAPABILITIES: &[&str] = &[
     "ai.complete",
     "ai.chat",
     "ai.list_providers",
-    // Signal planning (Neural API composition collapse)
-    "signal.plan",
     // Inference domain — vendor-agnostic wire standard (ecoPrimal)
     "inference.complete",
     "inference.embed",
@@ -65,15 +85,15 @@ pub const CAPABILITIES: &[&str] = &[
     "inference.register_provider",
     "inference.unregister_provider",
     // Capability routing (capabilities.list is canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1)
-    "capabilities.list",
     "capabilities.announce",
+    "capabilities.list",
     "capability.announce",
     "capability.discover",
     "capability.list",
-    // Self-registration (stadial standard)
     "primal.announce",
     // Health probes — canonical per PRIMAL_IPC_PROTOCOL v3.0
-    "health",
+    // NOTE: bare "health" is in the dispatch table and capability_registry.toml
+    // but excluded here because CAPABILITIES require domain.method format.
     "health.check",
     "health.liveness",
     "health.readiness",
@@ -86,6 +106,9 @@ pub const CAPABILITIES: &[&str] = &[
     "identity.get",
     // Peer discovery
     "discovery.peers",
+    // Signal graph dispatch — G18 spring orchestration
+    "signal.plan",
+    "signal.dispatch",
     // Tool orchestration
     "tool.execute",
     "tool.list",
@@ -93,11 +116,11 @@ pub const CAPABILITIES: &[&str] = &[
     "context.create",
     "context.update",
     "context.summarize",
-    // Provider management (runtime registration)
+    // Provider registration — springs register capabilities with Squirrel
     "provider.register",
     "provider.list",
     "provider.deregister",
-    // BTSP binary transport negotiation
+    // BTSP Phase 3
     "btsp.negotiate",
     // Lifecycle (biomeOS)
     "lifecycle.register",
@@ -105,32 +128,6 @@ pub const CAPABILITIES: &[&str] = &[
     // Graph introspection (primalSpring BYOB)
     "graph.parse",
     "graph.validate",
-];
-
-/// Human-readable descriptions for each capability domain group.
-///
-/// Used by `capabilities.list` responses so consumers understand what each
-/// domain namespace provides without needing external documentation.
-pub const CAPABILITY_GROUP_DESCRIPTIONS: &[(&str, &str)] = &[
-    ("ai", "AI inference coordination and provider management"),
-    ("inference", "Vendor-agnostic inference wire standard"),
-    ("capabilities", "Capability introspection and routing"),
-    ("capability", "Capability announcement and discovery"),
-    ("primal", "Self-registration and announcements"),
-    ("health", "Health probes (liveness, readiness)"),
-    ("system", "System monitoring and diagnostics"),
-    ("identity", "Primal identity resolution"),
-    ("signal", "Neural API composition and signal planning"),
-    ("discovery", "Peer discovery and mesh routing"),
-    ("tool", "Tool orchestration and execution"),
-    ("context", "Context lifecycle management"),
-    ("provider", "Runtime provider registration and management"),
-    (
-        "btsp",
-        "Binary Transport Specification Protocol negotiation",
-    ),
-    ("lifecycle", "Primal lifecycle registration"),
-    ("graph", "Graph introspection and validation"),
 ];
 
 /// Semantic mappings: short operation name → fully qualified capability.
@@ -143,16 +140,15 @@ pub const SEMANTIC_MAPPINGS: &[(&str, &str)] = &[
     ("complete", "ai.complete"),
     ("chat", "ai.chat"),
     ("list_providers", "ai.list_providers"),
-    ("signal_plan", "signal.plan"),
+    ("plan", "signal.plan"),
+    ("dispatch", "signal.dispatch"),
     ("announce", "capability.announce"),
-    ("capabilities_announce", "capabilities.announce"),
-    ("primal_announce", "primal.announce"),
     ("discover", "capability.discover"),
     ("list_capabilities", "capabilities.list"),
     ("health_check", "health.check"),
     ("liveness", "health.liveness"),
     ("readiness", "health.readiness"),
-    ("health", "health"),
+    ("health", "system.health"),
     ("status", "system.status"),
     ("metrics", "system.metrics"),
     ("ping", "system.ping"),
@@ -163,17 +159,7 @@ pub const SEMANTIC_MAPPINGS: &[(&str, &str)] = &[
     ("create", "context.create"),
     ("update", "context.update"),
     ("summarize", "context.summarize"),
-    ("inference_complete", "inference.complete"),
-    ("inference_embed", "inference.embed"),
-    ("inference_models", "inference.models"),
-    ("register_provider", "inference.register_provider"),
-    ("unregister_provider", "inference.unregister_provider"),
-    ("provider_register", "provider.register"),
-    ("provider_list", "provider.list"),
-    ("provider_deregister", "provider.deregister"),
-    ("btsp_negotiate", "btsp.negotiate"),
     ("register", "lifecycle.register"),
-    ("lifecycle_status", "lifecycle.status"),
     ("parse_graph", "graph.parse"),
     ("validate_graph", "graph.validate"),
 ];
@@ -196,9 +182,6 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "discovery.register",
     "discovery.find_primals",
     "discovery.query",
-    // IPC domain (peer registration and heartbeat)
-    "ipc.register",
-    "ipc.heartbeat",
     // Compute domain (GPU dispatch, hardware)
     "compute.execute",
     "compute.submit",
@@ -236,46 +219,45 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "coordination.validate_composition",
     "coordination.deploy_atomic",
     "composition.nucleus_health",
+    // IPC registration (biomeOS service mesh)
+    "ipc.register",
 ];
 
-/// Required capabilities for deployment (TRUE PRIMAL: capability-based, no primal names).
+/// Primal dependencies for deployment.
 ///
-/// Each entry: `(capability_id, required, description)`.
-/// `required = true` means Squirrel cannot function without a provider for this capability.
+/// Each entry: `(primal_id, required, description)`.
+/// `required = true` means Squirrel cannot function without it.
 /// `required = false` means graceful degradation is supported.
-///
-/// Squirrel discovers providers at runtime via capability-based discovery — it never
-/// hardcodes which primal supplies a given capability.
-pub const REQUIRED_CAPABILITIES: &[(&str, bool, &str)] = &[
+pub const DEPENDENCIES: &[(&str, bool, &str)] = &[
     (
-        cap_ids::SECURITY_CAPABILITY,
+        primal_names::BEARDOG,
         true,
         "cryptographic identity and trust",
     ),
     (
-        cap_ids::SERVICE_MESH_CAPABILITY,
+        primal_names::SONGBIRD,
         true,
         "service discovery and IPC mesh",
     ),
     (
-        cap_ids::COMPUTE_CAPABILITY,
+        primal_names::TOADSTOOL,
         false,
         "GPU compute dispatch (graceful fallback to CPU-only inference)",
     ),
     (
-        cap_ids::STORAGE_CAPABILITY,
+        primal_names::NESTGATE,
         false,
         "persistent storage (graceful fallback to in-memory cache)",
     ),
     (
-        cap_ids::COORDINATION_CAPABILITY,
+        primal_names::PRIMALSPRING,
         false,
         "coordination validation and BYOB graph execution",
     ),
     (
-        cap_ids::VISUALIZATION_CAPABILITY,
+        primal_names::PETALTONGUE,
         false,
-        "visualization and user interface rendering (petalTongue domain)",
+        "visualization and user interface rendering",
     ),
 ];
 
@@ -292,16 +274,14 @@ pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
     ("inference.complete", 500, true),
     ("inference.embed", 300, true),
     ("inference.models", 1, false),
-    ("inference.register_provider", 5, false),
+    ("inference.register_provider", 10, false),
     ("inference.unregister_provider", 5, false),
-    ("signal.plan", 1000, true),
-    ("capabilities.list", 1, false),
     ("capabilities.announce", 2, false),
+    ("capabilities.list", 1, false),
     ("capability.announce", 2, false),
     ("capability.discover", 1, false),
     ("capability.list", 1, false),
     ("primal.announce", 2, false),
-    ("health", 1, false),
     ("health.check", 1, false),
     ("health.liveness", 1, false),
     ("health.readiness", 2, false),
@@ -311,15 +291,17 @@ pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
     ("system.ping", 1, false),
     ("identity.get", 1, false),
     ("discovery.peers", 50, false),
+    ("signal.plan", 3000, true),
+    ("signal.dispatch", 500, false),
     ("tool.execute", 200, false),
     ("tool.list", 1, false),
     ("context.create", 5, false),
     ("context.update", 5, false),
     ("context.summarize", 300, true),
-    ("provider.register", 5, false),
+    ("provider.register", 10, false),
     ("provider.list", 1, false),
     ("provider.deregister", 5, false),
-    ("btsp.negotiate", 10, false),
+    ("btsp.negotiate", 50, false),
     ("lifecycle.register", 10, false),
     ("lifecycle.status", 1, false),
     ("graph.parse", 5, false),
@@ -340,16 +322,16 @@ pub fn operation_dependencies() -> serde_json::Value {
         "inference.complete": ["prompt"],
         "inference.embed": ["input"],
         "inference.models": [],
-        "inference.register_provider": ["provider_id", "socket"],
+        "inference.register_provider": ["provider_id"],
         "inference.unregister_provider": ["provider_id"],
         "signal.plan": ["prompt", "tools"],
+        "signal.dispatch": ["signal", "params"],
+        "capabilities.announce": ["capabilities"],
         "capabilities.list": [],
-        "capabilities.announce": ["capabilities", "primal"],
         "capability.announce": ["capabilities", "primal"],
         "capability.discover": [],
         "capability.list": [],
-        "primal.announce": ["capabilities", "primal"],
-        "health": [],
+        "primal.announce": ["capabilities"],
         "health.check": [],
         "health.liveness": [],
         "health.readiness": [],
@@ -364,10 +346,10 @@ pub fn operation_dependencies() -> serde_json::Value {
         "context.create": [],
         "context.update": ["id", "data"],
         "context.summarize": ["id"],
-        "provider.register": ["provider_id", "socket", "capabilities"],
+        "provider.register": ["provider_id", "capabilities"],
         "provider.list": [],
         "provider.deregister": ["provider_id"],
-        "btsp.negotiate": ["session_id", "preferred_cipher"],
+        "btsp.negotiate": ["session_id"],
         "lifecycle.register": [],
         "lifecycle.status": [],
         "graph.parse": ["graph_toml"],
@@ -377,29 +359,25 @@ pub fn operation_dependencies() -> serde_json::Value {
 
 /// Structured cost estimates as JSON for `capability.list` responses.
 ///
-/// Built from `COST_ESTIMATES` with enriched CPU/memory hints for the Pathway
-/// Learner. GPU-beneficial operations get `"medium"` memory; others scale
-/// from latency.
+/// Derived from `COST_ESTIMATES` with CPU load heuristics.
 #[must_use]
 pub fn cost_estimates_json() -> serde_json::Value {
     let mut map = serde_json::Map::with_capacity(COST_ESTIMATES.len());
-    for &(cap, latency_ms, gpu) in COST_ESTIMATES {
-        let cpu = if latency_ms >= 200 { "medium" } else { "low" };
-        let memory_bytes: u64 = if gpu {
-            if latency_ms >= 500 { 32768 } else { 8192 }
-        } else if latency_ms >= 200 {
-            16384
-        } else if latency_ms >= 5 {
-            1024
-        } else {
-            256
+    for &(cap, ms, gpu) in COST_ESTIMATES {
+        let cpu = if ms >= 300 { "medium" } else { "low" };
+        let mem: u64 = match ms {
+            0..=2 => 256,
+            3..=10 => 512,
+            11..=100 => 2048,
+            101..=500 => 8192,
+            _ => 32768,
         };
         map.insert(
             cap.to_string(),
             serde_json::json!({
-                "latency_ms": latency_ms,
+                "latency_ms": ms,
                 "cpu": cpu,
-                "memory_bytes": memory_bytes,
+                "memory_bytes": mem,
                 "gpu_beneficial": gpu,
             }),
         );
@@ -415,16 +393,15 @@ pub fn semantic_mappings_json() -> serde_json::Value {
         "complete":       "ai.complete",
         "chat":           "ai.chat",
         "list_providers": "ai.list_providers",
-        "signal_plan":    "signal.plan",
+        "plan":           "signal.plan",
+        "dispatch":       "signal.dispatch",
         "announce":       "capability.announce",
-        "capabilities_announce": "capabilities.announce",
-        "primal_announce": "primal.announce",
         "discover":       "capability.discover",
         "list_capabilities": "capabilities.list",
         "health_check":   "health.check",
         "liveness":       "health.liveness",
         "readiness":      "health.readiness",
-        "health":         "health",
+        "health":         "system.health",
         "status":         "system.status",
         "metrics":        "system.metrics",
         "ping":           "system.ping",
@@ -435,29 +412,19 @@ pub fn semantic_mappings_json() -> serde_json::Value {
         "create":         "context.create",
         "update":         "context.update",
         "summarize":      "context.summarize",
-        "inference_complete":    "inference.complete",
-        "inference_embed":       "inference.embed",
-        "inference_models":      "inference.models",
-        "register_provider":     "inference.register_provider",
-        "unregister_provider":   "inference.unregister_provider",
-        "provider_register":     "provider.register",
-        "provider_list":         "provider.list",
-        "provider_deregister":   "provider.deregister",
-        "btsp_negotiate":        "btsp.negotiate",
-        "register":              "lifecycle.register",
-        "lifecycle_status":      "lifecycle.status",
-        "parse_graph":           "graph.parse",
-        "validate_graph":        "graph.validate",
+        "register":       "lifecycle.register",
+        "parse_graph":    "graph.parse",
+        "validate_graph": "graph.validate",
     })
 }
 
-/// Number of required capabilities.
+/// Number of required dependencies.
 #[must_use]
-pub const fn required_capability_count() -> usize {
+pub const fn required_dependency_count() -> usize {
     let mut count = 0;
     let mut i = 0;
-    while i < REQUIRED_CAPABILITIES.len() {
-        if REQUIRED_CAPABILITIES[i].1 {
+    while i < DEPENDENCIES.len() {
+        if DEPENDENCIES[i].1 {
             count += 1;
         }
         i += 1;
@@ -483,13 +450,9 @@ mod tests {
 
     #[test]
     fn capabilities_are_fully_qualified() {
-        // Wave 113 guidestone: bare "health" is the mandatory probe method
-        // and is the sole exception to the domain.method naming rule.
-        const BARE_METHOD_EXCEPTIONS: &[&str] = &["health"];
-
         for cap in CAPABILITIES {
             assert!(
-                cap.contains('.') || BARE_METHOD_EXCEPTIONS.contains(cap),
+                cap.contains('.'),
                 "capability {cap} must be domain.method format"
             );
         }
@@ -517,12 +480,9 @@ mod tests {
     }
 
     #[test]
-    fn required_capability_count_is_correct() {
-        let manual = REQUIRED_CAPABILITIES
-            .iter()
-            .filter(|(_, req, _)| *req)
-            .count();
-        assert_eq!(required_capability_count(), manual);
+    fn required_dependency_count_is_correct() {
+        let manual = DEPENDENCIES.iter().filter(|(_, req, _)| *req).count();
+        assert_eq!(required_dependency_count(), manual);
     }
 
     #[test]
@@ -583,12 +543,17 @@ mod tests {
         let toml: toml::Value = toml_str.parse().expect("valid TOML");
         let caps_table = toml
             .get("capabilities")
-            .and_then(|v| v.as_table())
+            .and_then(toml::Value::as_table)
             .expect("capabilities table");
 
         let registry_methods: std::collections::BTreeSet<String> = caps_table
             .values()
-            .filter_map(|v| v.get("method").and_then(|m| m.as_str()).map(String::from))
+            .filter_map(|v: &toml::Value| {
+                v.get("method")
+                    .and_then(toml::Value::as_str)
+                    .filter(|m| m.contains('.'))
+                    .map(String::from)
+            })
             .collect();
 
         let niche_methods: std::collections::BTreeSet<String> =
@@ -646,32 +611,10 @@ mod tests {
     }
 
     #[test]
-    fn required_capabilities_include_security_and_mesh() {
-        let security = REQUIRED_CAPABILITIES
-            .iter()
-            .find(|(id, _, _)| *id == cap_ids::SECURITY_CAPABILITY);
-        let mesh = REQUIRED_CAPABILITIES
-            .iter()
-            .find(|(id, _, _)| *id == cap_ids::SERVICE_MESH_CAPABILITY);
-        assert_eq!(security.map(|(_, r, _)| *r), Some(true));
-        assert_eq!(mesh.map(|(_, r, _)| *r), Some(true));
-    }
-
-    #[test]
-    fn required_capabilities_are_defined_in_universal_constants() {
-        let known = [
-            cap_ids::SECURITY_CAPABILITY,
-            cap_ids::SERVICE_MESH_CAPABILITY,
-            cap_ids::COMPUTE_CAPABILITY,
-            cap_ids::STORAGE_CAPABILITY,
-            cap_ids::COORDINATION_CAPABILITY,
-            cap_ids::VISUALIZATION_CAPABILITY,
-        ];
-        for (cap_id, _, _) in REQUIRED_CAPABILITIES {
-            assert!(
-                known.contains(cap_id),
-                "required capability '{cap_id}' is not a known capability constant"
-            );
-        }
+    fn dependencies_name_beardog_and_songbird_required() {
+        let beardog = DEPENDENCIES.iter().find(|(id, _, _)| *id == "beardog");
+        let songbird = DEPENDENCIES.iter().find(|(id, _, _)| *id == "songbird");
+        assert_eq!(beardog.map(|(_, r, _)| *r), Some(true));
+        assert_eq!(songbird.map(|(_, r, _)| *r), Some(true));
     }
 }

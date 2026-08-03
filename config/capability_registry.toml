@@ -462,16 +462,38 @@ description = "Heartbeat status report to ecosystem orchestrator"
 [capabilities.lifecycle_status.input_schema]
 type = "object"
 
-# --- Signal domain (Neural API composition collapse) ---
-# stability: evolving — composition planning under active evolution
+# --- Signal domain (G18 spring orchestration via biomeOS signal graphs) ---
+# stability: evolving — signal dispatch pipeline under active wiring
 
 [capabilities.signal_plan]
 method = "signal.plan"
-domain = "signal.composition"
+domain = "signal.orchestration"
 stability = "evolving"
-description = "Plan signal composition for Neural API collapse"
+description = "Decompose intent into atomic signal execution steps via AI planning"
 [capabilities.signal_plan.input_schema]
 type = "object"
+required = ["prompt"]
+[capabilities.signal_plan.input_schema.properties.prompt]
+type = "string"
+description = "Intent to decompose"
+[capabilities.signal_plan.input_schema.properties.tools]
+type = "array"
+description = "Available signal tool definitions"
+
+[capabilities.signal_dispatch]
+method = "signal.dispatch"
+domain = "signal.execution"
+stability = "evolving"
+description = "Execute a single signal step by routing to the appropriate provider"
+[capabilities.signal_dispatch.input_schema]
+type = "object"
+required = ["signal"]
+[capabilities.signal_dispatch.input_schema.properties.signal]
+type = "string"
+description = "Target method name to dispatch (e.g. 'health.check', 'neural.validate')"
+[capabilities.signal_dispatch.input_schema.properties.params]
+type = "object"
+description = "Parameters for the target method"
 
 # --- Graph domain (primalSpring BYOB) ---
 # stability: evolving — composition graph format under refinement

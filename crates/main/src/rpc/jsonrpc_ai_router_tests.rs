@@ -293,3 +293,127 @@ async fn request_tracker_counts_errors() {
         "tracker should count errors"
     );
 }
+
+// === signal.dispatch tests ===
+
+#[tokio::test]
+async fn signal_dispatch_missing_params_errors() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-sig-dispatch-noparams.sock".to_string());
+    let err = server
+        .handle_signal_dispatch(None)
+        .await
+        .expect_err("should require params");
+    assert!(err.message.contains("requires params"));
+}
+
+#[tokio::test]
+async fn signal_dispatch_missing_signal_field_errors() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-sig-dispatch-nosignal.sock".to_string());
+    let err = server
+        .handle_signal_dispatch(Some(json!({"params": {}})))
+        .await
+        .expect_err("should require signal field");
+    assert!(err.message.contains("requires 'signal'"));
+}
+
+#[tokio::test]
+async fn signal_dispatch_local_method_resolves() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-sig-dispatch-local.sock".to_string());
+    let result = server
+        .handle_signal_dispatch(Some(json!({
+            "signal": "system.ping",
+            "params": {}
+        })))
+        .await
+        .expect("system.ping should resolve locally");
+
+    assert_eq!(
+        result.get("success").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        result.get("routed_via").and_then(|v| v.as_str()),
+        Some("local")
+    );
+    assert_eq!(
+        result.get("signal").and_then(|v| v.as_str()),
+        Some("system.ping")
+    );
+    assert!(result.get("latency_ms").is_some());
+}
+
+#[tokio::test]
+async fn signal_dispatch_health_check_resolves_locally() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-sig-dispatch-health.sock".to_string());
+    let result = server
+        .handle_signal_dispatch(Some(json!({
+            "signal": "health.check"
+        })))
+        .await
+        .expect("health.check should resolve locally");
+
+    assert_eq!(
+        result.get("routed_via").and_then(|v| v.as_str()),
+        Some("local")
+    );
+}
+
+#[tokio::test]
+async fn signal_dispatch_unknown_signal_errors() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-sig-dispatch-unknown.sock".to_string());
+    let err = server
+        .handle_signal_dispatch(Some(json!({
+            "signal": "nonexistent.method",
+            "params": {}
+        })))
+        .await
+        .expect_err("unknown signal should error");
+
+    assert!(err.message.contains("No provider found"));
+    let data = err.data.as_ref().expect("should have data");
+    assert_eq!(
+        data.get("signal").and_then(|v| v.as_str()),
+        Some("nonexistent.method")
+    );
+    assert_eq!(
+        data.get("resolution").and_then(|v| v.as_str()),
+        Some("awaiting_provider")
+    );
+}
+
+#[tokio::test]
+async fn signal_dispatch_via_jsonrpc_dispatch_table() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-sig-dispatch-table.sock".to_string());
+    let result = server
+        .dispatch_jsonrpc_method(
+            "signal.dispatch",
+            Some(json!({
+                "signal": "system.ping",
+                "params": {}
+            })),
+        )
+        .await
+        .expect("signal.dispatch via dispatch table should work");
+
+    assert_eq!(
+        result.get("routed_via").and_then(|v| v.as_str()),
+        Some("local")
+    );
+}
+
+#[tokio::test]
+async fn signal_dispatch_response_shape() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-sig-dispatch-shape.sock".to_string());
+    let result = server
+        .handle_signal_dispatch(Some(json!({
+            "signal": "identity.get"
+        })))
+        .await
+        .expect("identity.get should resolve");
+
+    assert!(result.get("signal").is_some(), "must have signal");
+    assert!(result.get("success").is_some(), "must have success");
+    assert!(result.get("result").is_some(), "must have result");
+    assert!(result.get("routed_via").is_some(), "must have routed_via");
+    assert!(result.get("latency_ms").is_some(), "must have latency_ms");
+}

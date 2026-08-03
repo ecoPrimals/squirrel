@@ -84,6 +84,16 @@ pub struct SignalPlanResponse {
     pub success: bool,
 }
 
+/// Response from `signal.dispatch` — executes a single signal step.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SignalDispatchResponse {
+    pub signal: String,
+    pub success: bool,
+    pub result: serde_json::Value,
+    pub routed_via: String,
+    pub latency_ms: u64,
+}
+
 /// Response from AI query
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QueryAiResponse {
