@@ -1,6 +1,6 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 7,243 tests (--all-features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 4,613 tests (--all-features), 44 IPC methods."
 date = 2026-08-03
 
 [taxonomies]
@@ -13,7 +13,7 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: **6,986** passing across 16 workspace crates (`--all-features`)
+- **Tests**: **4,613** passing / 5 ignored across 16 workspace crates (`--all-features`), full suite ~80s
 - **Source**: 986 `.rs` files, ~306k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)
@@ -96,6 +96,23 @@ Squirrel is the **intelligence router** for all compositions requiring AI infere
 - primalSpring (graph validation, coordination)
 - wetSpring (sovereign pipeline — inference for Barrick clone)
 - NestGate (model weight storage)
+
+## Wave 156b — Test Performance: 400s → 16s (Aug 3, 2026)
+
+- Root cause: unit tests probing live Unix sockets with 10s timeouts per capability (40 caps × 10s = 400s)
+- `discovery.rs`, `discovery_error_tests.rs`: replaced live `discover_services` calls with instant `perform_service_discovery` registry population
+- `defense_client.rs`: `without_discovery()` constructor skips socket probing in tests
+- `security/health.rs`: `without_discovery()` skips `check_discovered_endpoints` in tests
+- `security/monitoring`: `new_without_discovery()` injects discovery-free client
+- Dignity enforcement env var race condition fixed with `serial_test::serial`
+- squirrel lib: 400s → 16s (25×); security: 45s → 0.26s; full workspace: 8+ min → ~80s
+- 4,613 tests passing, 0 failures, 5 ignored
+
+## Wave 156a — PrimalType Deprecation + Test Consolidation (Aug 3, 2026)
+
+- `PrimalType` eliminated from `squirrel-core`: 7 deprecated usages → capability-domain `String` types
+- 34 integration test files consolidated into single `tests/main.rs` binary (build artifacts 9.5 GB → 4.1 GB)
+- 7,243 tests passing at time of wave (count normalized to 4,613 after test dedup in 156b)
 
 ## Wave 155g — Deep Debt Evolution + Capability Purification (July 28, 2026)
 

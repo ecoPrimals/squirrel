@@ -11,6 +11,18 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 3, 2026 — Wave 156b: Test Performance — 400s → 16s)
+
+- **Root cause: live socket discovery in unit tests**: Tests calling `discover_services`/`discover_capability`/`discover_all_capabilities` triggered real Unix socket probes with 10-second-per-capability timeouts. 40 consumed capabilities × 10s = **400 seconds of wall-clock blocking with <1s CPU**. Same pattern in security monitoring (30s) and health checker (15s).
+- **ecosystem::registry::discovery**: Replaced 5 live-I/O tests with direct registry manipulation via `perform_service_discovery` (promoted to `pub(crate)`). Tests verify registry read/write contract, not network I/O. `discover_services_all_required_capabilities` (the single worst offender at 400s) eliminated.
+- **ecosystem::registry::discovery_error_tests**: Added `populate_registry()` helper. Removed all 10 `DiscoveryOps::discover_services` calls that probed live sockets. Tests now use instant `perform_service_discovery` to populate, then assert on registry contents.
+- **security::monitoring::defense_client**: Added `DefenseClient::without_discovery()` with `skip_discovery` flag — returns `ResourceNotFound` immediately in tests instead of probing 3 defense capabilities × 10s.
+- **security::health**: Added `UniversalSecurityHealthChecker::without_discovery()` — skips `check_discovered_endpoints` (which called `discover_all_capabilities`) in test context.
+- **security::monitoring**: Added `SecurityMonitoringSystem::new_without_discovery()` — injects discovery-free `DefenseClient` via `with_defense_client()` factory pattern.
+- **Dignity enforcement race condition fixed**: `generate_text_with_dignity_sensitive_prompt_still_routes_when_provider_ok` intermittently failed due to parallel tests setting `SQUIRREL_DIGNITY_ENFORCEMENT=enforce` via `temp_env::with_var`. Fixed with `#[serial_test::serial(dignity_enforcement)]` on all 6 dignity env-mutating tests.
+- **Results**: squirrel lib tests 400s → 16s (25× speedup); security tests 45s → 0.26s; full workspace 8+ min → ~80s.
+- **4,613 tests passing** (`--all-features`), 0 failures, 5 ignored, Clippy clean, fmt clean.
+
 ### Summary (Aug 3, 2026 — Wave 156a: PrimalType Deprecation + Test Consolidation)
 
 - **`PrimalType` eliminated from `squirrel-core`**: Migrated all 7 deprecated `PrimalType` usages in `routing/config.rs` and `types/mesh.rs` to capability-domain `String` types. `RoutingCondition::PrimalType` → `CapabilityDomain`, `RoutingAction::UsePrimal` → `UseCapabilityDomain`, `ScalingAction::RequestPrimalAssistance` → `RequestCapabilityAssistance`, `CrossPrimalRoute.source_primal/target_primal` → `source_domain/target_domain`, `PrimalEndpoint.primal_type` → `capability_domain`, `TaskRequirements.preferred_primals` → `preferred_domains`. Zero compiler warnings across workspace.
