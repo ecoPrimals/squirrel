@@ -175,6 +175,8 @@ pub struct UniversalSecurityHealthChecker {
     check_interval: Duration,
     /// Last health check time
     last_check: Instant,
+    /// When true, skip live capability discovery (test mode).
+    skip_discovery: bool,
 }
 
 impl UniversalSecurityHealthChecker {
@@ -185,6 +187,19 @@ impl UniversalSecurityHealthChecker {
             health_status: SecurityHealth::new(),
             check_interval,
             last_check: Instant::now(),
+            skip_discovery: false,
+        }
+    }
+
+    /// Create a checker that skips live capability discovery (for tests).
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn without_discovery(check_interval: Duration) -> Self {
+        Self {
+            health_status: SecurityHealth::new(),
+            check_interval,
+            last_check: Instant::now(),
+            skip_discovery: true,
         }
     }
 
@@ -196,8 +211,10 @@ impl UniversalSecurityHealthChecker {
         // Check local security components
         self.check_local_components(&mut health).await?;
 
-        // Check discovered security endpoints through universal adapter
-        self.check_discovered_endpoints(&mut health).await?;
+        // Check discovered security endpoints (skip in test mode to avoid 10s+ timeouts)
+        if !self.skip_discovery {
+            self.check_discovered_endpoints(&mut health).await?;
+        }
 
         // Update timing information
         health.check_duration = start_time.elapsed();
@@ -463,13 +480,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_health_checker_check_health() {
-        let mut checker = UniversalSecurityHealthChecker::new(Duration::from_secs(30));
+        let mut checker =
+            UniversalSecurityHealthChecker::without_discovery(Duration::from_secs(30));
         let health = checker.check_health().await.expect("check health");
         assert!(health.is_healthy());
         assert!(health.component_health.contains_key("authentication"));
         assert!(health.component_health.contains_key("authorization"));
         assert!(health.component_health.contains_key("rate_limiting"));
-        assert!(health.component_health.contains_key("capability_discovery"));
     }
 
     #[test]

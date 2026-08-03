@@ -83,11 +83,22 @@ impl SecurityMonitoringSystem {
     /// Create a new security monitoring system
     #[must_use]
     pub fn new(config: SecurityMonitoringConfig) -> Self {
+        Self::with_defense_client(config, DefenseClient::new())
+    }
+
+    /// Create with an explicit defense client (for testing without live I/O).
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn new_without_discovery(config: SecurityMonitoringConfig) -> Self {
+        Self::with_defense_client(config, DefenseClient::without_discovery())
+    }
+
+    fn with_defense_client(config: SecurityMonitoringConfig, defense_client: DefenseClient) -> Self {
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
         Self {
             config,
-            defense_client: DefenseClient::new(),
+            defense_client,
             event_buffer: Arc::new(Mutex::new(Vec::new())),
             event_history: Arc::new(RwLock::new(VecDeque::new())),
             active_alerts: Arc::new(RwLock::new(HashMap::new())),

@@ -25,6 +25,8 @@ const DEFENSE_CAPABILITIES: &[&str] = &["defense.anomaly", "security.anomaly", "
 #[derive(Debug, Clone, Default)]
 pub struct DefenseClient {
     cached_provider: Arc<RwLock<Option<CapabilityProvider>>>,
+    /// When true, skip live discovery and return error immediately.
+    skip_discovery: bool,
 }
 
 impl DefenseClient {
@@ -33,6 +35,17 @@ impl DefenseClient {
     pub fn new() -> Self {
         Self {
             cached_provider: Arc::new(RwLock::new(None)),
+            skip_discovery: false,
+        }
+    }
+
+    /// Create a client that never attempts live discovery (for tests).
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn without_discovery() -> Self {
+        Self {
+            cached_provider: Arc::new(RwLock::new(None)),
+            skip_discovery: true,
         }
     }
 
@@ -130,6 +143,12 @@ impl DefenseClient {
         let cached = self.cached_provider.read().await.clone();
         if let Some(provider) = cached {
             return Ok(provider);
+        }
+
+        if self.skip_discovery {
+            return Err(PrimalError::ResourceNotFound(
+                "Defense capability provider not available (discovery disabled)".into(),
+            ));
         }
 
         for capability in DEFENSE_CAPABILITIES {
@@ -282,7 +301,7 @@ mod tests {
 
     #[tokio::test]
     async fn classify_threat_without_provider_returns_error() {
-        let client = DefenseClient::new();
+        let client = DefenseClient::without_discovery();
         let event = SecurityEvent::new(
             super::super::types::SecurityEventType::Authentication {
                 success: false,

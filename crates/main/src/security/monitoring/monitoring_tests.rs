@@ -189,7 +189,7 @@ async fn test_failed_auth_event_logged_without_local_classification() {
         enable_behavioral_analysis: false,
         ..Default::default()
     };
-    let system = SecurityMonitoringSystem::new(config);
+    let system = SecurityMonitoringSystem::new_without_discovery(config);
     system.start().await.expect("start");
 
     let event = SecurityEvent::new(
@@ -216,7 +216,7 @@ async fn test_critical_input_validation_event_logged_without_local_classificatio
         enable_behavioral_analysis: false,
         ..Default::default()
     };
-    let system = SecurityMonitoringSystem::new(config);
+    let system = SecurityMonitoringSystem::new_without_discovery(config);
     system.start().await.expect("start");
 
     let event = SecurityEvent::new(
@@ -239,7 +239,7 @@ async fn test_critical_input_validation_event_logged_without_local_classificatio
 #[tokio::test]
 async fn test_classify_threat_delegates_to_defense_provider() {
     let config = SecurityMonitoringConfig::default();
-    let system = SecurityMonitoringSystem::new(config);
+    let system = SecurityMonitoringSystem::new_without_discovery(config);
 
     let event = SecurityEvent::new(
         SecurityEventType::Authentication {

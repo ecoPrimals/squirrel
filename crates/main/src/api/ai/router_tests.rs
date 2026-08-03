@@ -297,30 +297,33 @@ fn dignity_integration_matches_standalone_evaluator_for_text_prompt() {
 }
 
 #[tokio::test]
+#[serial_test::serial(dignity_enforcement)]
 async fn generate_text_with_dignity_sensitive_prompt_still_routes_when_provider_ok() {
-    let router =
-        AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(MockTextAdapter {
-            id: "mock-text",
-            name: "Mock",
-        }))]);
-    let req = TextGenerationRequest {
-        prompt: "Review this applicant for employment".to_string(),
-        system: None,
-        max_tokens: 64,
-        temperature: 0.5,
-        model: Some("gpt-4".to_string()),
-        constraints: vec![],
-        params: std::collections::HashMap::new(),
-    };
-    let out = router
-        .generate_text(req, None)
-        .await
-        .expect("should succeed");
-    assert!(out.text.contains("echo:"));
-    assert_eq!(out.provider_id, "mock-text");
+    temp_env::with_var(DIGNITY_ENFORCEMENT_ENV, Some("warn"), || {
+        let router = AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(
+            MockTextAdapter {
+                id: "mock-text",
+                name: "Mock",
+            },
+        ))]);
+        let req = TextGenerationRequest {
+            prompt: "Review this applicant for employment".to_string(),
+            system: None,
+            max_tokens: 64,
+            temperature: 0.5,
+            model: Some("gpt-4".to_string()),
+            constraints: vec![],
+            params: std::collections::HashMap::new(),
+        };
+        let out = futures::executor::block_on(router.generate_text(req, None))
+            .expect("should succeed");
+        assert!(out.text.contains("echo:"));
+        assert_eq!(out.provider_id, "mock-text");
+    });
 }
 
 #[tokio::test]
+#[serial_test::serial(dignity_enforcement)]
 async fn generate_image_dignity_prompt_still_succeeds_with_image_provider() {
     let router = AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockImageOnly(
         MockImageOnlyAdapter { id: "img-one" },
@@ -354,6 +357,7 @@ fn dignity_sensitive_text_request() -> TextGenerationRequest {
 }
 
 #[tokio::test]
+#[serial_test::serial(dignity_enforcement)]
 async fn generate_text_dignity_warn_mode_allows_sensitive_prompt() {
     let router =
         AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(MockTextAdapter {
@@ -370,6 +374,7 @@ async fn generate_text_dignity_warn_mode_allows_sensitive_prompt() {
 }
 
 #[tokio::test]
+#[serial_test::serial(dignity_enforcement)]
 async fn generate_text_dignity_audit_mode_allows_sensitive_prompt() {
     let router =
         AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(MockTextAdapter {
@@ -386,6 +391,7 @@ async fn generate_text_dignity_audit_mode_allows_sensitive_prompt() {
 }
 
 #[tokio::test]
+#[serial_test::serial(dignity_enforcement)]
 async fn generate_text_dignity_enforce_mode_blocks_sensitive_prompt() {
     let router =
         AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockText(MockTextAdapter {
@@ -407,6 +413,7 @@ async fn generate_text_dignity_enforce_mode_blocks_sensitive_prompt() {
 }
 
 #[tokio::test]
+#[serial_test::serial(dignity_enforcement)]
 async fn generate_image_dignity_enforce_mode_blocks_sensitive_prompt() {
     let router = AiRouter::from_adapters_for_test(vec![Arc::new(AiProvider::MockImageOnly(
         MockImageOnlyAdapter { id: "img-one" },
