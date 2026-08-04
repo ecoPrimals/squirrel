@@ -141,7 +141,7 @@ impl UniversalTransport {
         // Determine transport hierarchy based on platform
         let transport_order = Self::get_transport_hierarchy(&config);
 
-        tracing::info!("🔌 Starting IPC client connection (isomorphic mode)...");
+        tracing::info!("Starting IPC client connection (isomorphic mode)...");
         tracing::info!("   Service: {}", service_name);
 
         let mut last_error = None;
@@ -151,13 +151,13 @@ impl UniversalTransport {
 
             match Self::try_connect(service_name, transport_type, &config).await {
                 Ok(transport) => {
-                    tracing::info!("✅ Connected using {:?}", transport_type);
+                    tracing::info!("Connected using {:?}", transport_type);
                     return Ok(transport);
                 }
 
                 // DETECT: Platform constraint (expected, adapt)
                 Err(e) if Self::is_platform_constraint(&e) => {
-                    tracing::warn!("⚠️  {:?} unavailable: {}", transport_type, e);
+                    tracing::warn!("{:?} unavailable: {}", transport_type, e);
                     tracing::warn!("   Detected platform constraint, adapting...");
 
                     last_error = Some(e);
@@ -170,7 +170,7 @@ impl UniversalTransport {
 
                 // Real error (unexpected, fail)
                 Err(e) => {
-                    tracing::error!("❌ Real error (not platform constraint): {}", e);
+                    tracing::error!("Real error (not platform constraint): {}", e);
                     return Err(e);
                 }
             }
@@ -415,7 +415,7 @@ impl UniversalTransport {
     /// }
     /// ```
     pub async fn connect_discovered(service_name: &str) -> IoResult<Self> {
-        tracing::info!("🔍 Discovering IPC endpoint for {}...", service_name);
+        tracing::info!("Discovering IPC endpoint for {}...", service_name);
 
         let endpoint = Self::discover_ipc_endpoint(service_name)?;
 

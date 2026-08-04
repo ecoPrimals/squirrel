@@ -122,7 +122,7 @@ impl CapabilityCryptoProvider {
             std::env::var(universal_constants::env_vars::primals::CRYPTO_SIGNING_ENDPOINT)
         {
             info!(
-                "✅ Discovered crypto.signing via CRYPTO_SIGNING_ENDPOINT: {}",
+                "Discovered crypto.signing via CRYPTO_SIGNING_ENDPOINT: {}",
                 endpoint
             );
             let endpoint_arc: Arc<str> = Arc::from(endpoint.as_str());
@@ -132,7 +132,7 @@ impl CapabilityCryptoProvider {
 
         if let Ok(endpoint) = std::env::var(universal_constants::env_vars::primals::CRYPTO_ENDPOINT)
         {
-            info!("✅ Discovered crypto via CRYPTO_ENDPOINT: {}", endpoint);
+            info!("Discovered crypto via CRYPTO_ENDPOINT: {}", endpoint);
             let endpoint_arc: Arc<str> = Arc::from(endpoint.as_str());
             self.endpoint = Some(Arc::clone(&endpoint_arc));
             return Ok(endpoint_arc);
@@ -149,7 +149,7 @@ impl CapabilityCryptoProvider {
                     self.verify_capability(&path_str, "crypto.signing").await,
                     Ok(true)
                 ) {
-                    info!("✅ Discovered crypto.signing at: {}", path_str);
+                    info!("Discovered crypto.signing at: {}", path_str);
                     let endpoint_arc: Arc<str> = path_str.as_ref().into();
                     self.endpoint = Some(Arc::clone(&endpoint_arc));
                     return Ok(endpoint_arc);
@@ -160,12 +160,10 @@ impl CapabilityCryptoProvider {
         // Strategy 3: Could integrate full discovery engine here
         // For now, fail with helpful error
 
-        error!("❌ Cannot discover crypto.signing capability");
+        error!("Cannot discover crypto.signing capability");
+        error!("   Set CRYPTO_SIGNING_ENDPOINT, CRYPTO_ENDPOINT, or SECURITY_SOCKET");
         error!(
-            "   Set CRYPTO_SIGNING_ENDPOINT, CRYPTO_ENDPOINT, SECURITY_SOCKET, or BEARDOG_SOCKET"
-        );
-        error!(
-            "   Example: export SECURITY_SOCKET=\"$XDG_RUNTIME_DIR/biomeos/<security-provider>.sock\""
+            "   Example: export SECURITY_SOCKET=\"${{XDG_RUNTIME_DIR}}/biomeos/<primal>.sock\""
         );
 
         Err(anyhow::anyhow!(
@@ -239,7 +237,7 @@ impl CapabilityCryptoProvider {
                 .context("Failed to decode signature")?;
 
         debug!(
-            "✅ Signed {} bytes via capability crypto provider",
+            "Signed {} bytes via capability crypto provider",
             data.len()
         );
         Ok(signature)
@@ -289,7 +287,7 @@ impl CapabilityCryptoProvider {
             .ok_or_else(|| anyhow::anyhow!("Invalid response: missing valid field"))?;
 
         debug!(
-            "✅ Verified signature via capability crypto provider: {}",
+            "Verified signature via capability crypto provider: {}",
             valid
         );
         Ok(valid)
@@ -337,7 +335,7 @@ impl CapabilityCryptoProvider {
             .ok_or_else(|| anyhow::anyhow!("Invalid response: missing valid field"))?;
 
         debug!(
-            "✅ Verified signature (key_id={}) via capability crypto provider: {}",
+            "Verified signature (key_id={}) via capability crypto provider: {}",
             key_id, valid
         );
         Ok(valid)

@@ -255,7 +255,7 @@ pub async fn connect_transport_with_timeout(
         } => Err(io::Error::new(
             io::ErrorKind::Unsupported,
             format!(
-                "mesh_relay not directly connectable (peer={peer_id}, cap={capability}) — route via Songbird"
+                "mesh_relay not directly connectable (peer={peer_id}, cap={capability}) — route via service mesh"
             ),
         )),
     }

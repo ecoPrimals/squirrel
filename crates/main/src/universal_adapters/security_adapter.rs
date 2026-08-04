@@ -41,7 +41,7 @@ impl UniversalSecurityAdapter {
         parameters: HashMap<String, serde_json::Value>,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
-            "🔒 Coordinating security operation: {} via universal adapter",
+            "Coordinating security operation: {} via universal adapter",
             operation
         );
 
@@ -77,7 +77,7 @@ impl UniversalSecurityAdapter {
     /// Authenticate using any available security primal
     pub async fn authenticate_universal(&mut self, user_id: &str) -> Result<String, PrimalError> {
         debug!(
-            "🔐 Authenticating user {} via universal security adapter",
+            "Authenticating user {} via universal security adapter",
             user_id
         );
 
@@ -108,7 +108,7 @@ impl UniversalSecurityAdapter {
         operation: &str,
     ) -> Result<bool, PrimalError> {
         debug!(
-            "🛡️ Authorizing operation {} for session {} via universal adapter",
+            "Authorizing operation {} for session {} via universal adapter",
             operation, session_id
         );
 
@@ -132,7 +132,7 @@ impl UniversalSecurityAdapter {
 
     /// Discover security services by capability
     async fn discover_security_service(&self) -> Result<ServiceInfo, PrimalError> {
-        info!("🔍 Discovering security services via universal capability matching");
+        info!("Discovering security services via universal capability matching");
 
         // Define required security capabilities
         let required_capabilities = vec![ServiceCapability::Security {
@@ -152,7 +152,7 @@ impl UniversalSecurityAdapter {
             .await?;
 
         info!(
-            "🎯 Selected security service: {} ({})",
+            "Selected security service: {} ({})",
             security_service.name, security_service.service_id
         );
 
@@ -167,7 +167,7 @@ impl UniversalSecurityAdapter {
 
     /// Force rediscovery of security services
     pub async fn rediscover_security_services(&mut self) -> Result<(), PrimalError> {
-        info!("🔄 Rediscovering security services");
+        info!("Rediscovering security services");
         self.preferred_security_service = None;
         self.preferred_security_service = Some(self.discover_security_service().await?);
         Ok(())

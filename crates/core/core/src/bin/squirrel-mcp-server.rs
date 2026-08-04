@@ -35,7 +35,7 @@ async fn main() -> Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    info!("🐿️  Starting Squirrel MCP - Universal Swarm MCP Agent System");
+    info!("Starting Squirrel MCP - Universal Swarm MCP Agent System");
     info!("Version: {}", squirrel_core::SQUIRREL_MCP_VERSION);
 
     // Load configuration
@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
     info!("Initializing universal monitoring service...");
     let monitoring_service = Arc::new(MonitoringService::new(config.monitoring));
     monitoring_service.initialize()?;
-    info!("✅ Monitoring service initialized with delegation to external providers");
+    info!("Monitoring service initialized with delegation to external providers");
 
     // Initialize core services
     info!("Initializing core services...");
@@ -56,15 +56,15 @@ async fn main() -> Result<()> {
         config.ecosystem,
         monitoring_service.clone(),
     )?);
-    info!("✅ Ecosystem service initialized");
+    info!("Ecosystem service initialized");
 
     // 2. MCP Routing Service - Handles multi-MCP coordination and AI task routing
     let routing_service = Arc::new(McpRoutingService::new(config.routing)?);
-    info!("✅ MCP routing service initialized");
+    info!("MCP routing service initialized");
 
     // 3. Federation Service - Handles scaling and node coordination
     let federation_service = Arc::new(FederationService::new(config.federation)?);
-    info!("✅ Federation service initialized");
+    info!("Federation service initialized");
 
     // 4. API Server - Provides HTTP endpoints for coordination
     let api_server = ApiServer::new(
@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
         routing_service.clone(),
         federation_service.clone(),
     );
-    info!("✅ API server initialized");
+    info!("API server initialized");
 
     // Start services
     info!("Starting services...");
@@ -80,17 +80,17 @@ async fn main() -> Result<()> {
     // Start ecosystem service (primal coordination)
     ecosystem_service.start().await?;
     info!(
-        "🌍 Ecosystem service started - {} mode",
+        "Ecosystem service started - {} mode",
         format!("{:?}", ecosystem_service.get_status())
     );
 
     // Start routing service (MCP coordination)
     routing_service.start()?;
-    info!("🚀 MCP routing service started");
+    info!("MCP routing service started");
 
     // Start federation service (scaling & federation)
     federation_service.start().await?;
-    info!("🤝 Federation service started");
+    info!("Federation service started");
 
     // Print startup summary
     print_startup_summary(
@@ -105,7 +105,7 @@ async fn main() -> Result<()> {
     let bind_addr = std::env::var(universal_constants::env_vars::network::BIND_ADDR)
         .unwrap_or_else(|_| universal_constants::network::default_api_bind_addr());
     let bind_addr_clone = bind_addr.clone();
-    info!("🌐 Starting API server on {}", bind_addr);
+    info!("Starting API server on {}", bind_addr);
 
     // Run API server with graceful shutdown
     let api_task = tokio::spawn(async move {
@@ -115,8 +115,8 @@ async fn main() -> Result<()> {
     });
 
     // Wait for shutdown signal
-    info!("🎯 Squirrel MCP ready for universal swarm coordination!");
-    info!("📡 Endpoints:");
+    info!("Squirrel MCP ready for universal swarm coordination!");
+    info!("Endpoints:");
     info!("   Health:     GET  http://{}/health", bind_addr);
     info!("   MCP Route:  POST http://{}/api/v1/mcp/route", bind_addr);
     info!(
@@ -135,7 +135,7 @@ async fn main() -> Result<()> {
     // Graceful shutdown handling
     tokio::select! {
         _ = signal::ctrl_c() => {
-            info!("🛑 Received interrupt signal, starting graceful shutdown");
+            info!("Received interrupt signal, starting graceful shutdown");
         }
         result = api_task => {
             if let Err(e) = result {
@@ -155,7 +155,7 @@ async fn main() -> Result<()> {
         warn!("Ecosystem service shutdown error: {}", e);
     }
 
-    info!("🏁 Squirrel MCP shutdown complete");
+    info!("Squirrel MCP shutdown complete");
     Ok(())
 }
 
@@ -224,13 +224,13 @@ async fn print_startup_summary(
     federation: &FederationService,
     monitoring: &MonitoringService,
 ) {
-    info!("🎯 === Squirrel MCP Startup Summary ===");
+    info!("=== Squirrel MCP Startup Summary ===");
 
     // Ecosystem status
     let ecosystem_status = ecosystem.get_status();
     let discovered_primals = ecosystem.get_discovered_primals();
     info!(
-        "🌍 Ecosystem: {:?} ({} primals discovered)",
+        "Ecosystem: {:?} ({} primals discovered)",
         ecosystem_status,
         discovered_primals.len()
     );
@@ -238,29 +238,29 @@ async fn print_startup_summary(
     // Routing status
     let routing_status = routing.get_stats();
     info!(
-        "🚀 MCP Routing: {} agents registered",
+        "MCP Routing: {} agents registered",
         routing_status.registered_agents
     );
 
     // Federation status
     let federation_status = federation.get_federation_stats();
     info!(
-        "🤝 Federation: {} instances, {} nodes",
+        "Federation: {} instances, {} nodes",
         federation_status.local_instances, federation_status.federation_nodes
     );
 
     // Monitoring status
     let monitoring_status = monitoring.get_status().await;
     info!(
-        "📊 Monitoring: {} providers active, fallback: {}",
+        "Monitoring: {} providers active, fallback: {}",
         monitoring_status.provider_count, monitoring_status.fallback_active
     );
     for provider in &monitoring_status.providers {
         info!(
-            "   📈 Provider: {} v{} - {:?}",
+            "    Provider: {} v{} - {:?}",
             provider.name, provider.version, provider.health
         );
     }
 
-    info!("🎯 === Squirrel MCP Ready for Universal Coordination ===");
+    info!("=== Squirrel MCP Ready for Universal Coordination ===");
 }

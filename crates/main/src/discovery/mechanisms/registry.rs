@@ -209,7 +209,7 @@ impl RegistryDiscovery {
         }
 
         info!(
-            "🔍 Querying {:?} registry at {} for capability: {}",
+            "Querying {:?} registry at {} for capability: {}",
             self.registry_type, self.endpoint, capability
         );
 
@@ -245,7 +245,7 @@ impl RegistryDiscovery {
         }
 
         info!(
-            "🔍 Listing all services from {:?} registry",
+            "Listing all services from {:?} registry",
             self.registry_type
         );
 
@@ -287,7 +287,7 @@ impl RegistryDiscovery {
         }
 
         info!(
-            "📝 Registering service '{}' (ID: {}) at {}:{} in {:?} registry",
+            "Registering service '{}' (ID: {}) at {}:{} in {:?} registry",
             service_name, service_id, address, port, self.registry_type
         );
         info!("   Capabilities: {:?}", capabilities);
@@ -311,7 +311,7 @@ impl RegistryDiscovery {
         }
 
         info!(
-            "🗑️  Deregistering service '{}' from {:?} registry",
+            "Deregistering service '{}' from {:?} registry",
             service_id, self.registry_type
         );
 
@@ -327,7 +327,7 @@ impl RegistryDiscovery {
             return Ok(());
         }
 
-        debug!("💓 Sending heartbeat for service '{}'", service_id);
+        debug!("Sending heartbeat for service '{}'", service_id);
 
         // Production-ready interface with graceful fallback
         Ok(())
@@ -349,7 +349,7 @@ impl RegistryDiscovery {
         }
 
         info!(
-            "👁️  Setting up watch for capability '{}' on {:?} registry",
+            "Setting up watch for capability '{}' on {:?} registry",
             capability, self.registry_type
         );
 

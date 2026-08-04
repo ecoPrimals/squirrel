@@ -324,19 +324,19 @@ impl AdaptiveRuleSystem {
 
         for (rule_id, adaptive_rule) in adaptive_rules.iter() {
             debug!(
-                "🧠 Evaluating adaptive rule '{}' for potential adaptation",
+                "Evaluating adaptive rule '{}' for potential adaptation",
                 rule_id
             );
 
             if self.should_adapt_rule(adaptive_rule).await? {
                 info!(
-                    "⚡ Adapting rule '{}' based on performance criteria",
+                    "Adapting rule '{}' based on performance criteria",
                     rule_id
                 );
 
                 if let Some(adaptation) = self.adapt_rule(adaptive_rule).await? {
                     debug!(
-                        "✅ Successfully adapted rule '{}': {:?}",
+                        "Successfully adapted rule '{}': {:?}",
                         rule_id, adaptation
                     );
                     adaptations.push(adaptation);
@@ -349,13 +349,13 @@ impl AdaptiveRuleSystem {
                     }
                 } else {
                     debug!(
-                        "⚠️ Rule '{}' marked for adaptation but no changes generated",
+                        "Rule '{}' marked for adaptation but no changes generated",
                         rule_id
                     );
                 }
             } else {
                 trace!(
-                    "📋 Rule '{}' does not require adaptation at this time",
+                    "Rule '{}' does not require adaptation at this time",
                     rule_id
                 );
             }
@@ -547,7 +547,7 @@ impl AdaptiveRuleSystem {
                     base_improvement * type_multiplier * performance_factor;
 
                 debug!(
-                    "📊 Adaptation improvement: {} type={:?} perf_factor={:.2} improvement={:.3}",
+                    "Adaptation improvement: {} type={:?} perf_factor={:.2} improvement={:.3}",
                     adaptation.rule_id,
                     adaptation.adaptation_type,
                     performance_factor,

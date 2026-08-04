@@ -26,13 +26,15 @@ static GLOBAL_REGISTRY: LazyLock<RwLock<ModelRegistry>> =
 /// Model registry for AI model capabilities
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ModelRegistry {
-    /// Map of provider ID to map of model ID to capabilities
-    #[cfg(test)]
-    pub models: HashMap<String, HashMap<String, ModelCapabilities>>,
-
-    /// Map of provider ID to map of model ID to capabilities (private for non-test code)
-    #[cfg(not(test))]
     models: HashMap<String, HashMap<String, ModelCapabilities>>,
+}
+
+#[cfg(test)]
+impl ModelRegistry {
+    /// Test-only access to the underlying model map.
+    pub(crate) fn models(&self) -> &HashMap<String, HashMap<String, ModelCapabilities>> {
+        &self.models
+    }
 }
 
 /// Model capabilities configuration
@@ -512,7 +514,7 @@ mod tests {
     #[test]
     fn test_model_registry_default() {
         let registry = ModelRegistry::default();
-        assert!(registry.models.is_empty());
+        assert!(registry.models().is_empty());
     }
 
     #[test]
@@ -563,7 +565,7 @@ mod tests {
         registry.import_defaults();
 
         // Should have 3 providers: openai, anthropic, gemini
-        assert!(!registry.models.is_empty());
+        assert!(!registry.models().is_empty());
 
         let openai_models = registry.get_provider_models("openai");
         assert!(!openai_models.is_empty());
@@ -703,7 +705,7 @@ mod tests {
         {
             let guard = instance.read().expect("should succeed");
             // Default instance should have empty models
-            assert!(guard.models.is_empty() || !guard.models.is_empty()); // Just verify it's accessible
+            assert!(guard.models().is_empty() || !guard.models().is_empty());
             drop(guard);
         }
     }

@@ -336,59 +336,69 @@ fn monitoring_service_provider_ipc_healthy_then_degraded_when_socket_removed() {
     );
 }
 
-#[tokio::test]
-async fn monitoring_service_provider_trait_methods() {
-    let p = MonitoringServiceProvider::new(MonitoringServiceConfig {
-        endpoint: "e".into(),
-        service_name: "n".into(),
-        auth_token: Some("t".into()),
-        batch_size: 2,
-        flush_interval: std::time::Duration::from_secs(2),
-    })
-    .expect("new");
-    assert_eq!(
-        p.provider_name(),
-        universal_constants::capabilities::SERVICE_MESH_CAPABILITY
-    );
-    assert_eq!(p.provider_version(), "1.0.0");
-    p.record_event(MonitoringEvent::PrimalDiscovered {
-        primal_id: "i".into(),
-        primal_type: "t".into(),
-        endpoint: "ep".into(),
-        timestamp: Utc::now(),
-    })
-    .await
-    .expect("should succeed");
-    p.record_metric(base_metric())
-        .await
-        .expect("should succeed");
-    p.record_health("c", HealthStatus::Degraded)
-        .await
-        .expect("should succeed");
-    p.record_performance(
-        "c",
-        PerformanceMetrics {
-            cpu_usage: None,
-            memory_usage: None,
-            network_usage: None,
-            response_time: None,
-            throughput: None,
-            error_rate: None,
-            queue_length: None,
-            active_connections: None,
-            custom_metrics: HashMap::new(),
+#[test]
+fn monitoring_service_provider_trait_methods() {
+    // Unset env vars that could cause IpcClient::discover to find a real socket
+    // placed by a concurrently running test (avoids connection-timeout race).
+    temp_env::with_vars_unset(
+        ["XDG_RUNTIME_DIR", "MONITORING_SOCKET", "BIOMEOS_SOCKET_DIR"],
+        || {
+            let rt = tokio::runtime::Runtime::new().expect("rt");
+            rt.block_on(async {
+                let p = MonitoringServiceProvider::new(MonitoringServiceConfig {
+                    endpoint: "e".into(),
+                    service_name: "n".into(),
+                    auth_token: Some("t".into()),
+                    batch_size: 2,
+                    flush_interval: std::time::Duration::from_secs(2),
+                })
+                .expect("new");
+                assert_eq!(
+                    p.provider_name(),
+                    universal_constants::capabilities::SERVICE_MESH_CAPABILITY
+                );
+                assert_eq!(p.provider_version(), "1.0.0");
+                p.record_event(MonitoringEvent::PrimalDiscovered {
+                    primal_id: "i".into(),
+                    primal_type: "t".into(),
+                    endpoint: "ep".into(),
+                    timestamp: Utc::now(),
+                })
+                .await
+                .expect("should succeed");
+                p.record_metric(base_metric())
+                    .await
+                    .expect("should succeed");
+                p.record_health("c", HealthStatus::Degraded)
+                    .await
+                    .expect("should succeed");
+                p.record_performance(
+                    "c",
+                    PerformanceMetrics {
+                        cpu_usage: None,
+                        memory_usage: None,
+                        network_usage: None,
+                        response_time: None,
+                        throughput: None,
+                        error_rate: None,
+                        queue_length: None,
+                        active_connections: None,
+                        custom_metrics: HashMap::new(),
+                    },
+                )
+                .await
+                .expect("should succeed");
+                assert!(matches!(
+                    p.provider_health().await.expect("should succeed"),
+                    HealthStatus::Unknown
+                ));
+                let caps = p.provider_capabilities().await.expect("should succeed");
+                assert!(
+                    caps.iter()
+                        .any(|c| matches!(c, MonitoringCapability::Events))
+                );
+            });
         },
-    )
-    .await
-    .expect("should succeed");
-    assert!(matches!(
-        p.provider_health().await.expect("should succeed"),
-        HealthStatus::Unknown
-    ));
-    let caps = p.provider_capabilities().await.expect("should succeed");
-    assert!(
-        caps.iter()
-            .any(|c| matches!(c, MonitoringCapability::Events))
     );
 }
 

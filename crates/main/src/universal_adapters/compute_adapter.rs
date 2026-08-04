@@ -41,7 +41,7 @@ impl UniversalComputeAdapter {
         workload: serde_json::Value,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
-            "🍄 Coordinating compute operation: {} via universal adapter",
+            "Coordinating compute operation: {} via universal adapter",
             operation
         );
 
@@ -76,7 +76,7 @@ impl UniversalComputeAdapter {
         parameters: HashMap<String, serde_json::Value>,
     ) -> Result<String, PrimalError> {
         debug!(
-            "🧠 Executing AI workload '{}' via universal compute adapter",
+            "Executing AI workload '{}' via universal compute adapter",
             workload_type
         );
 
@@ -111,7 +111,7 @@ impl UniversalComputeAdapter {
         factor: u32,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
-            "📈 Scaling compute resources {} by factor {} via universal adapter",
+            "Scaling compute resources {} by factor {} via universal adapter",
             scaling_direction, factor
         );
 
@@ -131,7 +131,7 @@ impl UniversalComputeAdapter {
 
     /// Monitor compute performance using any available compute primal
     pub async fn monitor_compute_performance(&mut self) -> Result<serde_json::Value, PrimalError> {
-        debug!("📊 Monitoring compute performance via universal adapter");
+        debug!("Monitoring compute performance via universal adapter");
 
         let monitoring_data = serde_json::json!({
             "monitoring_type": "performance",
@@ -147,7 +147,7 @@ impl UniversalComputeAdapter {
 
     /// Discover compute services by capability
     async fn discover_compute_service(&self) -> Result<ServiceInfo, PrimalError> {
-        info!("🔍 Discovering compute services via universal capability matching");
+        info!("Discovering compute services via universal capability matching");
 
         // Define required compute capabilities
         let required_capabilities = vec![ServiceCapability::Computation {
@@ -172,7 +172,7 @@ impl UniversalComputeAdapter {
             .await?;
 
         info!(
-            "🎯 Selected compute service: {} ({})",
+            "Selected compute service: {} ({})",
             compute_service.name, compute_service.service_id
         );
 
@@ -187,7 +187,7 @@ impl UniversalComputeAdapter {
 
     /// Force rediscovery of compute services
     pub async fn rediscover_compute_services(&mut self) -> Result<(), PrimalError> {
-        info!("🔄 Rediscovering compute services");
+        info!("Rediscovering compute services");
         self.preferred_compute_service = None;
         self.preferred_compute_service = Some(self.discover_compute_service().await?);
         Ok(())
@@ -264,7 +264,7 @@ impl UniversalComputeAdapter {
         &mut self,
         job_definition: serde_json::Value,
     ) -> Result<String, PrimalError> {
-        info!("📋 Submitting batch job via universal compute adapter");
+        info!("Submitting batch job via universal compute adapter");
 
         let response = self
             .coordinate_computation("batch_submit", job_definition)

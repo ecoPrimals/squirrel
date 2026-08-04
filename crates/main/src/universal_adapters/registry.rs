@@ -152,7 +152,7 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
             let service_name = registration.metadata.name.clone();
 
             info!(
-                "🌌 Registering universal service: {} ({})",
+                "Registering universal service: {} ({})",
                 service_name, service_id
             );
 
@@ -170,7 +170,7 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
             services.insert(service_id.clone(), registered_service);
 
             info!(
-                "✅ Service {} successfully registered with {} capabilities",
+                "Service {} successfully registered with {} capabilities",
                 service_name,
                 registration.capabilities.len()
             );
@@ -187,7 +187,7 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
         let this = self.clone();
         Box::pin(async move {
             debug!(
-                "🔍 Discovering services by capability: {:?}",
+                "Discovering services by capability: {:?}",
                 target_capability
             );
 
@@ -222,7 +222,7 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
             }
 
             debug!(
-                "🎯 Found {} services with matching capability",
+                "Found {} services with matching capability",
                 matching_services.len()
             );
             Ok(matching_services)
@@ -236,7 +236,7 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
         let services = Arc::clone(&self.services);
         let category = category.to_string();
         Box::pin(async move {
-            debug!("🔍 Discovering services by category: {}", category);
+            debug!("Discovering services by category: {}", category);
 
             let services = services.read().await;
             let mut matching_services = Vec::new();
@@ -268,7 +268,7 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
             }
 
             debug!(
-                "🎯 Found {} services in category '{}'",
+                "Found {} services in category '{}'",
                 matching_services.len(),
                 category
             );
@@ -282,7 +282,7 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
     ) -> Pin<Box<dyn Future<Output = Result<ServiceInfo, PrimalError>> + Send + '_>> {
         let this = self.clone();
         Box::pin(async move {
-            debug!("🎯 Finding optimal service for requirements");
+            debug!("Finding optimal service for requirements");
 
             // Start with services that have required capabilities
             let mut candidates = Vec::new();
@@ -357,7 +357,7 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
             if let Some(registered_service) = services.get_mut(&service_id) {
                 registered_service.health = health;
                 registered_service.last_seen = chrono::Utc::now();
-                debug!("💓 Updated health for service: {}", service_id);
+                debug!("Updated health for service: {}", service_id);
                 Ok(())
             } else {
                 Err(PrimalError::ServiceDiscoveryError(format!(
@@ -377,10 +377,10 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
             let mut services = services.write().await;
 
             if services.remove(&service_id).is_some() {
-                info!("🚫 Deregistered service: {}", service_id);
+                info!("Deregistered service: {}", service_id);
                 Ok(())
             } else {
-                warn!("⚠️ Attempted to deregister unknown service: {}", service_id);
+                warn!("Attempted to deregister unknown service: {}", service_id);
                 Err(PrimalError::ServiceDiscoveryError(format!(
                     "Service not found: {service_id}"
                 )))
@@ -515,7 +515,7 @@ impl ServiceMatcher {
         task_description: &str,
         required_capabilities: Vec<ServiceCapability>,
     ) -> Result<ServiceInfo, PrimalError> {
-        info!("🎯 Matching service for task: {}", task_description);
+        info!("Matching service for task: {}", task_description);
 
         let requirements = ServiceRequirements {
             required_capabilities,
@@ -530,7 +530,7 @@ impl ServiceMatcher {
 
     /// Auto-discover all available services
     pub async fn auto_discover_services(&self) -> Result<Vec<ServiceInfo>, PrimalError> {
-        debug!("🌌 Auto-discovering all available services");
+        debug!("Auto-discovering all available services");
         self.registry.list_all_services().await
     }
 }

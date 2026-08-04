@@ -219,7 +219,7 @@ impl SecurityHardening {
         hardening.start_background_tasks().await;
 
         info!(
-            "🛡️ Security hardening initialized for {} environment",
+            "Security hardening initialized for {} environment",
             match config.environment {
                 Environment::Production => "production",
                 Environment::Staging => "staging",
@@ -236,7 +236,7 @@ impl SecurityHardening {
         // Don't install panic handler in test mode to avoid test suite failures
         #[cfg(test)]
         {
-            info!("🛡️ Skipping panic handler installation in test mode");
+            info!("Skipping panic handler installation in test mode");
         }
 
         #[cfg(not(test))]
@@ -260,19 +260,19 @@ impl SecurityHardening {
                     match environment {
                         Environment::Production => {
                             error!(
-                                "🚨 PRODUCTION PANIC: {} (thread: {}, location: {:?})",
+                                "PRODUCTION PANIC: {} (thread: {}, location: {:?})",
                                 panic_message, thread_name, location
                             );
                         }
                         Environment::Staging => {
                             error!(
-                                "⚠️ STAGING PANIC: {} (thread: {}, location: {:?})",
+                                "STAGING PANIC: {} (thread: {}, location: {:?})",
                                 panic_message, thread_name, location
                             );
                         }
                         _ => {
                             warn!(
-                                "🐛 DEV PANIC: {} (thread: {}, location: {:?})",
+                                "DEV PANIC: {} (thread: {}, location: {:?})",
                                 panic_message, thread_name, location
                             );
                         }
@@ -296,7 +296,7 @@ impl SecurityHardening {
 
                     // Attempt graceful shutdown for production
                     if environment == Environment::Production {
-                        error!("🚨 PRODUCTION PANIC DETECTED - INITIATING GRACEFUL SHUTDOWN");
+                        error!("PRODUCTION PANIC DETECTED - INITIATING GRACEFUL SHUTDOWN");
 
                         // Brief grace period for incident handler (panic hook, tokio may be unavailable)
                         std::thread::sleep(Duration::from_millis(10));
@@ -307,7 +307,7 @@ impl SecurityHardening {
                 },
             ));
 
-            info!("🛡️ Production panic handler installed");
+            info!("Production panic handler installed");
         }
     }
 
@@ -452,7 +452,7 @@ impl SecurityHardening {
                 }
 
                 warn!(
-                    "🔒 Account locked: {} (IP: {}, attempts: {})",
+                    "Account locked: {} (IP: {}, attempts: {})",
                     username, ip_address, failed_count
                 );
             }
@@ -494,7 +494,7 @@ impl SecurityHardening {
                     lockouts.retain(|_, lockout| now < lockout.locked_until);
                 }
 
-                debug!("🧹 Security hardening cleanup completed");
+                debug!("Security hardening cleanup completed");
             }
         });
     }
@@ -584,7 +584,7 @@ impl SecurityIncidentHandler {
                 timestamp,
             } => {
                 error!(
-                    "🚨 Security Incident - Application Panic: {} (thread: {}, location: {:?}, time: {})",
+                    "Security Incident - Application Panic: {} (thread: {}, location: {:?}, time: {})",
                     message, thread, location, timestamp
                 );
             }
@@ -595,7 +595,7 @@ impl SecurityIncidentHandler {
                 ..
             } => {
                 warn!(
-                    "🚨 Security Incident - Rate Limit Exceeded: IP {} made {} attempts (time: {})",
+                    "Security Incident - Rate Limit Exceeded: IP {} made {} attempts (time: {})",
                     ip_address, attempt_count, timestamp
                 );
             }
@@ -607,7 +607,7 @@ impl SecurityIncidentHandler {
                 ..
             } => {
                 warn!(
-                    "🚨 Security Incident - Account Locked: {} from IP {} after {} failed attempts (time: {})",
+                    "Security Incident - Account Locked: {} from IP {} after {} failed attempts (time: {})",
                     username, ip_address, failed_attempts, timestamp
                 );
             }
@@ -619,13 +619,13 @@ impl SecurityIncidentHandler {
             } => match risk_level {
                 RiskLevel::Critical | RiskLevel::High => {
                     error!(
-                        "🚨 Security Incident - Suspicious Activity: {} (risk: {:?}, time: {})",
+                        "Security Incident - Suspicious Activity: {} (risk: {:?}, time: {})",
                         activity_type, risk_level, timestamp
                     );
                 }
                 _ => {
                     warn!(
-                        "⚠️ Security Incident - Suspicious Activity: {} (risk: {:?}, time: {})",
+                        "Security Incident - Suspicious Activity: {} (risk: {:?}, time: {})",
                         activity_type, risk_level, timestamp
                     );
                 }
@@ -637,7 +637,7 @@ impl SecurityIncidentHandler {
                 ..
             } => {
                 info!(
-                    "🔧 Security Incident - Config Change: {} by {} (time: {})",
+                    "Security Incident - Config Change: {} by {} (time: {})",
                     changed_setting, changed_by, timestamp
                 );
             }
@@ -704,7 +704,7 @@ pub async fn initialize_production_security() -> Result<Arc<SecurityHardening>, 
     let config = SecurityHardeningConfig::default();
     let hardening = Arc::new(SecurityHardening::new(config).await);
 
-    info!("🛡️ Production security hardening initialized successfully");
+    info!("Production security hardening initialized successfully");
     Ok(hardening)
 }
 

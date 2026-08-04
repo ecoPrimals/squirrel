@@ -203,7 +203,8 @@ fn get_xdg_socket_path(family_id: &str) -> Option<String> {
         } else {
             "squirrel.sock".to_string()
         };
-        let socket_path = format!("{xdg_runtime_dir}/biomeos/{filename}");
+        let subdir = universal_constants::network::BIOMEOS_SOCKET_SUBDIR;
+        let socket_path = format!("{xdg_runtime_dir}/{subdir}/{filename}");
         Some(socket_path)
     } else {
         debug!("XDG runtime directory does not exist: {}", xdg_runtime_dir);
@@ -229,16 +230,10 @@ fn get_xdg_socket_path(family_id: &str) -> Option<String> {
 /// - Cannot create directory
 /// - Cannot set permissions
 pub fn ensure_biomeos_directory() -> std::io::Result<PathBuf> {
-    #[cfg(unix)]
-    let uid = universal_constants::sys_info::current_uid();
-    #[cfg(not(unix))]
-    let uid = 0u32;
-    let biomeos_dir = format!("/run/user/{uid}/biomeos");
-    let path = PathBuf::from(&biomeos_dir);
+    let path = universal_constants::network::get_socket_dir();
 
-    // Create directory if it doesn't exist
     if !path.exists() {
-        debug!("Creating ecosystem socket directory: {}", biomeos_dir);
+        debug!("Creating ecosystem socket directory: {}", path.display());
         std::fs::create_dir_all(&path)?;
 
         // Set permissions to 0700 (user-only)
@@ -418,9 +413,9 @@ pub fn prepare_socket_path(socket_path: &str) -> std::io::Result<PathBuf> {
 /// propagate errors (cleanup is best-effort).
 pub fn cleanup_socket(socket_path: &str) {
     if Path::new(socket_path).exists() {
-        info!("🧹 Cleaning up socket: {}", socket_path);
+        info!("Cleaning up socket: {}", socket_path);
         if let Err(e) = std::fs::remove_file(socket_path) {
-            warn!("⚠️ Failed to remove socket: {}", e);
+            warn!("Failed to remove socket: {}", e);
         }
     }
     cleanup_capability_domain_symlink(socket_path);

@@ -240,7 +240,7 @@ impl JsonRpcServer {
     /// and PRIMAL_IPC_PROTOCOL, we **also** bind a filesystem socket at
     /// `$XDG_RUNTIME_DIR/biomeos/squirrel.sock` so biomeOS can find us.
     pub async fn start(self: Arc<Self>) -> Result<()> {
-        info!("🔌 Starting JSON-RPC server with Universal Transport...");
+        info!("Starting JSON-RPC server with Universal Transport...");
 
         // Bind using Universal Transport (automatic fallback)
         let listener = UniversalListener::bind(&self.service_name, None)
@@ -264,7 +264,7 @@ impl JsonRpcServer {
                 match tokio::net::UnixListener::bind(&fs_path) {
                     Ok(fs_listener) => {
                         info!(
-                            "✅ Filesystem socket bound: {} (biomeOS discovery)",
+                            "Filesystem socket bound: {} (biomeOS discovery)",
                             fs_path
                         );
                         #[cfg(unix)]
@@ -289,7 +289,7 @@ impl JsonRpcServer {
                     }
                     Err(e) => {
                         warn!(
-                            "⚠️ Could not bind filesystem socket {}: {} (abstract-only mode)",
+                            "Could not bind filesystem socket {}: {} (abstract-only mode)",
                             fs_path, e
                         );
                     }
@@ -316,13 +316,13 @@ impl JsonRpcServer {
             }
         }
 
-        info!("✅ JSON-RPC server ready (service: {})", self.service_name);
+        info!("JSON-RPC server ready (service: {})", self.service_name);
 
         // Accept connections loop (primary transport)
         loop {
             match listener.accept().await {
                 Ok((transport, _remote_addr)) => {
-                    debug!("📥 New connection accepted");
+                    debug!("New connection accepted");
                     let server = Arc::clone(&self);
                     tokio::spawn(async move {
                         if let Err(e) = Self::handle_uds_connection(server, transport).await {
@@ -347,7 +347,7 @@ impl JsonRpcServer {
         loop {
             match fs_listener.accept().await {
                 Ok((stream, _addr)) => {
-                    debug!("📥 Filesystem socket connection accepted");
+                    debug!("Filesystem socket connection accepted");
                     let srv = Arc::clone(&server);
                     tokio::spawn(async move {
                         let transport = UniversalTransport::UnixSocket(stream);
@@ -368,7 +368,7 @@ impl JsonRpcServer {
         loop {
             match listener.accept().await {
                 Ok((stream, _addr)) => {
-                    debug!("📥 TCP JSON-RPC connection accepted");
+                    debug!("TCP JSON-RPC connection accepted");
                     let srv = Arc::clone(&server);
                     tokio::spawn(async move {
                         let transport = UniversalTransport::Tcp(stream);

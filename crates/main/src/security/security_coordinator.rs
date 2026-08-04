@@ -143,7 +143,7 @@ impl SecurityCoordinator {
     ) -> Result<SecurityResponse, PrimalError> {
         let operation = format!("{:?}", request.request_type);
         info!(
-            "🔒 Coordinating security request with security service: {}",
+            "Coordinating security request with security service: {}",
             operation
         );
 
@@ -179,7 +179,7 @@ impl SecurityCoordinator {
             warn!("Failed to acquire write lock on sessions");
         }
 
-        info!("✅ Security coordination complete");
+        info!("Security coordination complete");
         Ok(response)
     }
 
@@ -208,7 +208,7 @@ impl SecurityCoordinator {
         &mut self,
         user_id: &str,
     ) -> Result<String, PrimalError> {
-        debug!("🔒 Authenticating user {} via security service", user_id);
+        debug!("Authenticating user {} via security service", user_id);
 
         let request = SecurityRequest {
             request_id: uuid::Uuid::new_v4().to_string(),

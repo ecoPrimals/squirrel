@@ -366,19 +366,19 @@ impl ContextLearningManager {
         manager: &Arc<ContextManager>,
         observations: &Arc<RwLock<HashMap<String, Vec<ContextObservation>>>>,
     ) -> Result<()> {
-        debug!("🐿️ Starting MCP-aware context observation using manager");
+        debug!("Starting MCP-aware context observation using manager");
 
         let active_contexts = manager.list_sessions().await;
 
         let context_ids = if active_contexts.is_empty() {
-            info!("🧠 No active contexts detected, creating MCP coordination baseline");
+            info!("No active contexts detected, creating MCP coordination baseline");
             vec!["mcp_coordination_default".to_string()]
         } else {
             active_contexts
         };
 
         debug!(
-            "🔍 Observing {} contexts for AI coordination intelligence",
+            "Observing {} contexts for AI coordination intelligence",
             context_ids.len()
         );
 
@@ -444,18 +444,18 @@ impl ContextLearningManager {
                     && context_observations.len() > 100
                 {
                     context_observations.drain(0..50); // Keep recent 50
-                    debug!("🧹 Cleaned observation history for context {}", context_id);
+                    debug!("Cleaned observation history for context {}", context_id);
                 }
             }
 
             debug!(
-                "📊 Recorded intelligent observation for context {}",
+                "Recorded intelligent observation for context {}",
                 context_id
             );
         }
 
         info!(
-            "✅ Completed MCP-aware context observation for {} contexts",
+            "Completed MCP-aware context observation for {} contexts",
             context_ids.len()
         );
         Ok(())

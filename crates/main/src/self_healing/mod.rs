@@ -76,7 +76,7 @@ impl SelfHealingManager {
     /// Create a new AI health manager
     pub fn new(config: SelfHealingConfig) -> Self {
         info!(
-            "🩺 Initializing AI Health Manager with check interval {}s",
+            "Initializing AI Health Manager with check interval {}s",
             config.check_interval_seconds
         );
 
@@ -99,7 +99,7 @@ impl SelfHealingManager {
         self.component_health
             .insert(component_id.to_string(), health);
         debug!(
-            "📋 Registered component for health monitoring: {}",
+            "Registered component for health monitoring: {}",
             component_id
         );
     }
@@ -128,16 +128,16 @@ impl SelfHealingManager {
             if previous_status != status {
                 match status {
                     HealthStatus::Healthy => {
-                        info!("✅ Component '{}' recovered: {}", component_id, message);
+                        info!("Component '{}' recovered: {}", component_id, message);
                     }
                     HealthStatus::Degraded => {
-                        warn!("⚠️ Component '{}' degraded: {}", component_id, message);
+                        warn!("Component '{}' degraded: {}", component_id, message);
                     }
                     HealthStatus::Failed => {
-                        warn!("❌ Component '{}' failed: {}", component_id, message);
+                        warn!("Component '{}' failed: {}", component_id, message);
                     }
                     HealthStatus::Unknown => debug!(
-                        "❓ Component '{}' status unknown: {}",
+                        "Component '{}' status unknown: {}",
                         component_id, message
                     ),
                 }
@@ -206,7 +206,7 @@ impl SelfHealingManager {
     /// Components that haven't reported within `check_interval_seconds * 3`
     /// are marked degraded; beyond `* 6` they are marked failed.
     pub async fn perform_health_check(&mut self) -> Result<(), PrimalError> {
-        debug!("🔍 Performing AI coordination health check...");
+        debug!("Performing AI coordination health check...");
 
         let now = chrono::Utc::now();
         let interval = self.config.check_interval_seconds.min(i64::MAX as u64) as i64;
@@ -228,7 +228,7 @@ impl SelfHealingManager {
             .filter(|(_, s)| matches!(s, HealthStatus::Healthy))
             .count();
         info!(
-            "✅ Health check complete: {}/{} components healthy",
+            "Health check complete: {}/{} components healthy",
             healthy_components,
             check_results.len()
         );
@@ -275,7 +275,7 @@ impl SelfHealingManager {
             && health.failure_count >= self.config.max_failures
         {
             warn!(
-                "🔧 Auto-recovery for component '{}' (failure count: {}): resetting to Unknown",
+                "Auto-recovery for component '{}' (failure count: {}): resetting to Unknown",
                 component_id, health.failure_count
             );
             health.status = HealthStatus::Unknown;
@@ -354,7 +354,7 @@ pub async fn initialize_self_healing() -> Result<SelfHealingManager, PrimalError
     manager.register_component("compute_adapter");
 
     info!(
-        "🩺 AI Health Manager initialized with {} components",
+        "AI Health Manager initialized with {} components",
         manager.component_health.len()
     );
 

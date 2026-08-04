@@ -51,7 +51,7 @@ pub fn select_provider_with_constraints(
         .collect();
 
     if candidates.is_empty() {
-        debug!("⚠️  No providers meet required constraints, falling back to all providers");
+        debug!("No providers meet required constraints, falling back to all providers");
         candidates = providers.to_vec();
     }
 
@@ -89,7 +89,7 @@ fn meets_required_constraints(
         match constraint {
             RoutingConstraint::RequireLocal => {
                 if !provider.is_local() {
-                    debug!("❌ Provider {} rejected: not local", provider.provider_id());
+                    debug!("Provider {} rejected: not local", provider.provider_id());
                     return false;
                 }
             }
@@ -103,7 +103,7 @@ fn meets_required_constraints(
                     && cost > *max_cost
                 {
                     debug!(
-                        "❌ Provider {} rejected: cost ${:.4} > max ${:.4}",
+                        "Provider {} rejected: cost ${:.4} > max ${:.4}",
                         provider.provider_id(),
                         cost,
                         max_cost
@@ -114,7 +114,7 @@ fn meets_required_constraints(
             RoutingConstraint::MaxLatency(max_latency) => {
                 if provider.avg_latency_ms() > *max_latency {
                     debug!(
-                        "❌ Provider {} rejected: latency {}ms > max {}ms",
+                        "Provider {} rejected: latency {}ms > max {}ms",
                         provider.provider_id(),
                         provider.avg_latency_ms(),
                         max_latency
@@ -125,7 +125,7 @@ fn meets_required_constraints(
             RoutingConstraint::MinQuality(min_quality) => {
                 if provider.quality_tier() < *min_quality {
                     debug!(
-                        "❌ Provider {} rejected: quality {:?} < min {:?}",
+                        "Provider {} rejected: quality {:?} < min {:?}",
                         provider.provider_id(),
                         provider.quality_tier(),
                         min_quality

@@ -162,7 +162,7 @@ impl AiRouter {
                 Self::create_universal_adapter_from_path(socket_path_str.as_ref()).await
             {
                 info!(
-                    "✅ Wired LOCAL_AI_ENDPOINT {} via compute primal Unix socket {}",
+                    "Wired LOCAL_AI_ENDPOINT {} via compute primal Unix socket {}",
                     endpoint,
                     socket_path_str.as_ref()
                 );
@@ -195,7 +195,7 @@ impl AiRouter {
         request: ImageGenerationRequest,
         requirements: Option<ActionRequirements>,
     ) -> Result<ImageGenerationResponse, PrimalError> {
-        info!("🎨 Routing image generation request: '{}'", request.prompt);
+        info!("Routing image generation request: '{}'", request.prompt);
 
         run_dignity_check(&request.prompt, None, None)?;
 
@@ -214,7 +214,7 @@ impl AiRouter {
             .map_err(|e| PrimalError::OperationFailed(format!("Provider selection failed: {e}")))?;
 
         info!(
-            "🎯 Selected provider: {} ({})",
+            "Selected provider: {} ({})",
             selected.provider_name, selected.provider_id
         );
 
@@ -230,14 +230,14 @@ impl AiRouter {
         match provider.generate_image(request.clone()).await {
             Ok(response) => {
                 info!(
-                    "✅ Image generation successful via {}",
+                    "Image generation successful via {}",
                     selected.provider_name
                 );
                 Ok(response)
             }
             Err(e) => {
                 error!(
-                    "❌ Image generation failed with {}: {}",
+                    "Image generation failed with {}: {}",
                     selected.provider_name, e
                 );
 
@@ -266,7 +266,7 @@ impl AiRouter {
         available_providers: &[ProviderInfo],
         requirements: Option<&ActionRequirements>,
     ) -> Result<ImageGenerationResponse, PrimalError> {
-        warn!("🔄 Attempting fallback providers...");
+        warn!("Attempting fallback providers...");
 
         // Filter out failed provider
         let fallback_providers: Vec<_> = available_providers
@@ -290,7 +290,7 @@ impl AiRouter {
             })?;
 
         info!(
-            "🔄 Trying fallback provider: {} ({})",
+            "Trying fallback provider: {} ({})",
             fallback.provider_name, fallback.provider_id
         );
 
@@ -312,7 +312,7 @@ impl AiRouter {
         requirements: Option<ActionRequirements>,
     ) -> Result<TextGenerationResponse, PrimalError> {
         info!(
-            "💬 Routing text generation request ({} tokens max)",
+            "Routing text generation request ({} tokens max)",
             request.max_tokens
         );
 
@@ -357,7 +357,7 @@ impl AiRouter {
                 .cloned()
         } else {
             info!(
-                "🎯 Using constraint-based routing with {} constraint(s)",
+                "Using constraint-based routing with {} constraint(s)",
                 request.constraints.len()
             );
             select_provider_with_constraints(&text_providers, &request.constraints, "text")
@@ -368,7 +368,7 @@ impl AiRouter {
         })?;
 
         info!(
-            "🎯 Selected provider: {} ({})",
+            "Selected provider: {} ({})",
             provider.provider_name(),
             provider.provider_id()
         );

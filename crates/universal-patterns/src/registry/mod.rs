@@ -113,13 +113,13 @@ impl UniversalPrimalRegistry {
     /// This uses capability-based Unix socket discovery.
     /// No knowledge of specific primals!
     pub async fn auto_discover(&mut self) -> PrimalResult<Vec<DiscoveredPrimal>> {
-        info!("🔍 Starting TRUE PRIMAL auto-discovery (Unix socket scan)");
+        info!("Starting TRUE PRIMAL auto-discovery (Unix socket scan)");
 
         let discovery = PrimalDiscovery::new();
         let discovered = discovery.discover_all().await?;
 
         info!(
-            "✅ Auto-discovery completed. Found {} primals",
+            "Auto-discovery completed. Found {} primals",
             discovered.len()
         );
 
@@ -195,7 +195,7 @@ impl UniversalPrimalRegistry {
                 self.do_register_primal(&instance_id, primal.clone(), &context, port_info)
                     .await?;
                 info!(
-                    "✅ Registered healthy primal: {} for user: {} with {} capabilities",
+                    "Registered healthy primal: {} for user: {} with {} capabilities",
                     instance_id,
                     context.user_id,
                     primal.capabilities().len()
@@ -204,20 +204,20 @@ impl UniversalPrimalRegistry {
             }
             PrimalHealth::Degraded { issues } => {
                 warn!(
-                    "⚠️ Primal {} is degraded but registering anyway: {:?}",
+                    "Primal {} is degraded but registering anyway: {:?}",
                     instance_id, issues
                 );
                 self.do_register_primal(&instance_id, primal.clone(), &context, port_info)
                     .await?;
                 info!(
-                    "✅ Registered degraded primal: {} for user: {}",
+                    "Registered degraded primal: {} for user: {}",
                     instance_id, context.user_id
                 );
                 Ok(())
             }
             PrimalHealth::Unhealthy { reason } => {
                 warn!(
-                    "❌ Primal {} is unhealthy, skipping registration: {}",
+                    "Primal {} is unhealthy, skipping registration: {}",
                     instance_id, reason
                 );
                 Err(PrimalError::ServiceUnavailable(format!(

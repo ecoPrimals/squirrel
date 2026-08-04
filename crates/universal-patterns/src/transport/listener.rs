@@ -91,7 +91,7 @@ impl UniversalListener {
         // Determine transport hierarchy based on platform
         let transport_order = Self::get_transport_hierarchy(&config);
 
-        tracing::info!("🔌 Starting IPC server (isomorphic mode)...");
+        tracing::info!("Starting IPC server (isomorphic mode)...");
         tracing::info!("   Service: {}", service_name);
 
         let mut last_error = None;
@@ -101,22 +101,22 @@ impl UniversalListener {
 
             match Self::try_bind(service_name, transport_type, &config).await {
                 Ok(listener) => {
-                    tracing::info!("✅ Listening on {:?}", transport_type);
+                    tracing::info!("Listening on {:?}", transport_type);
 
                     // Write TCP discovery file when using TCP fallback
                     if let UniversalListener::Tcp(ref tcp_listener) = listener {
                         if let Ok(addr) = tcp_listener.local_addr() {
                             if let Err(e) = write_tcp_discovery_file(service_name, &addr) {
-                                tracing::warn!("⚠️  Could not write TCP discovery file: {}", e);
+                                tracing::warn!("Could not write TCP discovery file: {}", e);
                             } else {
-                                tracing::info!("📁 TCP discovery file written");
+                                tracing::info!("TCP discovery file written");
                                 tracing::info!(
-                                    "   Status: READY ✅ (isomorphic TCP fallback active)"
+                                    "   Status: READY  (isomorphic TCP fallback active)"
                                 );
                             }
                         }
                     } else {
-                        tracing::info!("   Status: READY ✅");
+                        tracing::info!("   Status: READY ");
                     }
 
                     return Ok(listener);
@@ -124,7 +124,7 @@ impl UniversalListener {
 
                 // DETECT: Platform constraint (expected, adapt)
                 Err(e) if UniversalTransport::is_platform_constraint(&e) => {
-                    tracing::warn!("⚠️  {:?} unavailable: {}", transport_type, e);
+                    tracing::warn!("{:?} unavailable: {}", transport_type, e);
                     tracing::warn!("   Detected platform constraint, adapting...");
 
                     last_error = Some(e);
@@ -137,7 +137,7 @@ impl UniversalListener {
 
                 // Real error (unexpected, fail)
                 Err(e) => {
-                    tracing::error!("❌ Real error (not platform constraint): {}", e);
+                    tracing::error!("Real error (not platform constraint): {}", e);
                     last_error = Some(e);
 
                     if !config.enable_fallback {

@@ -88,7 +88,7 @@ impl ProviderSelector {
             && let Some(ref preferred) = reqs.preferred_provider
         {
             if let Some(provider) = available.iter().find(|p| &p.provider_id == preferred) {
-                info!("✅ Using preferred provider: {}", preferred);
+                info!("Using preferred provider: {}", preferred);
                 return Ok((*provider).clone());
             } else if !self.enable_fallback {
                 return Err(SelectionError::PreferredProviderNotAvailable(
@@ -122,7 +122,7 @@ impl ProviderSelector {
         let best = scored.first().ok_or(SelectionError::NoSuitableProvider)?;
 
         info!(
-            "🎯 Selected best provider: {} (score: {:.2})",
+            "Selected best provider: {} (score: {:.2})",
             best.0.provider_name, best.1
         );
 

@@ -11,6 +11,16 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 4, 2026 — Wave 156d: Sovereignty + Logging Hygiene + Test Isolation)
+
+- **Hardcoded primal names evolved**: Removed all remaining "BearDog"/"Songbird" string literals from production error/status messages across `security_client/client.rs`, `transport/endpoint.rs`, `capability_crypto.rs`. Messages now reference capability-based concepts ("discovered security provider via IPC", "service mesh") instead of naming specific primals.
+- **Socket path centralization**: 5 files with inline `/biomeos/` path constructions now use `BIOMEOS_SOCKET_SUBDIR` constant or `get_socket_dir()` from `universal-constants::network`. Eliminated duplicate UID-based path building in `ensure_biomeos_directory()`, `get_xdg_socket_path()`, `endpoint_resolver.rs`, and `capabilities/discovery.rs`.
+- **Security client evolved from stubs to capability-aware**: `apply_ai_security_routing()` and `get_ai_security_insights()` now check actual discovered provider count instead of returning static "not implemented" messages. Provider-absent and provider-available states have distinct responses.
+- **Test isolation fix**: `monitoring_service_provider_trait_methods` intermittent failure fixed — test now unsets `XDG_RUNTIME_DIR`/`MONITORING_SOCKET`/`BIOMEOS_SOCKET_DIR` to prevent IPC discovery race with concurrent tests that create temp socket dirs.
+- **`#[cfg(test)] pub` field removed from production struct**: `ModelRegistry.models` field is now always private; test-only `models()` accessor behind `#[cfg(test)]`.
+- **Emoji removed from 260 log macros across 33 production files**: `info!`/`warn!`/`error!`/`debug!` messages cleaned for grep-ability and idiomatic Rust tracing.
+- **Zero warnings**, zero test regressions, 7,142 tests passing (`--all-features`).
+
 ### Summary (Aug 4, 2026 — Wave 156c: Deprecated Surface Cleanup — 40 → 13 deprecated items)
 
 - **Beardog → SecurityProvider migration COMPLETE**: Removed all 20+ deprecated type aliases, module re-exports, builder methods, and factory functions related to the Beardog → SecurityProvider rename. 15 files touched. `BeardogSecurityCoordinator`, `BearDogClient`, `BearDogClientConfig`, `BearDogJwtConfig`, `BearDogJwtService`, `BeardogSecurityProvider`, `BeardogIntegration`, `BEARDOG_SECURITY_SERVICE_ID`, `AUTH_METHOD_SERDE_BEARDOG*`, `beardog_endpoint()`, `beardog_auth()`, `beardog_endpoint_optional()`, `create_beardog_client()` — all removed. Tests migrated to use canonical `SecurityCoordinator`, `SecurityProviderClient` names. Legacy wire-ID matching inlined as private constant.

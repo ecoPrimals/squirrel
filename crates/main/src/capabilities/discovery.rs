@@ -113,34 +113,34 @@ pub enum DiscoveryError {
 /// # }
 /// ```
 pub async fn discover_capability(capability: &str) -> Result<CapabilityProvider, DiscoveryError> {
-    info!("🔍 Discovering capability: {}", capability);
+    info!("Discovering capability: {}", capability);
 
     // Method 1: Explicit environment variable (instant)
     if let Some(provider) = try_explicit_env(capability).await? {
-        info!("✅ Found {} via environment variable", capability);
+        info!("Found {} via environment variable", capability);
         return Ok(provider);
     }
 
     // Method 2: Query discovery service via DISCOVERY_SOCKET (fast, runtime)
     if let Some(provider) = try_discovery_service(capability).await? {
-        info!("✅ Found {} via discovery service", capability);
+        info!("Found {} via discovery service", capability);
         return Ok(provider);
     }
 
     // Method 3: Query capability registry (instant, event-driven!)
     if let Some(provider) = try_registry_query(capability).await? {
-        info!("✅ Found {} via capability registry", capability);
+        info!("Found {} via capability registry", capability);
         return Ok(provider);
     }
 
     // Method 4: Scan socket directory (slow fallback)
     // Only used if registry and discovery service unavailable (dev/testing)
     if let Some(provider) = try_socket_scan(capability).await? {
-        info!("✅ Found {} via socket scan", capability);
+        info!("Found {} via socket scan", capability);
         return Ok(provider);
     }
 
-    warn!("❌ Capability not found: {}", capability);
+    warn!("Capability not found: {}", capability);
     Err(DiscoveryError::CapabilityNotFound(capability.to_string()))
 }
 
@@ -245,7 +245,7 @@ async fn try_explicit_env(capability: &str) -> Result<Option<CapabilityProvider>
         // Connect-probe to confirm socket is alive (CAPABILITY_BASED_DISCOVERY_STANDARD v1.3.0 §5)
         if socket_is_alive(&path).await {
             info!(
-                "✅ Found {} via env var {} = {}",
+                "Found {} via env var {} = {}",
                 capability, env_var, socket_path
             );
 
@@ -323,7 +323,7 @@ async fn try_registry_query(
 ) -> Result<Option<CapabilityProvider>, DiscoveryError> {
     // Try Neural API first (NUCLEUS-compliant semantic routing)
     // Neural API provides capability.discover for finding providers
-    info!("🧠 Checking Neural API for capability: {}", capability);
+    info!("Checking Neural API for capability: {}", capability);
 
     let neural_api_socket =
         std::env::var(universal_constants::env_vars::ecosystem::NEURAL_API_SOCKET)
@@ -344,16 +344,16 @@ async fn try_registry_query(
             });
 
     if let Some(socket_path) = neural_api_socket {
-        info!("🧠 Found Neural API socket: {}", socket_path);
+        info!("Found Neural API socket: {}", socket_path);
         let registry_path = PathBuf::from(&socket_path);
 
         if registry_path.exists() {
-            info!("🧠 Querying Neural API at: {:?}", registry_path);
+            info!("Querying Neural API at: {:?}", registry_path);
 
             match query_registry(&registry_path, capability).await {
                 Ok(provider) => {
                     info!(
-                        "✅ Neural API found provider for {}: {:?}",
+                        "Neural API found provider for {}: {:?}",
                         capability, provider.socket
                     );
                     return Ok(Some(CapabilityProvider {
@@ -362,7 +362,7 @@ async fn try_registry_query(
                     }));
                 }
                 Err(e) => {
-                    warn!("⚠️  Neural API query failed for {}: {}", capability, e);
+                    warn!("Neural API query failed for {}: {}", capability, e);
                 }
             }
         }
@@ -570,7 +570,7 @@ async fn query_registry(
             .and_then(|s| s.as_str());
         if let Some(raw) = raw_path {
             let socket_path = raw.strip_prefix("unix://").unwrap_or(raw);
-            info!("✅ Neural API discovered {} at {}", capability, socket_path);
+            info!("Neural API discovered {} at {}", capability, socket_path);
             Ok(CapabilityProvider {
                 id: result
                     .get("capability")
@@ -622,22 +622,15 @@ fn get_socket_directories() -> Vec<PathBuf> {
 
     let mut dirs = vec![];
 
-    // Priority 1: Standard biomeOS socket directory (NUCLEUS-compliant!)
-    #[cfg(unix)]
-    {
-        let uid = universal_constants::sys_info::current_uid();
-        let biomeos_dir = PathBuf::from(format!("/run/user/{uid}/biomeos"));
-        if biomeos_dir.exists() {
-            dirs.push(biomeos_dir);
-        }
+    // Priority 1: Canonical biomeOS socket directory (get_socket_dir uses
+    // $BIOMEOS_SOCKET_DIR → $XDG_RUNTIME_DIR/biomeos → {temp}/biomeos)
+    let canonical_dir = universal_constants::network::get_socket_dir();
+    if canonical_dir.exists() {
+        dirs.push(canonical_dir);
     }
 
-    // Priority 2: XDG Runtime Directory with biomeos subdirectory
+    // Priority 2: XDG Runtime Directory root (fallback for non-biomeos sockets)
     if let Ok(runtime_dir) = std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR) {
-        let xdg_biomeos = PathBuf::from(format!("{runtime_dir}/biomeos"));
-        if xdg_biomeos.exists() {
-            dirs.push(xdg_biomeos);
-        }
         dirs.push(PathBuf::from(runtime_dir));
     }
 
@@ -670,7 +663,7 @@ async fn is_unix_socket(path: &Path) -> bool {
 ///
 /// Returns a map of capability name → providers (Arc for zero-copy sharing)
 pub async fn discover_all_capabilities() -> Result<HashMap<String, Vec<Arc<CapabilityProvider>>>> {
-    info!("🔍 Discovering all available capabilities...");
+    info!("Discovering all available capabilities...");
 
     let mut all_capabilities: HashMap<String, Vec<Arc<CapabilityProvider>>> = HashMap::new();
 
@@ -696,7 +689,7 @@ pub async fn discover_all_capabilities() -> Result<HashMap<String, Vec<Arc<Capab
     }
 
     info!(
-        "✅ Discovery complete: {} capabilities found",
+        "Discovery complete: {} capabilities found",
         all_capabilities.len()
     );
 

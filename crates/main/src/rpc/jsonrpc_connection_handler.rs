@@ -334,7 +334,7 @@ impl JsonRpcServer {
         use super::protocol_negotiation::{ProtocolRequest, ProtocolResponse, select_protocol};
         use super::tarpc_server::TarpcRpcServer;
 
-        info!("🔄 Protocol negotiation requested");
+        info!("Protocol negotiation requested");
 
         let request = match ProtocolRequest::from_wire(first_line) {
             Ok(req) => req,
@@ -371,7 +371,7 @@ impl JsonRpcServer {
             .await
             .context("Failed to flush protocol negotiation response")?;
 
-        info!("✅ Protocol negotiated: {}", selected);
+        info!("Protocol negotiated: {}", selected);
 
         match selected {
             IpcProtocol::Tarpc => {

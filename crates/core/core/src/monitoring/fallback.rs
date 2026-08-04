@@ -23,10 +23,10 @@ impl FallbackLogger {
     /// Logs an event to tracing when no provider is available.
     pub fn log_event(&self, event: &MonitoringEvent) {
         match self.config.log_level.as_str() {
-            "debug" => tracing::debug!("📊 Event: {:?}", event),
-            "info" => tracing::info!("📊 Event: {}", Self::format_event(event)),
-            "warn" => tracing::warn!("📊 Event: {}", Self::format_event(event)),
-            _ => tracing::trace!("📊 Event: {:?}", event),
+            "debug" => tracing::debug!("Event: {:?}", event),
+            "info" => tracing::info!("Event: {}", Self::format_event(event)),
+            "warn" => tracing::warn!("Event: {}", Self::format_event(event)),
+            _ => tracing::trace!("Event: {:?}", event),
         }
     }
 
@@ -34,9 +34,9 @@ impl FallbackLogger {
     pub fn log_metric(&self, metric: &Metric) {
         if self.config.include_metrics {
             match self.config.log_level.as_str() {
-                "debug" => tracing::debug!("📈 Metric: {:?}", metric),
-                "info" => tracing::info!("📈 Metric: {} = {:?}", metric.name, metric.value),
-                _ => tracing::trace!("📈 Metric: {} = {:?}", metric.name, metric.value),
+                "debug" => tracing::debug!("Metric: {:?}", metric),
+                "info" => tracing::info!("Metric: {} = {:?}", metric.name, metric.value),
+                _ => tracing::trace!("Metric: {} = {:?}", metric.name, metric.value),
             }
         }
     }
@@ -45,12 +45,12 @@ impl FallbackLogger {
     pub fn log_health(&self, component: &str, health: &HealthStatus) {
         if self.config.include_health {
             match self.config.log_level.as_str() {
-                "debug" => tracing::debug!("🏥 Health: {} = {:?}", component, health),
-                "info" => tracing::info!("🏥 Health: {} = {:?}", component, health),
+                "debug" => tracing::debug!("Health: {} = {:?}", component, health),
+                "info" => tracing::info!("Health: {} = {:?}", component, health),
                 "warn" if matches!(health, HealthStatus::Degraded | HealthStatus::Unhealthy) => {
-                    tracing::warn!("🏥 Health: {} = {:?}", component, health);
+                    tracing::warn!("Health: {} = {:?}", component, health);
                 }
-                _ => tracing::trace!("🏥 Health: {} = {:?}", component, health),
+                _ => tracing::trace!("Health: {} = {:?}", component, health),
             }
         }
     }
@@ -59,13 +59,13 @@ impl FallbackLogger {
     pub fn log_performance(&self, component: &str, metrics: &PerformanceMetrics) {
         if self.config.include_performance {
             match self.config.log_level.as_str() {
-                "debug" => tracing::debug!("⚡ Performance: {} = {:?}", component, metrics),
+                "debug" => tracing::debug!("Performance: {} = {:?}", component, metrics),
                 "info" => tracing::info!(
-                    "⚡ Performance: {} = {}",
+                    "Performance: {} = {}",
                     component,
                     Self::format_performance(metrics)
                 ),
-                _ => tracing::trace!("⚡ Performance: {} = {:?}", component, metrics),
+                _ => tracing::trace!("Performance: {} = {:?}", component, metrics),
             }
         }
     }

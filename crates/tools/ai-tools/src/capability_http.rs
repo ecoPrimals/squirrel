@@ -167,7 +167,7 @@ impl HttpClient {
     pub fn new(config: HttpClientConfig) -> Result<Self> {
         info!(
             socket_path = %config.socket_path.display(),
-            "🔌 Creating HTTP capability client (discovering provider...)"
+            "Creating HTTP capability client (discovering provider...)"
         );
 
         Ok(Self {
@@ -198,7 +198,7 @@ impl HttpClient {
         debug!(
             method = %method,
             url = %url,
-            "📤 HTTP request via capability provider"
+            "HTTP request via capability provider"
         );
 
         // Try with retries
@@ -208,7 +208,7 @@ impl HttpClient {
                 warn!(
                     attempt = attempt + 1,
                     max_retries = self.config.max_retries,
-                    "⚠️ Retrying HTTP request..."
+                    "Retrying HTTP request..."
                 );
                 tokio::time::sleep(Duration::from_millis(
                     self.config.retry_delay_ms * (1 << attempt),
@@ -218,14 +218,14 @@ impl HttpClient {
 
             match self.send_request_internal(&request).await {
                 Ok(response) => {
-                    debug!(status = response.status, "✅ HTTP response received");
+                    debug!(status = response.status, "HTTP response received");
                     return Ok(response);
                 }
                 Err(e) => {
                     warn!(
                         error = %e,
                         attempt = attempt + 1,
-                        "❌ HTTP request failed"
+                        "HTTP request failed"
                     );
                     last_error = Some(e);
                 }

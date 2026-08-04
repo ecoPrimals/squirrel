@@ -174,14 +174,14 @@ impl UniversalAdapterV2 {
     ///
     /// Returns error if self-discovery fails
     pub async fn awaken() -> DiscoveryResult<Self> {
-        info!("👶 Awakening as infant primal with ZERO hardcoded knowledge...");
+        info!("Awakening as infant primal with ZERO hardcoded knowledge...");
 
         // Discover self-identity (NO hardcoding!)
         let self_knowledge = PrimalSelfKnowledge::discover_self()
             .map_err(|e| DiscoveryError::ParseError(format!("Self-discovery failed: {e}")))?;
 
         info!(
-            "✅ Self-knowledge acquired: {}",
+            "Self-knowledge acquired: {}",
             self_knowledge.identity().name
         );
 
@@ -225,13 +225,13 @@ impl UniversalAdapterV2 {
     ///
     /// Returns error if capability cannot be discovered or connection fails
     pub async fn connect_capability(&self, capability: &str) -> DiscoveryResult<UniversalClient> {
-        info!("🔍 Discovering capability: {}", capability);
+        info!("Discovering capability: {}", capability);
 
         // Check connection pool first
         if self.config.enable_pooling
             && let Some(active_conn) = self.get_pooled_connection(capability).await
         {
-            debug!("✅ Using pooled connection for '{}'", capability);
+            debug!("Using pooled connection for '{}'", capability);
             return Ok(UniversalClient::from_connection(active_conn));
         }
 
@@ -239,14 +239,14 @@ impl UniversalAdapterV2 {
         let service = self.discovery.discover_capability(capability).await?;
 
         info!(
-            "✅ Discovered '{}' provider: {} at {}",
+            "Discovered '{}' provider: {} at {}",
             capability, service.name, service.endpoint
         );
 
         // Negotiate protocol
         let protocol = self.protocol_negotiator.negotiate(&service).await?;
 
-        debug!("🔌 Using protocol: {:?}", protocol);
+        debug!("Using protocol: {:?}", protocol);
 
         // Create connection
         let connection = ActiveConnection {
@@ -299,7 +299,7 @@ impl UniversalAdapterV2 {
     /// Clear connection pool (force rediscovery)
     pub async fn clear_pool(&self) {
         self.connections.write().await.clear();
-        info!("🗑️  Connection pool cleared");
+        info!("Connection pool cleared");
     }
 }
 
@@ -325,7 +325,7 @@ impl ProtocolNegotiator {
     ///
     /// Tries protocols in preference order and returns the first supported one.
     async fn negotiate(&self, service: &DiscoveredService) -> DiscoveryResult<Protocol> {
-        debug!("🤝 Negotiating protocol with {}", service.name);
+        debug!("Negotiating protocol with {}", service.name);
 
         // Check service's supported protocols
         let supported_protocols = self.parse_supported_protocols(&service.endpoint);
@@ -333,7 +333,7 @@ impl ProtocolNegotiator {
         // Find first matching protocol in our preference order
         for preferred in &self.protocol_preference {
             if supported_protocols.contains(preferred) {
-                debug!("✅ Negotiated protocol: {:?}", preferred);
+                debug!("Negotiated protocol: {:?}", preferred);
                 return Ok(*preferred);
             }
         }

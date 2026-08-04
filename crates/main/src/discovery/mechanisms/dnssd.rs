@@ -102,10 +102,7 @@ impl DnssdDiscovery {
             return Ok(Vec::new());
         }
 
-        info!(
-            "🔍 Attempting DNS-SD discovery for capability: {}",
-            capability
-        );
+        info!(capability, "Attempting DNS-SD discovery");
 
         let query = format!("{}.{}", self.service_type, self.domain);
         debug!("DNS-SD query: PTR {}", query);
@@ -127,7 +124,7 @@ impl DnssdDiscovery {
             return Ok(Vec::new());
         }
 
-        info!("🔍 Querying DNS-SD for all services in {}", self.domain);
+        info!(domain = %self.domain, "Querying DNS-SD for all services");
 
         warn!("DNS-SD not available; falling back to socket registry for discover_all");
 

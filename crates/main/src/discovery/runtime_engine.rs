@@ -50,13 +50,13 @@ impl RuntimeDiscoveryEngine {
         &self,
         capability: &str,
     ) -> DiscoveryResult<DiscoveredService> {
-        debug!("🔍 Discovering capability: {}", capability);
+        debug!("Discovering capability: {}", capability);
 
         // Check cache first
         if let Some(service_entry) = self.cache.get(capability) {
             let service = service_entry.value();
             if service.is_fresh(self.cache_ttl) {
-                debug!("✓ Found cached service for '{}'", capability);
+                debug!("Found cached service for '{}'", capability);
                 return Ok(service.clone());
             }
         }
@@ -66,7 +66,7 @@ impl RuntimeDiscoveryEngine {
         let env_key = format!("{}_ENDPOINT", capability.to_uppercase().replace('.', "_"));
         if let Ok(endpoint) = std::env::var(&env_key) {
             info!(
-                "✓ Discovered '{}' via environment variable {}: {}",
+                "Discovered '{}' via environment variable {}: {}",
                 capability, env_key, endpoint
             );
 
@@ -93,7 +93,7 @@ impl RuntimeDiscoveryEngine {
         if let Ok(services) = socket_registry.discover_by_capability(capability)
             && let Some(service) = services.into_iter().next()
         {
-            info!("✅ Found via socket registry: {}", service.endpoint);
+            info!("Found via socket registry: {}", service.endpoint);
             self.cache.insert(capability.into(), service.clone());
             return Ok(service);
         }
@@ -104,7 +104,7 @@ impl RuntimeDiscoveryEngine {
         if let Ok(services) = mdns.discover_by_capability(capability).await
             && let Some(service) = services.into_iter().next()
         {
-            info!("✅ Found via mDNS: {}", service.endpoint);
+            info!("Found via mDNS: {}", service.endpoint);
             return Ok(service);
         }
 
@@ -114,7 +114,7 @@ impl RuntimeDiscoveryEngine {
         if let Ok(services) = dnssd.discover_by_capability(capability).await
             && let Some(service) = services.into_iter().next()
         {
-            info!("✅ Found via DNS-SD: {}", service.endpoint);
+            info!("Found via DNS-SD: {}", service.endpoint);
             return Ok(service);
         }
 
@@ -140,7 +140,7 @@ impl RuntimeDiscoveryEngine {
             if let Ok(services) = registry.discover_by_capability(capability).await
                 && let Some(service) = services.into_iter().next()
             {
-                info!("✅ Found via service registry: {}", service.endpoint);
+                info!("Found via service registry: {}", service.endpoint);
                 return Ok(service);
             }
         }
@@ -156,7 +156,7 @@ impl RuntimeDiscoveryEngine {
     /// Clear discovery cache
     pub async fn clear_cache(&self) {
         self.cache.clear();
-        debug!("🗑️  Discovery cache cleared");
+        debug!("Discovery cache cleared");
     }
 }
 

@@ -55,10 +55,10 @@ impl MonitoringService {
             match Self::try_initialize_monitoring_provider(monitoring_service_config) {
                 Ok(provider) => {
                     self.add_provider(provider);
-                    tracing::info!("✅ monitoring service provider initialized");
+                    tracing::info!("monitoring service provider initialized");
                 }
                 Err(e) => {
-                    tracing::warn!("⚠️ monitoring service provider failed to initialize: {}", e);
+                    tracing::warn!("monitoring service provider failed to initialize: {}", e);
                 }
             }
         }
@@ -68,11 +68,11 @@ impl MonitoringService {
             match Self::try_initialize_provider(provider_name, provider_config) {
                 Ok(provider) => {
                     self.add_provider(provider);
-                    tracing::info!("✅ {} monitoring provider initialized", provider_name);
+                    tracing::info!("{} monitoring provider initialized", provider_name);
                 }
                 Err(e) => {
                     tracing::warn!(
-                        "⚠️ {} monitoring provider failed to initialize: {}",
+                        "{} monitoring provider failed to initialize: {}",
                         provider_name,
                         e
                     );
@@ -92,10 +92,10 @@ impl MonitoringService {
                     "No monitoring providers available".to_string(),
                 ));
             }
-            tracing::warn!("⚠️ No monitoring providers available, using fallback logging");
+            tracing::warn!("No monitoring providers available, using fallback logging");
         } else {
             tracing::info!(
-                "✅ Monitoring service initialized with {} providers",
+                "Monitoring service initialized with {} providers",
                 provider_count
             );
         }

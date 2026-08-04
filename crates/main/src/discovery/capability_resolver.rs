@@ -82,7 +82,7 @@ impl CapabilityResolver {
         // Multi-stage discovery with priority:
         // 1. Try environment variables (fastest, highest priority)
         if let Ok(service) = self.discover_from_env(&request.capability).await {
-            info!("✅ Found via environment variable (priority 100)");
+            info!("Found via environment variable (priority 100)");
             return Ok(service);
         }
 
@@ -91,7 +91,7 @@ impl CapabilityResolver {
         if let Ok(services) = discover_from_socket_registry(&request.capability)
             && let Some(service) = services.into_iter().next()
         {
-            info!("✅ Found via socket registry (priority 65)");
+            info!("Found via socket registry (priority 65)");
             return Ok(service);
         }
 
@@ -101,7 +101,7 @@ impl CapabilityResolver {
             if let Ok(services) = registry.discover_by_capability(&request.capability).await
                 && let Some(service) = services.into_iter().next()
             {
-                info!("✅ Found via service registry (priority 60)");
+                info!("Found via service registry (priority 60)");
                 return Ok(service);
             }
         }
@@ -111,7 +111,7 @@ impl CapabilityResolver {
         if let Ok(services) = self.mdns.discover_by_capability(&request.capability).await
             && let Some(service) = services.into_iter().next()
         {
-            info!("✅ Found via mDNS (priority 80)");
+            info!("Found via mDNS (priority 80)");
             return Ok(service);
         }
 
@@ -120,7 +120,7 @@ impl CapabilityResolver {
         if let Ok(services) = self.dnssd.discover_by_capability(&request.capability).await
             && let Some(service) = services.into_iter().next()
         {
-            info!("✅ Found via DNS-SD (priority 70)");
+            info!("Found via DNS-SD (priority 70)");
             return Ok(service);
         }
 
@@ -128,7 +128,7 @@ impl CapabilityResolver {
         // Would be lowest priority (40) but highly resilient
 
         warn!(
-            "❌ No provider found for capability: {} (tried all discovery mechanisms)",
+            "No provider found for capability: {} (tried all discovery mechanisms)",
             request.capability
         );
         Err(DiscoveryError::CapabilityNotFound {
@@ -142,7 +142,7 @@ impl CapabilityResolver {
 
         if let Ok(endpoint) = std::env::var(&env_key) {
             info!(
-                "✅ Discovered '{}' from {}: {}",
+                "Discovered '{}' from {}: {}",
                 capability, env_key, endpoint
             );
             return Ok(DiscoveredService {

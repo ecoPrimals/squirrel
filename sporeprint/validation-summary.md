@@ -1,6 +1,6 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 4,613 tests (--all-features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 7,142 tests (--all-features), 44 IPC methods."
 date = 2026-08-04
 
 [taxonomies]
@@ -8,12 +8,22 @@ primals = ["squirrel"]
 springs = []
 +++
 
+## Wave 156d — Sovereignty + Logging Hygiene + Test Isolation (Aug 4, 2026)
+
+- Hardcoded primal names ("BearDog", "Songbird") removed from production error/status messages — replaced with capability-based language
+- Inline `/biomeos/` path constructions centralized to `BIOMEOS_SOCKET_SUBDIR` / `get_socket_dir()` (5 files)
+- Security client stubs evolved: `apply_ai_security_routing()` and `get_ai_security_insights()` now provider-count-aware
+- `#[cfg(test)] pub` field removed from `ModelRegistry` — now private with test-only accessor
+- Test isolation: `monitoring_service_provider_trait_methods` race condition fixed via env isolation
+- 260 emoji removed from log macros across 33 production files (grep-friendly tracing)
+- 7,142 tests passing, 0 warnings
+
 ## Status
 
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: **4,613** passing / 5 ignored across 16 workspace crates (`--all-features`), full suite ~80s
+- **Tests**: **7,142** passing / 5 ignored across 16 workspace crates (`--all-features`), full suite ~60s
 - **Source**: 986 `.rs` files, ~306k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)

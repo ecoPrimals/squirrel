@@ -104,7 +104,7 @@ impl MdnsDiscovery {
             return Ok(Vec::new());
         }
 
-        info!("🔍 Scanning local network with mDNS");
+        info!("Scanning local network with mDNS");
 
         warn!("mDNS not available; falling back to socket registry for discover_all");
 

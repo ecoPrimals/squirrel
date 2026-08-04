@@ -257,7 +257,8 @@ impl EndpointResolver {
                 1000
             });
 
-        let standard_path = PathBuf::from(format!("/run/user/{}/biomeos/{}.sock", uid, name));
+        let subdir = universal_constants::network::BIOMEOS_SOCKET_SUBDIR;
+        let standard_path = PathBuf::from(format!("/run/user/{uid}/{subdir}/{name}.sock"));
 
         if standard_path.exists() {
             debug!(
@@ -270,7 +271,7 @@ impl EndpointResolver {
         // Try XDG runtime directory
         if let Ok(xdg_runtime) = std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR)
         {
-            let xdg_path = PathBuf::from(format!("{}/biomeos/{}.sock", xdg_runtime, name));
+            let xdg_path = PathBuf::from(format!("{xdg_runtime}/{subdir}/{name}.sock"));
             if xdg_path.exists() {
                 debug!("Found Unix socket in XDG runtime: {}", xdg_path.display());
                 return Some(Endpoint::UnixSocket(xdg_path));

@@ -103,7 +103,7 @@ impl PrimalSelfKnowledge {
     ///
     /// Returns error if identity cannot be determined
     pub fn discover_self() -> DiscoveryResult<Self> {
-        info!("🔍 Discovering primal self-knowledge...");
+        info!("Discovering primal self-knowledge...");
 
         // Discover primal type (from ENV or default)
         let primal_type =
@@ -169,7 +169,7 @@ impl PrimalSelfKnowledge {
             port,
         };
 
-        debug!("✓ Discovered self: {}", identity.name);
+        debug!("Discovered self: {}", identity.name);
         debug!("  Capabilities: {:?}", identity.capabilities);
         debug!("  Instance ID: {}", identity.instance_id);
 
@@ -193,18 +193,18 @@ impl PrimalSelfKnowledge {
     ///
     /// Returns error if capability cannot be discovered
     pub async fn discover_primal(&self, capability: &str) -> DiscoveryResult<DiscoveredService> {
-        debug!("🔍 Discovering primal for capability: {}", capability);
+        debug!("Discovering primal for capability: {}", capability);
 
         // Check cache first
         if let Some(service) = self.discovered.read().await.get(capability) {
-            debug!("✓ Found cached provider for '{}'", capability);
+            debug!("Found cached provider for '{}'", capability);
             return Ok(service.clone());
         }
 
         // Stage 1: Environment variable (highest priority)
         if let Ok(endpoint) = env::var(format!("{}_ENDPOINT", capability.to_uppercase())) {
             info!(
-                "✓ Discovered '{}' via environment variable: {}",
+                "Discovered '{}' via environment variable: {}",
                 capability, endpoint
             );
 
@@ -230,7 +230,7 @@ impl PrimalSelfKnowledge {
             && let Some(service) = services.into_iter().next()
         {
             info!(
-                "✅ Found '{}' via socket registry: {}",
+                "Found '{}' via socket registry: {}",
                 capability, service.endpoint
             );
             let mut cache = self.discovered.write().await;
@@ -243,7 +243,7 @@ impl PrimalSelfKnowledge {
         if let Ok(services) = mdns.discover_by_capability(capability).await
             && let Some(service) = services.into_iter().next()
         {
-            info!("✅ Found '{}' via mDNS: {}", capability, service.endpoint);
+            info!("Found '{}' via mDNS: {}", capability, service.endpoint);
             let mut cache = self.discovered.write().await;
             return insert_discovered_and_return(&mut cache, capability, service);
         }
@@ -254,7 +254,7 @@ impl PrimalSelfKnowledge {
         if let Ok(services) = dnssd.discover_by_capability(capability).await
             && let Some(service) = services.into_iter().next()
         {
-            info!("✅ Found '{}' via DNS-SD: {}", capability, service.endpoint);
+            info!("Found '{}' via DNS-SD: {}", capability, service.endpoint);
             let mut cache = self.discovered.write().await;
             return insert_discovered_and_return(&mut cache, capability, service);
         }
@@ -283,7 +283,7 @@ impl PrimalSelfKnowledge {
                 && let Some(service) = services.into_iter().next()
             {
                 info!(
-                    "✅ Found '{}' via service registry: {}",
+                    "Found '{}' via service registry: {}",
                     capability, service.endpoint
                 );
                 let mut cache = self.discovered.write().await;
@@ -308,7 +308,7 @@ impl PrimalSelfKnowledge {
     /// Clear discovery cache (force re-discovery)
     pub async fn clear_cache(&self) {
         self.discovered.write().await.clear();
-        debug!("🗑️  Discovery cache cleared");
+        debug!("Discovery cache cleared");
     }
 
     /// Announce this primal's capabilities to the network
@@ -329,7 +329,7 @@ impl PrimalSelfKnowledge {
     /// Announce capabilities with specific port
     pub async fn announce_capabilities_with_port(&self, port: u16) -> DiscoveryResult<()> {
         info!(
-            "📢 Announcing capabilities: {:?} on port {}",
+            "Announcing capabilities: {:?} on port {}",
             self.identity.capabilities, port
         );
 
@@ -357,7 +357,7 @@ impl PrimalSelfKnowledge {
         {
             warn!("Failed to announce via mDNS: {}", e);
         } else {
-            debug!("✅ Announced via mDNS");
+            debug!("Announced via mDNS");
         }
 
         // 2. Announce via DNS-SD (network-wide)
@@ -375,7 +375,7 @@ impl PrimalSelfKnowledge {
         {
             warn!("Failed to register in DNS-SD: {}", e);
         } else {
-            debug!("✅ Registered in DNS-SD");
+            debug!("Registered in DNS-SD");
         }
 
         // 3. Announce via service registry (if configured via env var)
@@ -414,11 +414,11 @@ impl PrimalSelfKnowledge {
             {
                 warn!("Failed to register in service registry: {}", e);
             } else {
-                debug!("✅ Registered in service registry");
+                debug!("Registered in service registry");
             }
         }
 
-        info!("✅ Capability announcement complete");
+        info!("Capability announcement complete");
         Ok(())
     }
 }

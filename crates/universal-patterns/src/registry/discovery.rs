@@ -164,7 +164,7 @@ impl PrimalDiscovery {
     /// - Capability-based queries only
     /// - Unix socket communication
     pub async fn discover_all(&self) -> PrimalResult<Vec<DiscoveredPrimal>> {
-        info!("🔍 Starting TRUE PRIMAL discovery (Unix socket scan)");
+        info!("Starting TRUE PRIMAL discovery (Unix socket scan)");
 
         let mut discovered = Vec::new();
         let mut socket_paths = Vec::new();
@@ -210,14 +210,14 @@ impl PrimalDiscovery {
                             });
 
                             info!(
-                                "✅ Discovered primal: {} at {}",
+                                "Discovered primal: {} at {}",
                                 primal_info.instance_id,
                                 socket_path.display()
                             );
                         }
                     } else {
                         debug!(
-                            "❌ Socket {} probe failed: {:?}",
+                            "Socket {} probe failed: {:?}",
                             socket_path.display(),
                             result.status
                         );
@@ -229,7 +229,7 @@ impl PrimalDiscovery {
             }
         }
 
-        info!("🎯 Discovery complete: found {} primals", discovered.len());
+        info!("Discovery complete: found {} primals", discovered.len());
         Ok(discovered)
     }
 

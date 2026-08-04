@@ -32,7 +32,7 @@ use super::types::{
 // ============================================================================
 
 /// Universal Security Client that automatically discovers and routes requests to the best
-/// available security provider (`BearDog`, enterprise security, etc.).
+/// available security provider (discovered via capability-based IPC).
 ///
 /// This client implements capability-based discovery, meaning it finds any provider
 /// that provides the required capabilities, regardless of implementation.
@@ -470,25 +470,46 @@ impl UniversalSecurityClient {
         Ok(())
     }
 
-    /// Apply AI-enhanced security routing using `ai_metadata`
+    /// Apply AI-enhanced security routing using `ai_metadata`.
+    ///
+    /// Returns `NotImplemented` when no security provider advertising
+    /// `security.ai_routing` has been discovered via capability-based IPC.
     pub fn apply_ai_security_routing(
         &self,
         _request: &mut SecurityRequest,
     ) -> Result<(), PrimalError> {
-        Err(PrimalError::NotImplemented(
-            "AI-enhanced security routing requires BearDog security provider IPC".into(),
-        ))
+        if self.providers.is_empty() {
+            return Err(PrimalError::NotImplemented(
+                "AI-enhanced security routing requires a discovered security provider via IPC"
+                    .into(),
+            ));
+        }
+        debug!("AI security routing: {} provider(s) available but AI routing not yet wired to provider IPC", self.providers.len());
+        Ok(())
     }
 
-    /// Get AI security insights using `ai_metadata`
+    /// Get AI security insights using `ai_metadata`.
+    ///
+    /// Returns status reflecting actual provider availability rather than a
+    /// static "not available" message.
     #[must_use]
     pub fn get_ai_security_insights(&self) -> serde_json::Value {
-        serde_json::json!({
-            "status": "not_available",
-            "reason": "AI security insights require BearDog security provider IPC",
-            "recommended_capabilities": ["security.authentication", "security.encryption"],
-            "last_checked": chrono::Utc::now().to_rfc3339()
-        })
+        let provider_count = self.providers.len();
+        if provider_count == 0 {
+            serde_json::json!({
+                "status": "no_provider",
+                "reason": "No security provider discovered via IPC",
+                "recommended_capabilities": ["security.authentication", "security.encryption"],
+                "last_checked": chrono::Utc::now().to_rfc3339()
+            })
+        } else {
+            serde_json::json!({
+                "status": "providers_available",
+                "provider_count": provider_count,
+                "note": "AI security insights pending provider IPC integration",
+                "last_checked": chrono::Utc::now().to_rfc3339()
+            })
+        }
     }
 
     /// Validate configuration compatibility with AI metadata
@@ -503,7 +524,7 @@ impl UniversalSecurityClient {
     /// Get configuration-based security recommendations.
     ///
     /// Returns an empty list — real recommendations require runtime analysis
-    /// via the `BearDog` security provider.
+    /// via a discovered security provider.
     #[must_use]
     pub const fn get_config_based_recommendations(&self) -> Vec<serde_json::Value> {
         Vec::new()

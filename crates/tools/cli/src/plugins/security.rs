@@ -110,7 +110,7 @@ impl SecurePluginLoader {
         plugin_path: &Path,
         metadata: &PluginMetadata,
     ) -> Result<ValidationResult, PluginSecurityError> {
-        info!("🔒 Validating plugin: {}", metadata.name);
+        info!("Validating plugin: {}", metadata.name);
 
         // Check if path is in allowed directories
         if !self.is_path_allowed(plugin_path)? {
@@ -136,13 +136,13 @@ impl SecurePluginLoader {
 
         // Calculate checksum
         let checksum = self.calculate_checksum(plugin_path)?;
-        info!("📋 Plugin checksum: {}", checksum);
+        info!("Plugin checksum: {}", checksum);
 
         // Verify signature if enabled
         let signature_valid = if self.verify_signatures {
             self.verify_plugin_signature(plugin_path, &checksum)?
         } else {
-            warn!("⚠️ Signature verification disabled");
+            warn!("Signature verification disabled");
             true
         };
 
@@ -175,7 +175,7 @@ impl SecurePluginLoader {
 
         // For now, return a secure stub plugin instead of unsafe dynamic loading
         // NOTE(phase2): Proper sandboxed plugin loading requires WebAssembly runtime integration
-        info!("🔒 Creating secure plugin stub for: {}", metadata.name);
+        info!("Creating secure plugin stub for: {}", metadata.name);
         Ok(Arc::new(SecurePluginStub::new(metadata.clone())))
     }
 
@@ -217,7 +217,7 @@ impl SecurePluginLoader {
 
         if !sig_path.exists() {
             warn!(
-                "⚠️ No signature file found for plugin: {}",
+                "No signature file found for plugin: {}",
                 plugin_path.display()
             );
             return Ok(false);
@@ -233,7 +233,7 @@ impl SecurePluginLoader {
 
         let expected = sig_contents.trim();
         if expected.is_empty() {
-            warn!("⚠️ Signature file is empty: {}", sig_path.display());
+            warn!("Signature file is empty: {}", sig_path.display());
             return Ok(false);
         }
 
@@ -241,7 +241,7 @@ impl SecurePluginLoader {
         let expected_lower = expected.to_ascii_lowercase();
         if expected_lower.len() != checksum.len() {
             warn!(
-                "⚠️ Signature hash length mismatch (want {} hex chars, got {}): {}",
+                "Signature hash length mismatch (want {} hex chars, got {}): {}",
                 checksum.len(),
                 expected_lower.len(),
                 sig_path.display()
@@ -252,13 +252,13 @@ impl SecurePluginLoader {
         let matches = constant_time_eq_bytes(expected_lower.as_bytes(), checksum.as_bytes());
         if matches {
             info!(
-                "🔐 Plugin signature verified (blake3 matches {}): {}",
+                "Plugin signature verified (blake3 matches {}): {}",
                 sig_path.display(),
                 plugin_path.display()
             );
         } else {
             warn!(
-                "⚠️ Plugin signature mismatch: computed checksum does not match {}",
+                "Plugin signature mismatch: computed checksum does not match {}",
                 sig_path.display()
             );
         }
@@ -329,7 +329,7 @@ impl Plugin for SecurePluginStub {
     fn initialize(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
         let name = self.metadata.name.clone();
         Box::pin(async move {
-            info!("🔒 Secure plugin stub initialized: {}", name);
+            info!("Secure plugin stub initialized: {}", name);
             Ok(())
         })
     }
@@ -364,7 +364,7 @@ impl Plugin for SecurePluginStub {
     fn cleanup(&self) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
         let name = self.metadata.name.clone();
         Box::pin(async move {
-            info!("🔒 Secure plugin stub cleanup: {}", name);
+            info!("Secure plugin stub cleanup: {}", name);
             Ok(())
         })
     }

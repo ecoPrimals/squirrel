@@ -41,7 +41,7 @@ impl UniversalStorageAdapter {
         data: serde_json::Value,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
-            "🏠 Coordinating storage operation: {} via universal adapter",
+            "Coordinating storage operation: {} via universal adapter",
             operation
         );
 
@@ -76,7 +76,7 @@ impl UniversalStorageAdapter {
         context_data: serde_json::Value,
     ) -> Result<String, PrimalError> {
         debug!(
-            "💾 Storing AI context {} via universal storage adapter",
+            "Storing AI context {} via universal storage adapter",
             context_id
         );
 
@@ -106,7 +106,7 @@ impl UniversalStorageAdapter {
         storage_id: &str,
     ) -> Result<serde_json::Value, PrimalError> {
         debug!(
-            "📥 Retrieving AI context {} via universal storage adapter",
+            "Retrieving AI context {} via universal storage adapter",
             storage_id
         );
 
@@ -126,7 +126,7 @@ impl UniversalStorageAdapter {
     /// Backup AI data using any available storage primal
     pub async fn backup_ai_data(&mut self, backup_set: &str) -> Result<String, PrimalError> {
         info!(
-            "💿 Creating AI data backup '{}' via universal storage adapter",
+            "Creating AI data backup '{}' via universal storage adapter",
             backup_set
         );
 
@@ -152,7 +152,7 @@ impl UniversalStorageAdapter {
 
     /// Discover storage services by capability
     async fn discover_storage_service(&self) -> Result<ServiceInfo, PrimalError> {
-        info!("🔍 Discovering storage services via universal capability matching");
+        info!("Discovering storage services via universal capability matching");
 
         // Define required storage capabilities
         let required_capabilities = vec![ServiceCapability::DataManagement {
@@ -173,7 +173,7 @@ impl UniversalStorageAdapter {
             .await?;
 
         info!(
-            "🎯 Selected storage service: {} ({})",
+            "Selected storage service: {} ({})",
             storage_service.name, storage_service.service_id
         );
 
@@ -188,7 +188,7 @@ impl UniversalStorageAdapter {
 
     /// Force rediscovery of storage services
     pub async fn rediscover_storage_services(&mut self) -> Result<(), PrimalError> {
-        info!("🔄 Rediscovering storage services");
+        info!("Rediscovering storage services");
         self.preferred_storage_service = None;
         self.preferred_storage_service = Some(self.discover_storage_service().await?);
         Ok(())

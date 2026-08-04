@@ -41,7 +41,7 @@ impl UniversalOrchestrationAdapter {
         participants: Vec<String>,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
-            "🎼 Coordinating AI workflow '{}' via universal adapter",
+            "Coordinating AI workflow '{}' via universal adapter",
             workflow_type,
         );
 
@@ -82,7 +82,7 @@ impl UniversalOrchestrationAdapter {
         &mut self,
         capability_requirements: Vec<String>,
     ) -> Result<Vec<ServiceInfo>, PrimalError> {
-        debug!("🔍 Discovering services via universal orchestration adapter");
+        debug!("Discovering services via universal orchestration adapter");
 
         // Use orchestration service's discovery capabilities
         if self.preferred_orchestration_service.is_none() {
@@ -103,7 +103,7 @@ impl UniversalOrchestrationAdapter {
         discovered_services.dedup_by(|a, b| a.service_id == b.service_id);
 
         info!(
-            "🎯 Discovered {} services via orchestration service",
+            "Discovered {} services via orchestration service",
             discovered_services.len()
         );
         Ok(discovered_services)
@@ -116,7 +116,7 @@ impl UniversalOrchestrationAdapter {
         strategy: &str,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
-            "⚖️ Requesting load balancing for {} services with '{}' strategy",
+            "Requesting load balancing for {} services with '{}' strategy",
             target_services.len(),
             strategy
         );
@@ -155,7 +155,7 @@ impl UniversalOrchestrationAdapter {
 
     /// Get orchestration service mesh status
     pub async fn get_service_mesh_status(&mut self) -> Result<serde_json::Value, PrimalError> {
-        debug!("📊 Getting service mesh status via universal orchestration adapter");
+        debug!("Getting service mesh status via universal orchestration adapter");
 
         if self.preferred_orchestration_service.is_none() {
             self.preferred_orchestration_service =
@@ -186,7 +186,7 @@ impl UniversalOrchestrationAdapter {
 
     /// Discover orchestration services by capability
     async fn discover_orchestration_service(&self) -> Result<ServiceInfo, PrimalError> {
-        info!("🔍 Discovering orchestration services via universal capability matching");
+        info!("Discovering orchestration services via universal capability matching");
 
         // Define required orchestration capabilities
         let required_capabilities = vec![ServiceCapability::Coordination {
@@ -207,7 +207,7 @@ impl UniversalOrchestrationAdapter {
             .await?;
 
         info!(
-            "🎯 Selected orchestration service: {} ({})",
+            "Selected orchestration service: {} ({})",
             orchestration_service.name, orchestration_service.service_id
         );
 
@@ -222,7 +222,7 @@ impl UniversalOrchestrationAdapter {
 
     /// Force rediscovery of orchestration services
     pub async fn rediscover_orchestration_services(&mut self) -> Result<(), PrimalError> {
-        info!("🔄 Rediscovering orchestration services");
+        info!("Rediscovering orchestration services");
         self.preferred_orchestration_service = None;
         self.preferred_orchestration_service = Some(self.discover_orchestration_service().await?);
         Ok(())
@@ -272,7 +272,7 @@ impl UniversalOrchestrationAdapter {
 pub async fn register_orchestration_service(
     registry: Arc<InMemoryServiceRegistry>,
 ) -> Result<(), PrimalError> {
-    info!("🎼 Registering orchestration service with universal registry");
+    info!("Registering orchestration service with universal registry");
 
     let registration = super::UniversalServiceRegistration {
         service_id: uuid::Uuid::new_v4(),
@@ -358,7 +358,7 @@ pub async fn register_orchestration_service(
 
     registry.register_service(registration).await?;
 
-    info!("✅ Orchestration service successfully registered with universal registry");
+    info!("Orchestration service successfully registered with universal registry");
     Ok(())
 }
 
