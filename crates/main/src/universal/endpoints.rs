@@ -43,12 +43,9 @@ impl Default for PrimalEndpoints {
         // Squirrel knows ONLY its own listening configuration from environment.
         // Discovery of OTHER primals happens at runtime via capability discovery.
 
-        let http_port =
-            network::get_port_from_env("SQUIRREL_HTTP_PORT", network::DEFAULT_SQUIRREL_SERVER_PORT);
-        let grpc_port =
-            network::get_port_from_env("SQUIRREL_GRPC_PORT", network::DEFAULT_SQUIRREL_GRPC_PORT);
-        let ws_port =
-            network::get_port_from_env("SQUIRREL_WS_PORT", network::DEFAULT_SQUIRREL_WS_PORT);
+        let http_port = network::port_from_env("SQUIRREL_HTTP_PORT", network::DEFAULT_SQUIRREL_SERVER_PORT);
+        let grpc_port = network::port_from_env("SQUIRREL_GRPC_PORT", network::DEFAULT_SQUIRREL_GRPC_PORT);
+        let ws_port = network::port_from_env("SQUIRREL_WS_PORT", network::DEFAULT_SQUIRREL_WS_PORT);
 
         // Get bind address from environment (for service registration)
         // In production: 0.0.0.0, in development: localhost

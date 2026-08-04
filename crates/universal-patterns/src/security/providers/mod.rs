@@ -39,17 +39,6 @@ pub use registry::{UniversalSecurityRegistry, capabilities_match, register_secur
         reason = "Test-only re-exports for providers test modules"
     )
 )]
-#[expect(
-    deprecated,
-    reason = "legacy wire id constants re-exported for backward compatibility"
-)]
-pub use security_provider::{BEARDOG_SECURITY_SERVICE_ID, SECURITY_PRIMARY_SERVICE_ID};
-#[expect(
-    deprecated,
-    reason = "legacy type and factory aliases re-exported for backward compatibility"
-)]
-pub use security_provider::{
-    BeardogIntegration, BeardogSecurityProvider, SECURITY_SERVICE_ID, SecurityProviderFactory,
-    SecurityProviderIntegration,
-};
+pub use security_provider::{SECURITY_PRIMARY_SERVICE_ID, SECURITY_SERVICE_ID};
+pub use security_provider::{SecurityProviderFactory, SecurityProviderIntegration};
 pub use types::*;

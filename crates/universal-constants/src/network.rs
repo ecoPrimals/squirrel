@@ -191,50 +191,14 @@ pub fn discover_peer_http_origin(
 //
 // ============================================================================
 
-/// Fallback bind address (use `get_bind_address()` instead)
-///
-/// **Deprecated**: Use `get_bind_address()` for runtime discovery
-#[deprecated(
-    since = "3.0.0",
-    note = "Use get_bind_address() for runtime discovery instead of hardcoded constant"
-)]
-pub const DEFAULT_BIND_ADDRESS: &str = "127.0.0.1";
-
 /// Localhost IPv4 address (informational only)
 pub const LOCALHOST_IPV4: &str = "127.0.0.1";
 
 /// Default localhost hostname (informational only)
 pub const DEFAULT_LOCALHOST: &str = "localhost";
 
-/// Fallback WebSocket port (use `get_service_port("websocket")` instead)
-///
-/// **Deprecated**: Use `get_service_port("websocket")` for runtime discovery
-#[deprecated(
-    since = "3.0.0",
-    note = "Use get_service_port(\"websocket\") for runtime discovery"
-)]
-pub const DEFAULT_WEBSOCKET_PORT: u16 = 8080;
-
-/// Fallback HTTP port (use `get_service_port("http")` instead)
-///
-/// **Deprecated**: Use `get_service_port("http")` for runtime discovery
-#[deprecated(since = "3.0.0", note = "Use get_service_port(\"http\")")]
-pub const DEFAULT_HTTP_PORT: u16 = 8081;
-
-/// Fallback admin port (use `get_service_port("admin")` instead)
-///
-/// **Deprecated**: Use `get_service_port("admin")` for runtime discovery
-#[deprecated(since = "3.0.0", note = "Use get_service_port(\"admin\")")]
-pub const DEFAULT_ADMIN_PORT: u16 = 8082;
-
 /// Default TCP port for metrics and Prometheus scrape endpoints (`METRICS_PORT` fallback).
 pub const DEFAULT_METRICS_LISTEN_PORT: u16 = 9090;
-
-/// Fallback metrics port (use `get_service_port("metrics")` instead)
-///
-/// **Deprecated**: Use `get_service_port("metrics")` for runtime discovery
-#[deprecated(since = "3.0.0", note = "Use get_service_port(\"metrics\")")]
-pub const DEFAULT_METRICS_PORT: u16 = DEFAULT_METRICS_LISTEN_PORT;
 
 /// Default TCP port for Consul-style service discovery listens (`discovery` service fallback).
 pub const DEFAULT_DISCOVERY_LISTEN_PORT: u16 = 8500;
@@ -273,13 +237,6 @@ pub const BIND_ALL_INTERFACES: &str = "0.0.0.0";
 /// Prefer [`crate::deployment::ports::service_mesh()`] and capability discovery at runtime.
 pub const DEFAULT_DISCOVERY_PORT: u16 = 8001;
 
-/// Legacy name for [`DEFAULT_DISCOVERY_PORT`] (orchestration / ecosystem API fallback).
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DEFAULT_DISCOVERY_PORT; resolve the service mesh by capability at runtime"
-)]
-pub const DEFAULT_SONGBIRD_PORT: u16 = DEFAULT_DISCOVERY_PORT;
-
 /// Fallback Squirrel HTTP server port
 pub const DEFAULT_SQUIRREL_SERVER_PORT: u16 = 9010;
 
@@ -317,12 +274,6 @@ pub fn default_api_bind_addr() -> String {
 ///   Primary: `$XDG_RUNTIME_DIR/biomeos/{primal}.sock`
 ///   Fallback: `/tmp/biomeos/{primal}.sock`
 pub const BIOMEOS_SOCKET_SUBDIR: &str = "biomeos";
-
-/// Fallback base directory when `$XDG_RUNTIME_DIR` is not available.
-///
-/// Used on systems without a user session manager (containers, CI).
-#[deprecated(note = "use get_socket_dir() — avoids hardcoded /tmp (DH-1)")]
-pub const BIOMEOS_SOCKET_FALLBACK_DIR: &str = "/tmp/biomeos";
 
 /// Get the socket directory for biomeos primals.
 ///
@@ -481,28 +432,16 @@ pub const REGISTRATION_ENDPOINT: &str = "/register";
 // Helper Functions
 // ============================================================================
 
-/// Get port from environment variable or use default
+/// Read a port number from an environment variable, falling back to `default`.
 ///
-/// **Deprecated**: Use `get_service_port()` for better discovery pattern
+/// Use this for **self-knowledge** — reading a primal's own bind ports.
+/// For discovering other primals' ports, use [`get_service_port`].
 #[must_use]
-#[deprecated(
-    since = "3.0.0",
-    note = "Use get_service_port(service_name) for infant primal pattern"
-)]
-pub fn get_port_from_env(env_var: &str, default: u16) -> u16 {
+pub fn port_from_env(env_var: &str, default: u16) -> u16 {
     std::env::var(env_var)
         .ok()
         .and_then(|p| p.parse().ok())
-        .unwrap_or_else(|| {
-            if default > 0 {
-                tracing::warn!(
-                    "Using fallback port {} - set {} environment variable",
-                    default,
-                    env_var
-                );
-            }
-            default
-        })
+        .unwrap_or(default)
 }
 
 /// Construct HTTP URL from components
@@ -517,12 +456,11 @@ pub fn http_url(host: &str, port: u16, path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    #[expect(deprecated)]
     use super::{
         ADMIN_ENDPOINT, DEFAULT_LOCALHOST, DISCOVERY_ENDPOINT, HEALTH_ENDPOINT,
         LOCALHOST_HTTP_TEMPLATE, LOCALHOST_IPV4, LOCALHOST_WS_TEMPLATE, METRICS_ENDPOINT,
-        REGISTRATION_ENDPOINT, WS_ENDPOINT, get_bind_address, get_port_from_env, get_service_port,
-        http_url,
+        REGISTRATION_ENDPOINT, WS_ENDPOINT, get_bind_address, get_service_port, http_url,
+        port_from_env,
     };
 
     #[test]
@@ -614,26 +552,13 @@ mod tests {
     }
 
     #[test]
-    #[expect(
-        deprecated,
-        reason = "Tests deprecated path for backward compatibility"
-    )]
-    fn test_get_port_from_env() {
-        assert_eq!(get_port_from_env("NONEXISTENT_PORT_XYZ", 1234), 1234);
+    fn test_port_from_env() {
+        assert_eq!(port_from_env("NONEXISTENT_PORT_XYZ", 1234), 1234);
     }
 
     #[test]
     fn test_biomeos_socket_constants() {
         assert_eq!(super::BIOMEOS_SOCKET_SUBDIR, "biomeos");
-    }
-
-    #[test]
-    #[expect(
-        deprecated,
-        reason = "Validates deprecated fallback path for backward compat"
-    )]
-    fn test_biomeos_socket_fallback_dir_deprecated() {
-        assert_eq!(super::BIOMEOS_SOCKET_FALLBACK_DIR, "/tmp/biomeos");
     }
 
     #[test]

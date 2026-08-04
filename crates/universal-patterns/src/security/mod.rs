@@ -66,13 +66,8 @@ pub use errors::SecurityError;
 pub use traits::{SecurityProvider, UniversalSecurityProvider};
 
 // Public re-exports - Provider implementations
-#[expect(
-    deprecated,
-    reason = "legacy Beardog* names re-exported for backward compatibility"
-)]
 pub use providers::{
-    BeardogIntegration, BeardogSecurityProvider, LocalSecurityProvider, SecurityProviderFactory,
-    SecurityProviderIntegration,
+    LocalSecurityProvider, SecurityProviderFactory, SecurityProviderIntegration,
 };
 
 // Public re-exports - Zero-copy types for high performance
@@ -162,16 +157,6 @@ pub async fn create_security_provider_client(
     };
 
     UniversalSecurityClient::new(config).await
-}
-
-/// Deprecated entry point for [`create_security_provider_client`].
-#[deprecated(since = "0.2.0", note = "use create_security_provider_client")]
-pub async fn create_beardog_client(
-    endpoint: url::Url,
-    service_id: String,
-    enable_fallback: bool,
-) -> Result<UniversalSecurityClient, SecurityError> {
-    create_security_provider_client(endpoint, service_id, enable_fallback).await
 }
 
 /// Create a new local security provider

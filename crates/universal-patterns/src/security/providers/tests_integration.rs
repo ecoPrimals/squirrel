@@ -82,13 +82,9 @@ async fn test_beardog_provider_get_capabilities() {
 }
 
 #[tokio::test]
-async fn test_beardog_provider_get_service_info() {
-    #[expect(
-        deprecated,
-        reason = "test uses BEARDOG_SECURITY_SERVICE_ID legacy wire id"
-    )]
+async fn test_legacy_service_id_gets_high_trust() {
     let config = SecurityServiceConfig {
-        service_id: BEARDOG_SECURITY_SERVICE_ID.to_string(),
+        service_id: "beardog-security".to_string(),
         ..Default::default()
     };
     let provider = SecurityProviderIntegration::new(config)

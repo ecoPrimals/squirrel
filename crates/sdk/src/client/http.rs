@@ -358,7 +358,7 @@ mod tests {
             HttpMethod::Patch
         );
         assert!(HttpMethod::from_str("invalid").is_err());
-        assert_eq!(HttpMethod::parse_method("DELETE"), Some(HttpMethod::Delete));
+        assert_eq!("DELETE".parse::<HttpMethod>().ok(), Some(HttpMethod::Delete));
         assert_eq!(HttpMethod::Options.as_str(), "OPTIONS");
         assert_eq!(HttpMethod::Head.as_str(), "HEAD");
     }

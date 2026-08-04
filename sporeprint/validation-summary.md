@@ -1,7 +1,7 @@
 +++
 title = "squirrel Validation Summary"
 description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 4,613 tests (--all-features), 44 IPC methods."
-date = 2026-08-03
+date = 2026-08-04
 
 [taxonomies]
 primals = ["squirrel"]
@@ -140,6 +140,15 @@ Squirrel is the **intelligence router** for all compositions requiring AI infere
 - Wired into `SecurityProviderSecretStore.rpc_call` via `maybe_client_handshake`
 - Strict mode detection: `BEARDOG_UDS_REQUIRE_BTSP=1` or `BTSP_STRICT_MODE=1`
 - 10 new tests (strict mode, seed resolution, HMAC computation, wire serialization)
+
+## Wave 156c — Deprecated Surface Cleanup: 40 → 13 items (Aug 4, 2026)
+
+- Beardog → SecurityProvider: all 20+ deprecated aliases, re-exports, builder methods, factory functions removed (15 files)
+- 7 dead port constants removed (DEFAULT_BIND_ADDRESS, DEFAULT_WEBSOCKET_PORT, etc.)
+- `get_port_from_env()` evolved to `port_from_env()` — legitimate self-knowledge utility, not deprecated
+- `DefaultConfigManager`, `Config` aliases, `HttpMethod::parse_method()` removed
+- `discover_services_by_primal_types()` removed (zero callers)
+- Remaining: PrimalType (42 files, multi-wave), PluginError (SDK, 600+ refs), AIError (3 refs but crate::Result alias)
 
 ## Wave 150u — CredentialStore Integration via bearDog secrets.* JSON-RPC (July 22, 2026)
 

@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-// Backward compatibility: discover_services/DiscoveredService use EcosystemPrimalType for legacy format
 #![allow(deprecated)]
 
 //! Service discovery operations for the ecosystem registry
 
 use super::types::{DiscoveredService, ServiceHealthStatus, intern_registry_string};
-use crate::ecosystem::{CapabilityIdentifier, EcosystemPrimalType};
+use crate::ecosystem::CapabilityIdentifier;
 use crate::error::PrimalError;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -136,23 +135,6 @@ impl DiscoveryOps {
             .await
             .insert(service.service_id.clone(), service);
         Ok(())
-    }
-
-    /// Discover services by deprecated primal type list (backward compatibility).
-    #[deprecated(
-        since = "0.2.0",
-        note = "Use discover_services with CapabilityIdentifier instead of hardcoded primal types"
-    )]
-    #[allow(deprecated)]
-    pub async fn discover_services_by_primal_types(
-        service_registry: &Arc<RwLock<HashMap<Arc<str>, Arc<DiscoveredService>>>>,
-        primal_types: Vec<EcosystemPrimalType>,
-    ) -> Result<Vec<Arc<DiscoveredService>>, PrimalError> {
-        let capabilities: Vec<_> = primal_types
-            .into_iter()
-            .map(|t| CapabilityIdentifier::new(t.capability()))
-            .collect();
-        Self::discover_services(service_registry, capabilities).await
     }
 
     /// Build service endpoint from a capability domain string.

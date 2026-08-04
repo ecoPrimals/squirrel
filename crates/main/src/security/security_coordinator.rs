@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![cfg_attr(test, expect(deprecated, reason = "tests exercise deprecated paths"))]
-
 //! Security Service Coordinator
 //!
 //! Coordinates with security primals for AI security operations via capability-based discovery.
@@ -17,7 +15,7 @@
 //!
 //! **Old Pattern (Hardcoded)**:
 //! ```ignore
-//! let beardog = BeardogSecurityCoordinator::new(); // Coupled to specific primal
+//! let beardog = SecurityCoordinator::new(); // Coupled to specific primal
 //! ```
 //!
 //! **New Pattern (Capability-Based)**:
@@ -53,8 +51,6 @@ pub struct SecurityCoordinator {
     sessions: Arc<RwLock<HashMap<String, SecurityContext>>>,
 }
 
-#[deprecated(since = "0.1.0", note = "Renamed to SecurityCoordinator")]
-pub type BeardogSecurityCoordinator = SecurityCoordinator;
 
 /// Security service discovery and routing
 impl SecurityCoordinator {
@@ -260,7 +256,7 @@ mod tests {
                 "SECURITY_AUTHENTICATION_PORT",
             ],
             || {
-                let coord = BeardogSecurityCoordinator::new();
+                let coord = SecurityCoordinator::new();
                 assert!(coord.is_healthy());
             },
         );
@@ -268,7 +264,7 @@ mod tests {
 
     #[test]
     fn test_coordinator_default() {
-        let coord = BeardogSecurityCoordinator::default();
+        let coord = SecurityCoordinator::default();
         assert!(!coord.is_healthy());
     }
 
@@ -279,7 +275,7 @@ mod tests {
             || {
                 let rt = tokio::runtime::Runtime::new().expect("should succeed");
                 rt.block_on(async {
-                    let endpoint = BeardogSecurityCoordinator::discover_security_endpoint()
+                    let endpoint = SecurityCoordinator::discover_security_endpoint()
                         .await
                         .expect("discover");
                     assert!(endpoint.contains("localhost:8443"), "got: {endpoint}");
@@ -296,7 +292,7 @@ mod tests {
             || {
                 let rt = tokio::runtime::Runtime::new().expect("should succeed");
                 rt.block_on(async {
-                    let endpoint = BeardogSecurityCoordinator::discover_security_endpoint()
+                    let endpoint = SecurityCoordinator::discover_security_endpoint()
                         .await
                         .expect("discover");
                     assert_eq!(endpoint, "https://secure.test");
@@ -313,7 +309,7 @@ mod tests {
             || {
                 let rt = tokio::runtime::Runtime::new().expect("should succeed");
                 rt.block_on(async {
-                    let coord = BeardogSecurityCoordinator::with_capability_discovery()
+                    let coord = SecurityCoordinator::with_capability_discovery()
                         .await
                         .expect("create");
                     assert!(coord.is_healthy());
@@ -324,7 +320,7 @@ mod tests {
 
     #[test]
     fn test_requires_security_provider() {
-        let coord = BeardogSecurityCoordinator::new();
+        let coord = SecurityCoordinator::new();
         assert!(coord.requires_security_provider(&SecurityRequestType::Authentication));
         assert!(coord.requires_security_provider(&SecurityRequestType::Authorization));
         assert!(coord.requires_security_provider(&SecurityRequestType::Encryption));
@@ -334,7 +330,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_coordinate_security() {
-        let mut coord = BeardogSecurityCoordinator {
+        let mut coord = SecurityCoordinator {
             security_service_endpoint: "http://test:8443".to_string(),
             sessions: Arc::new(RwLock::new(HashMap::new())),
         };
@@ -358,7 +354,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_authenticate_with_security_provider() {
-        let mut coord = BeardogSecurityCoordinator {
+        let mut coord = SecurityCoordinator {
             security_service_endpoint: "http://test:8443".to_string(),
             sessions: Arc::new(RwLock::new(HashMap::new())),
         };
@@ -372,7 +368,7 @@ mod tests {
 
     #[test]
     fn test_get_security_context() {
-        let coord = BeardogSecurityCoordinator {
+        let coord = SecurityCoordinator {
             security_service_endpoint: "http://test:8443".to_string(),
             sessions: Arc::new(RwLock::new(HashMap::new())),
         };
@@ -399,7 +395,7 @@ mod tests {
             "SECURITY_SERVICE_ENDPOINT",
             Some("https://prod.security"),
             || {
-                let coord = BeardogSecurityCoordinator::new();
+                let coord = SecurityCoordinator::new();
                 assert!(coord.is_healthy());
             },
         );

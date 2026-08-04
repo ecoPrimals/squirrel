@@ -139,18 +139,6 @@ impl ConfigBuilder {
         self
     }
 
-    /// Set security provider endpoint (legacy alias).
-    #[deprecated(since = "0.2.0", note = "use security_provider_endpoint")]
-    pub fn beardog_endpoint<S: Into<String>>(self, endpoint: S) -> Result<Self, ConfigError> {
-        self.security_provider_endpoint(endpoint)
-    }
-
-    /// Enable security provider authentication (legacy alias).
-    #[deprecated(since = "0.2.0", note = "use security_provider_auth")]
-    pub fn beardog_auth<S: Into<String>>(self, service_id: S) -> Self {
-        self.security_provider_auth(service_id)
-    }
-
     /// Enable token authentication
     pub fn token_auth(mut self, token_file: PathBuf) -> Self {
         self.config.security.auth_method = AuthMethod::Token { token_file };
@@ -222,12 +210,6 @@ impl ConfigBuilder {
             self.config.security.security_endpoint = Some(url);
         }
         self
-    }
-
-    /// Set security provider endpoint (optional, legacy alias).
-    #[deprecated(since = "0.2.0", note = "use security_provider_endpoint_optional")]
-    pub fn beardog_endpoint_optional(self, endpoint: Option<String>) -> Self {
-        self.security_provider_endpoint_optional(endpoint)
     }
 
     /// Set discovery service endpoint

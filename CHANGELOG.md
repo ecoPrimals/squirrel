@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 4, 2026 — Wave 156c: Deprecated Surface Cleanup — 40 → 13 deprecated items)
+
+- **Beardog → SecurityProvider migration COMPLETE**: Removed all 20+ deprecated type aliases, module re-exports, builder methods, and factory functions related to the Beardog → SecurityProvider rename. 15 files touched. `BeardogSecurityCoordinator`, `BearDogClient`, `BearDogClientConfig`, `BearDogJwtConfig`, `BearDogJwtService`, `BeardogSecurityProvider`, `BeardogIntegration`, `BEARDOG_SECURITY_SERVICE_ID`, `AUTH_METHOD_SERDE_BEARDOG*`, `beardog_endpoint()`, `beardog_auth()`, `beardog_endpoint_optional()`, `create_beardog_client()` — all removed. Tests migrated to use canonical `SecurityCoordinator`, `SecurityProviderClient` names. Legacy wire-ID matching inlined as private constant.
+- **Deprecated port constants removed**: `DEFAULT_BIND_ADDRESS`, `DEFAULT_WEBSOCKET_PORT`, `DEFAULT_HTTP_PORT`, `DEFAULT_ADMIN_PORT`, `DEFAULT_METRICS_PORT`, `DEFAULT_SONGBIRD_PORT`, `BIOMEOS_SOCKET_FALLBACK_DIR` — all had zero consumers. Removed 7 dead constants and their tests. `get_port_from_env()` evolved to `port_from_env()` (un-deprecated; legitimate self-knowledge utility, distinct from `get_service_port()` which is for other primals).
+- **Config/SDK deprecated aliases removed**: `DefaultConfigManager`, `Config` aliases in `squirrel-mcp-config`, `HttpMethod::parse_method()` in SDK (migrated test to `FromStr`).
+- **Dead code removed**: `discover_services_by_primal_types()` (zero callers), unused `EcosystemPrimalType` import.
+- **Remaining deprecated surface (13 items)**: `PrimalType`/`EcosystemPrimalType` enums (42 files, ~500 refs — multi-wave migration), `PluginError` in SDK (600+ refs), `AIError` in ai-tools (3 consumer lines but touches `crate::Result` alias). All tracked.
+- **Zero warnings**, zero test regressions, full workspace clean build.
+
 ### Summary (Aug 3, 2026 — Wave 156b: Test Performance — 400s → 16s)
 
 - **Root cause: live socket discovery in unit tests**: Tests calling `discover_services`/`discover_capability`/`discover_all_capabilities` triggered real Unix socket probes with 10-second-per-capability timeouts. 40 consumed capabilities × 10s = **400 seconds of wall-clock blocking with <1s CPU**. Same pattern in security monitoring (30s) and health checker (15s).

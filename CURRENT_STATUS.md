@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: Aug 3, 2026 (Wave 156b — Test Performance: 400s → 16s)
+**Last Updated**: Aug 4, 2026 (Wave 156c — Deprecated Surface Cleanup: 40 → 13 items)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 

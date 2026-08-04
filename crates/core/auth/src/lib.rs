@@ -72,25 +72,6 @@ pub mod security_provider_client;
 #[cfg(feature = "delegated-jwt")]
 pub mod ecosystem_jwt;
 
-/// Deprecated alias for security provider client (use `security_provider_client` instead).
-#[deprecated(
-    since = "0.1.0",
-    note = "Use security_provider_client instead. Auth discovers security provider via capability, not by name."
-)]
-#[cfg(feature = "delegated-jwt")]
-pub mod beardog_client {
-    pub use super::security_provider_client::*;
-}
-
-/// Deprecated alias for ecosystem JWT (use `ecosystem_jwt` instead).
-#[deprecated(
-    since = "0.1.0",
-    note = "Use ecosystem_jwt instead. JWT uses capability-discovered crypto provider."
-)]
-#[cfg(feature = "delegated-jwt")]
-pub mod beardog_jwt {
-    pub use super::ecosystem_jwt::*;
-}
 
 // Modern re-exports leveraging capability-based patterns
 pub use auth::AuthService;
@@ -115,39 +96,6 @@ pub use ecosystem_jwt::{
 #[cfg(feature = "delegated-jwt")]
 pub use security_provider_client::{SecurityProviderClient, SecurityProviderClientConfig};
 
-// Primal-named aliases: still public for migration; deprecation applies to downstream callers.
-#[cfg(feature = "delegated-jwt")]
-#[expect(
-    deprecated,
-    reason = "Intentional re-export of deprecated type aliases for backward compatibility"
-)]
-pub mod deprecated_primal_named_auth {
-    //! Deprecated re-exports — prefer [`super::SecurityProviderJwtConfig`], [`super::SecurityProviderClient`], etc.
-
-    #[deprecated(since = "0.1.0", note = "Use SecurityProviderJwtConfig")]
-    pub use crate::ecosystem_jwt::BearDogJwtConfig;
-
-    #[deprecated(since = "0.1.0", note = "Use SecurityProviderJwtService")]
-    pub use crate::ecosystem_jwt::BearDogJwtService;
-
-    #[deprecated(since = "0.1.0", note = "Use SecurityProviderJwtClaims")]
-    pub use crate::ecosystem_jwt::JwtClaims as BearDogJwtClaims;
-
-    #[deprecated(since = "0.1.0", note = "Use SecurityProviderClient")]
-    pub use crate::security_provider_client::BearDogClient;
-
-    #[deprecated(since = "0.1.0", note = "Use SecurityProviderClientConfig")]
-    pub use crate::security_provider_client::BearDogClientConfig;
-}
-
-#[cfg(feature = "delegated-jwt")]
-#[expect(
-    deprecated,
-    reason = "Crate-root re-exports of deprecated aliases for downstream migration"
-)]
-pub use deprecated_primal_named_auth::{
-    BearDogClient, BearDogClientConfig, BearDogJwtClaims, BearDogJwtConfig, BearDogJwtService,
-};
 
 /// Initialize the authentication system with current configuration
 ///

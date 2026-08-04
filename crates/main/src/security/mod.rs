@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![expect(
-    deprecated,
-    reason = "security module uses deprecated config types during migration"
-)]
 
 //! # Production Security System
 //!
@@ -49,7 +45,7 @@ pub use policy::{PolicyRule, PolicyType, SecurityPolicy};
 pub use rate_limiter::{
     EndpointType, ProductionRateLimiter, RateLimitConfig, RateLimitResult, RateLimitStatistics,
 };
-pub use security_coordinator::{BeardogSecurityCoordinator, SecurityCoordinator};
+pub use security_coordinator::SecurityCoordinator;
 pub use session::SecuritySession;
 pub use traits::SecurityCoordinatorTrait;
 pub use types::{

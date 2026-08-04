@@ -454,14 +454,6 @@ struct JsonRpcError {
     message: String,
 }
 
-/// Deprecated alias for [`SecurityProviderClientConfig`].
-#[deprecated(since = "0.1.0", note = "Use SecurityProviderClientConfig")]
-pub type BearDogClientConfig = SecurityProviderClientConfig;
-
-/// Deprecated alias for [`SecurityProviderClient`].
-#[deprecated(since = "0.1.0", note = "Use SecurityProviderClient")]
-pub type BearDogClient = SecurityProviderClient;
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -471,7 +463,7 @@ mod tests {
     use tokio::net::UnixListener;
 
     #[test]
-    fn test_beardog_client_config_default() {
+    fn test_security_provider_client_config_default() {
         temp_env::with_vars_unset(
             [
                 "CRYPTO_CAPABILITY_SOCKET",
@@ -499,7 +491,7 @@ mod tests {
     }
 
     #[test]
-    fn test_beardog_client_creation() {
+    fn test_security_provider_client_creation() {
         let config = SecurityProviderClientConfig::default();
         let client = SecurityProviderClient::new(config);
 
@@ -507,23 +499,23 @@ mod tests {
     }
 
     #[test]
-    fn test_beardog_client_custom_config() {
+    fn test_security_provider_client_custom_config() {
         let config = SecurityProviderClientConfig {
-            socket_path: "/tmp/test-beardog.sock".to_string(),
+            socket_path: "/tmp/test-security-provider.sock".to_string(),
             timeout_secs: 10,
             max_retries: 5,
             retry_delay_ms: 200,
         };
 
         let client = SecurityProviderClient::new(config).expect("should succeed");
-        assert_eq!(client.config.socket_path, "/tmp/test-beardog.sock");
+        assert_eq!(client.config.socket_path, "/tmp/test-security-provider.sock");
         assert_eq!(client.config.timeout_secs, 10);
         assert_eq!(client.config.max_retries, 5);
         assert_eq!(client.config.retry_delay_ms, 200);
     }
 
     #[test]
-    fn test_beardog_client_creation_nonexistent_socket() {
+    fn test_security_provider_client_creation_nonexistent_socket() {
         let config = SecurityProviderClientConfig {
             socket_path: "/nonexistent/path/crypto.sock".to_string(),
             ..Default::default()
@@ -552,7 +544,7 @@ mod tests {
         let rt = tokio::runtime::Runtime::new().expect("should succeed");
         let result = rt.block_on(async {
             let dir = tempfile::tempdir().expect("should succeed");
-            let socket_path = dir.path().join("beardog-sign.sock");
+            let socket_path = dir.path().join("security-sign.sock");
             let path_str = socket_path.to_string_lossy().to_string();
 
             let listener = UnixListener::bind(&socket_path).expect("should succeed");
@@ -603,7 +595,7 @@ mod tests {
         let rt = tokio::runtime::Runtime::new().expect("should succeed");
         let result = rt.block_on(async {
             let dir = tempfile::tempdir().expect("should succeed");
-            let socket_path = dir.path().join("beardog-verify.sock");
+            let socket_path = dir.path().join("security-verify.sock");
             let path_str = socket_path.to_string_lossy().to_string();
 
             let listener = UnixListener::bind(&socket_path).expect("should succeed");
@@ -650,7 +642,7 @@ mod tests {
         let rt = tokio::runtime::Runtime::new().expect("should succeed");
         let result = rt.block_on(async {
             let dir = tempfile::tempdir().expect("should succeed");
-            let socket_path = dir.path().join("beardog-verify-invalid.sock");
+            let socket_path = dir.path().join("security-verify-invalid.sock");
             let path_str = socket_path.to_string_lossy().to_string();
 
             let listener = UnixListener::bind(&socket_path).expect("should succeed");
@@ -714,7 +706,7 @@ mod tests {
         let rt = tokio::runtime::Runtime::new().expect("should succeed");
         let result = rt.block_on(async {
             let dir = tempfile::tempdir().expect("should succeed");
-            let socket_path = dir.path().join("beardog-error.sock");
+            let socket_path = dir.path().join("security-error.sock");
             let path_str = socket_path.to_string_lossy().to_string();
 
             let listener = UnixListener::bind(&socket_path).expect("should succeed");

@@ -226,7 +226,7 @@ fn test_validate_rate_limit_non_positive() {
 }
 
 #[test]
-fn test_validate_beardog_endpoint_bad_scheme() {
+fn test_validate_security_endpoint_bad_scheme() {
     let mut config = ConfigBuilder::new()
         .name("test-primal")
         .version("1.0.0")
@@ -477,7 +477,7 @@ fn test_validate_resource_limits_fds_zero() {
 }
 
 #[test]
-fn test_validate_beardog_auth_requires_endpoint() {
+fn test_validate_security_provider_auth_requires_endpoint() {
     let mut config = ConfigBuilder::new()
         .name("test-primal")
         .version("1.0.0")

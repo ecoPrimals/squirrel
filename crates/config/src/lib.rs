@@ -80,14 +80,5 @@ pub use unified::{
     SquirrelUnifiedConfig, SystemConfig, TimeoutConfig,
 };
 
-// Compatibility aliases for gradual migration (deprecated names → new types)
-/// Legacy alias for `ConfigLoader`; use `ConfigLoader` directly.
-#[deprecated(since = "0.2.0", note = "Use `ConfigLoader` instead")]
-pub type DefaultConfigManager = ConfigLoader;
-
-/// Legacy alias for `SquirrelUnifiedConfig`; use `SquirrelUnifiedConfig` directly.
-#[deprecated(since = "0.2.0", note = "Use `SquirrelUnifiedConfig` instead")]
-pub type Config = SquirrelUnifiedConfig;
-
 // Re-export EcosystemConfig from environment module for convenience
 pub use environment::EcosystemConfig;

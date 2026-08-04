@@ -22,9 +22,9 @@ pub const SECURITY_SERVICE_ID: &str = "security-provider";
 /// Capability-based primary instance identifier.
 pub const SECURITY_PRIMARY_SERVICE_ID: &str = "security-provider-primary";
 
-/// Legacy wire identifier (deprecated — prefer [`SECURITY_SERVICE_ID`]).
-#[deprecated(since = "0.2.0", note = "use SECURITY_SERVICE_ID")]
-pub const BEARDOG_SECURITY_SERVICE_ID: &str = "beardog-security";
+/// Legacy wire identifier kept only for backward-compat matching in
+/// [`SecurityProviderIntegration::get_service_info`].
+const LEGACY_SECURITY_SERVICE_ID: &str = "beardog-security";
 
 /// Security provider integration (capability-based discovery).
 ///
@@ -57,10 +57,6 @@ impl SecurityProviderIntegration {
     }
 }
 
-/// Deprecated alias for [`SecurityProviderIntegration`].
-#[deprecated(since = "0.2.0", note = "use SecurityProviderIntegration")]
-pub type BeardogSecurityProvider = SecurityProviderIntegration;
-
 impl UniversalSecurityService for SecurityProviderIntegration {
     fn get_capabilities(&self) -> Vec<SecurityCapability> {
         vec![
@@ -90,12 +86,8 @@ impl UniversalSecurityService for SecurityProviderIntegration {
     }
 
     fn get_service_info(&self) -> SecurityServiceInfo {
-        #[expect(
-            deprecated,
-            reason = "BEARDOG_SECURITY_SERVICE_ID compared for legacy service_id migration"
-        )]
         let is_primary = self.config.service_id == SECURITY_SERVICE_ID
-            || self.config.service_id == BEARDOG_SECURITY_SERVICE_ID;
+            || self.config.service_id == LEGACY_SECURITY_SERVICE_ID;
         let trust_level = if is_primary {
             TrustLevel::High
         } else {
@@ -170,10 +162,6 @@ impl SecurityProviderFactory {
         SecurityProviderIntegration::new(config).await
     }
 }
-
-/// Deprecated alias for [`SecurityProviderFactory`].
-#[deprecated(since = "0.2.0", note = "use SecurityProviderFactory")]
-pub type BeardogIntegration = SecurityProviderFactory;
 
 // Implement the traits::UniversalSecurityProvider for SecurityProviderIntegration
 impl crate::security::traits::UniversalSecurityProvider for SecurityProviderIntegration {

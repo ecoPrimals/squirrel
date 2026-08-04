@@ -7,14 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use url::Url;
 
-/// Deprecated serde alias — use `"security_provider"` in config.
-#[deprecated(since = "0.2.0", note = "use \"security_provider\" in config")]
-pub const AUTH_METHOD_SERDE_BEARDOG: &str = "beardog";
-
-/// Deprecated serde alias — use `"security_provider"` in config.
-#[deprecated(since = "0.2.0", note = "use \"security_provider\" in config")]
-pub const AUTH_METHOD_SERDE_BEARDOG_PASCAL: &str = "Beardog";
-
 /// Security provider configuration (capability-based)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityConfig {
@@ -70,8 +62,8 @@ pub enum AuthMethod {
     },
     /// Security-provider-managed authentication (capability-based).
     ///
-    /// Serializes as `"security_provider"`. Legacy aliases `"Beardog"` and `"beardog"`
-    /// are deprecated — see [`AUTH_METHOD_SERDE_BEARDOG`].
+    /// Serializes as `"security_provider"`. Legacy config aliases `"Beardog"` and
+    /// `"beardog"` are accepted for backward compatibility.
     #[serde(rename = "security_provider", alias = "Beardog", alias = "beardog")]
     SecurityProvider {
         /// Service ID for security-provider authentication
@@ -91,8 +83,8 @@ pub enum CredentialStorage {
     },
     /// Security-provider-managed storage.
     ///
-    /// Serializes as `"security_provider"`. Legacy aliases `"Beardog"` and `"beardog"`
-    /// are deprecated — see [`AUTH_METHOD_SERDE_BEARDOG`].
+    /// Serializes as `"security_provider"`. Legacy config aliases `"Beardog"` and
+    /// `"beardog"` are accepted for backward compatibility.
     #[serde(rename = "security_provider", alias = "Beardog", alias = "beardog")]
     SecurityProvider,
     /// Platform credential cache — file-based fallback for offline/bootstrap.
@@ -144,8 +136,8 @@ pub enum KeyManagement {
     },
     /// Security-provider-managed keys.
     ///
-    /// Serializes as `"security_provider"`. Legacy aliases `"Beardog"` and `"beardog"`
-    /// are deprecated — see [`AUTH_METHOD_SERDE_BEARDOG`].
+    /// Serializes as `"security_provider"`. Legacy config aliases `"Beardog"` and
+    /// `"beardog"` are accepted for backward compatibility.
     #[serde(rename = "security_provider", alias = "Beardog", alias = "beardog")]
     SecurityProvider,
     /// Environment variable

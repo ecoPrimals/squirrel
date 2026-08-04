@@ -166,9 +166,9 @@ fn test_builder_mutual_tls() {
 }
 
 #[test]
-fn test_builder_beardog_endpoint_valid() {
+fn test_builder_security_provider_endpoint_valid() {
     let config = ConfigBuilder::new()
-        .name("beardog-test")
+        .name("security-test")
         .version("1.0.0")
         .security_provider_endpoint("https://security.example.com")
         .expect("valid URL")
@@ -179,47 +179,35 @@ fn test_builder_beardog_endpoint_valid() {
 }
 
 #[test]
-fn test_builder_beardog_endpoint_invalid_url() {
+fn test_builder_security_provider_endpoint_invalid_url() {
     let result = ConfigBuilder::new().security_provider_endpoint("not-a-url");
     assert!(result.is_err());
 }
 
 #[test]
-#[expect(
-    deprecated,
-    reason = "tests exercise beardog_endpoint_optional legacy alias"
-)]
-fn test_builder_beardog_endpoint_optional_valid() {
+fn test_builder_security_provider_endpoint_optional_valid() {
     let config = ConfigBuilder::new()
         .name("opt-test")
         .version("1.0.0")
-        .beardog_endpoint_optional(Some("https://security.example.com".into()))
+        .security_provider_endpoint_optional(Some("https://security.example.com".into()))
         .build_unchecked();
 
     assert!(config.security.security_endpoint.is_some());
 }
 
 #[test]
-#[expect(
-    deprecated,
-    reason = "tests exercise beardog_endpoint_optional legacy alias"
-)]
-fn test_builder_beardog_endpoint_optional_invalid_ignored() {
+fn test_builder_security_provider_endpoint_optional_invalid_ignored() {
     let config = ConfigBuilder::new()
-        .beardog_endpoint_optional(Some("not-a-url".into()))
+        .security_provider_endpoint_optional(Some("not-a-url".into()))
         .build_unchecked();
 
     assert!(config.security.security_endpoint.is_none());
 }
 
 #[test]
-#[expect(
-    deprecated,
-    reason = "tests exercise beardog_endpoint_optional legacy alias"
-)]
-fn test_builder_beardog_endpoint_optional_none() {
+fn test_builder_security_provider_endpoint_optional_none() {
     let config = ConfigBuilder::new()
-        .beardog_endpoint_optional(None)
+        .security_provider_endpoint_optional(None)
         .build_unchecked();
 
     assert!(config.security.security_endpoint.is_none());

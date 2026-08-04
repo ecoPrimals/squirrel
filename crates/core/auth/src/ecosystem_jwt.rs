@@ -147,10 +147,6 @@ impl Default for SecurityProviderJwtConfig {
     }
 }
 
-/// Deprecated alias for [`SecurityProviderJwtConfig`].
-#[deprecated(since = "0.1.0", note = "Use SecurityProviderJwtConfig")]
-pub type BearDogJwtConfig = SecurityProviderJwtConfig;
-
 /// Ecosystem JWT token manager using capability-based crypto (Pure Rust!)
 ///
 /// # Examples
@@ -184,10 +180,6 @@ pub struct SecurityProviderJwtService {
     crypto: CapabilityCryptoProvider,
     key_id: String,
 }
-
-/// Deprecated alias for [`SecurityProviderJwtService`].
-#[deprecated(since = "0.1.0", note = "Use SecurityProviderJwtService")]
-pub type BearDogJwtService = SecurityProviderJwtService;
 
 impl SecurityProviderJwtService {
     /// Create new capability-based JWT service

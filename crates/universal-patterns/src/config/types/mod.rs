@@ -422,7 +422,7 @@ mod tests {
             cert_file: PathBuf::from("/cert"),
             key_file: PathBuf::from("/key"),
         };
-        let beardog = AuthMethod::SecurityProvider {
+        let security_provider = AuthMethod::SecurityProvider {
             service_id: "service-123".to_string(),
         };
 
@@ -436,9 +436,9 @@ mod tests {
             _ => unreachable!("Expected Certificate variant"),
         }
 
-        match beardog {
+        match security_provider {
             AuthMethod::SecurityProvider { .. } => {}
-            _ => unreachable!("Expected Beardog variant"),
+            _ => unreachable!("Expected SecurityProvider variant"),
         }
     }
 
@@ -494,12 +494,12 @@ mod tests {
         let file = KeyManagement::File {
             path: PathBuf::from("/tmp/key"),
         };
-        let beardog = KeyManagement::SecurityProvider;
+        let security_provider = KeyManagement::SecurityProvider;
         let env = KeyManagement::Environment {
             var_name: "MY_KEY".to_string(),
         };
 
-        for variant in [file, beardog, env] {
+        for variant in [file, security_provider, env] {
             let json = serde_json::to_string(&variant).expect("should succeed");
             let _: KeyManagement = serde_json::from_str(&json).expect("should succeed");
         }

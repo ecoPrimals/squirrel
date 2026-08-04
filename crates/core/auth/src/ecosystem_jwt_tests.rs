@@ -58,7 +58,7 @@ fn test_jwt_header_default() {
 }
 
 #[test]
-fn test_beardog_jwt_config_default() {
+fn test_security_provider_jwt_config_default() {
     let config = SecurityProviderJwtConfig::default();
     assert_eq!(config.key_id, identity::JWT_SIGNING_KEY_ID);
     assert_eq!(config.expiry_hours, 24);
@@ -127,7 +127,7 @@ fn test_jwt_claims_to_auth_context_invalid_session_id() {
 }
 
 #[test]
-fn test_beardog_jwt_service_new_with_custom_config() {
+fn test_security_provider_jwt_service_new_with_custom_config() {
     let config = SecurityProviderJwtConfig {
         crypto_config: CapabilityCryptoConfig {
             endpoint: Some("/tmp/nonexistent.sock".to_string()),

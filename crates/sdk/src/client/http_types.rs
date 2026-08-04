@@ -45,12 +45,6 @@ impl FromStr for HttpMethod {
 }
 
 impl HttpMethod {
-    /// Parse from string (deprecated - use FromStr trait instead)
-    #[deprecated(note = "Use FromStr::from_str instead")]
-    pub fn parse_method(s: &str) -> Option<Self> {
-        s.parse().ok()
-    }
-
     /// Convert to string representation
     pub fn as_str(&self) -> &'static str {
         match self {
