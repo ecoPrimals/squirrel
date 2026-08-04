@@ -9,7 +9,7 @@
 # this graph to deploy and validate Squirrel's composition.
 #
 # Deploy order:
-#   Tower Atomic (BearDog + Songbird) → Squirrel → petalTongue (optional viz)
+#   Security + Mesh (beardog + songbird) → Squirrel → petalTongue (optional viz)
 #
 # Usage:
 #   biomeos deploy --graph graphs/squirrel_ai_niche.toml

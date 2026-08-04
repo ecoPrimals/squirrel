@@ -51,7 +51,7 @@ cargo doc --all-features --no-deps
 
 - Target: 90% line coverage via `cargo-llvm-cov`.
 - Proptest for round-trip and fuzz.
-- Resilience tests under `crates/main/tests/chaos/`.
+- Resilience tests under `crates/main/tests/integration/chaos/`.
 - E2E workflows under `crates/main/tests/`.
 - Doctests count as tests.
 
@@ -69,4 +69,4 @@ The loopback whitelist was hardcoded. Now reads SQUIRREL_RATE_LIMIT_WHITELIST
 ## Handoffs
 
 Session work is tracked via wateringHole handoffs. If your session is
-incomplete, write a handoff to `ecoPrimals/infra/wateringHole/handoffs/` before stopping.
+incomplete, write a handoff to `infra/wateringHole/handoffs/` before stopping.

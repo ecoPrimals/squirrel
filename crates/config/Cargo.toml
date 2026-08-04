@@ -5,7 +5,6 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Configuration types and loading for Squirrel MCP"
 repository = "https://github.com/ecoPrimals/squirrel"
-readme = "README.md"
 keywords = ["ecoprimals", "ai", "mcp", "json-rpc"]
 categories = ["development-tools"]
 

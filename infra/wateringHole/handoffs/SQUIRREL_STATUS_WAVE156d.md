@@ -61,6 +61,16 @@ Inline `/biomeos/` path constructions replaced with canonical constants:
 | Emoji in test/example files | ~170 remaining | Lower priority — test output, not production logs |
 | Large file refactoring | No files >800L | Threshold already met; largest prod file is 774L |
 
+## Documentation & Debris Cleanup (same wave)
+
+- **Test counts normalized**: 7,241 across README, CURRENT_STATUS, CONTEXT, ORIGIN, sporeprint (was 4,613 / 7,132 / 7,138 / 7,142 depending on doc)
+- **Dead references fixed**: CONTRIBUTING.md chaos test path, handoff path; deny.toml missing CRYPTO_MIGRATION.md link; CURRENT_STATUS.md external spec clarified
+- **`readme = "README.md"` removed** from 12 crate Cargo.tomls that lacked the file
+- **Dead module tree removed**: `crates/main/src/ai/model_splitting/mod.rs` + `crates/main/src/ai/mod.rs` (empty tombstone, zero consumers, not declared from lib.rs)
+- **Stale comment cleanup**: beardog references removed from `auth/Cargo.toml`, "Tower Atomic" naming updated in `graphs/squirrel_ai_niche.toml`
+- **universal-constants README.md**: test count 25 → 142
+- **`cargo clean`**: freed 27.8 GiB build cache
+
 ## Cascade Notes
 
 Ready for golgiBody cascade. All changes are backward compatible.

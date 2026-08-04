@@ -6,7 +6,6 @@ authors = ["ecoPrimals Contributors"]
 license = "AGPL-3.0-or-later"
 description = "Plugin system for squirrel"
 repository = "https://github.com/ecoPrimals/squirrel"
-readme = "README.md"
 keywords = ["ecoprimals", "ai", "mcp", "json-rpc"]
 categories = ["development-tools"]
 

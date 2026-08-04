@@ -12,7 +12,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors, **0 warnings** |
-| Tests | **4,613** passing / 0 failures / 5 ignored across 16 workspace crates (`--all-features`) |
+| Tests | **7,241** passing / 0 failures / 5 ignored across 16 workspace crates (`--all-features`) |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn`; `async-trait` only remains as transitive dep from external crate `config` |
 | Clippy | CLEAN — `pedantic + nursery + cargo`, `expect_used/unwrap_used = deny` workspace-wide; zero warnings under `-D warnings` |
@@ -249,7 +249,7 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 ## Socket Configuration
 
 Injectable `SocketConfig` pattern (absorbed from airSpring). `FAMILY_ID`-compliant
-per `PRIMAL_IPC_PROTOCOL.md`:
+per `PRIMAL_IPC_PROTOCOL.md` (ecosystem spec, see `ecoPrimals/infra/wateringHole/`):
 
 ```
 Tier 1: SQUIRREL_SOCKET (primal-specific override)

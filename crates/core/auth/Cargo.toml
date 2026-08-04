@@ -5,19 +5,17 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Authentication and JWT handling for Squirrel MCP"
 repository = "https://github.com/ecoPrimals/squirrel"
-readme = "README.md"
 keywords = ["ecoprimals", "ai", "mcp", "json-rpc"]
 categories = ["development-tools"]
 
 [features]
-default = ["delegated-jwt"]  # Production: delegate to BearDog (TRUE ecoBin!)
-delegated-jwt = []           # Use BearDog for JWT validation (Pure Rust!)
+default = ["delegated-jwt"]
+delegated-jwt = []
 ## local-jwt and http-auth removed (stadial gate: ring/reqwest lockfile ghosts eliminated)
-# Integration tests disabled - API has changed, tests need rewrite
+# Integration tests disabled — API has changed, tests need rewrite
 integration-tests = []
 
 [dependencies]
-# beardog = { path = "../../../../../beardog", version = "0.1.0" }  # Will be added in proper integration
 squirrel-mcp-config = { path = "../../config", version = "0.1.0" }
 universal-constants = { path = "../../universal-constants", version = "0.1.0" }
 universal-patterns = { path = "../../universal-patterns", version = "0.1.0" }

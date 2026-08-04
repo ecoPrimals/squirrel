@@ -23,7 +23,7 @@ The `universal-constants` crate consolidates all constants from across the Squir
 2. **Type Safety**: Use proper types (`Duration` not `u64`)
 3. **Domain Organization**: Clear module boundaries
 4. **Zero Dependencies**: Pure Rust, no external deps
-5. **Comprehensive Tests**: 25 tests ensuring correctness
+5. **Comprehensive Tests**: 142 tests ensuring correctness
 
 ## 📦 Installation
 
@@ -244,7 +244,7 @@ View test coverage:
 cargo test -- --nocapture
 ```
 
-**Test Results**: 25 tests passing (100% pass rate)
+**Test Results**: 142 tests passing (100% pass rate)
 
 ## 📊 Consolidation Impact
 
@@ -281,7 +281,7 @@ Benefits:
 ✅ Type-safe (Duration not u64)
 ✅ Easy to find and maintain
 ✅ Comprehensive documentation
-✅ 25 tests ensuring correctness
+142 tests ensuring correctness
 ```
 
 ## 🎯 Benefits
