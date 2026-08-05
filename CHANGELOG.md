@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 5, 2026 — Wave 156h: Clone-to-Arc Evolution + Copy Derives + Debris Cleanup)
+
+- **TaskManager evolved to `Arc<Task>` storage**: 12 of 16 `.clone()` calls eliminated via `Arc::make_mut` (copy-on-write) mutations. All public API methods now return `Arc<Task>` instead of `Task`, giving callers zero-copy shared access. `assign_task` double-clone pattern (read snapshot + write clone + re-insert + re-fetch clone) collapsed to single `Arc::make_mut` call. Bulk list APIs (`get_agent_tasks`, `list_tasks`, `find_assignable_tasks`) return `Vec<Arc<Task>>` — no more O(n) deep clones.
+- **SyncManager broadcast evolved to `Arc<SyncEvent>`**: Events are wrapped in `Arc` once at emission, then fan out to N subscribers via cheap `Arc::clone` instead of N deep clones. Eliminates per-subscriber heap allocation for large events (`ConflictInfo`, `PartitionInfo`, `ContextState`).
+- **`Copy` derived on small enums**: `SyncStatus` and `ConflictResolutionStrategy` — both have zero heap data. Eliminates `.clone()` overhead in `get_status()`, `get_statistics()`, and conflict resolution paths.
+- **`ResourceValidationRule` dead_code warning fixed**: Fields `max_memory_mb` and `max_threads` gated with `#[cfg_attr(not(feature = "system-metrics"), expect(dead_code, ...))]` — they are only read when the `system-metrics` feature is enabled.
+- **Orphaned test file deleted**: `sync_manager_tests.rs` (548 lines) — never included in module tree, used nonexistent `SyncEvent::Started`/`Completed`/`Failed` variants. Dead since enum was refactored.
+- **Zero warnings**, zero test regressions.
+
 ### Summary (Aug 5, 2026 — Wave 156g: RegistryType Elimination + Discovery Modernization)
 
 - **Deprecated `RegistryType` enum deleted**: 6-variant enum replaced with `registry_backend: String` field on `RegistryDiscovery`. Only `"biomeos"` had a working implementation (socket-registry.json); all others already returned `RemoteRegistryUnavailable`. API now accepts `impl Into<String>` for both backend and endpoint.

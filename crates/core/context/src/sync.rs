@@ -4,6 +4,7 @@
 use crate::{ContextSnapshot, ContextState, error::ContextError};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::mpsc::Sender;
 use tokio::time::timeout;
@@ -126,7 +127,7 @@ pub struct ConflictInfo {
 }
 
 /// Strategies for resolving conflicts between different versions of state
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ConflictResolutionStrategy {
     /// Keep the most recent version
     KeepLatest,
@@ -196,8 +197,9 @@ pub enum SyncEvent {
 /// Manages synchronization between nodes in a distributed system
 #[derive(Debug)]
 pub struct SyncManager {
-    /// Collection of subscribers to sync events, mapped by their unique ID
-    subscribers: HashMap<String, Sender<SyncEvent>>,
+    /// Collection of subscribers to sync events, mapped by their unique ID.
+    /// Events are `Arc`-wrapped for zero-copy fan-out to multiple subscribers.
+    subscribers: HashMap<String, Sender<Arc<SyncEvent>>>,
     /// Sync configuration
     config: SyncConfig,
     /// Current sync status
@@ -233,7 +235,7 @@ impl SyncManager {
 
     /// Get current sync status
     pub fn get_status(&self) -> SyncStatus {
-        self.status.clone()
+        self.status
     }
 
     /// Update sync configuration
@@ -249,7 +251,7 @@ impl SyncManager {
     ///
     /// # Returns
     /// * `String` - Unique identifier for the subscription
-    pub fn subscribe(&mut self, sender: Sender<SyncEvent>) -> String {
+    pub fn subscribe(&mut self, sender: Sender<Arc<SyncEvent>>) -> String {
         let id = Uuid::new_v4().to_string();
         self.subscribers.insert(id.clone(), sender);
         debug!("New sync event subscriber: {}", id);
@@ -287,9 +289,10 @@ impl SyncManager {
     /// # Errors
     /// * Returns an error if broadcasting to all subscribers fails
     pub async fn broadcast_event(&mut self, event: SyncEvent) -> Result<(), ContextError> {
+        let event = Arc::new(event);
         let mut failed_ids = Vec::new();
         for (id, sender) in &self.subscribers {
-            if sender.send(event.clone()).await.is_err() {
+            if sender.send(Arc::clone(&event)).await.is_err() {
                 failed_ids.push(id.clone());
             }
         }
@@ -482,7 +485,7 @@ impl SyncManager {
                 Ok(resolved_state) => {
                     let event = SyncEvent::ConflictResolved {
                         state_id: conflict.state_id.clone(),
-                        strategy: conflict.resolution_strategy.clone(),
+                        strategy: conflict.resolution_strategy,
                         resolved_state,
                     };
 
@@ -676,7 +679,7 @@ impl SyncManager {
     /// Get sync statistics
     pub fn get_statistics(&self) -> SyncStatistics {
         SyncStatistics {
-            status: self.status.clone(),
+            status: self.status,
             pending_operations: self.pending_operations.len(),
             failed_operations: self.failed_operations.len(),
             active_partitions: self.active_partitions.len(),

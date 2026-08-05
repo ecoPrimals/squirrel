@@ -20,10 +20,13 @@ use crate::task::types::{Task, TaskStatus};
 ///
 /// The `TaskManager` is responsible for maintaining the state of all tasks
 /// in the system, handling their creation, updating, and assignment to agents.
+///
+/// Tasks are stored as `Arc<Task>` for cheap sharing across API boundaries.
+/// Mutations use `Arc::make_mut` (copy-on-write) — zero-cost when uniquely owned.
 #[derive(Debug)]
 pub struct TaskManager {
-    /// Map of task IDs to tasks (`Arc<str>` keys for zero-copy)
-    tasks: RwLock<HashMap<Arc<str>, Task>>,
+    /// Map of task IDs to tasks (`Arc<Task>` for zero-copy reads)
+    tasks: RwLock<HashMap<Arc<str>, Arc<Task>>>,
 
     /// Map of agent IDs to task IDs
     agent_tasks: RwLock<HashMap<String, HashSet<Arc<str>>>>,
@@ -47,15 +50,13 @@ impl TaskManager {
     ///
     /// This creates a new task and adds it to the task manager. It also updates
     /// the context task mapping if a context ID is provided.
-    pub async fn create_task(&self, mut task: Task) -> Result<Task> {
+    pub async fn create_task(&self, mut task: Task) -> Result<Arc<Task>> {
         if task.id.is_empty() {
             task.id = Arc::from(Uuid::new_v4().to_string());
         }
 
-        // Update the maps
         let mut tasks = self.tasks.write().await;
 
-        // Check if task with this ID already exists
         if tasks.contains_key(task.id.as_ref()) {
             return Err(Error::AlreadyExists(format!(
                 "Task with ID {} already exists",
@@ -63,31 +64,28 @@ impl TaskManager {
             )));
         }
 
-        // Update the context task mapping
         if let Some(context_id) = &task.context_id {
             let mut context_tasks = self.context_tasks.write().await;
-            let tasks_set = context_tasks
+            context_tasks
                 .entry(context_id.clone())
-                .or_insert_with(HashSet::new);
-            tasks_set.insert(Arc::clone(&task.id));
+                .or_default()
+                .insert(Arc::clone(&task.id));
         }
 
         let id_key = Arc::clone(&task.id);
-        tasks.insert(Arc::clone(&task.id), task);
+        let task = Arc::new(task);
+        tasks.insert(id_key, Arc::clone(&task));
 
-        Ok(tasks
-            .get(id_key.as_ref())
-            .ok_or_else(|| Error::NotFound("Task missing immediately after insert".to_string()))?
-            .clone())
+        Ok(task)
     }
 
     /// Get a task by ID.
-    pub async fn get_task(&self, id: &str) -> Result<Task> {
+    pub async fn get_task(&self, id: &str) -> Result<Arc<Task>> {
         let tasks = self.tasks.read().await;
 
         tasks
             .get(id)
-            .cloned()
+            .map(Arc::clone)
             .ok_or_else(|| Error::NotFound(format!("Task with ID {id} not found")))
     }
 
@@ -95,92 +93,86 @@ impl TaskManager {
     ///
     /// This updates an existing task in the task manager. It preserves certain
     /// immutable fields like creation time and handles context and agent changes.
-    pub async fn update_task(&self, updated_task: Task) -> Result<Task> {
+    pub async fn update_task(&self, updated_task: Task) -> Result<Arc<Task>> {
         let mut tasks = self.tasks.write().await;
 
-        // Get the existing task
-        let existing_task = tasks.get(updated_task.id.as_ref()).ok_or_else(|| {
+        let existing = tasks.get(updated_task.id.as_ref()).ok_or_else(|| {
             Error::NotFound(format!(
                 "Task with ID {} not found",
                 updated_task.id.as_ref()
             ))
         })?;
 
-        // Preserve creation time and other immutable fields
-        let mut merged_task = updated_task.clone();
-        merged_task.created_at = existing_task.created_at;
+        let saved_created_at = existing.created_at;
+        let old_context = existing.context_id.clone();
+        let old_agent = existing.agent_id.clone();
 
-        // Handle context change
-        if existing_task.context_id != merged_task.context_id {
+        let mut merged_task = updated_task;
+        merged_task.created_at = saved_created_at;
+
+        if old_context != merged_task.context_id {
             let mut context_tasks = self.context_tasks.write().await;
 
-            // Remove from old context
-            if let Some(old_context_id) = &existing_task.context_id
+            if let Some(old_context_id) = &old_context
                 && let Some(tasks_set) = context_tasks.get_mut(old_context_id)
             {
                 tasks_set.remove(merged_task.id.as_ref());
             }
 
-            // Add to new context
             if let Some(new_context_id) = &merged_task.context_id {
-                let tasks_set = context_tasks
+                context_tasks
                     .entry(new_context_id.clone())
-                    .or_insert_with(HashSet::new);
-                tasks_set.insert(Arc::clone(&merged_task.id));
+                    .or_default()
+                    .insert(Arc::clone(&merged_task.id));
             }
         }
 
-        // Handle agent change
-        if existing_task.agent_id != merged_task.agent_id {
+        if old_agent != merged_task.agent_id {
             let mut agent_tasks = self.agent_tasks.write().await;
 
-            // Remove from old agent
-            if let Some(old_agent_id) = &existing_task.agent_id
+            if let Some(old_agent_id) = &old_agent
                 && let Some(tasks_set) = agent_tasks.get_mut(old_agent_id)
             {
                 tasks_set.remove(merged_task.id.as_ref());
             }
 
-            // Add to new agent
             if let Some(new_agent_id) = &merged_task.agent_id {
-                let tasks_set = agent_tasks
+                agent_tasks
                     .entry(new_agent_id.clone())
-                    .or_insert_with(HashSet::new);
-                tasks_set.insert(Arc::clone(&merged_task.id));
+                    .or_default()
+                    .insert(Arc::clone(&merged_task.id));
             }
         }
 
-        // Update the task (move merged_task into map; return a single clone for the API)
-        tasks.insert(Arc::clone(&merged_task.id), merged_task);
+        let id_key = Arc::clone(&merged_task.id);
+        let task = Arc::new(merged_task);
+        tasks.insert(id_key, Arc::clone(&task));
 
-        Ok(tasks
-            .get(updated_task.id.as_ref())
-            .ok_or_else(|| Error::NotFound("Task missing immediately after update".to_string()))?
-            .clone())
+        Ok(task)
     }
 
     /// Assign a task to an agent.
-    pub async fn assign_task(&self, task_id: &str, agent_id: &str) -> Result<Task> {
-        // Release any `tasks` lock before awaiting `check_prerequisites`, which takes a read lock
-        // on the same map (would deadlock if we held the write lock across the await).
-        let task_snapshot = {
+    pub async fn assign_task(&self, task_id: &str, agent_id: &str) -> Result<Arc<Task>> {
+        // Cheap Arc snapshot — release read lock before check_prerequisites (avoids deadlock).
+        let snapshot = {
             let tasks = self.tasks.read().await;
-            tasks
-                .get(task_id)
-                .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?
-                .clone()
+            Arc::clone(
+                tasks
+                    .get(task_id)
+                    .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?,
+            )
         };
 
-        if task_snapshot.status_code != TaskStatus::Pending
-            && task_snapshot.status_code != TaskStatus::Waiting
+        if snapshot.status_code != TaskStatus::Pending
+            && snapshot.status_code != TaskStatus::Waiting
         {
             return Err(Error::InvalidState(format!(
                 "Task {} is in state {:?} and cannot be assigned",
-                task_id, task_snapshot.status_code
+                task_id, snapshot.status_code
             )));
         }
 
-        let prerequisites_met = self.check_prerequisites(&task_snapshot).await?;
+        let prerequisites_met = self.check_prerequisites(&snapshot).await?;
         if !prerequisites_met {
             return Err(Error::InvalidState(format!(
                 "Prerequisites for task {task_id} are not all met"
@@ -188,32 +180,31 @@ impl TaskManager {
         }
 
         let mut tasks = self.tasks.write().await;
-        let mut task = tasks
+        let task_arc = tasks
             .get_mut(task_id)
-            .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?
-            .clone();
+            .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?;
 
-        if task.status_code != TaskStatus::Pending && task.status_code != TaskStatus::Waiting {
+        if task_arc.status_code != TaskStatus::Pending
+            && task_arc.status_code != TaskStatus::Waiting
+        {
             return Err(Error::InvalidState(format!(
                 "Task {} is in state {:?} and cannot be assigned",
-                task_id, task.status_code
+                task_id, task_arc.status_code
             )));
         }
 
+        let task = Arc::make_mut(task_arc);
         task.mark_running(agent_id);
+        let task_id_arc = Arc::clone(&task.id);
 
-        let mut agent_tasks = self.agent_tasks.write().await;
-        let tasks_set = agent_tasks
+        self.agent_tasks
+            .write()
+            .await
             .entry(agent_id.to_string())
-            .or_insert_with(HashSet::new);
-        tasks_set.insert(Arc::clone(&task.id));
+            .or_default()
+            .insert(Arc::clone(&task_id_arc));
 
-        tasks.insert(Arc::clone(&task.id), task);
-
-        Ok(tasks
-            .get(task_id)
-            .ok_or_else(|| Error::NotFound("Task missing immediately after assign".to_string()))?
-            .clone())
+        Ok(Arc::clone(tasks.get(task_id).unwrap()))
     }
 
     /// Update the progress of a task.
@@ -222,33 +213,23 @@ impl TaskManager {
         task_id: &str,
         progress: f32,
         status_message: Option<String>,
-    ) -> Result<Task> {
+    ) -> Result<Arc<Task>> {
         let mut tasks = self.tasks.write().await;
 
-        // Get the task
-        let mut task = tasks
+        let task_arc = tasks
             .get_mut(task_id)
-            .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?
-            .clone();
+            .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?;
 
-        // Check if the task is in a valid state to update progress
-        if task.status_code != TaskStatus::Running {
+        if task_arc.status_code != TaskStatus::Running {
             return Err(Error::InvalidState(format!(
                 "Task {} is in state {:?} and progress cannot be updated",
-                task_id, task.status_code
+                task_id, task_arc.status_code
             )));
         }
 
-        // Update the progress
-        task.update_progress(progress, status_message);
+        Arc::make_mut(task_arc).update_progress(progress, status_message);
 
-        let id_key = Arc::clone(&task.id);
-        tasks.insert(Arc::clone(&task.id), task);
-
-        Ok(tasks
-            .get(id_key.as_ref())
-            .ok_or_else(|| Error::NotFound("Task missing after progress update".to_string()))?
-            .clone())
+        Ok(Arc::clone(tasks.get(task_id).unwrap()))
     }
 
     /// Mark a task as completed.
@@ -256,103 +237,77 @@ impl TaskManager {
         &self,
         task_id: &str,
         output_data: Option<HashMap<String, String>>,
-    ) -> Result<Task> {
-        let mut tasks = self.tasks.write().await;
+    ) -> Result<Arc<Task>> {
+        {
+            let mut tasks = self.tasks.write().await;
 
-        // Get the task
-        let mut task = tasks
-            .get_mut(task_id)
-            .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?
-            .clone();
+            let task_arc = tasks
+                .get_mut(task_id)
+                .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?;
 
-        // Check if the task is in a valid state to be completed
-        if task.status_code != TaskStatus::Running {
-            return Err(Error::InvalidState(format!(
-                "Task {} is in state {:?} and cannot be completed",
-                task_id, task.status_code
-            )));
+            if task_arc.status_code != TaskStatus::Running {
+                return Err(Error::InvalidState(format!(
+                    "Task {} is in state {:?} and cannot be completed",
+                    task_id, task_arc.status_code
+                )));
+            }
+
+            Arc::make_mut(task_arc).mark_completed(output_data);
         }
 
-        // Mark the task as completed
-        task.mark_completed(output_data);
-
-        tasks.insert(Arc::clone(&task.id), task);
-
-        // Check dependent tasks
-        drop(tasks); // Release the lock before calling another method
         self.check_dependent_tasks(task_id).await?;
 
-        // Re-fetch the task to return the latest version
         let tasks = self.tasks.read().await;
         tasks
             .get(task_id)
+            .map(Arc::clone)
             .ok_or_else(|| {
                 Error::NotFound(format!("Task with ID {task_id} not found after completion"))
             })
-            .cloned()
     }
 
     /// Mark a task as failed.
-    pub async fn fail_task(&self, task_id: &str, error_message: &str) -> Result<Task> {
+    pub async fn fail_task(&self, task_id: &str, error_message: &str) -> Result<Arc<Task>> {
         let mut tasks = self.tasks.write().await;
 
-        // Get the task
-        let mut task = tasks
+        let task_arc = tasks
             .get_mut(task_id)
-            .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?
-            .clone();
+            .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?;
 
-        // Mark the task as failed
-        task.mark_failed(error_message);
+        Arc::make_mut(task_arc).mark_failed(error_message);
 
-        let id_key = Arc::clone(&task.id);
-        tasks.insert(Arc::clone(&task.id), task);
-
-        Ok(tasks
-            .get(id_key.as_ref())
-            .ok_or_else(|| Error::NotFound("Task missing after fail".to_string()))?
-            .clone())
+        Ok(Arc::clone(tasks.get(task_id).unwrap()))
     }
 
     /// Cancel a task.
-    pub async fn cancel_task(&self, task_id: &str, reason: &str) -> Result<Task> {
+    pub async fn cancel_task(&self, task_id: &str, reason: &str) -> Result<Arc<Task>> {
         let mut tasks = self.tasks.write().await;
 
-        // Get the task
-        let mut task = tasks
+        let task_arc = tasks
             .get_mut(task_id)
-            .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?
-            .clone();
+            .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?;
 
-        // Check if the task is in a valid state to be cancelled
-        if task.is_finished() {
+        if task_arc.is_finished() {
             return Err(Error::InvalidState(format!(
                 "Task {} is already in terminal state {:?} and cannot be cancelled",
-                task_id, task.status_code
+                task_id, task_arc.status_code
             )));
         }
 
-        // Mark the task as cancelled
-        task.mark_cancelled(reason);
+        Arc::make_mut(task_arc).mark_cancelled(reason);
 
-        let id_key = Arc::clone(&task.id);
-        tasks.insert(Arc::clone(&task.id), task);
-
-        Ok(tasks
-            .get(id_key.as_ref())
-            .ok_or_else(|| Error::NotFound("Task missing after cancel".to_string()))?
-            .clone())
+        Ok(Arc::clone(tasks.get(task_id).unwrap()))
     }
 
     /// Get all tasks assigned to a specific agent.
-    pub async fn get_agent_tasks(&self, agent_id: &str) -> Result<Vec<Task>> {
+    pub async fn get_agent_tasks(&self, agent_id: &str) -> Result<Vec<Arc<Task>>> {
         let tasks = self.tasks.read().await;
         let agent_tasks = self.agent_tasks.read().await;
 
         if let Some(task_ids) = agent_tasks.get(agent_id) {
-            let agent_tasks: Vec<Task> = task_ids
+            let agent_tasks: Vec<Arc<Task>> = task_ids
                 .iter()
-                .filter_map(|task_id| tasks.get(task_id.as_ref()).cloned())
+                .filter_map(|task_id| tasks.get(task_id.as_ref()).map(Arc::clone))
                 .collect();
             Ok(agent_tasks)
         } else {
@@ -361,28 +316,30 @@ impl TaskManager {
     }
 
     /// Get all tasks associated with a specific context.
-    pub async fn get_context_tasks(&self, context_id: &str) -> Result<Vec<Task>> {
+    pub async fn get_context_tasks(&self, context_id: &str) -> Result<Vec<Arc<Task>>> {
         let context_tasks = self.context_tasks.read().await;
         let tasks = self.tasks.read().await;
 
-        let task_ids = context_tasks.get(context_id).cloned().unwrap_or_default();
+        let Some(task_ids) = context_tasks.get(context_id) else {
+            return Ok(Vec::new());
+        };
 
-        let result: Vec<Task> = task_ids
+        let result: Vec<Arc<Task>> = task_ids
             .iter()
-            .filter_map(|id| tasks.get(id.as_ref()).cloned())
+            .filter_map(|id| tasks.get(id.as_ref()).map(Arc::clone))
             .collect();
 
         Ok(result)
     }
 
     /// Get tasks by status.
-    pub async fn get_tasks_by_status(&self, status: TaskStatus) -> Result<Vec<Task>> {
+    pub async fn get_tasks_by_status(&self, status: TaskStatus) -> Result<Vec<Arc<Task>>> {
         let tasks = self.tasks.read().await;
 
-        let result: Vec<Task> = tasks
+        let result: Vec<Arc<Task>> = tasks
             .values()
             .filter(|task| task.status_code == status)
-            .cloned()
+            .map(Arc::clone)
             .collect();
 
         Ok(result)
@@ -414,27 +371,21 @@ impl TaskManager {
     ///
     /// This method finds tasks that are in the Pending state and have all their
     /// prerequisites met. These tasks are candidates for assignment to agents.
-    pub async fn find_assignable_tasks(&self) -> Result<Vec<Task>> {
-        let tasks_guard = self.tasks.read().await;
-
-        // First collect all pending tasks
-        let pending_tasks: Vec<Task> = tasks_guard
-            .values()
-            .filter(|task| task.status_code == TaskStatus::Pending)
-            .cloned()
-            .collect();
-
-        // Drop the lock before processing task prerequisites
-        drop(tasks_guard);
+    pub async fn find_assignable_tasks(&self) -> Result<Vec<Arc<Task>>> {
+        let pending_tasks: Vec<Arc<Task>> = {
+            let tasks_guard = self.tasks.read().await;
+            tasks_guard
+                .values()
+                .filter(|task| task.status_code == TaskStatus::Pending)
+                .map(Arc::clone)
+                .collect()
+        };
 
         let mut assignable_tasks = Vec::new();
         let pending_len = pending_tasks.len();
 
-        // Check each task's prerequisites
         for task in pending_tasks {
-            let prerequisites_met = self.check_prerequisites(&task).await?;
-
-            if prerequisites_met {
+            if self.check_prerequisites(&task).await? {
                 assignable_tasks.push(task);
             }
         }
@@ -453,31 +404,34 @@ impl TaskManager {
     /// This is called internally when a task is completed to check if any
     /// dependent tasks can now be transitioned to the Pending state.
     async fn check_dependent_tasks(&self, completed_task_id: &str) -> Result<()> {
-        let tasks = self.tasks.read().await;
+        let dependent_ids: Vec<Arc<str>> = {
+            let tasks = self.tasks.read().await;
+            tasks
+                .iter()
+                .filter(|(_, task)| {
+                    task.prerequisites.contains(&completed_task_id.to_string())
+                        && task.status_code == TaskStatus::Waiting
+                })
+                .map(|(id, _)| Arc::clone(id))
+                .collect()
+        };
 
-        // Find tasks that have the completed task as a prerequisite
-        let dependent_tasks: Vec<Task> = tasks
-            .values()
-            .filter(|task| {
-                task.prerequisites.contains(&completed_task_id.to_string())
-                    && task.status_code == TaskStatus::Waiting
-            })
-            .cloned()
-            .collect();
+        for dep_id in dependent_ids {
+            let snapshot = {
+                let tasks = self.tasks.read().await;
+                tasks.get(dep_id.as_ref()).map(Arc::clone)
+            };
+            let Some(snapshot) = snapshot else {
+                continue;
+            };
 
-        drop(tasks); // Release the lock
-
-        // Update each dependent task if all prerequisites are now met
-        for mut task in dependent_tasks {
-            let prerequisites_met = self.check_prerequisites(&task).await?;
-
-            if prerequisites_met {
-                // Update to Pending state
-                task.status_code = TaskStatus::Pending;
-                task.updated_at = chrono::Utc::now();
-
+            if self.check_prerequisites(&snapshot).await? {
                 let mut tasks = self.tasks.write().await;
-                tasks.insert(Arc::clone(&task.id), task);
+                if let Some(task_arc) = tasks.get_mut(dep_id.as_ref()) {
+                    let task = Arc::make_mut(task_arc);
+                    task.status_code = TaskStatus::Pending;
+                    task.updated_at = chrono::Utc::now();
+                }
             }
         }
 
@@ -485,13 +439,12 @@ impl TaskManager {
     }
 
     /// List all tasks for a specific agent (alias for `get_agent_tasks` for compatibility)
-    pub async fn list_tasks(&self, agent_id: Option<&str>) -> Result<Vec<Task>> {
+    pub async fn list_tasks(&self, agent_id: Option<&str>) -> Result<Vec<Arc<Task>>> {
         if let Some(agent_id) = agent_id {
             self.get_agent_tasks(agent_id).await
         } else {
-            // Return all tasks if no agent specified
             let tasks = self.tasks.read().await;
-            Ok(tasks.values().cloned().collect())
+            Ok(tasks.values().map(Arc::clone).collect())
         }
     }
 
@@ -501,7 +454,7 @@ impl TaskManager {
         task_id: &str,
         progress: f32,
         status_message: &str,
-    ) -> Result<Task> {
+    ) -> Result<Arc<Task>> {
         self.update_progress(task_id, progress, Some(status_message.to_string()))
             .await
     }
@@ -530,7 +483,7 @@ mod tests {
             .expect("should succeed");
         assert_eq!(got.id, created.id);
 
-        let mut upd = got.clone();
+        let mut upd = Task::clone(&got);
         upd.description = "updated".into();
         mgr.update_task(upd).await.expect("should succeed");
 
@@ -604,10 +557,11 @@ mod tests {
             .expect("should succeed");
         assert_eq!(ctx_tasks.len(), 1);
 
-        let mut moved = mgr
-            .get_task(created.id.as_ref())
-            .await
-            .expect("should succeed");
+        let mut moved = Task::clone(
+            &mgr.get_task(created.id.as_ref())
+                .await
+                .expect("should succeed"),
+        );
         moved.context_id = Some("ctx-b".into());
         mgr.update_task(moved).await.expect("should succeed");
         assert!(
@@ -637,12 +591,13 @@ mod tests {
             1
         );
 
-        let mut reassigned = mgr.get_task(c2.id.as_ref()).await.expect("should succeed");
+        let reassigned_arc = mgr.get_task(c2.id.as_ref()).await.expect("should succeed");
         assert!(
-            mgr.assign_task(reassigned.id.as_ref(), "agent-2")
+            mgr.assign_task(reassigned_arc.id.as_ref(), "agent-2")
                 .await
                 .is_err()
         );
+        let mut reassigned = Task::clone(&reassigned_arc);
         reassigned.status_code = TaskStatus::Pending;
         reassigned.agent_id = None;
         mgr.update_task(reassigned).await.expect("should succeed");

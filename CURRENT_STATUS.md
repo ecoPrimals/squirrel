@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: Aug 5, 2026 (Wave 156g — RegistryType Elimination + Discovery Modernization)
+**Last Updated**: Aug 5, 2026 (Wave 156h — Clone-to-Arc Evolution + Copy Derives + Debris Cleanup)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 

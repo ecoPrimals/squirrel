@@ -560,9 +560,15 @@ impl ValidationRule for InputSanitizationRule {
 /// Rule that validates resource usage against defined limits
 #[derive(Debug, Clone)]
 pub struct ResourceValidationRule {
-    /// Maximum memory usage allowed in megabytes
+    #[cfg_attr(
+        not(feature = "system-metrics"),
+        expect(dead_code, reason = "read when system-metrics feature is enabled")
+    )]
     max_memory_mb: usize,
-    /// Maximum number of threads allowed
+    #[cfg_attr(
+        not(feature = "system-metrics"),
+        expect(dead_code, reason = "read when system-metrics feature is enabled")
+    )]
     max_threads: usize,
 }
 

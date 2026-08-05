@@ -11,6 +11,7 @@ use super::*;
 use crate::ContextState;
 use serde_json::json;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 
 fn make_state(id: &str, version: u64, last_modified: SystemTime) -> ContextState {
@@ -56,7 +57,7 @@ async fn test_sync_manager_default() {
 #[tokio::test]
 async fn test_sync_manager_subscribe_unsubscribe() {
     let mut manager = SyncManager::new();
-    let (tx, _rx) = mpsc::channel::<SyncEvent>(10);
+    let (tx, _rx) = mpsc::channel::<Arc<SyncEvent>>(10);
     let id = manager.subscribe(tx);
     assert!(!id.is_empty());
     assert!(manager.unsubscribe(&id).is_ok());
@@ -170,7 +171,7 @@ async fn test_sync_manager_process_expired_message() {
 #[tokio::test]
 async fn test_sync_manager_broadcast_event() {
     let mut manager = SyncManager::new();
-    let (tx, mut rx) = mpsc::channel::<SyncEvent>(10);
+    let (tx, mut rx) = mpsc::channel::<Arc<SyncEvent>>(10);
     manager.subscribe(tx);
     let event = SyncEvent::StateUpdated {
         version: 1,
@@ -178,16 +179,13 @@ async fn test_sync_manager_broadcast_event() {
         source: "test".to_string(),
     };
     manager
-        .broadcast_event(event.clone())
+        .broadcast_event(event)
         .await
         .expect("should succeed");
     let received = rx.recv().await.expect("should succeed");
-    match (&received, &event) {
-        (
-            SyncEvent::StateUpdated { version: v1, .. },
-            SyncEvent::StateUpdated { version: v2, .. },
-        ) => {
-            assert_eq!(v1, v2);
+    match &*received {
+        SyncEvent::StateUpdated { version, .. } => {
+            assert_eq!(*version, 1);
         }
         _ => unreachable!("Event mismatch"),
     }

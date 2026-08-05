@@ -40,18 +40,18 @@ fn to_json_value<T: serde::Serialize>(value: &T) -> Result<serde_json::Value, MC
 }
 
 /// Convert Task to `JsonTask` for JSON-RPC response
-fn task_to_json_task(task: Task) -> JsonTask {
+fn task_to_json_task(task: &Task) -> JsonTask {
     JsonTask {
         id: task.id.as_ref().to_string(),
         name: task.name.as_ref().to_string(),
-        description: task.description,
+        description: task.description.clone(),
         status: task.status_code as i32,
         priority: task.priority_code as i32,
         agent_type: task.agent_type as i32,
         progress_percent: task.progress as i32,
-        agent_id: task.agent_id.unwrap_or_default(),
-        context_id: task.context_id.unwrap_or_default(),
-        prerequisite_task_ids: task.prerequisites,
+        agent_id: task.agent_id.clone().unwrap_or_default(),
+        context_id: task.context_id.clone().unwrap_or_default(),
+        prerequisite_task_ids: task.prerequisites.clone(),
         created_at: Some(task.created_at),
         updated_at: Some(task.updated_at),
         completed_at: task.completed_at,
@@ -65,8 +65,8 @@ fn task_to_json_task(task: Task) -> JsonTask {
             .as_ref()
             .map(|m| serde_json::to_vec(m).unwrap_or_default())
             .unwrap_or_default(),
-        error_message: task.error_message.unwrap_or_default(),
-        progress_message: task.status_message.unwrap_or_default(),
+        error_message: task.error_message.clone().unwrap_or_default(),
+        progress_message: task.status_message.clone().unwrap_or_default(),
         metadata: task
             .metadata
             .as_ref()
@@ -177,7 +177,7 @@ impl TaskServiceImpl {
             Ok(task) => {
                 debug!("Task found: {}", task.id);
                 to_json_value(&GetTaskResponse {
-                    task: Some(task_to_json_task(task)),
+                    task: Some(task_to_json_task(&task)),
                     success: true,
                     error_message: String::new(),
                 })
@@ -215,7 +215,7 @@ impl TaskServiceImpl {
             }
         };
 
-        let mut updated_task = current_task.clone();
+        let mut updated_task = Task::clone(&current_task);
         if !req.name.is_empty() {
             updated_task.name = std::sync::Arc::from(req.name);
         }
@@ -233,7 +233,7 @@ impl TaskServiceImpl {
         }
         updated_task.updated_at = Utc::now();
 
-        match task_manager.update_task(updated_task.clone()).await {
+        match task_manager.update_task(updated_task).await {
             Ok(_) => {
                 info!("Task updated successfully: {}", req.task_id);
                 to_json_value(&UpdateTaskResponse {
@@ -272,7 +272,8 @@ impl TaskServiceImpl {
             Ok(tasks) => {
                 debug!("Found {} tasks", tasks.len());
                 let total_count = tasks.len().min(i32::MAX as usize) as i32;
-                let json_tasks: Vec<JsonTask> = tasks.into_iter().map(task_to_json_task).collect();
+                let json_tasks: Vec<JsonTask> =
+                    tasks.iter().map(|t| task_to_json_task(t)).collect();
                 to_json_value(&ListTasksResponse {
                     tasks: json_tasks,
                     total_count,
