@@ -49,8 +49,7 @@ pub struct DnssdDiscovery {
     /// DNS server address (optional, defaults to system resolver)
     dns_server: Option<String>,
 
-    #[expect(dead_code, reason = "Reserved for real DNS-SD implementation")]
-    timeout: Duration,
+    _timeout: Duration,
 
     /// Enable/disable DNS-SD
     enabled: bool,
@@ -62,7 +61,7 @@ impl Default for DnssdDiscovery {
             domain: "local.".to_string(),
             service_type: "_biomeos._tcp".to_string(),
             dns_server: None,
-            timeout: Duration::from_secs(5),
+            _timeout: Duration::from_secs(5),
             enabled: true,
         }
     }
@@ -76,7 +75,7 @@ impl DnssdDiscovery {
             domain,
             service_type,
             dns_server: None,
-            timeout: Duration::from_secs(5),
+            _timeout: Duration::from_secs(5),
             enabled: true,
         }
     }

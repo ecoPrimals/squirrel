@@ -476,10 +476,8 @@ impl Default for MeshFederationConfig {
 /// Federation load balancer.
 #[derive(Debug)]
 pub struct FederationLoadBalancer {
-    #[expect(dead_code, reason = "Load metrics for federation load balancing")]
-    load_metrics: std::sync::Arc<LoadMetrics>,
-    #[expect(dead_code, reason = "Balancing strategy for federation routing")]
-    balancing_strategy: MeshLoadBalancingStrategy,
+    _load_metrics: std::sync::Arc<LoadMetrics>,
+    _balancing_strategy: MeshLoadBalancingStrategy,
 }
 
 impl FederationLoadBalancer {
@@ -487,8 +485,8 @@ impl FederationLoadBalancer {
     #[must_use]
     pub const fn new(load_metrics: std::sync::Arc<LoadMetrics>) -> Self {
         Self {
-            load_metrics,
-            balancing_strategy: MeshLoadBalancingStrategy::RoundRobin,
+            _load_metrics: load_metrics,
+            _balancing_strategy: MeshLoadBalancingStrategy::RoundRobin,
         }
     }
 }

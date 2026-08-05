@@ -113,7 +113,8 @@ impl PluginManifest {
     }
 }
 
-/// Plugin loader trait for loading plugins
+/// Plugin loader trait for loading plugins (Phase 2 — WASM sandbox)
+#[expect(dead_code, reason = "Phase 2 file-based plugin discovery")]
 pub trait PluginLoader: Send + Sync {
     /// Load a plugin from a manifest
     fn load_plugin(
@@ -132,19 +133,12 @@ pub trait PluginDiscovery: Send + Sync {
     ) -> impl std::future::Future<Output = Result<Vec<Arc<dyn Plugin>>>> + Send;
 }
 
-/// File-based plugin discovery
+/// File-based plugin discovery (Phase 2 — WASM sandbox)
 #[derive(Debug)]
+#[expect(dead_code, reason = "Phase 2 file-based plugin discovery")]
 pub struct FilePluginDiscovery<L> {
     /// Plugin loader
     loader: L,
-}
-
-impl<L: PluginLoader> FilePluginDiscovery<L> {
-    /// Create new file-based plugin discovery
-    #[expect(dead_code, reason = "Constructor for FilePluginDiscovery")]
-    pub const fn new(loader: L) -> Self {
-        Self { loader }
-    }
 }
 
 impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
@@ -313,13 +307,6 @@ impl DefaultPluginDiscovery {
 /// This primal does not embed native `dlopen` loading; the type exists so `FilePluginDiscovery`
 /// and tests can use a concrete loader type. Calls return a structured error rather than
 /// panicking — that is the honest production behavior until an optional native loader ships.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "Constructed only in tests / future native-loader wiring"
-    )
-)]
 #[derive(Debug, Copy, Clone)]
 pub struct DefaultPluginLoader;
 

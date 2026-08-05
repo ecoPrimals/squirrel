@@ -11,6 +11,18 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 5, 2026 — Wave 156f: Deep Scaffolding Audit + Dead Code Elimination)
+
+- **Dead type deleted**: `ClientRequestCounter` (rate limiter) — superseded by `RateLimitBucket`, zero production consumers. Deleted struct, `Default` impl, re-export, and test.
+- **Dead struct deleted**: `ConnectionMetadata` + `metadata` field (universal_adapter_v2) — zero readers anywhere in workspace.
+- **Dead field deleted**: `ProviderScore.meets_requirements` (constraint router) — always `true`, never read; redundant with pre-filter logic.
+- **Write-only fields evolved**: 14 struct fields across rate limiter (`SecurityViolation`, `ClientInfo`, `AdaptiveRateLimitState`), security hardening (`AuthAttempt`, `AccountLockout`), federation (`FederationLoadBalancer`), BTSP client (`ServerHello`, `HandshakeError`), transport frames (`FrameTransport`, `FramedStream`), and viz cache (`CachedVisualization`) evolved from `#[expect(dead_code)]` to `_` prefix convention.
+- **Stale `#[expect(dead_code)]` removed from live code**: `CachedVisualization` and `WebPluginExt` trait had suppressed warnings for items that are actually used — removed stale attributes.
+- **`ViolationType` test-only variants**: `SuspiciousActivity`, `RepeatedViolations`, `MaliciousRequest` gated behind `#[cfg(test)]` — only `RateLimitExceeded` constructed in production.
+- **Dead constructor deleted**: `FilePluginDiscovery::new()` — zero callers.
+- **Stale module doc fixed**: `collector.rs` removed reference to nonexistent `#[expect(dead_code)]` annotations.
+- **Zero warnings**, zero test regressions, 7,240 tests passing (`--all-features`).
+
 ### Summary (Aug 5, 2026 — Wave 156e: Deployment + Safety + Dead Code Elimination)
 
 - **systemd service unit created**: `infra/squirrel.service` for ironGate deployment — user-mode service with socket directory pre-creation, hardening (NoNewPrivileges, ProtectSystem=strict), and graceful socket cleanup. Unblocks E2 (agent panel on ironGate via petal-bridge).

@@ -170,21 +170,21 @@ impl ProductionRateLimiter {
         let now = Instant::now();
 
         let client_info = clients.entry(client_ip).or_insert_with(|| ClientInfo {
-            ip_address: client_ip,
-            user_agent: user_agent.clone(),
-            first_seen: now,
+            _ip_address: client_ip,
+            _user_agent: user_agent.clone(),
+            _first_seen: now,
             last_activity: now,
-            total_requests: 0,
+            _total_requests: 0,
             violations: Vec::new(),
             is_banned: false,
             ban_expires_at: None,
         });
 
         client_info.last_activity = now;
-        client_info.total_requests += 1;
+        client_info._total_requests += 1;
 
-        if client_info.user_agent.is_none() && user_agent.is_some() {
-            client_info.user_agent = user_agent;
+        if client_info._user_agent.is_none() && user_agent.is_some() {
+            client_info._user_agent = user_agent;
         }
     }
 
@@ -262,9 +262,9 @@ impl ProductionRateLimiter {
         if let Some(client_info) = clients.get_mut(&client_ip) {
             let violation = SecurityViolation {
                 timestamp: Instant::now(),
-                violation_type: violation_type.clone(),
-                severity: severity.clone(),
-                details: details.clone(),
+                _violation_type: violation_type.clone(),
+                _severity: severity.clone(),
+                _details: details.clone(),
             };
 
             client_info.violations.push(violation);

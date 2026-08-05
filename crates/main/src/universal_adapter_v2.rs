@@ -110,33 +110,6 @@ struct ActiveConnection {
 
     /// Protocol being used
     protocol: Protocol,
-
-    /// Connection metadata
-    #[expect(
-        dead_code,
-        reason = "Populated during connection; exported when metrics wired"
-    )]
-    metadata: ConnectionMetadata,
-}
-
-/// Connection metadata for monitoring
-#[derive(Debug, Clone)]
-#[expect(
-    dead_code,
-    reason = "Fields populated by connection pool; read when metrics export wired"
-)]
-struct ConnectionMetadata {
-    /// Number of successful requests
-    successful_requests: u64,
-
-    /// Number of failed requests
-    failed_requests: u64,
-
-    /// Average response time (ms)
-    avg_response_time_ms: f64,
-
-    /// Last used timestamp
-    last_used: std::time::SystemTime,
 }
 
 /// Protocol negotiator for multi-protocol support
@@ -252,12 +225,6 @@ impl UniversalAdapterV2 {
         let connection = ActiveConnection {
             service: service.clone(),
             protocol,
-            metadata: ConnectionMetadata {
-                successful_requests: 0,
-                failed_requests: 0,
-                avg_response_time_ms: 0.0,
-                last_used: std::time::SystemTime::now(),
-            },
         };
 
         // Pool the connection

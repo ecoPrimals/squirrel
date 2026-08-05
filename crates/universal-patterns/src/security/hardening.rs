@@ -165,27 +165,15 @@ pub enum RiskLevel {
 struct AuthAttempt {
     timestamp: SystemTime,
     success: bool,
-    #[expect(
-        dead_code,
-        reason = "Reserved for IP-based rate limiting and geolocation"
-    )]
-    ip_address: String,
-    #[expect(
-        dead_code,
-        reason = "Reserved for user agent analysis and bot detection"
-    )]
-    user_agent: Option<String>,
+    _ip_address: String,
+    _user_agent: Option<String>,
 }
 
 /// Account lockout information
 #[derive(Debug, Clone)]
 struct AccountLockout {
     locked_until: SystemTime,
-    #[expect(
-        dead_code,
-        reason = "Reserved for lockout metrics and escalation logic"
-    )]
-    failed_attempts: u32,
+    _failed_attempts: u32,
     lockout_reason: String,
 }
 
@@ -395,8 +383,8 @@ impl SecurityHardening {
         let attempt = AuthAttempt {
             timestamp: now,
             success,
-            ip_address: ip_address.to_string(),
-            user_agent: user_agent.map(|s| s.to_string()),
+            _ip_address: ip_address.to_string(),
+            _user_agent: user_agent.map(|s| s.to_string()),
         };
 
         // Record attempt
@@ -433,7 +421,7 @@ impl SecurityHardening {
                     username.to_string(),
                     AccountLockout {
                         locked_until: now + lockout_duration,
-                        failed_attempts: failed_count,
+                        _failed_attempts: failed_count,
                         lockout_reason: "Too many failed authentication attempts".to_string(),
                     },
                 );

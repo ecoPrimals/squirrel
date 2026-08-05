@@ -73,22 +73,12 @@ pub struct ActiveVisualization {
 
 /// Cached visualization
 #[derive(Debug, Clone)]
-#[expect(dead_code, reason = "planned feature not yet wired")]
 pub struct CachedVisualization {
-    /// Visualization ID
-    pub id: String,
-
-    /// Rendered content
+    pub _id: String,
     pub content: String,
-
-    /// Format
-    pub format: String,
-
-    /// Cache timestamp
+    pub _format: String,
     pub cached_at: DateTime<Utc>,
-
-    /// Cache key
-    pub cache_key: String,
+    pub _cache_key: String,
 }
 
 /// Visualization history entry
@@ -389,11 +379,11 @@ impl VisualizationManager {
         let format = cache_key.split(':').nth(1).unwrap_or("unknown").to_string();
         let insert_key = cache_key.clone();
         let cached_viz = CachedVisualization {
-            id: cache_key.clone(),
+            _id: cache_key.clone(),
             content,
-            format,
+            _format: format,
             cached_at: Utc::now(),
-            cache_key,
+            _cache_key: cache_key,
         };
 
         let mut cache = self.visualization_cache.write().await;

@@ -49,10 +49,10 @@ struct ClientHello {
 
 #[derive(Debug, Deserialize)]
 struct ServerHello {
-    #[expect(dead_code, reason = "validated implicitly by successful parse")]
-    version: u8,
-    #[expect(dead_code, reason = "used by session key derivation in Phase 3")]
-    server_ephemeral_pub: String,
+    #[serde(rename = "version")]
+    _version: u8,
+    #[serde(rename = "server_ephemeral_pub")]
+    _server_ephemeral_pub: String,
     challenge: String,
     session_id: String,
 }
@@ -71,8 +71,8 @@ struct HandshakeComplete {
 
 #[derive(Debug, Deserialize)]
 struct HandshakeError {
-    #[expect(dead_code, reason = "logged but not matched on")]
-    error: String,
+    #[serde(rename = "error")]
+    _error: String,
     reason: String,
 }
 

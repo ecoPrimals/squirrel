@@ -162,8 +162,8 @@ pub struct WebEndpoint {
     pub permissions: Vec<String>,
 }
 
-/// Web plugin extension trait
-#[expect(dead_code, reason = "Reserved for future web plugin system")]
+/// Web plugin extension trait (Phase 2 — WASM sandbox)
+#[expect(dead_code, reason = "Phase 2 web plugin system; HelloWorldPlugin implements it for testing")]
 pub trait WebPluginExt: Plugin + Send + Sync {
     /// Get the endpoints provided by this plugin
     fn get_endpoints(&self) -> Vec<WebEndpoint>;

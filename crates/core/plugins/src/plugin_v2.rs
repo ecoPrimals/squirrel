@@ -87,8 +87,8 @@ pub trait PluginV2: Send + Sync + std::fmt::Debug {
     }
 }
 
-/// Web plugin extension trait for V2 plugins
-#[expect(dead_code, reason = "Reserved for future web plugin V2 system")]
+/// Web plugin extension trait for V2 plugins (Phase 2 — WASM sandbox)
+#[expect(dead_code, reason = "Phase 2 web plugin V2 system")]
 pub trait WebPluginExtV2: PluginV2 {
     /// Get the endpoints provided by this plugin
     fn get_endpoints(&self) -> Vec<WebEndpoint>;

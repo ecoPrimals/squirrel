@@ -277,8 +277,7 @@ impl FrameCodec for DefaultFrameCodec {
 pub struct FrameTransport<R, W, C = DefaultFrameCodec> {
     reader: AsyncFrameReader<R>,
     writer: AsyncFrameWriter<W>,
-    #[expect(dead_code, reason = "planned feature not yet wired")]
-    codec: C,
+    _codec: C,
 }
 
 impl<R, W, C> FrameTransport<R, W, C>
@@ -292,7 +291,7 @@ where
         Self {
             reader: AsyncFrameReader::new(reader),
             writer: AsyncFrameWriter::new(writer),
-            codec,
+            _codec: codec,
         }
     }
 
@@ -314,12 +313,8 @@ where
 
 /// Framed stream wrapper for MCP frame encoding/decoding
 pub struct FramedStream<T, C = DefaultFrameCodec> {
-    /// Underlying stream (reserved for frame-based streaming system)
-    #[expect(dead_code, reason = "planned feature not yet wired")]
-    stream: T,
-    /// Frame codec (reserved for frame-based streaming system)
-    #[expect(dead_code, reason = "planned feature not yet wired")]
-    codec: C,
+    _stream: T,
+    _codec: C,
 }
 
 impl<T, C> FramedStream<T, C>
@@ -329,7 +324,7 @@ where
 {
     /// Creates a new framed stream with the given stream and codec
     pub const fn new(stream: T, codec: C) -> Self {
-        Self { stream, codec }
+        Self { _stream: stream, _codec: codec }
     }
 }
 

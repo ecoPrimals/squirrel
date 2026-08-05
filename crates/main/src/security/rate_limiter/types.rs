@@ -7,36 +7,6 @@ use serde::Serialize;
 use std::net::IpAddr;
 use std::time::{Duration, Instant};
 
-/// Token bucket state for a client's request counting.
-#[derive(Debug)]
-pub struct ClientRequestCounter {
-    /// Current number of tokens
-    pub tokens: f64,
-    /// Maximum number of tokens
-    pub capacity: f64,
-    /// Token refill rate per second
-    pub refill_rate: f64,
-    /// Last refill timestamp
-    pub last_refill: Instant,
-    /// Request count in current window
-    pub request_count: u32,
-    /// Window start time
-    pub window_start: Instant,
-}
-
-impl Default for ClientRequestCounter {
-    fn default() -> Self {
-        Self {
-            tokens: 0.0,
-            capacity: 0.0,
-            refill_rate: 0.0,
-            last_refill: Instant::now(),
-            request_count: 0,
-            window_start: Instant::now(),
-        }
-    }
-}
-
 /// Rate limiting result
 #[derive(Debug, Clone)]
 pub struct RateLimitResult {
@@ -96,26 +66,21 @@ pub struct RateLimitStatistics {
 
 /// Security violation tracking
 #[derive(Debug, Clone)]
-#[expect(
-    dead_code,
-    reason = "Fields populated by rate limiter; read when violation export wired"
-)]
 pub(crate) struct SecurityViolation {
     pub(crate) timestamp: Instant,
-    pub(crate) violation_type: ViolationType,
-    pub(crate) severity: ViolationSeverity,
-    pub(crate) details: String,
+    pub(crate) _violation_type: ViolationType,
+    pub(crate) _severity: ViolationSeverity,
+    pub(crate) _details: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-#[expect(
-    dead_code,
-    reason = "Variants constructed when SecurityOrchestrator is on RPC hot path"
-)]
 pub(crate) enum ViolationType {
     RateLimitExceeded,
+    #[cfg(test)]
     SuspiciousActivity,
+    #[cfg(test)]
     RepeatedViolations,
+    #[cfg(test)]
     MaliciousRequest,
 }
 
@@ -136,16 +101,12 @@ pub(crate) enum ViolationSeverity {
 
 /// Client tracking information
 #[derive(Debug, Clone)]
-#[expect(
-    dead_code,
-    reason = "Fields populated by rate limiter; read when client stats exported"
-)]
 pub(crate) struct ClientInfo {
-    pub(crate) ip_address: IpAddr,
-    pub(crate) user_agent: Option<String>,
-    pub(crate) first_seen: Instant,
+    pub(crate) _ip_address: IpAddr,
+    pub(crate) _user_agent: Option<String>,
+    pub(crate) _first_seen: Instant,
     pub(crate) last_activity: Instant,
-    pub(crate) total_requests: u64,
+    pub(crate) _total_requests: u64,
     pub(crate) violations: Vec<SecurityViolation>,
     pub(crate) is_banned: bool,
     pub(crate) ban_expires_at: Option<Instant>,
@@ -173,12 +134,8 @@ impl Default for GlobalRateLimitMetrics {
 }
 
 #[derive(Debug)]
-#[expect(
-    dead_code,
-    reason = "system_load populated by adaptive algorithm; read when system metrics wired"
-)]
 pub(crate) struct AdaptiveRateLimitState {
-    pub(crate) system_load: f64,
+    pub(crate) _system_load: f64,
     pub(crate) active_connections: u32,
     pub(crate) memory_usage: f64,
     pub(crate) cpu_usage: f64,
@@ -189,7 +146,7 @@ pub(crate) struct AdaptiveRateLimitState {
 impl Default for AdaptiveRateLimitState {
     fn default() -> Self {
         Self {
-            system_load: 0.0,
+            _system_load: 0.0,
             active_connections: 0,
             memory_usage: 0.0,
             cpu_usage: 0.0,

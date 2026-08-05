@@ -4,9 +4,7 @@
 use super::bucket::RateLimitBucket;
 use super::config::RateLimitConfig;
 use super::production::ProductionRateLimiter;
-use super::types::{
-    ClientRequestCounter, EndpointType, RateLimitResult, ViolationSeverity, ViolationType,
-};
+use super::types::{EndpointType, RateLimitResult, ViolationSeverity, ViolationType};
 use std::net::IpAddr;
 use std::time::Duration;
 
@@ -51,15 +49,6 @@ fn test_rate_limit_bucket_try_consume_failure() {
     // Should fail on 11th request
     assert!(!bucket.try_consume(1.0));
     assert_eq!(bucket.request_count, 10);
-}
-
-#[test]
-fn test_client_request_counter_default() {
-    let counter = ClientRequestCounter::default();
-    assert_eq!(counter.tokens, 0.0);
-    assert_eq!(counter.capacity, 0.0);
-    assert_eq!(counter.refill_rate, 0.0);
-    assert_eq!(counter.request_count, 0);
 }
 
 #[tokio::test]

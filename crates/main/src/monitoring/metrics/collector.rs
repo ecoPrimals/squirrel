@@ -6,8 +6,8 @@
 //! Core metrics collection engine with system monitoring.
 //!
 //! The public API (`MetricsCollector`, `MetricsSummary`, `HttpMetrics`) is live.
-//! Uptime uses [`universal_constants::sys_info::uptime_seconds`]. Other system helpers still use
-//! placeholders where noted, with per-method `#[expect(dead_code)]` until wired to `/proc` or HTTP stats.
+//! Uptime uses [`universal_constants::sys_info::uptime_seconds`]. CPU/memory metrics
+//! require the `system-metrics` feature; without it those fields stay at defaults.
 
 use chrono::Utc;
 use dashmap::DashMap;

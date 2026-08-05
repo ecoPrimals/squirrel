@@ -15,11 +15,6 @@ use tracing::debug;
 pub struct ProviderScore {
     pub provider: Arc<AiProvider>,
     pub score: f64,
-    #[expect(
-        dead_code,
-        reason = "Populated during scoring; read by future action registry integration"
-    )]
-    pub meets_requirements: bool,
 }
 
 /// Filter and score providers based on constraints
@@ -63,7 +58,6 @@ pub fn select_provider_with_constraints(
             ProviderScore {
                 provider: provider.clone(),
                 score,
-                meets_requirements: true,
             }
         })
         .collect();

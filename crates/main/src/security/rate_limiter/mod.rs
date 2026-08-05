@@ -19,4 +19,4 @@ mod tests;
 
 pub use config::RateLimitConfig;
 pub use production::ProductionRateLimiter;
-pub use types::{ClientRequestCounter, EndpointType, RateLimitResult, RateLimitStatistics};
+pub use types::{EndpointType, RateLimitResult, RateLimitStatistics};
