@@ -1,12 +1,48 @@
 +++
 title = "squirrel Validation Summary"
 description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 7,241 tests (--all-features), 44 IPC methods."
-date = 2026-08-04
+date = 2026-08-05
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 156h — Clone-to-Arc Evolution + Copy Derives + Debris Cleanup (Aug 5, 2026)
+
+- TaskManager evolved to `Arc<Task>` storage with `Arc::make_mut` CoW mutations — 12 of 16 `.clone()` calls eliminated
+- SyncManager broadcast evolved to `Arc<SyncEvent>` fan-out — N deep clones per event → single Arc wrap + cheap Arc::clone
+- `Copy` derived on `SyncStatus` and `ConflictResolutionStrategy` enums (zero heap data)
+- `ResourceValidationRule` dead_code warning fixed (system-metrics feature gate)
+- Orphaned `sync_manager_tests.rs` deleted (548 lines, never compiled, used nonexistent enum variants)
+- 0 warnings, 0 test regressions
+
+## Wave 156g — RegistryType Elimination + Discovery Modernization (Aug 5, 2026)
+
+- `RegistryType` enum (6 variants) deleted — replaced with `registry_backend: String` on `RegistryDiscovery`
+- 3 module-level `#![expect(deprecated)]` removed from discovery modules
+- Duplicate env-var-to-enum match blocks eliminated in runtime_engine.rs and self_knowledge.rs
+- 0 warnings, 7,238 tests passing
+
+## Wave 156f — Deep Scaffolding Audit + Dead Code Elimination (Aug 5, 2026)
+
+- `ClientRequestCounter` deleted (superseded by `RateLimitBucket`, zero consumers)
+- `ConnectionMetadata` + `metadata` field deleted (universal_adapter_v2, zero readers)
+- `ProviderScore.meets_requirements` field deleted (always true, never read)
+- 14 write-only struct fields evolved to `_` prefix convention across rate limiter, security hardening, federation, BTSP client, transport frames, viz cache
+- `ViolationType` test-only variants gated behind `#[cfg(test)]`
+- `FilePluginDiscovery::new()` deleted (zero callers)
+- 0 warnings, 7,240 tests passing
+
+## Wave 156e — Deployment + Safety + Dead Code Elimination (Aug 5, 2026)
+
+- systemd service unit created (`infra/squirrel.service`) for ironGate deployment
+- `JsonRpcServer::new()` and `with_ai_router()` evolved to `impl Into<String>`
+- 6 SDK WASM `Reflect::set(...).expect(...)` → safe `let _ = ...`
+- `StringPool::get_or_create` → `entry().or_insert_with()` (eliminates expect)
+- Federation dead code deleted (queue_message, ConnectionState, transition_to)
+- 8 reserved-for-future fields evolved to `_` prefix convention
+- 0 warnings, 7,241 tests passing
 
 ## Wave 156d — Sovereignty + Logging Hygiene + Test Isolation (Aug 4, 2026)
 

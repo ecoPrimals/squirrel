@@ -688,7 +688,6 @@ let port = config.network.http_port;
 
 ## Further Reading
 
-- [ADR-008: Configuration Standardization](../../docs/adr/ADR-008-configuration-standardization.md)
 - [VALIDATION_GUIDE.md](./VALIDATION_GUIDE.md)
 - [12-Factor App Methodology](https://12factor.net/config)
 - [ConfigLoader API Docs](src/unified/loader.rs)
