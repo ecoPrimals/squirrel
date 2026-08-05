@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::ecosystem::{EcosystemPrimalType, infer_primal_type_from_capability};
 
 use super::arc_serde::{
     deserialize_arc_str, deserialize_arc_str_map, deserialize_arc_str_vec, serialize_arc_str,
@@ -32,9 +31,9 @@ pub struct DiscoveredService {
         deserialize_with = "deserialize_arc_str"
     )]
     pub primary_capability: Arc<str>,
-    /// Type of primal providing this service (deprecated — use `primary_capability`)
-    #[serde(default = "default_primal_type_for_deserialize")]
-    pub primal_type: EcosystemPrimalType,
+    /// Capability domain of the primal providing this service (e.g. `"ai"`, `"security"`)
+    #[serde(default)]
+    pub primal_type: String,
     /// Endpoint as `Arc<str>` for efficient sharing
     #[serde(
         serialize_with = "serialize_arc_str",
@@ -73,11 +72,6 @@ pub struct DiscoveredService {
     pub health_status: ServiceHealthStatus,
 }
 
-#[allow(deprecated)]
-const fn default_primal_type_for_deserialize() -> EcosystemPrimalType {
-    EcosystemPrimalType::BiomeOS
-}
-
 impl DiscoveredService {
     /// Create new `DiscoveredService` with string interning optimization
     pub fn new(
@@ -89,12 +83,10 @@ impl DiscoveredService {
         capabilities: Vec<&str>,
         metadata: HashMap<&str, &str>,
     ) -> Self {
-        #[allow(deprecated)]
-        let primal_type = infer_primal_type_from_capability(primary_capability);
         Self {
             service_id: intern_registry_string(service_id),
             primary_capability: intern_registry_string(primary_capability),
-            primal_type,
+            primal_type: primary_capability.to_string(),
             endpoint: Arc::from(endpoint),
             health_endpoint: Arc::from(health_endpoint),
             api_version: intern_registry_string(api_version),

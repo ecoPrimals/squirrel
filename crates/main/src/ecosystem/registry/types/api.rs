@@ -8,8 +8,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::ecosystem::EcosystemPrimalType;
-
 use super::arc_serde::{
     deserialize_arc_str, deserialize_arc_str_map, deserialize_optional_arc_str, serialize_arc_str,
     serialize_arc_str_map, serialize_optional_arc_str,
@@ -25,10 +23,10 @@ pub struct PrimalApiRequest {
         deserialize_with = "deserialize_arc_str"
     )]
     pub request_id: Arc<str>,
-    /// Source primal type
-    pub from_primal: EcosystemPrimalType,
-    /// Target primal type
-    pub to_primal: EcosystemPrimalType,
+    /// Source capability domain (e.g. `"ai"`)
+    pub from_primal: String,
+    /// Target capability domain (e.g. `"security"`)
+    pub to_primal: String,
     /// Operation name as `Arc<str>` with string interning
     #[serde(
         serialize_with = "serialize_arc_str",
@@ -52,8 +50,8 @@ impl PrimalApiRequest {
     #[must_use]
     pub fn new(
         request_id: &str,
-        from_primal: EcosystemPrimalType,
-        to_primal: EcosystemPrimalType,
+        from_primal: impl Into<String>,
+        to_primal: impl Into<String>,
         operation: &str,
         payload: serde_json::Value,
         headers: HashMap<&str, &str>,
@@ -61,8 +59,8 @@ impl PrimalApiRequest {
     ) -> Self {
         Self {
             request_id: Arc::from(request_id),
-            from_primal,
-            to_primal,
+            from_primal: from_primal.into(),
+            to_primal: to_primal.into(),
             operation: intern_registry_string(operation),
             payload,
             headers: headers

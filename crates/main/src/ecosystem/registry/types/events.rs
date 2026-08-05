@@ -3,11 +3,7 @@
 
 //! Ecosystem registry events emitted during discovery, registration, and health transitions.
 
-#![allow(deprecated)]
-
 use std::sync::Arc;
-
-use crate::ecosystem::EcosystemPrimalType;
 
 use super::health::ServiceHealthStatus;
 
@@ -18,8 +14,8 @@ pub enum EcosystemRegistryEvent {
     ServiceDiscovered {
         /// Discovered service ID
         service_id: Arc<str>,
-        /// Type of primal
-        primal_type: crate::ecosystem::EcosystemPrimalType,
+        /// Capability domain (e.g. `"ai"`, `"security"`)
+        primal_type: String,
         /// Service endpoint
         endpoint: Arc<str>,
         /// Service capabilities
@@ -30,8 +26,8 @@ pub enum EcosystemRegistryEvent {
     ServiceRegistered {
         /// Registered service ID
         service_id: Arc<str>,
-        /// Type of primal
-        primal_type: crate::ecosystem::EcosystemPrimalType,
+        /// Capability domain
+        primal_type: String,
         /// Service endpoint
         endpoint: Arc<str>,
     },
@@ -49,8 +45,8 @@ pub enum EcosystemRegistryEvent {
     ServiceHealthChanged {
         /// Service ID
         service_id: Arc<str>,
-        /// Type of primal
-        primal_type: EcosystemPrimalType,
+        /// Capability domain
+        primal_type: String,
         /// Previous health status
         old_status: ServiceHealthStatus,
         /// New health status
@@ -60,8 +56,8 @@ pub enum EcosystemRegistryEvent {
     ServiceOffline {
         /// Service ID
         service_id: Arc<str>,
-        /// Type of primal
-        primal_type: EcosystemPrimalType,
+        /// Capability domain
+        primal_type: String,
         /// Reason for going offline
         reason: Arc<str>,
     },

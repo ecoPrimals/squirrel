@@ -7,8 +7,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-use crate::ecosystem::EcosystemPrimalType;
-
 /// Ecosystem status information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemStatus {
@@ -29,8 +27,8 @@ pub struct EcosystemStatus {
 /// Primal status information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalStatus {
-    /// Type of primal
-    pub primal_type: EcosystemPrimalType,
+    /// Capability domain (e.g. `"ai"`, `"security"`)
+    pub primal_type: String,
     /// Current service status
     pub status: ServiceStatus,
     /// Service endpoint URL

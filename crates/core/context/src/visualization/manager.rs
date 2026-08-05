@@ -98,7 +98,7 @@ pub struct VisualizationHistoryEntry {
 }
 
 /// Visualization action
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum VisualizationAction {
     Created,
     Updated,
@@ -377,17 +377,16 @@ impl VisualizationManager {
 
     async fn cache_visualization(&self, cache_key: String, content: String) {
         let format = cache_key.split(':').nth(1).unwrap_or("unknown").to_string();
-        let insert_key = cache_key.clone();
         let cached_viz = CachedVisualization {
             _id: cache_key.clone(),
             content,
             _format: format,
             cached_at: Utc::now(),
-            _cache_key: cache_key,
+            _cache_key: cache_key.clone(),
         };
 
         let mut cache = self.visualization_cache.write().await;
-        cache.insert(insert_key, cached_viz);
+        cache.insert(cache_key, cached_viz);
     }
 
     async fn clear_cache(&self, visualization_id: &str) {

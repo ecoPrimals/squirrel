@@ -11,6 +11,16 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 5, 2026 — Wave 156j: EcosystemPrimalType → String Migration + Context Quality)
+
+- **`EcosystemPrimalType` enum eliminated from all struct fields**: 9 struct/event fields across 5 files (`EcosystemServiceRegistration`, `DiscoveredService`, `PrimalApiRequest`, `PrimalStatus`, `EcosystemRegistryEvent` variants) migrated from `EcosystemPrimalType` enum to `String` capability-domain values (e.g. `"ai"`, `"security"`). Construction sites in `manager.rs`, `ecosystem_integration.rs`, `optimized_implementations.rs`, and `discovery.rs` now use `crate::niche::DOMAIN` / `primary_capability.to_string()` instead of deprecated enum variants. `PrimalApiRequest::new()` signature changed to `impl Into<String>` for caller flexibility.
+- **Deprecated enum retained as fossil**: `EcosystemPrimalType` definition and its `FromStr`/`as_str`/`capability`/`endpoint_env_prefix` methods kept in `types.rs` for backward-compat deserialization and serde roundtrip tests. All production struct consumers are now String-based.
+- **`#![expect(deprecated)]` module attributes removed**: `optimized_implementations.rs` and `registry/types.rs` no longer suppress deprecation warnings — they no longer need to, since no deprecated API is used in production paths.
+- **`VisualizationAction` derives `Copy`**: Fieldless enum no longer requires heap clone.
+- **`cache_visualization` clone reduction**: Eliminated redundant `cache_key.clone()` (was 3 clones, now 2).
+- **`count_enabled_components` code smell fixed**: Replaced 7 duplicate if-checks with arithmetic expression: `rl*4 + metrics*2 + rules`.
+- **Zero warnings**, zero test regressions, 7,140+ tests passing (`--all-features`).
+
 ### Summary (Aug 5, 2026 — Wave 156i: AIError Migration + PrimalType Dedup + Hardcoded Port Elimination)
 
 - **Deprecated `AIError` type alias migrated to `AIToolsError`**: `crate::error::Result<T>` and `crate::error::Error` in `squirrel-ai-tools` now resolve to `universal_error::tools::AIToolsError` instead of the deprecated `AIError` enum. 2 direct `AIError::Network` constructions in `mcp_adapter.rs`, 1 stream type annotation in `mock.rs`, and 4 `Error::X` variant renames (`Runtime` → `Provider`, `RateLimit` → `RateLimitExceeded`) updated. 5 bare `?` operators in `config/core.rs` and `model_registry.rs` that relied on `From<X> for AIError` impls converted to explicit `.map_err()` calls. Deprecated `AIError` enum retained for backward-compat downstream consumers.

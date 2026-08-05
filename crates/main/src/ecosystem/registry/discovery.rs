@@ -254,8 +254,7 @@ impl DiscoveryOps {
         let service = Arc::new(DiscoveredService {
             service_id: intern_registry_string(primary_capability),
             primary_capability: intern_registry_string(primary_capability),
-            #[allow(deprecated)]
-            primal_type: crate::ecosystem::infer_primal_type_from_capability(primary_capability),
+            primal_type: primary_capability.to_string(),
             endpoint: Arc::from(endpoint),
             capabilities: vec![
                 intern_registry_string("discovery"),

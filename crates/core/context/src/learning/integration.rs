@@ -281,29 +281,14 @@ impl LearningIntegration {
 
     /// Count enabled components in system configuration
     fn count_enabled_components(system_config: &LearningSystemConfig) -> usize {
-        let mut count = 0;
-        if system_config.enable_reinforcement_learning {
-            count += 1;
-        }
-        if system_config.enable_reinforcement_learning {
-            count += 1;
-        } // context manager
-        if system_config.enable_learning_metrics {
-            count += 1;
-        }
-        if system_config.enable_learning_metrics {
-            count += 1;
-        } // visualization
-        if system_config.enable_adaptive_rules {
-            count += 1;
-        }
-        if system_config.enable_reinforcement_learning {
-            count += 1;
-        } // reward system
-        if system_config.enable_reinforcement_learning {
-            count += 1;
-        } // policy network
-        count
+        let rl = system_config.enable_reinforcement_learning;
+        let metrics = system_config.enable_learning_metrics;
+        let rules = system_config.enable_adaptive_rules;
+
+        // RL gates: learning_engine, context_manager, reward_system, policy_network
+        // Metrics gates: learning_metrics, visualization
+        // Rules gates: adaptive_rule_system
+        usize::from(rl) * 4 + usize::from(metrics) * 2 + usize::from(rules)
     }
 
     /// Initialize the integration layer

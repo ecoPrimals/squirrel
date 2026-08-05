@@ -44,8 +44,7 @@ impl EcosystemIntegration {
                 provider.instance_id
             )),
             capability_id: Some(Arc::from(crate::niche::DOMAIN)),
-            #[allow(deprecated)]
-            primal_type: crate::ecosystem::EcosystemPrimalType::Squirrel,
+            primal_type: crate::niche::DOMAIN.to_string(),
             name: "Squirrel AI Primal".to_string(),
             version: "1.0.0".to_string(),
             description: "AI coordination and context analysis primal".to_string(),
@@ -316,7 +315,6 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ecosystem::EcosystemPrimalType;
     use crate::universal::{EcosystemRequest, PrimalContext, SecurityLevel};
     use crate::universal_adapter_v2::UniversalAdapterV2;
 
@@ -349,7 +347,7 @@ mod tests {
             let p = provider().await;
             let reg = EcosystemIntegration::create_service_registration(&p);
             assert!(reg.service_id.as_ref().contains("eco-test"));
-            assert_eq!(reg.primal_type, EcosystemPrimalType::Squirrel);
+            assert_eq!(reg.primal_type, crate::niche::DOMAIN);
             assert_eq!(reg.endpoints.primary, "http://0.0.0.0:8080");
             assert!(
                 reg.endpoints

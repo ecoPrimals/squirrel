@@ -4,14 +4,11 @@
 
 //! Ecosystem service registration and primal type definitions.
 
-#![allow(deprecated)]
-
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use super::types::{
-    EcosystemPrimalType, HealthCheckConfig, ResourceSpec, SecurityConfig, ServiceCapabilities,
-    ServiceEndpoints,
+    HealthCheckConfig, ResourceSpec, SecurityConfig, ServiceCapabilities, ServiceEndpoints,
 };
 
 fn ecosystem_serialize_arc_str<S>(arc_str: &Arc<str>, serializer: S) -> Result<S::Ok, S::Error>
@@ -67,7 +64,7 @@ pub struct EcosystemServiceRegistration {
     /// Capability-based service identifier (TRUE PRIMAL: no primal names).
     #[serde(default, with = "option_arc_str_serde")]
     pub capability_id: Option<Arc<str>>,
-    pub primal_type: EcosystemPrimalType,
+    pub primal_type: String,
     pub name: String,
     pub description: String,
     pub biome_id: Option<String>,
@@ -88,15 +85,14 @@ pub struct EcosystemServiceRegistration {
 mod tests {
     use super::*;
     use crate::ecosystem::types::{
-        EcosystemPrimalType, HealthCheckConfig, ResourceSpec, SecurityConfig, ServiceCapabilities,
-        ServiceEndpoints,
+        HealthCheckConfig, ResourceSpec, SecurityConfig, ServiceCapabilities, ServiceEndpoints,
     };
 
     fn minimal_registration() -> EcosystemServiceRegistration {
         EcosystemServiceRegistration {
             service_id: Arc::from("svc-test"),
             capability_id: Some(Arc::from("ai")),
-            primal_type: EcosystemPrimalType::Squirrel,
+            primal_type: universal_constants::capabilities::SELF_PRIMAL_NAME.to_string(),
             name: "Squirrel".into(),
             description: "test".into(),
             biome_id: None,
@@ -125,7 +121,7 @@ mod tests {
         let back: EcosystemServiceRegistration =
             serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.service_id.as_ref(), "svc-test");
-        assert_eq!(back.primal_type, EcosystemPrimalType::Squirrel);
+        assert_eq!(back.primal_type, universal_constants::capabilities::SELF_PRIMAL_NAME);
         assert_eq!(back.endpoints.primary, reg.endpoints.primary);
     }
 

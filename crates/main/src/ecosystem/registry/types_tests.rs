@@ -9,8 +9,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::ecosystem::EcosystemPrimalType;
-
 #[test]
 fn test_discovered_service_new() {
     let service = DiscoveredService::new(
@@ -55,8 +53,8 @@ fn test_discovered_service_get_metadata() {
 fn test_primal_api_request_new() {
     let request = PrimalApiRequest::new(
         "req-123",
-        EcosystemPrimalType::Squirrel,
-        EcosystemPrimalType::Songbird,
+        universal_constants::capabilities::SELF_PRIMAL_NAME,
+        universal_constants::capabilities::SERVICE_MESH_CAPABILITY,
         "discover",
         serde_json::json!({"capability": "storage"}),
         HashMap::new(),
@@ -74,8 +72,8 @@ fn test_primal_api_request_get_header() {
 
     let request = PrimalApiRequest::new(
         "req-1",
-        EcosystemPrimalType::Squirrel,
-        EcosystemPrimalType::BearDog,
+        universal_constants::capabilities::SELF_PRIMAL_NAME,
+        universal_constants::capabilities::SECURITY_CAPABILITY,
         "auth",
         serde_json::json!({}),
         headers,
@@ -215,7 +213,7 @@ fn registry_state_default_is_empty() {
 fn ecosystem_registry_event_debug_smoke() {
     let ev = EcosystemRegistryEvent::ServiceDiscovered {
         service_id: Arc::from("s1"),
-        primal_type: EcosystemPrimalType::Squirrel,
+        primal_type: universal_constants::capabilities::SELF_PRIMAL_NAME.to_string(),
         endpoint: Arc::from("unix:///a"),
         capabilities: vec![Arc::from("compute")],
     };
@@ -277,7 +275,7 @@ fn intern_registry_string_additional_branches() {
 fn ecosystem_registry_event_variants_debug() {
     let ev = EcosystemRegistryEvent::ServiceRegistered {
         service_id: Arc::from("s1"),
-        primal_type: EcosystemPrimalType::Songbird,
+        primal_type: universal_constants::capabilities::SERVICE_MESH_CAPABILITY.to_string(),
         endpoint: Arc::from("unix:///a"),
     };
     assert!(format!("{ev:?}").contains("ServiceRegistered"));
@@ -289,14 +287,14 @@ fn ecosystem_registry_event_variants_debug() {
     assert!(format!("{ev2:?}").contains("ServiceError"));
     let ev3 = EcosystemRegistryEvent::ServiceHealthChanged {
         service_id: Arc::from("s3"),
-        primal_type: EcosystemPrimalType::Squirrel,
+        primal_type: universal_constants::capabilities::SELF_PRIMAL_NAME.to_string(),
         old_status: ServiceHealthStatus::Unknown,
         new_status: ServiceHealthStatus::Healthy,
     };
     assert!(format!("{ev3:?}").contains("ServiceHealthChanged"));
     let ev4 = EcosystemRegistryEvent::ServiceOffline {
         service_id: Arc::from("s4"),
-        primal_type: EcosystemPrimalType::BearDog,
+        primal_type: universal_constants::capabilities::SECURITY_CAPABILITY.to_string(),
         reason: Arc::from("shutdown"),
     };
     assert!(format!("{ev4:?}").contains("ServiceOffline"));
@@ -316,7 +314,7 @@ fn health_check_result_debug() {
 #[test]
 fn primal_status_roundtrip() {
     let ps = PrimalStatus {
-        primal_type: EcosystemPrimalType::Squirrel,
+        primal_type: universal_constants::capabilities::SELF_PRIMAL_NAME.to_string(),
         status: ServiceStatus::Healthy,
         endpoint: "e".to_string(),
         version: "1".to_string(),

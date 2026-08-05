@@ -270,15 +270,14 @@ mod tests {
 
     #[tokio::test]
     async fn call_primal_api_deprecated_is_err() {
-        use crate::ecosystem::EcosystemPrimalType;
         use crate::ecosystem::registry::PrimalApiRequest;
         use std::time::Duration;
 
         let manager = create_test_manager();
         let req = PrimalApiRequest::new(
             "req-1",
-            EcosystemPrimalType::Squirrel,
-            EcosystemPrimalType::Squirrel,
+            crate::niche::DOMAIN,
+            crate::niche::DOMAIN,
             "noop",
             serde_json::json!({}),
             std::collections::HashMap::new(),

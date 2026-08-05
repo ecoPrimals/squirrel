@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![expect(deprecated, reason = "Backward compatibility during migration")]
-
 //! Core types for the ecosystem registry manager
 //!
 //! Submodules group interning, serde helpers, discovery DTOs, API messages, events, and status.

@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![expect(deprecated, reason = "Backward compatibility during migration")]
-
 //! Optimized `BiomeOS` Integration Implementations
 //!
 //! This module provides optimized versions of `BiomeOS` integration components
@@ -10,7 +8,6 @@
 // Backward compatibility: kept for deserialization of legacy data
 use crate::biomeos_integration::IntelligenceResponse; // Add missing import
 use crate::ecosystem::{
-    EcosystemPrimalType,
     EcosystemServiceRegistration,
     HealthCheckConfig, // Add missing imports
     SecurityConfig,
@@ -137,8 +134,7 @@ impl OptimizedServiceRegistration {
             name: service_id.clone(),
             description: format!("Ecosystem integration for {service_id}"),
             capability_id: Some(Arc::from(crate::niche::DOMAIN)),
-            #[allow(deprecated)]
-            primal_type: crate::ecosystem::EcosystemPrimalType::Squirrel,
+            primal_type: crate::niche::DOMAIN.to_string(),
             biome_id: Some(biome_id.map_or_else(
                 || "default-biome".to_string(),
                 std::string::ToString::to_string,
@@ -371,7 +367,7 @@ impl OptimizedContextState {
 #[expect(clippy::implicit_hasher, reason = "Generic HashMap consumer API")]
 pub fn register_with_ecosystem(
     service_id: &str,
-    primal_type: EcosystemPrimalType, // Already correct type
+    primal_type: impl Into<String>,
     base_url: &str,
     capabilities: &[&str],
     biome_id: Option<&str>,
@@ -395,7 +391,7 @@ pub fn register_with_ecosystem(
         capability_id: Some(Arc::from(crate::niche::DOMAIN)),
         name: service_id.to_string(),
         description: format!("Ecosystem integration for {service_id}"),
-        primal_type,
+        primal_type: primal_type.into(),
         biome_id: Some(biome_id.map_or_else(
             || "default-biome".to_string(),
             std::string::ToString::to_string,
@@ -521,7 +517,7 @@ mod optimized_impl_tests {
     fn register_with_ecosystem_builds_expected_fields() {
         let r = register_with_ecosystem(
             "svc-a",
-            EcosystemPrimalType::Squirrel,
+            crate::niche::DOMAIN,
             "http://127.0.0.1:9000",
             &["cap1"],
             None,
@@ -529,7 +525,7 @@ mod optimized_impl_tests {
             None,
         );
         assert!(r.endpoints.primary.contains("9000"));
-        assert_eq!(r.primal_type, EcosystemPrimalType::Squirrel);
+        assert_eq!(r.primal_type, crate::niche::DOMAIN);
     }
 
     #[tokio::test]

@@ -26,7 +26,7 @@ use super::status::{
     HealthStatus, ServiceMeshStatus,
 };
 use super::types::{
-    EcosystemPrimalType, HealthCheckConfig, SecurityConfig, ServiceCapabilities, ServiceEndpoints,
+    HealthCheckConfig, SecurityConfig, ServiceCapabilities, ServiceEndpoints,
     primary_capability_from_iter,
 };
 
@@ -119,7 +119,6 @@ impl EcosystemManager {
         Ok(())
     }
 
-    #[allow(deprecated)]
     fn create_service_registration<S: SessionManager>(
         &self,
         provider: &SquirrelPrimalProvider<S>,
@@ -128,7 +127,7 @@ impl EcosystemManager {
         EcosystemServiceRegistration {
             service_id: Arc::clone(&self.config.service_id),
             capability_id: Some(Arc::from(crate::niche::DOMAIN)),
-            primal_type: EcosystemPrimalType::Squirrel,
+            primal_type: crate::niche::DOMAIN.to_string(),
             biome_id: self.config.biome_id.clone(),
             name: provider.name().to_string(),
             description: provider.description().to_string(),

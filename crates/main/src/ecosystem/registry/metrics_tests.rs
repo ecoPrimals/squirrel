@@ -24,8 +24,7 @@ mod tests {
         DiscoveredService {
             service_id: id.into(),
             primary_capability: primary_capability.into(),
-            #[allow(deprecated)]
-            primal_type: crate::ecosystem::infer_primal_type_from_capability(primary_capability),
+            primal_type: primary_capability.to_string(),
             endpoint: format!("http://localhost:{test_port}/{id}").into(),
             health_endpoint: format!("http://localhost:{test_port}/{id}/health").into(),
             api_version: "v1".into(),
