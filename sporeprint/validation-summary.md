@@ -1,12 +1,29 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 7,241 tests (--all-features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 7,140 tests (--all-features), 44 IPC methods."
 date = 2026-08-05
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 156j — EcosystemPrimalType → String Migration + Context Quality (Aug 5, 2026)
+
+- 9 struct/event fields across 5 files migrated from `EcosystemPrimalType` enum to `String` capability-domain values
+- Construction sites use `crate::niche::DOMAIN` / `primary_capability.to_string()` — zero deprecated enum usage in production struct consumers
+- `PrimalApiRequest::new()` signature changed to `impl Into<String>` for caller flexibility
+- `#![expect(deprecated)]` module attributes removed from `optimized_implementations.rs` and `registry/types.rs`
+- `VisualizationAction` derives `Copy`; `cache_visualization` clone reduction; `count_enabled_components` code smell fixed
+- 0 warnings, 7,140 tests passing
+
+## Wave 156i — AIError Migration + PrimalType Dedup + Hardcoded Port Elimination (Aug 5, 2026)
+
+- `AIError` type alias migrated to `AIToolsError` in `squirrel-ai-tools` — 8 construction sites + 5 bare `?` operators converted
+- Config `PrimalType` deduplicated: `config::types::PrimalType` removed → `pub use crate::traits::PrimalType`
+- Hardcoded ports (`8081`, `8082`, `9090`, `8500`) eliminated from `endpoint_resolver.rs` → `ports::metrics()` + `get_service_port()`
+- Dangling `PLUGIN_METADATA_MIGRATION_PLAN.md` references and dead `ADR-008` doc link fixed
+- 0 warnings, 7,140 tests passing
 
 ## Wave 156h — Clone-to-Arc Evolution + Copy Derives + Debris Cleanup (Aug 5, 2026)
 
@@ -59,7 +76,7 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: **7,241** passing / 5 ignored across 16 workspace crates (`--all-features`), full suite ~60s
+- **Tests**: **7,140** passing / 98 ignored across 16 workspace crates (`--all-features`), full suite ~60s
 - **Source**: 986 `.rs` files, ~306k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)
@@ -70,7 +87,7 @@ springs = []
 - **HTTP IPC**: Raw TCP JSON-RPC delegation (zero external HTTP deps, uniBin compliant)
 - **Files >800L (prod)**: 0 — all production files under 800 lines
 - **Hardcoding**: Evolved — 14 production files migrated from literal localhost/ports to capability-based discovery
-- **TRUE PRIMAL**: `niche::REQUIRED_CAPABILITIES` replaces named-primal `DEPENDENCIES`; `capability_id` field on `EcosystemServiceRegistration`; `EcosystemPrimalType` production uses annotated `#[expect(deprecated)]`
+- **TRUE PRIMAL**: `niche::REQUIRED_CAPABILITIES` replaces named-primal `DEPENDENCIES`; `capability_id` field on `EcosystemServiceRegistration`; all struct fields migrated from `EcosystemPrimalType` enum → `String` capability domains (Wave 156j); deprecated enum retained as fossil for serde compat
 - **Metrics**: Real `/proc` reads (CPU, memory, disk I/O, network I/O) replace simulated values; `RequestTracker` unified between `JsonRpcServer` and `MetricsCollector` — single `Arc` shared at startup. `context_state.active_sessions` live from `ContextManager`. Dead helpers (`get_cpu_usage`, `get_memory_usage`, `get_memory_percentage`) wired, `#[expect(dead_code)]` removed.
 - **Security Health**: Capability-discovery probe replaces simulated endpoint check
 - **BTSP Phase 3 Transport Switch**: Server auto-transitions to encrypted frame loop after `btsp.negotiate` with `chacha20-poly1305`; 3 integration tests on live Unix socket pairs (previously orphaned, now wired)

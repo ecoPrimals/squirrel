@@ -85,7 +85,7 @@ Pre-alpha history is preserved as fossil record in
 - **Deprecated port constants removed**: `DEFAULT_BIND_ADDRESS`, `DEFAULT_WEBSOCKET_PORT`, `DEFAULT_HTTP_PORT`, `DEFAULT_ADMIN_PORT`, `DEFAULT_METRICS_PORT`, `DEFAULT_SONGBIRD_PORT`, `BIOMEOS_SOCKET_FALLBACK_DIR` — all had zero consumers. Removed 7 dead constants and their tests. `get_port_from_env()` evolved to `port_from_env()` (un-deprecated; legitimate self-knowledge utility, distinct from `get_service_port()` which is for other primals).
 - **Config/SDK deprecated aliases removed**: `DefaultConfigManager`, `Config` aliases in `squirrel-mcp-config`, `HttpMethod::parse_method()` in SDK (migrated test to `FromStr`).
 - **Dead code removed**: `discover_services_by_primal_types()` (zero callers), unused `EcosystemPrimalType` import.
-- **Remaining deprecated surface (13 items)**: `PrimalType`/`EcosystemPrimalType` enums (42 files, ~500 refs — multi-wave migration), `PluginError` in SDK (600+ refs), `AIError` in ai-tools (3 consumer lines but touches `crate::Result` alias). All tracked.
+- **Remaining deprecated surface (post-156j update)**: `EcosystemPrimalType` enum definition retained as fossil (8 files, ~235 refs — tests + serde compat only; zero production struct consumers after 156j). `PluginError` in SDK (600+ refs). `AIError` migrated to `AIToolsError` in 156i. `PrimalType` config dedup completed in 156i.
 - **Zero warnings**, zero test regressions, full workspace clean build.
 
 ### Summary (Aug 3, 2026 — Wave 156b: Test Performance — 400s → 16s)

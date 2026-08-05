@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,241 passing (`--all-features`) | **Edition**: 2024 | **ecoBin**: 4.4 MB | **Methods**: 42+ IPC
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,140 passing (`--all-features`) | **Edition**: 2024 | **ecoBin**: 4.4 MB | **Methods**: 42+ IPC
 
 ---
 

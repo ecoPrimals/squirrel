@@ -12,7 +12,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors, **0 warnings** |
-| Tests | **7,241** passing / 0 failures / 5 ignored across 16 workspace crates (`--all-features`) |
+| Tests | **7,140** passing / 0 failures / 98 ignored across 16 workspace crates (`--all-features`) |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn`; `async-trait` only remains as transitive dep from external crate `config` |
 | Clippy | CLEAN — `pedantic + nursery + cargo`, `expect_used/unwrap_used = deny` workspace-wide; zero warnings under `-D warnings` |
@@ -34,7 +34,7 @@
 | Mocks in production | 0 — all production stubs evolved to honest capability-based patterns: `SecurePluginStub` rejects execution (security sandbox, documented); `NoOpPluginManager` returns errors; plugin web API returns 501 (Phase 2); `WebVisualizationServer` logs capability-pending; `UnavailableServiceRegistry` returns empty (honest); learning integration wired to live `ContextManager` data; neural engine evolved from tanh stub to ReLU MLP; federation `dead_code` fields wired to real diagnostics; all test mocks behind `#[cfg(any(test, feature = "testing"))]` |
 | Primal self-knowledge | All hardcoded primal names evolved to capability-based: `BearDog*` → `SecurityProvider*`, `Songbird*` → `Discovery*`/`ServiceMesh*`, `NestGate` → `ContentAddressed`; deprecated type aliases for backward compat; env var chains prefer capability names (`SECURITY_ENDPOINT` → `BEARDOG_ENDPOINT` fallback); `SECURITY_SERVICE_ID` / `SECURITY_PRIMARY_SERVICE_ID` constants replace all `format!("{}-security", primal_names::BEARDOG)` calls |
 | Legacy aliases | Backward-compatible aliases for ecosystem compat; `capabilities.list` canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1 |
-| TODO/FIXME in code | 0 — no TODO/FIXME/HACK markers in committed code; Phase 2 placeholders wired with capability fallback or documented with `#[expect(dead_code, reason)]` |
+| TODO/FIXME in code | 0 — no TODO/FIXME/HACK markers in committed code; Phase 2 placeholders wired with capability fallback or documented with `#[expect(dead_code, reason)]` (5 false positives: `TaskStatus::Todo` enum variant, `sk-xxx` test fixtures) |
 | Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
 | Zero-copy | Hot-path clones audited; `ServiceInfo` string fields evolved to `Arc<str>`; `Arc::clone()` for intent clarity; `mem::take` for payload moves; `String` → borrow in MCP task client |
 
