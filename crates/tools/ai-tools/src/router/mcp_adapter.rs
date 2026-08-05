@@ -161,7 +161,7 @@ impl MCPInterface for MCPAdapter {
             }
         }
 
-        Err(crate::error::AIError::Network(format!(
+        Err(crate::error::Error::Network(format!(
             "MCP transport not connected for node {node_id:?} at {} — \
              discover MCP endpoint via capability registry first",
             self.config.endpoint
@@ -176,7 +176,7 @@ impl MCPInterface for MCPAdapter {
         // MCP streaming requires a real MCP transport connection.
         // Until MCP protocol integration is wired (Phase 2), return
         // an error rather than silently returning fake data.
-        Err(crate::error::AIError::Network(
+        Err(crate::error::Error::Network(
             "MCP streaming not yet wired — use send_request for non-streaming".to_string(),
         ))
     }

@@ -35,10 +35,12 @@ pub enum RateLimitError {
 impl From<RateLimitError> for Error {
     fn from(err: RateLimitError) -> Self {
         match err {
-            RateLimitError::LimitExceeded { requests, duration } => Self::RateLimit(format!(
-                "Rate limit exceeded: {requests} requests per {duration:?}"
-            )),
-            RateLimitError::Timeout(duration) => Self::RateLimit(format!(
+            RateLimitError::LimitExceeded { requests, duration } => {
+                Self::RateLimitExceeded(format!(
+                    "Rate limit exceeded: {requests} requests per {duration:?}"
+                ))
+            }
+            RateLimitError::Timeout(duration) => Self::RateLimitExceeded(format!(
                 "Timed out after {duration:?} while waiting for rate limit"
             )),
         }

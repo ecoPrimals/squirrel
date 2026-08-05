@@ -184,10 +184,10 @@ impl From<universal_error::tools::AIToolsError> for AIError {
 }
 
 /// Result type alias for AI tools operations.
-pub type Result<T> = std::result::Result<T, AIError>;
+pub type Result<T> = std::result::Result<T, universal_error::tools::AIToolsError>;
 
 /// Error type alias for convenience.
-pub type Error = AIError;
+pub type Error = universal_error::tools::AIToolsError;
 
 #[cfg(test)]
 #[expect(deprecated)] // Tests deprecated path for backward compatibility
@@ -327,10 +327,11 @@ mod tests {
 
     #[test]
     fn test_result_type_alias() {
-        let ok_result: Result<i32> = Ok(42);
+        let ok_result: super::Result<i32> = Ok(42);
         assert!(matches!(ok_result, Ok(42)));
 
-        let err_result: Result<i32> = Err(AIError::Timeout("expired".into()));
+        let err_result: super::Result<i32> =
+            Err(universal_error::tools::AIToolsError::Network("expired".into()));
         assert!(err_result.is_err());
     }
 

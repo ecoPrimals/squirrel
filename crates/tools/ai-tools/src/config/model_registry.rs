@@ -174,8 +174,10 @@ impl ModelRegistry {
     ///
     /// Propagates I/O and JSON deserialization errors.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let contents = fs::read_to_string(path)?;
-        let registry = serde_json::from_str(&contents)?;
+        let contents =
+            fs::read_to_string(path).map_err(|e| crate::error::Error::Configuration(e.to_string()))?;
+        let registry = serde_json::from_str(&contents)
+            .map_err(|e| crate::error::Error::Parse(e.to_string()))?;
         Ok(registry)
     }
 
@@ -240,8 +242,10 @@ impl ModelRegistry {
     ///
     /// Propagates serialization and I/O errors.
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let contents = serde_json::to_string_pretty(self)?;
-        fs::write(path, contents)?;
+        let contents = serde_json::to_string_pretty(self)
+            .map_err(|e| crate::error::Error::Parse(e.to_string()))?;
+        fs::write(path, contents)
+            .map_err(|e| crate::error::Error::Configuration(e.to_string()))?;
         Ok(())
     }
 

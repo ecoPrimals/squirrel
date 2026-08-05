@@ -509,7 +509,7 @@ impl TryFlattenStreamExt
 
         self.next()
             .await
-            .unwrap_or_else(|| Err(Error::Runtime("Empty stream received".to_string())))
+            .unwrap_or_else(|| Err(Error::Provider("Empty stream received".to_string())))
     }
 }
 

@@ -59,7 +59,7 @@ pub struct PrimalInfo {
     pub instance_id: Uuid,
 
     /// Primal type/category
-    pub primal_type: PrimalType,
+    pub primal_type: crate::traits::PrimalType,
 
     /// Human-readable description
     pub description: String,
@@ -68,22 +68,7 @@ pub struct PrimalInfo {
     pub created_at: DateTime<Utc>,
 }
 
-/// Types of primals in the ecosystem
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PrimalType {
-    /// AI coordination and MCP protocol management
-    Coordinator,
-    /// Security and authentication management
-    Security,
-    /// Orchestration and task management
-    Orchestration,
-    /// Data storage and retrieval
-    Storage,
-    /// Compute and processing
-    Compute,
-    /// Custom/Other primal types
-    Custom(String),
-}
+pub use crate::traits::PrimalType;
 
 /// Orchestration configuration for Songbird integration
 #[derive(Debug, Clone, Serialize, Deserialize)]

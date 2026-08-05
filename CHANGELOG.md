@@ -11,6 +11,17 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 5, 2026 — Wave 156i: AIError Migration + PrimalType Dedup + Hardcoded Port Elimination)
+
+- **Deprecated `AIError` type alias migrated to `AIToolsError`**: `crate::error::Result<T>` and `crate::error::Error` in `squirrel-ai-tools` now resolve to `universal_error::tools::AIToolsError` instead of the deprecated `AIError` enum. 2 direct `AIError::Network` constructions in `mcp_adapter.rs`, 1 stream type annotation in `mock.rs`, and 4 `Error::X` variant renames (`Runtime` → `Provider`, `RateLimit` → `RateLimitExceeded`) updated. 5 bare `?` operators in `config/core.rs` and `model_registry.rs` that relied on `From<X> for AIError` impls converted to explicit `.map_err()` calls. Deprecated `AIError` enum retained for backward-compat downstream consumers.
+- **Config `PrimalType` deduplicated**: `universal_patterns::config::types::PrimalType` (6 variants) removed and replaced with `pub use crate::traits::PrimalType` (8 variants, `#[non_exhaustive]`, `Hash`, `Display`). Config module now uses the canonical traits version — zero duplicate enum definitions within the crate.
+- **Hardcoded ports eliminated in `endpoint_resolver.rs`**: Inline literals `8081` (http), `8082` (admin), `9090` (metrics), `8500` (discovery) replaced with `ports::metrics()` for known capabilities and `get_service_port()` fallback for all others — env-overridable, discovery-aware resolution.
+- **Dangling `PLUGIN_METADATA_MIGRATION_PLAN.md` references fixed**: Comment in `plugin_v2.rs` and `manager.rs` replaced with inline migration description (Uuid→String key change).
+- **Dead doc link removed**: `ENVIRONMENT_GUIDE.md` reference to nonexistent `ADR-008` deleted.
+- **sporePrint validation-summary updated**: Waves 156e–156h entries added.
+- **Consolidated handoff created**: `SQUIRREL_STATUS_WAVE156h.md` covers Waves 156f–h.
+- **Zero warnings**, zero test regressions, 7,140+ tests passing (`--all-features`).
+
 ### Summary (Aug 5, 2026 — Wave 156h: Clone-to-Arc Evolution + Copy Derives + Debris Cleanup)
 
 - **TaskManager evolved to `Arc<Task>` storage**: 12 of 16 `.clone()` calls eliminated via `Arc::make_mut` (copy-on-write) mutations. All public API methods now return `Arc<Task>` instead of `Task`, giving callers zero-copy shared access. `assign_task` double-clone pattern (read snapshot + write clone + re-insert + re-fetch clone) collapsed to single `Arc::make_mut` call. Bulk list APIs (`get_agent_tasks`, `list_tasks`, `find_assignable_tasks`) return `Vec<Arc<Task>>` — no more O(n) deep clones.

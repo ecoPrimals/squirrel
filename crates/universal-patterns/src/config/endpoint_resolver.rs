@@ -324,20 +324,18 @@ impl EndpointResolver {
             n if n == capabilities::SECURITY_CAPABILITY => ports::security_service(),
             n if n == capabilities::COMPUTE_CAPABILITY => ports::compute_service(),
             n if n == capabilities::STORAGE_CAPABILITY => ports::storage_service(),
-            n if n == capabilities::SELF_PRIMAL_NAME => ports::api_gateway(), // AI orchestration (us!)
+            n if n == capabilities::SELF_PRIMAL_NAME => ports::api_gateway(),
             "websocket" | "ws" => ports::websocket(),
-            "http" => 8081,
-            "admin" => 8082,
-            "metrics" => 9090,
-            "discovery" => 8500,
-            _ => {
-                if self.warn_on_fallback {
+            "metrics" => ports::metrics(),
+            other => {
+                let discovered = universal_constants::network::get_service_port(other);
+                if discovered == 0 && self.warn_on_fallback {
                     warn!(
                         "Unknown service '{}' - no fallback port, using 0 (OS will allocate)",
                         name
                     );
                 }
-                0
+                discovered
             }
         };
 

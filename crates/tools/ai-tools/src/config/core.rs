@@ -84,8 +84,10 @@ impl AIToolsConfig {
     /// Propagates I/O, TOML parse errors, and invalid numeric env values.
     pub fn from_env() -> crate::error::Result<Self> {
         let mut config = if let Ok(config_path) = env::var(env_vars::squirrel::AI_CONFIG) {
-            let config_str = std::fs::read_to_string(config_path)?;
-            toml::from_str(&config_str)?
+            let config_str = std::fs::read_to_string(config_path)
+                .map_err(|e| crate::error::Error::Configuration(e.to_string()))?;
+            toml::from_str(&config_str)
+                .map_err(|e| crate::error::Error::Parse(e.to_string()))?
         } else {
             Self::default()
         };
@@ -95,15 +97,21 @@ impl AIToolsConfig {
         }
 
         if let Ok(timeout) = env::var(env_vars::squirrel::AI_REQUEST_TIMEOUT) {
-            config.request_timeout = timeout.parse()?;
+            config.request_timeout = timeout
+                .parse()
+                .map_err(|e: std::num::ParseIntError| crate::error::Error::Parse(e.to_string()))?;
         }
 
         if let Ok(retries) = env::var(env_vars::squirrel::AI_MAX_RETRIES) {
-            config.max_retries = retries.parse()?;
+            config.max_retries = retries
+                .parse()
+                .map_err(|e: std::num::ParseIntError| crate::error::Error::Parse(e.to_string()))?;
         }
 
         if let Ok(logging) = env::var(env_vars::squirrel::AI_ENABLE_LOGGING) {
-            config.enable_logging = logging.parse()?;
+            config.enable_logging = logging
+                .parse()
+                .map_err(|e: std::str::ParseBoolError| crate::error::Error::Parse(e.to_string()))?;
         }
 
         // Load provider-specific configurations

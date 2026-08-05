@@ -112,7 +112,7 @@ pub fn create_provider_client(
     _api_key: &str,
 ) -> crate::Result<Box<crate::AiClientImpl>> {
     // Old HTTP-based providers removed - use capability_ai::AiClient instead
-    Err(universal_error::tools::AIToolsError::Configuration(
+    Err(crate::error::Error::Configuration(
         "Old HTTP-based providers removed. Use capability_ai::AiClient::from_env() instead."
             .to_string(),
     )
