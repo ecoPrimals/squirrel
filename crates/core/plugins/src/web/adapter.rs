@@ -52,12 +52,10 @@ pub trait LegacyWebPluginTrait: Plugin + Send + Sync {
 pub struct LegacyWebPluginAdapter<T: Plugin + Send + Sync + ?Sized> {
     /// The wrapped legacy plugin
     plugin: Arc<T>,
-    /// Cached endpoints
-    #[expect(dead_code, reason = "Reserved for endpoint caching system")]
-    endpoints: Vec<WebEndpoint>,
-    /// Cached components
-    #[expect(dead_code, reason = "Reserved for component caching system")]
-    components: Vec<WebComponent>,
+    /// Cached endpoints (reserved for endpoint caching system)
+    _endpoints: Vec<WebEndpoint>,
+    /// Cached components (reserved for component caching system)
+    _components: Vec<WebComponent>,
 }
 
 impl<T> LegacyWebPluginAdapter<T>
@@ -66,13 +64,10 @@ where
 {
     /// Create a new legacy plugin adapter
     pub const fn new(plugin: Arc<T>) -> Self {
-        let endpoints = vec![];
-        let components = vec![];
-
         Self {
             plugin,
-            endpoints,
-            components,
+            _endpoints: vec![],
+            _components: vec![],
         }
     }
 

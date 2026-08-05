@@ -23,11 +23,8 @@ pub(super) type MessageHandler = Box<dyn Fn(NetworkMessage) -> FederationResult<
 pub struct FederationNetwork<C: NetworkConnection> {
     pub(super) config: NetworkConfig,
     pub(super) node_id: Uuid,
-    #[expect(
-        dead_code,
-        reason = "federation Phase 2 — will be wired when connection state tracking is implemented"
-    )]
-    pub(super) node_info: NodeInfo,
+    /// Reserved for connection state tracking (Phase 2).
+    pub(super) _node_info: NodeInfo,
     pub(super) peers: Arc<RwLock<HashMap<Uuid, PeerInfo>>>,
     pub(super) connections: Arc<RwLock<HashMap<Uuid, Arc<C>>>>,
     pub(super) message_handlers: Arc<RwLock<HashMap<String, MessageHandler>>>,
@@ -41,7 +38,7 @@ impl<C: NetworkConnection + 'static> FederationNetwork<C> {
         Self {
             config,
             node_id: node_info.id,
-            node_info,
+            _node_info: node_info,
             peers: Arc::new(RwLock::new(HashMap::new())),
             connections: Arc::new(RwLock::new(HashMap::new())),
             message_handlers: Arc::new(RwLock::new(HashMap::new())),

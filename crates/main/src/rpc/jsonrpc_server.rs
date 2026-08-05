@@ -133,7 +133,8 @@ impl JsonRpcServer {
 
     /// Create a new JSON-RPC server with Universal Transport
     #[must_use]
-    pub fn new(socket_path: String) -> Self {
+    pub fn new(socket_path: impl Into<String>) -> Self {
+        let socket_path = socket_path.into();
         Self {
             service_name: crate::niche::PRIMAL_ID.to_string(),
             socket_path,
@@ -157,7 +158,8 @@ impl JsonRpcServer {
 
     /// Create server with AI router
     #[must_use]
-    pub fn with_ai_router(socket_path: String, ai_router: Arc<crate::api::ai::AiRouter>) -> Self {
+    pub fn with_ai_router(socket_path: impl Into<String>, ai_router: Arc<crate::api::ai::AiRouter>) -> Self {
+        let socket_path = socket_path.into();
         Self {
             service_name: crate::niche::PRIMAL_ID.to_string(),
             socket_path,

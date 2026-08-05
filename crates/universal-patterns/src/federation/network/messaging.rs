@@ -7,9 +7,8 @@
 //! the federation network.
 
 use super::super::{FederationError, FederationResult};
-use super::core::{FederationNetwork, NetworkConnection, QueuedMessage};
+use super::core::{FederationNetwork, NetworkConnection};
 use super::types::NetworkMessage;
-use chrono::Utc;
 use uuid::Uuid;
 
 impl<C: NetworkConnection + 'static> FederationNetwork<C> {
@@ -49,32 +48,5 @@ impl<C: NetworkConnection + 'static> FederationNetwork<C> {
             let _ = connection.send_message(*peer_id, message.clone()).await;
         }
         Ok(())
-    }
-
-    /// Queue a message for later processing
-    #[expect(dead_code, reason = "federation Phase 2")]
-    pub(super) async fn queue_message(&self, sender: Uuid, message: NetworkMessage) {
-        let mut queue = self.message_queue.write().await;
-        queue.push(QueuedMessage {
-            message,
-            sender,
-            timestamp: Utc::now(),
-            retry_count: 0,
-        });
-    }
-
-    /// Process queued messages
-    #[expect(dead_code, reason = "federation Phase 2")]
-    pub(super) async fn process_queued_messages(&self) {
-        let mut queue = self.message_queue.write().await;
-        let handlers = self.message_handlers.read().await;
-
-        // Process all queued messages
-        while let Some(queued) = queue.pop() {
-            // Determine message type and call appropriate handler
-            if let Some(handler) = handlers.get("default") {
-                let _ = handler(queued.message);
-            }
-        }
     }
 }

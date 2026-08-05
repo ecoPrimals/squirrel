@@ -21,11 +21,7 @@ use crate::web::{HttpMethod, HttpStatus, WebEndpoint, WebRequest, WebResponse};
 #[derive(Clone)]
 pub struct PluginMarketplaceClient {
     /// Plugin manager instance (reserved for marketplace plugin management)
-    #[expect(
-        dead_code,
-        reason = "Phase 2 placeholder — marketplace plugin management"
-    )]
-    manager: Arc<DefaultPluginManager>,
+    _manager: Arc<DefaultPluginManager>,
     /// Configured repositories
     repositories: Arc<RwLock<Vec<PluginRepository>>>,
     /// Cache for marketplace data
@@ -232,7 +228,7 @@ impl PluginMarketplaceClient {
         };
 
         Self {
-            manager,
+            _manager: manager,
             repositories: Arc::new(RwLock::new(Vec::new())),
             cache: Arc::new(RwLock::new(cache)),
         }

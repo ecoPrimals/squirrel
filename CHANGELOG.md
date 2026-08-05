@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 5, 2026 — Wave 156e: Deployment + Safety + Dead Code Elimination)
+
+- **systemd service unit created**: `infra/squirrel.service` for ironGate deployment — user-mode service with socket directory pre-creation, hardening (NoNewPrivileges, ProtectSystem=strict), and graceful socket cleanup. Unblocks E2 (agent panel on ironGate via petal-bridge).
+- **RPC entry point signatures evolved**: `JsonRpcServer::new()` and `with_ai_router()` accept `impl Into<String>` instead of `String` — eliminates forced `.clone()` at call sites and allows `&str`, `PathBuf`, `Arc<str>` without conversion.
+- **SDK WASM safety**: 6 `Reflect::set(...).expect()` calls in `error/conversions.rs` → `let _ = Reflect::set(...)` (infallible on fresh Object). `StringPool::get_or_create` → `entry().or_insert_with()` (eliminates `expect` on invariant).
+- **Dead code eliminated**: Federation Phase 2 duplicate message queue (`queue_message` + `process_queued_messages`), unused `ConnectionState` struct, web plugin `transition_to` method — all deleted. 8 reserved-for-future fields evolved from `#[expect(dead_code)]` to `_` prefix convention.
+- **Zero warnings**, zero test regressions, 7,241 tests passing (`--all-features`).
+
 ### Summary (Aug 4, 2026 — Wave 156d: Sovereignty + Logging Hygiene + Test Isolation)
 
 - **Hardcoded primal names evolved**: Removed all remaining "BearDog"/"Songbird" string literals from production error/status messages across `security_client/client.rs`, `transport/endpoint.rs`, `capability_crypto.rs`. Messages now reference capability-based concepts ("discovered security provider via IPC", "service mesh") instead of naming specific primals.

@@ -22,16 +22,10 @@ type HandlerMap = HashMap<MessageType, Vec<Arc<dyn RouterHandlerSlot>>>;
 /// Routes MCP messages to the appropriate handler based on message type.
 #[derive(Clone)]
 pub struct MessageRouter {
-    #[expect(
-        dead_code,
-        reason = "Handler map reserved for future MCP dispatch wiring"
-    )]
-    handlers: Arc<RwLock<HandlerMap>>,
-    #[expect(
-        dead_code,
-        reason = "Security manager reserved for per-message auth in routing"
-    )]
-    security: Arc<SecurityManagerImpl>,
+    /// Handler map reserved for future MCP dispatch wiring.
+    _handlers: Arc<RwLock<HandlerMap>>,
+    /// Security manager reserved for per-message auth in routing.
+    _security: Arc<SecurityManagerImpl>,
 }
 
 impl MessageRouter {
@@ -39,8 +33,8 @@ impl MessageRouter {
     #[must_use]
     pub fn new(security: Arc<SecurityManagerImpl>) -> Self {
         Self {
-            handlers: Arc::new(RwLock::new(HashMap::new())),
-            security,
+            _handlers: Arc::new(RwLock::new(HashMap::new())),
+            _security: security,
         }
     }
 }

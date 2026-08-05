@@ -37,15 +37,14 @@ pub trait EncryptionKeyManager: Send + Sync {
 /// Default encryption key manager
 pub struct DefaultEncryptionKeyManager {
     /// Key storage (reserved for future key persistence)
-    #[expect(dead_code, reason = "Phase 2 placeholder — key persistence")]
-    keys: Arc<RwLock<HashMap<String, Vec<u8>>>>,
+    _keys: Arc<RwLock<HashMap<String, Vec<u8>>>>,
 }
 
 impl DefaultEncryptionKeyManager {
     /// Create a new key manager
     pub fn new() -> Self {
         Self {
-            keys: Arc::new(RwLock::new(HashMap::new())),
+            _keys: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 }

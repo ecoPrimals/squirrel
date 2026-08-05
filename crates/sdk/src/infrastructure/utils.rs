@@ -431,12 +431,7 @@ pub mod performance {
 
         /// Get or create a string from the pool
         pub fn get_or_create(&mut self, key: &str) -> &str {
-            if !self.pool.contains_key(key) {
-                self.pool.insert(key.to_string(), key.to_string());
-            }
-            self.pool
-                .get(key)
-                .expect("StringPool: key should exist after insert")
+            self.pool.entry(key.to_string()).or_insert_with(|| key.to_string())
         }
 
         /// Clear the pool

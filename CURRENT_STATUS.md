@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: Aug 4, 2026 (Wave 156d — Sovereignty + Logging Hygiene + Test Isolation)
+**Last Updated**: Aug 5, 2026 (Wave 156e — Deployment + Safety + Dead Code Elimination)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 

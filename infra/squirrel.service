@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# squirrel.service — AI Coordination Primal (ecoPrimals)
+#
+# Deploy:
+#   cp infra/squirrel.service ~/.config/systemd/user/squirrel.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now squirrel
+#
+# Socket path: $XDG_RUNTIME_DIR/biomeos/squirrel.sock
+# Logs:        journalctl --user -u squirrel -f
+
+[Unit]
+Description=Squirrel AI Coordination Primal
+After=network.target
+# Optional: start after biomeOS if present
+After=biomeos.service
+Wants=biomeos.service
+
+[Service]
+Type=exec
+ExecStart=%h/.local/bin/squirrel server
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+
+# Environment
+Environment=RUST_LOG=squirrel=info,warn
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+
+# Socket directory must exist before squirrel binds
+ExecStartPre=/bin/mkdir -p /run/user/%U/biomeos
+
+# Clean up socket on stop (squirrel handles SIGTERM, but belt-and-suspenders)
+ExecStopPost=-/bin/rm -f /run/user/%U/biomeos/squirrel.sock
+ExecStopPost=-/bin/rm -f /run/user/%U/biomeos/squirrel.sock.pid
+
+# Hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/run/user/%U/biomeos
+PrivateTmp=yes
+
+[Install]
+WantedBy=default.target
