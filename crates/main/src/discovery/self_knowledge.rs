@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![expect(deprecated, reason = "Backward compatibility during migration")]
 
 //! Primal Self-Knowledge - Each primal knows ONLY itself
 //!
@@ -266,19 +265,12 @@ impl PrimalSelfKnowledge {
                 "Stage 5: Trying service registry discovery for '{}'",
                 capability
             );
-            let registry_type = std::env::var(env_vars::discovery::SERVICE_REGISTRY_TYPE)
-                .unwrap_or_else(|_| "consul".to_string());
-
-            let reg_type = match registry_type.to_lowercase().as_str() {
-                "consul" => crate::discovery::mechanisms::RegistryType::Consul,
-                "etcd" => crate::discovery::mechanisms::RegistryType::Etcd,
-                "kubernetes" | "k8s" => crate::discovery::mechanisms::RegistryType::Kubernetes,
-                "eureka" => crate::discovery::mechanisms::RegistryType::Eureka,
-                _ => crate::discovery::mechanisms::RegistryType::Custom,
-            };
+            let registry_backend = std::env::var(env_vars::discovery::SERVICE_REGISTRY_TYPE)
+                .unwrap_or_else(|_| "consul".to_string())
+                .to_lowercase();
 
             let registry =
-                crate::discovery::mechanisms::RegistryDiscovery::new(reg_type, registry_endpoint);
+                crate::discovery::mechanisms::RegistryDiscovery::new(registry_backend, registry_endpoint);
             if let Ok(services) = registry.discover_by_capability(capability).await
                 && let Some(service) = services.into_iter().next()
             {
@@ -381,19 +373,12 @@ impl PrimalSelfKnowledge {
         // 3. Announce via service registry (if configured via env var)
         if let Ok(registry_endpoint) = std::env::var(env_vars::discovery::SERVICE_REGISTRY_ENDPOINT)
         {
-            let registry_type = std::env::var(env_vars::discovery::SERVICE_REGISTRY_TYPE)
-                .unwrap_or_else(|_| "consul".to_string());
-
-            let reg_type = match registry_type.to_lowercase().as_str() {
-                "consul" => crate::discovery::mechanisms::RegistryType::Consul,
-                "etcd" => crate::discovery::mechanisms::RegistryType::Etcd,
-                "kubernetes" | "k8s" => crate::discovery::mechanisms::RegistryType::Kubernetes,
-                "eureka" => crate::discovery::mechanisms::RegistryType::Eureka,
-                _ => crate::discovery::mechanisms::RegistryType::Custom,
-            };
+            let registry_backend = std::env::var(env_vars::discovery::SERVICE_REGISTRY_TYPE)
+                .unwrap_or_else(|_| "consul".to_string())
+                .to_lowercase();
 
             let registry =
-                crate::discovery::mechanisms::RegistryDiscovery::new(reg_type, registry_endpoint);
+                crate::discovery::mechanisms::RegistryDiscovery::new(registry_backend, registry_endpoint);
 
             let address = std::env::var(env_vars::network::SERVICE_ADDRESS)
                 .unwrap_or_else(|_| universal_constants::network::LOCALHOST_IPV4.to_string());

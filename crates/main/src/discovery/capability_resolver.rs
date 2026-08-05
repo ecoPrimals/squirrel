@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![expect(deprecated, reason = "Backward compatibility during migration")]
 
 //! Capability resolver - Core discovery engine
 //!
@@ -8,7 +7,7 @@
 //! replaces all hardcoded service references with dynamic discovery.
 
 use crate::discovery::mechanisms::{
-    DnssdDiscovery, MdnsDiscovery, RegistryDiscovery, RegistryType, discover_from_socket_registry,
+    DnssdDiscovery, MdnsDiscovery, RegistryDiscovery, discover_from_socket_registry,
 };
 use crate::discovery::types::{
     CapabilityRequest, DiscoveredService, DiscoveryError, DiscoveryResult,
@@ -57,11 +56,11 @@ impl CapabilityResolver {
 
     /// Create new capability resolver with service registry
     #[must_use]
-    pub fn with_registry(registry_type: RegistryType, endpoint: String) -> Self {
+    pub fn with_registry(backend: impl Into<String>, endpoint: impl Into<String>) -> Self {
         Self {
             mdns: Arc::new(MdnsDiscovery::default()),
             dnssd: Arc::new(DnssdDiscovery::default()),
-            registry: Some(Arc::new(RegistryDiscovery::new(registry_type, endpoint))),
+            registry: Some(Arc::new(RegistryDiscovery::new(backend, endpoint))),
         }
     }
 

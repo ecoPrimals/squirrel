@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 5, 2026 — Wave 156g: RegistryType Elimination + Discovery Modernization)
+
+- **Deprecated `RegistryType` enum deleted**: 6-variant enum replaced with `registry_backend: String` field on `RegistryDiscovery`. Only `"biomeos"` had a working implementation (socket-registry.json); all others already returned `RemoteRegistryUnavailable`. API now accepts `impl Into<String>` for both backend and endpoint.
+- **3 module-level `#![expect(deprecated)]` removed**: `registry.rs`, `runtime_engine.rs`, `self_knowledge.rs` no longer need deprecation suppression — the deprecated items they consumed are gone.
+- **Duplicate env-var-to-enum match blocks eliminated**: `runtime_engine.rs` and `self_knowledge.rs` (×2) each had 5-arm match statements converting `SERVICE_REGISTRY_TYPE` env var to `RegistryType` variants — now pass the env var string directly to `RegistryDiscovery::new()`.
+- **Discovery hint updated**: Error message references `RegistryDiscovery::socket_registry()` instead of deleted `RegistryType::Biomeos`.
+- **Zero warnings**, zero test regressions, 7,238 tests passing (`--all-features`).
+
 ### Summary (Aug 5, 2026 — Wave 156f: Deep Scaffolding Audit + Dead Code Elimination)
 
 - **Dead type deleted**: `ClientRequestCounter` (rate limiter) — superseded by `RateLimitBucket`, zero production consumers. Deleted struct, `Default` impl, re-export, and test.

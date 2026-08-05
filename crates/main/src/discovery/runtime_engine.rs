@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![expect(deprecated, reason = "Backward compatibility during migration")]
 
 //! Runtime discovery engine
 //!
@@ -123,20 +122,13 @@ impl RuntimeDiscoveryEngine {
             std::env::var(universal_constants::env_vars::discovery::SERVICE_REGISTRY_ENDPOINT)
         {
             debug!("Stage 5: Trying service registry for '{}'", capability);
-            let registry_type =
+            let registry_backend =
                 std::env::var(universal_constants::env_vars::discovery::SERVICE_REGISTRY_TYPE)
-                    .unwrap_or_else(|_| "consul".to_string());
-
-            let reg_type = match registry_type.to_lowercase().as_str() {
-                "consul" => crate::discovery::mechanisms::RegistryType::Consul,
-                "etcd" => crate::discovery::mechanisms::RegistryType::Etcd,
-                "kubernetes" | "k8s" => crate::discovery::mechanisms::RegistryType::Kubernetes,
-                "eureka" => crate::discovery::mechanisms::RegistryType::Eureka,
-                _ => crate::discovery::mechanisms::RegistryType::Custom,
-            };
+                    .unwrap_or_else(|_| "consul".to_string())
+                    .to_lowercase();
 
             let registry =
-                crate::discovery::mechanisms::RegistryDiscovery::new(reg_type, registry_endpoint);
+                crate::discovery::mechanisms::RegistryDiscovery::new(registry_backend, registry_endpoint);
             if let Ok(services) = registry.discover_by_capability(capability).await
                 && let Some(service) = services.into_iter().next()
             {

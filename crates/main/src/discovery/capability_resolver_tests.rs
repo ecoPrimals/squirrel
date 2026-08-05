@@ -4,7 +4,6 @@
 //! Tests for capability resolver
 
 use super::capability_resolver::{CapabilityResolver, DiscoveryMethod};
-use super::mechanisms::RegistryType;
 use super::types::CapabilityRequest;
 use std::env;
 use std::time::Duration;
@@ -18,10 +17,7 @@ fn test_capability_resolver_new() {
 
 #[test]
 fn test_capability_resolver_with_registry() {
-    let resolver = CapabilityResolver::with_registry(
-        RegistryType::Consul,
-        "http://localhost:8500".to_string(),
-    );
+    let resolver = CapabilityResolver::with_registry("consul", "http://localhost:8500");
     assert!(format!("{resolver:?}").contains("CapabilityResolver"));
 }
 

@@ -21,12 +21,7 @@ pub mod socket_registry;
 pub use dnssd::DnssdDiscovery;
 pub use env_vars::{discover_all_from_env, discover_from_env};
 pub use mdns::MdnsDiscovery;
-// Backward compatibility: RegistryType/RegistryDiscovery for legacy consumers
-#[expect(
-    deprecated,
-    reason = "backward compat: RegistryDiscovery/RegistryType for legacy consumers"
-)]
-pub use registry::{RegistryDiscovery, RegistryType};
+pub use registry::RegistryDiscovery;
 pub use registry_trait::{
     ServiceRegistryBackend, ServiceRegistryProvider, UnavailableServiceRegistry,
     auto_detect_registry,

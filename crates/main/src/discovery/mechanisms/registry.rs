@@ -1,52 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![expect(deprecated, reason = "Backward compatibility during migration")]
 
 //! Service Registry discovery mechanism
 //!
-//! **DEPRECATED**: This module uses hardcoded vendor-specific registry types.
+//! `RegistryDiscovery` accepts a backend string (e.g. `"biomeos"`, `"consul"`)
+//! and an endpoint.  Only the `"biomeos"` backend (socket-registry.json) has a
+//! native implementation; other backends accept the call but return
+//! [`DiscoveryError::RemoteRegistryUnavailable`] at query time.
 //!
-//! # Migration
-//!
-//! **Use instead**: `registry_trait::ServiceRegistryProvider` for vendor-agnostic discovery.
-//!
-//! See `registry_trait.rs` for the trait-based approach that follows the infant primal pattern.
-//!
-//! ## Old Approach (Hardcoded)
-//!
-//! This module hardcodes knowledge of specific registries:
-//! - Consul
-//! - Etcd  
-//! - Kubernetes Service Discovery
-//! - Eureka
-//! - Custom HTTP-based registries
-//!
-//! ## New Approach (Agnostic)
-//!
-//! Use `ServiceRegistryProvider` trait which any registry can implement
-//!
-//! ## Architecture
-//!
-//! Services register themselves with the registry on startup,
-//! providing metadata about their capabilities, health endpoints,
-//! and connection details. Clients query the registry to discover services.
-//!
-//! ## Example Consul Integration
-//!
-//! ```text
-//! POST /v1/agent/service/register
-//! {
-//!   "ID": "squirrel-ai-1",
-//!   "Name": "squirrel",
-//!   "Tags": ["ai", "embeddings"],
-//!   "Address": "192.168.1.100",
-//!   "Port": 9200,
-//!   "Check": {
-//!     "HTTP": "http://192.168.1.100:9200/health",
-//!     "Interval": "10s"
-//!   }
-//! }
-//! ```
+//! For vendor-specific backends, implement `ServiceRegistryProvider`
+//! (see `registry_trait.rs`).
 
 use crate::discovery::mechanisms::socket_registry::SocketRegistryDiscovery;
 use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult};
@@ -55,21 +18,17 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tracing::{debug, info};
 
-const fn registry_kind_label(registry_type: &RegistryType) -> &'static str {
-    match registry_type {
-        RegistryType::Biomeos => "ecosystem_socket_registry",
-        RegistryType::Consul => "consul",
-        RegistryType::Etcd => "etcd",
-        RegistryType::Kubernetes => "kubernetes",
-        RegistryType::Eureka => "eureka",
-        RegistryType::Custom => "custom_http",
+fn registry_kind_label(backend: &str) -> &str {
+    match backend {
+        "biomeos" => "ecosystem_socket_registry",
+        other => other,
     }
 }
 
 /// Discovery hints when remote HTTP/registry vendors are not wired in this binary (infant primal pattern).
 fn remote_registry_discovery_hints() -> Vec<String> {
     vec![
-        "use RegistryType::Biomeos (socket-registry.json under XDG_RUNTIME_DIR/biomeos/) for local primals"
+        "use RegistryDiscovery::socket_registry() (socket-registry.json under XDG_RUNTIME_DIR/biomeos/) for local primals"
             .to_string(),
         "implement or inject `ServiceRegistryProvider` (see `registry_trait.rs`) for vendor-specific backends"
             .to_string(),
@@ -78,45 +37,16 @@ fn remote_registry_discovery_hints() -> Vec<String> {
     ]
 }
 
-/// Service registry type
-///
-/// **Deprecated**: Use `ServiceRegistryProvider` trait instead for vendor-agnostic discovery.
-///
-/// # Migration
-///
-/// ```rust,ignore
-/// // ❌ OLD: Hardcoded vendor
-/// let registry = RegistryDiscovery::new(RegistryType::Consul, endpoint);
-///
-/// // ✅ NEW: Agnostic trait
-/// use crate::discovery::mechanisms::registry_trait::auto_detect_registry;
-/// let registry = auto_detect_registry().await?;
-/// ```
-#[deprecated(
-    since = "3.0.0",
-    note = "Use ServiceRegistryProvider trait for vendor-agnostic discovery"
-)]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RegistryType {
-    /// biomeOS socket registry (file-system at $XDG_RUNTIME_DIR/biomeos/socket-registry.json)
-    Biomeos,
-    /// HashiCorp Consul
-    Consul,
-    /// CoreOS Etcd
-    Etcd,
-    /// Kubernetes Services
-    Kubernetes,
-    /// Netflix Eureka
-    Eureka,
-    /// Custom HTTP-based registry
-    Custom,
-}
-
 /// Service registry discovery client
+///
+/// Supports `"biomeos"` backend (socket-registry.json file discovery) natively.
+/// Other backend strings (e.g. `"consul"`, `"etcd"`) are accepted for
+/// forward-compatibility but return `RemoteRegistryUnavailable` at query time;
+/// use `ServiceRegistryProvider` trait for vendor-specific backends.
 #[derive(Debug, Clone)]
 pub struct RegistryDiscovery {
-    /// Registry type
-    registry_type: RegistryType,
+    /// Backend identifier (e.g. `"biomeos"`, `"consul"`)
+    registry_backend: String,
 
     /// Registry endpoint (e.g., "http://consul:8500")
     endpoint: String,
@@ -132,12 +62,16 @@ pub struct RegistryDiscovery {
 }
 
 impl RegistryDiscovery {
-    /// Create a new registry discovery client
+    /// Create a new registry discovery client.
+    ///
+    /// `backend` is a string like `"biomeos"`, `"consul"`, `"etcd"`, etc.
+    /// Only `"biomeos"` (socket-registry.json) has a native implementation;
+    /// other backends return `RemoteRegistryUnavailable` at query time.
     #[must_use]
-    pub const fn new(registry_type: RegistryType, endpoint: String) -> Self {
+    pub fn new(backend: impl Into<String>, endpoint: impl Into<String>) -> Self {
         Self {
-            registry_type,
-            endpoint,
+            registry_backend: backend.into(),
+            endpoint: endpoint.into(),
             auth_token: None,
             timeout: Duration::from_secs(5),
             enabled: true,
@@ -149,26 +83,14 @@ impl RegistryDiscovery {
     /// Reads from `$XDG_RUNTIME_DIR/biomeos/socket-registry.json`.
     /// This is the primary discovery mechanism for primals.
     #[must_use]
-    pub const fn socket_registry() -> Self {
-        Self {
-            registry_type: RegistryType::Biomeos,
-            endpoint: String::new(),
-            auth_token: None,
-            timeout: Duration::from_secs(5),
-            enabled: true,
-        }
+    pub fn socket_registry() -> Self {
+        Self::new("biomeos", String::new())
     }
 
     /// Create socket registry discovery with path override (for testing)
     #[must_use]
     pub fn socket_registry_with_path(path: &Path) -> Self {
-        Self {
-            registry_type: RegistryType::Biomeos,
-            endpoint: path.to_string_lossy().to_string(),
-            auth_token: None,
-            timeout: Duration::from_secs(5),
-            enabled: true,
-        }
+        Self::new("biomeos", path.to_string_lossy())
     }
 
     /// Set authentication token
@@ -199,7 +121,7 @@ impl RegistryDiscovery {
             return Ok(Vec::new());
         }
 
-        if self.registry_type == RegistryType::Biomeos {
+        if self.registry_backend == "biomeos" {
             let discovery = if self.endpoint.is_empty() {
                 SocketRegistryDiscovery::new()
             } else {
@@ -209,17 +131,12 @@ impl RegistryDiscovery {
         }
 
         info!(
-            "Querying {:?} registry at {} for capability: {}",
-            self.registry_type, self.endpoint, capability
-        );
-
-        debug!(
-            "Registry query would target HTTP backend at {} (capability={})",
-            self.endpoint, capability
+            "Querying {} registry at {} for capability: {}",
+            self.registry_backend, self.endpoint, capability
         );
 
         Err(DiscoveryError::RemoteRegistryUnavailable {
-            registry_kind: registry_kind_label(&self.registry_type).to_string(),
+            registry_kind: registry_kind_label(&self.registry_backend).to_string(),
             endpoint: self.endpoint.clone(),
             capability: capability.to_string(),
             hints: remote_registry_discovery_hints(),
@@ -228,14 +145,14 @@ impl RegistryDiscovery {
 
     /// Discover all services in the registry
     ///
-    /// Same availability rules as [`Self::discover_by_capability`]: only [`RegistryType::Biomeos`] is
-    /// implemented here; other backends return [`DiscoveryError::RemoteRegistryUnavailable`].
+    /// Only the `"biomeos"` backend is implemented here; other backends return
+    /// [`DiscoveryError::RemoteRegistryUnavailable`].
     pub async fn discover_all(&self) -> DiscoveryResult<Vec<DiscoveredService>> {
         if !self.enabled {
             return Ok(Vec::new());
         }
 
-        if self.registry_type == RegistryType::Biomeos {
+        if self.registry_backend == "biomeos" {
             let discovery = if self.endpoint.is_empty() {
                 SocketRegistryDiscovery::new()
             } else {
@@ -245,12 +162,12 @@ impl RegistryDiscovery {
         }
 
         info!(
-            "Listing all services from {:?} registry",
-            self.registry_type
+            "Listing all services from {} registry",
+            self.registry_backend
         );
 
         Err(DiscoveryError::RemoteRegistryUnavailable {
-            registry_kind: registry_kind_label(&self.registry_type).to_string(),
+            registry_kind: registry_kind_label(&self.registry_backend).to_string(),
             endpoint: self.endpoint.clone(),
             capability: "*".to_string(),
             hints: remote_registry_discovery_hints(),
@@ -287,8 +204,8 @@ impl RegistryDiscovery {
         }
 
         info!(
-            "Registering service '{}' (ID: {}) at {}:{} in {:?} registry",
-            service_name, service_id, address, port, self.registry_type
+            "Registering service '{}' (ID: {}) at {}:{} in {} registry",
+            service_name, service_id, address, port, self.registry_backend
         );
         info!("   Capabilities: {:?}", capabilities);
 
@@ -311,8 +228,8 @@ impl RegistryDiscovery {
         }
 
         info!(
-            "Deregistering service '{}' from {:?} registry",
-            service_id, self.registry_type
+            "Deregistering service '{}' from {} registry",
+            service_id, self.registry_backend
         );
 
         // Production-ready interface with graceful fallback
@@ -349,8 +266,8 @@ impl RegistryDiscovery {
         }
 
         info!(
-            "Setting up watch for capability '{}' on {:?} registry",
-            capability, self.registry_type
+            "Setting up watch for capability '{}' on {} registry",
+            capability, self.registry_backend
         );
 
         // Production-ready interface with graceful fallback
@@ -400,27 +317,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_registry_creation() {
-        let registry =
-            RegistryDiscovery::new(RegistryType::Consul, "http://consul:8500".to_string());
+        let registry = RegistryDiscovery::new("consul", "http://consul:8500");
 
-        assert_eq!(registry.registry_type, RegistryType::Consul);
+        assert_eq!(registry.registry_backend, "consul");
         assert_eq!(registry.endpoint, "http://consul:8500");
         assert!(registry.enabled);
     }
 
     #[tokio::test]
     async fn test_registry_with_auth() {
-        let registry =
-            RegistryDiscovery::new(RegistryType::Consul, "http://consul:8500".to_string())
-                .with_auth_token("secret-token".to_string());
+        let registry = RegistryDiscovery::new("consul", "http://consul:8500")
+            .with_auth_token("secret-token".to_string());
 
         assert_eq!(registry.auth_token, Some("secret-token".to_string()));
     }
 
     #[tokio::test]
     async fn test_registry_discover_by_capability() {
-        let registry =
-            RegistryDiscovery::new(RegistryType::Consul, "http://consul:8500".to_string());
+        let registry = RegistryDiscovery::new("consul", "http://consul:8500");
 
         let result = registry.discover_by_capability("ai").await;
         assert!(matches!(
@@ -431,7 +345,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_registry_discover_all() {
-        let registry = RegistryDiscovery::new(RegistryType::Etcd, "http://etcd:2379".to_string());
+        let registry = RegistryDiscovery::new("etcd", "http://etcd:2379");
 
         let result = registry.discover_all().await;
         assert!(matches!(
@@ -442,8 +356,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_registry_register_service() {
-        let registry =
-            RegistryDiscovery::new(RegistryType::Consul, "http://consul:8500".to_string());
+        let registry = RegistryDiscovery::new("consul", "http://consul:8500");
 
         let capabilities = vec!["ai".to_string()];
         let metadata = HashMap::new();
@@ -465,8 +378,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_registry_deregister_service() {
-        let registry =
-            RegistryDiscovery::new(RegistryType::Consul, "http://consul:8500".to_string());
+        let registry = RegistryDiscovery::new("consul", "http://consul:8500");
 
         let result = registry.deregister_service("squirrel-1").await;
         assert!(result.is_ok());
@@ -474,8 +386,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_registry_heartbeat() {
-        let registry =
-            RegistryDiscovery::new(RegistryType::Consul, "http://consul:8500".to_string());
+        let registry = RegistryDiscovery::new("consul", "http://consul:8500");
 
         let result = registry.heartbeat("squirrel-1").await;
         assert!(result.is_ok());
@@ -483,8 +394,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_registry_watch() {
-        let registry =
-            RegistryDiscovery::new(RegistryType::Consul, "http://consul:8500".to_string());
+        let registry = RegistryDiscovery::new("consul", "http://consul:8500");
 
         let result = registry.watch_services("ai").await;
         assert!(result.is_ok());
@@ -492,10 +402,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_registry_disabled() {
-        let mut registry = RegistryDiscovery::new(
-            RegistryType::Kubernetes,
-            "https://kubernetes:6443".to_string(),
-        );
+        let mut registry = RegistryDiscovery::new("kubernetes", "https://kubernetes:6443");
         registry.enabled = false;
 
         let result = registry.discover_by_capability("ai").await;
@@ -523,13 +430,6 @@ mod tests {
         assert_eq!(service.capabilities.len(), 2);
         assert_eq!(service.discovery_method, "registry");
         assert_eq!(service.priority, 60);
-    }
-
-    #[test]
-    fn test_registry_types() {
-        assert_eq!(RegistryType::Consul, RegistryType::Consul);
-        assert_ne!(RegistryType::Consul, RegistryType::Etcd);
-        assert_eq!(RegistryType::Biomeos, RegistryType::Biomeos);
     }
 
     #[tokio::test]
