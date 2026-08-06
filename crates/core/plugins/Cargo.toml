@@ -23,7 +23,6 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # HTTP and networking
 # Production uses capability_http (delegates to Songbird via Unix sockets)
-# reqwest is optional, only for marketplace feature
 # Logging and tracing
 tracing = { version = "0.1", features = ["log"] }
 

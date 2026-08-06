@@ -137,8 +137,8 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: **7,140** passing / 98 ignored across 16 workspace crates (`--all-features`), full suite ~60s
-- **Source**: 986 `.rs` files, ~306k lines
+- **Tests**: **6,366** passing across 16 workspace crates (default features), full suite ~75s
+- **Source**: ~980 `.rs` files, ~300k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced

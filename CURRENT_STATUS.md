@@ -24,7 +24,7 @@
 | Coverage | **90.1%** region coverage / 89.6% line coverage via `cargo-llvm-cov` (**target met**); remaining uncovered: binary entry points, demo bins, WASM-only SDK paths, live IPC server loops |
 | `.unwrap()` in code | 0 — workspace-wide elimination; all Results use `?` or `.expect("invariant")` |
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
-| `Box<dyn Error>` | 0 in production APIs — replaced with typed errors + `anyhow::Result` (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`, `anyhow::Error`) |
+| `Box<dyn Error>` | 0 in production APIs — replaced with typed errors + `anyhow::Result` (`PrimalError`, `AIToolsError`, `SDKError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`, `anyhow::Error`) |
 | Crates | 16 workspace members |
 | Files >800 lines (prod) | 0 — `compute_client/types.rs` split (788→482L); `federation/service.rs` split (784→449L); `universal_executor.rs` split (794→633L); `routing/agent.rs` split (794→479L); `jsonrpc_server.rs` split (829→336L); `provider_trait.rs` refactored 983→728L; `env_vars.rs` (1091L) → module tree (36 files, max 107L); visualization thinned (~1,800L removed); largest prod file: 777L |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]`; 1 `#[allow]` remains with documented reason: 1 `dead_code` on trait method (Rust 1.94: `#[expect]` unfulfilled in check but needed under test compilation); `PrimalDependency.primal_type` evolved to `String` — no deprecated field, no `#[allow(deprecated)]` needed; dead suppressions caught automatically |

@@ -19,9 +19,8 @@ use std::sync::Arc;
 use thiserror::Error;
 use tracing::{info, warn};
 
-// Backward compatibility: PluginMetadata during migration to squirrel_interfaces
 use crate::plugins::plugin::PluginMetadata;
-use crate::plugins::{Plugin, PluginError}; // Use local PluginMetadata for compatibility
+use crate::plugins::{Plugin, PluginError};
 
 /// Constant-time equality for equal-length byte slices (mitigates timing leaks on match).
 fn constant_time_eq_bytes(a: &[u8], b: &[u8]) -> bool {
