@@ -50,8 +50,6 @@ tarpc = { workspace = true, optional = true }
 tokio-serde = { workspace = true, optional = true }
 bincode = { workspace = true, optional = true }
 
-# Ecosystem integrations - Service Mesh via Capability Discovery
-ecosystem-api.workspace = true
 # NOTE: Service mesh dependencies discovered at runtime via capability registry.
 # No compile-time primal dependencies needed (TRUE PRIMAL architecture).
 # Squirrel knows only itself; other primals are discovered dynamically via Unix sockets.

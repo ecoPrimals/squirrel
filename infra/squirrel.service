@@ -6,8 +6,12 @@
 #   systemctl --user daemon-reload
 #   systemctl --user enable --now squirrel
 #
-# Socket path: $XDG_RUNTIME_DIR/biomeos/squirrel.sock
-# Logs:        journalctl --user -u squirrel -f
+# Socket paths:
+#   JSON-RPC: $XDG_RUNTIME_DIR/biomeos/squirrel.sock  (primary)
+#   Abstract:  \0squirrel                              (SQ-01 dual-bind)
+#   Symlink:   $XDG_RUNTIME_DIR/biomeos/ai.sock        (capability domain)
+#
+# Logs: journalctl --user -u squirrel -f
 
 [Unit]
 Description=Squirrel AI Coordination Primal
@@ -30,9 +34,10 @@ Environment=XDG_RUNTIME_DIR=/run/user/%U
 # Socket directory must exist before squirrel binds
 ExecStartPre=/bin/mkdir -p /run/user/%U/biomeos
 
-# Clean up socket on stop (squirrel handles SIGTERM, but belt-and-suspenders)
+# Clean up sockets on stop (squirrel handles SIGTERM, but belt-and-suspenders)
 ExecStopPost=-/bin/rm -f /run/user/%U/biomeos/squirrel.sock
 ExecStopPost=-/bin/rm -f /run/user/%U/biomeos/squirrel.sock.pid
+ExecStopPost=-/bin/rm -f /run/user/%U/biomeos/ai.sock
 
 # Hardening
 NoNewPrivileges=yes
@@ -40,6 +45,7 @@ ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=/run/user/%U/biomeos
 PrivateTmp=yes
+LimitNOFILE=4096
 
 [Install]
 WantedBy=default.target

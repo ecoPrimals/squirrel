@@ -8,83 +8,6 @@
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use universal_constants::primal_names;
-
-/// Standardized primal types for ecosystem integration (canonical definition)
-#[deprecated(
-    since = "0.2.0",
-    note = "Use CapabilityDomain for capability-based discovery instead of hardcoded primal types"
-)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum EcosystemPrimalType {
-    ToadStool,
-    Songbird,
-    BearDog,
-    NestGate,
-    Squirrel,
-    BiomeOS,
-}
-
-impl EcosystemPrimalType {
-    #[must_use]
-    #[deprecated(since = "0.2.0", note = "Use CapabilityDomain for discovery")]
-    pub const fn as_str(&self) -> &'static str {
-        match self {
-            Self::ToadStool => primal_names::TOADSTOOL,
-            Self::Songbird => primal_names::SONGBIRD,
-            Self::BearDog => primal_names::BEARDOG,
-            Self::NestGate => primal_names::NESTGATE,
-            Self::Squirrel => primal_names::SQUIRREL,
-            Self::BiomeOS => primal_names::BIOMEOS,
-        }
-    }
-    /// Prefix for `{PREFIX}_ENDPOINT`-style configuration, derived from [`Self::capability`].
-    #[must_use]
-    #[deprecated(since = "0.2.0", note = "Use CapabilityDomain::endpoint_env_prefix")]
-    pub fn endpoint_env_prefix(&self) -> String {
-        CapabilityIdentifier::new(self.capability()).endpoint_env_prefix()
-    }
-    #[must_use]
-    #[deprecated(since = "0.2.0", note = "Use CapabilityDomain for discovery")]
-    pub const fn service_name(&self) -> &'static str {
-        self.as_str()
-    }
-    #[must_use]
-    pub const fn capability(&self) -> &'static str {
-        use universal_constants::capabilities;
-        match self {
-            Self::ToadStool => capabilities::COMPUTE_CAPABILITY,
-            Self::Songbird => capabilities::SERVICE_MESH_CAPABILITY,
-            Self::BearDog => capabilities::SECURITY_CAPABILITY,
-            Self::NestGate => capabilities::STORAGE_CAPABILITY,
-            Self::Squirrel => capabilities::SELF_PRIMAL_NAME,
-            Self::BiomeOS => capabilities::ECOSYSTEM_CAPABILITY,
-        }
-    }
-}
-
-#[expect(deprecated, reason = "implements FromStr for deprecated enum (serde compat)")]
-impl std::str::FromStr for EcosystemPrimalType {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            primal_names::TOADSTOOL => Ok(Self::ToadStool),
-            primal_names::SONGBIRD => Ok(Self::Songbird),
-            primal_names::BEARDOG => Ok(Self::BearDog),
-            primal_names::NESTGATE => Ok(Self::NestGate),
-            primal_names::SQUIRREL => Ok(Self::Squirrel),
-            primal_names::BIOMEOS => Ok(Self::BiomeOS),
-            _ => Err(format!("Unknown primal type: {s}")),
-        }
-    }
-}
-
-#[expect(deprecated, reason = "implements Display for deprecated enum (logging compat)")]
-impl std::fmt::Display for EcosystemPrimalType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
 
 /// Runtime capability identifier — primary routing key for ecosystem discovery.
 ///
@@ -244,18 +167,6 @@ pub mod capabilities {
 
 // EcosystemServiceRegistration is defined in registration.rs with Arc<str> zero-copy service_id
 
-/// Standardized primal types for ecosystem integration
-///
-/// **DEPRECATED**: This enum violates primal sovereignty by hardcoding all primal names.
-/// Use `CapabilityRegistry` and `PrimalCapability` for capability-based discovery instead.
-///
-/// ## Why This is Deprecated
-///
-/// - **Compile-time coupling**: Changes to the ecosystem require recompiling all primals
-/// - **Sovereignty violation**: Each primal should only know itself
-/// - **Scalability**: Cannot add new primals without code changes
-/// - **Evolution**: Cannot evolve primal names or capabilities
-///
 /// Service capabilities with proper Default implementation
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ServiceCapabilities {
@@ -555,40 +466,6 @@ mod tests {
         assert_eq!(deserialized.storage_gb, Some(100));
     }
 
-    // --- EcosystemPrimalType (deprecated but still used in registration) ---
-
-    #[expect(deprecated, reason = "tests deprecated enum backward compat")]
-    #[test]
-    fn ecosystem_primal_type_from_str_accepts_case_insensitive() {
-        assert_eq!(
-            "Songbird"
-                .parse::<EcosystemPrimalType>()
-                .expect("should succeed"),
-            EcosystemPrimalType::Songbird
-        );
-        assert_eq!(
-            "NESTGATE"
-                .parse::<EcosystemPrimalType>()
-                .expect("should succeed"),
-            EcosystemPrimalType::NestGate
-        );
-    }
-
-    #[expect(deprecated, reason = "tests deprecated enum backward compat")]
-    #[test]
-    fn ecosystem_primal_type_from_str_rejects_unknown() {
-        assert!("unknown".parse::<EcosystemPrimalType>().is_err());
-    }
-
-    #[expect(deprecated, reason = "tests deprecated enum backward compat")]
-    #[test]
-    fn ecosystem_primal_type_display_and_capability() {
-        let t = EcosystemPrimalType::Squirrel;
-        assert_eq!(t.to_string(), "squirrel");
-        assert!(!t.capability().is_empty());
-    }
-
-    #[expect(deprecated, reason = "tests deprecated enum backward compat")]
     #[test]
     fn capability_identifier_from_domain() {
         let domain = CapabilityDomain::new("security");
@@ -597,18 +474,5 @@ mod tests {
         assert_eq!(id.as_domain().as_str(), "security");
         let from: CapabilityIdentifier = domain.into();
         assert_eq!(from.as_str(), "security");
-    }
-
-    #[expect(deprecated, reason = "tests deprecated enum backward compat")]
-    #[test]
-    fn ecosystem_primal_type_endpoint_env_prefix() {
-        assert_eq!(
-            EcosystemPrimalType::BearDog.endpoint_env_prefix(),
-            "SECURITY"
-        );
-        assert_eq!(
-            EcosystemPrimalType::Songbird.endpoint_env_prefix(),
-            "SERVICE_MESH"
-        );
     }
 }

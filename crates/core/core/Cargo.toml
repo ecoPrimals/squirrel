@@ -40,8 +40,6 @@ rand.workspace = true
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# Ecosystem dependencies
-ecosystem-api = { path = "../../ecosystem-api", version = "0.1.0" }
 squirrel-interfaces = { path = "../interfaces", version = "0.1.0" }
 universal-constants = { path = "../../universal-constants", version = "0.1.0" }
 universal-patterns = { path = "../../universal-patterns", version = "0.1.0" }

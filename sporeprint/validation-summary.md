@@ -1,12 +1,20 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,366 tests (default features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,302 tests (default features), 44 IPC methods."
 date = 2026-08-06
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 156s — Fossil Cleanup + Dependency Pruning + E2 Prep (Aug 6, 2026)
+
+- EcosystemPrimalType fossil deleted (deprecated enum + 16 tests, zero prod callers)
+- ecosystem-api orphan dependency pruned from 3 consumer crates
+- Main crate #![expect(deprecated)] blanket removed
+- systemd service polished for E2 ironGate deploy (ai.sock cleanup, LimitNOFILE)
+- 0 warnings, 6,302 tests passing
 
 ## Wave 156r — PluginMetadata Migration + Deprecated Enum Deletion (Aug 6, 2026)
 
@@ -137,7 +145,7 @@ springs = []
 - **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: **6,366** passing across 16 workspace crates (default features), full suite ~75s
+- **Tests**: **6,302** passing across 16 workspace crates (default features), full suite ~75s
 - **Source**: ~980 `.rs` files, ~300k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
 - **Docs**: 0 warnings (`-D warnings`)

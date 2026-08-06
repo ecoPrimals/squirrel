@@ -40,108 +40,14 @@
     missing_docs,
     unused_imports,
     unused_variables,
-    dead_code,
-    deprecated
+    dead_code
 )]
 
 use super::*;
-use crate::ecosystem::types::EcosystemPrimalType;
 use crate::monitoring::metrics::MetricsCollector;
 use chrono::Utc;
 use std::collections::HashMap;
-use std::str::FromStr;
 use std::sync::Arc;
-
-// ===== EcosystemPrimalType Tests =====
-
-#[test]
-fn test_ecosystem_primal_type_as_str() {
-    assert_eq!(EcosystemPrimalType::ToadStool.as_str(), "toadstool");
-    assert_eq!(EcosystemPrimalType::Songbird.as_str(), "songbird");
-    assert_eq!(EcosystemPrimalType::BearDog.as_str(), "beardog");
-    assert_eq!(EcosystemPrimalType::NestGate.as_str(), "nestgate");
-    assert_eq!(EcosystemPrimalType::Squirrel.as_str(), "squirrel");
-    assert_eq!(EcosystemPrimalType::BiomeOS.as_str(), "biomeos");
-}
-
-#[test]
-fn test_ecosystem_primal_type_from_str_valid() {
-    assert_eq!(
-        EcosystemPrimalType::from_str("toadstool").expect("should succeed"),
-        EcosystemPrimalType::ToadStool
-    );
-    assert_eq!(
-        EcosystemPrimalType::from_str("SONGBIRD").expect("should succeed"),
-        EcosystemPrimalType::Songbird
-    );
-    assert_eq!(
-        EcosystemPrimalType::from_str("BeArDoG").expect("should succeed"),
-        EcosystemPrimalType::BearDog
-    );
-    assert_eq!(
-        EcosystemPrimalType::from_str("nestgate").expect("should succeed"),
-        EcosystemPrimalType::NestGate
-    );
-    assert_eq!(
-        EcosystemPrimalType::from_str("squirrel").expect("should succeed"),
-        EcosystemPrimalType::Squirrel
-    );
-    assert_eq!(
-        EcosystemPrimalType::from_str("biomeos").expect("should succeed"),
-        EcosystemPrimalType::BiomeOS
-    );
-}
-
-#[test]
-fn test_ecosystem_primal_type_from_str_invalid() {
-    assert!(EcosystemPrimalType::from_str("invalid").is_err());
-    assert!(EcosystemPrimalType::from_str("").is_err());
-    assert!(EcosystemPrimalType::from_str("unknown").is_err());
-}
-
-#[test]
-fn test_ecosystem_primal_type_service_name() {
-    assert_eq!(EcosystemPrimalType::ToadStool.service_name(), "toadstool");
-    assert_eq!(EcosystemPrimalType::Songbird.service_name(), "songbird");
-    assert_eq!(EcosystemPrimalType::BearDog.service_name(), "beardog");
-    assert_eq!(EcosystemPrimalType::NestGate.service_name(), "nestgate");
-    assert_eq!(EcosystemPrimalType::Squirrel.service_name(), "squirrel");
-    assert_eq!(EcosystemPrimalType::BiomeOS.service_name(), "biomeos");
-}
-
-#[test]
-fn test_ecosystem_primal_type_endpoint_env_prefix() {
-    assert_eq!(
-        EcosystemPrimalType::ToadStool.endpoint_env_prefix(),
-        "COMPUTE"
-    );
-    assert_eq!(
-        EcosystemPrimalType::Songbird.endpoint_env_prefix(),
-        "SERVICE_MESH"
-    );
-    assert_eq!(
-        EcosystemPrimalType::BearDog.endpoint_env_prefix(),
-        "SECURITY"
-    );
-    assert_eq!(
-        EcosystemPrimalType::NestGate.endpoint_env_prefix(),
-        "STORAGE"
-    );
-    assert_eq!(
-        EcosystemPrimalType::Squirrel.endpoint_env_prefix(),
-        "SQUIRREL"
-    );
-    assert_eq!(
-        EcosystemPrimalType::BiomeOS.endpoint_env_prefix(),
-        "ECOSYSTEM"
-    );
-}
-
-#[test]
-fn test_ecosystem_primal_type_display() {
-    assert_eq!(format!("{}", EcosystemPrimalType::Squirrel), "squirrel");
-    assert_eq!(format!("{}", EcosystemPrimalType::Songbird), "songbird");
-}
 
 // ===== EcosystemConfig Tests =====
 

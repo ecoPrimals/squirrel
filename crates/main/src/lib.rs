@@ -37,8 +37,6 @@
     // Genuine domain naming (e.g. ToadStool, BiomeOS)
     clippy::doc_markdown,
     clippy::struct_field_names,
-    // Deprecated migration still in-flight
-    deprecated,
     // Numeric casts in metrics/scoring — audited per-site
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,

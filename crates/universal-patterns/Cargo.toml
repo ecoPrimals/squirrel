@@ -38,9 +38,6 @@ config = "0.14"
 serde_yaml_ng = "0.10"
 dirs.workspace = true
 
-# Ecosystem dependencies
-ecosystem-api = { path = "../ecosystem-api", version = "0.1.0" }
-
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../config", version = "0.1.0" }
 

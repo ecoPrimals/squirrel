@@ -1,7 +1,7 @@
-# Wave 156r — PluginMetadata Migration + Deprecated Enum Deletion + Lint Cleanup
+# Wave 156r→156s — PluginMetadata Migration + Deprecated Enum Deletion + Lint Cleanup
 
 **Date**: Aug 6, 2026
-**Tests**: 6,366 passing / 0 failures / 0 warnings
+**Tests**: 6,302 passing / 0 failures / 0 warnings
 
 ## Changes
 
@@ -44,3 +44,10 @@
 | `EcosystemPrimalType` definition | Low | Deprecated fossil in `types.rs`, tests-only usage |
 | 36 files at 700-774 lines | Low | Approaching 800-line refactor threshold |
 | 12 patch-level dependency updates | Low | Minor semver bumps |
+
+## Wave 156s Additions (Aug 6, 2026)
+
+- EcosystemPrimalType fossil deleted (zero prod callers, 16 tests removed)
+- ecosystem-api orphan dependency pruned from main, core/core, universal-patterns
+- Main crate  blanket removed
+- systemd service: ai.sock cleanup, LimitNOFILE=4096, socket path docs

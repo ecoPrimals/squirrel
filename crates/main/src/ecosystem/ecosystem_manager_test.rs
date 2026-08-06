@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(deprecated)]
-// Tests deprecated path for backward compatibility // Tests deprecated path for backward compatibility
 use crate::ecosystem::{ComponentHealth, EcosystemConfig, EcosystemManager};
-use crate::ecosystem::types::EcosystemPrimalType;
 use crate::monitoring::metrics::MetricsCollector;
-use std::str::FromStr;
 use std::sync::Arc;
 
 /// Helper to create test ecosystem config
@@ -77,21 +73,6 @@ async fn test_ecosystem_config_default() {
     assert_eq!(config.service_name, "Squirrel AI Primal");
     assert!(!config.service_host.is_empty());
     assert!(config.service_port > 0);
-}
-
-#[tokio::test]
-#[expect(
-    deprecated,
-    reason = "Tests deprecated path for backward compatibility // Tests deprecated path for backward compatibility"
-)]
-async fn test_ecosystem_primal_type_as_str_deprecated() {
-    // Testing deprecated API for backward compatibility
-    // These tests intentionally use the deprecated enum to ensure it remains functional
-    assert_eq!(EcosystemPrimalType::Squirrel.as_str(), "squirrel");
-    assert_eq!(EcosystemPrimalType::Songbird.as_str(), "songbird");
-    assert_eq!(EcosystemPrimalType::BearDog.as_str(), "beardog");
-    assert_eq!(EcosystemPrimalType::ToadStool.as_str(), "toadstool");
-    assert_eq!(EcosystemPrimalType::NestGate.as_str(), "nestgate");
 }
 
 #[tokio::test]
@@ -266,72 +247,6 @@ async fn test_ecosystem_manager_find_services_by_capability() {
 }
 
 #[tokio::test]
-async fn test_ecosystem_primal_type_from_str_squirrel() {
-    let result = EcosystemPrimalType::from_str("squirrel");
-    assert!(result.is_ok());
-    assert_eq!(
-        result.expect("test: should succeed"),
-        EcosystemPrimalType::Squirrel
-    );
-}
-
-#[tokio::test]
-async fn test_ecosystem_primal_type_from_str_songbird() {
-    let result = EcosystemPrimalType::from_str("songbird");
-    assert!(result.is_ok());
-    assert_eq!(
-        result.expect("test: should succeed"),
-        EcosystemPrimalType::Songbird
-    );
-}
-
-#[tokio::test]
-async fn test_ecosystem_primal_type_from_str_beardog() {
-    let result = EcosystemPrimalType::from_str("beardog");
-    assert!(result.is_ok());
-    assert_eq!(
-        result.expect("test: should succeed"),
-        EcosystemPrimalType::BearDog
-    );
-}
-
-#[tokio::test]
-async fn test_ecosystem_primal_type_from_str_toadstool() {
-    let result = EcosystemPrimalType::from_str("toadstool");
-    assert!(result.is_ok());
-    assert_eq!(
-        result.expect("test: should succeed"),
-        EcosystemPrimalType::ToadStool
-    );
-}
-
-#[tokio::test]
-async fn test_ecosystem_primal_type_from_str_nestgate() {
-    let result = EcosystemPrimalType::from_str("nestgate");
-    assert!(result.is_ok());
-    assert_eq!(
-        result.expect("test: should succeed"),
-        EcosystemPrimalType::NestGate
-    );
-}
-
-#[tokio::test]
-async fn test_ecosystem_primal_type_from_str_invalid() {
-    let result = EcosystemPrimalType::from_str("invalid_primal");
-    assert!(result.is_err(), "Invalid primal type should return error");
-}
-
-#[tokio::test]
-async fn test_ecosystem_primal_type_from_str_case_insensitive() {
-    let result = EcosystemPrimalType::from_str("SQUIRREL");
-    assert!(result.is_ok());
-    assert_eq!(
-        result.expect("test: should succeed"),
-        EcosystemPrimalType::Squirrel
-    );
-}
-
-#[tokio::test]
 async fn test_component_health_with_metadata() {
     let mut metadata = std::collections::HashMap::new();
     metadata.insert("cpu_usage".to_string(), "25%".to_string());
@@ -441,30 +356,6 @@ async fn test_component_health_error_message() {
     assert_eq!(health.status, "degraded");
     let error_msg = health.error.expect("test: should have error");
     assert!(error_msg.contains("Timeout"));
-}
-
-#[tokio::test]
-#[expect(
-    deprecated,
-    reason = "Tests deprecated path for backward compatibility"
-)]
-async fn test_ecosystem_primal_type_all_variants() {
-    // Testing deprecated enum for backward compatibility
-    let types = vec![
-        EcosystemPrimalType::Squirrel,
-        EcosystemPrimalType::Songbird,
-        EcosystemPrimalType::BearDog,
-        EcosystemPrimalType::ToadStool,
-        EcosystemPrimalType::NestGate,
-    ];
-
-    assert_eq!(types.len(), 5);
-
-    // Verify each has a string representation
-    for primal_type in types {
-        let s = primal_type.as_str();
-        assert!(!s.is_empty());
-    }
 }
 
 // ============================================================================

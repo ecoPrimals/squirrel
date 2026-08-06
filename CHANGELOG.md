@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 6, 2026 — Wave 156s: Fossil Cleanup + Dependency Pruning + E2 Prep)
+
+- **EcosystemPrimalType fossil deleted**: Deprecated enum + 6 impl blocks + 16 test functions removed from `types.rs`. Zero production callers — tests-only fossil from capability migration.
+- **ecosystem-api orphan pruned**: Removed unused `ecosystem-api` dependency from 3 consumer crates (`main`, `core/core`, `universal-patterns`) — crate compiled but never imported.
+- **Main crate `#![expect(deprecated)]` blanket removed**: Unfulfilled after fossil deletion.
+- **systemd service polished**: Added `ai.sock` symlink cleanup, `LimitNOFILE=4096`, documented all socket paths for E2 ironGate deploy.
+- 0 errors, 6,302 tests passing.
+
 ### Summary (Aug 6, 2026 — Wave 156r: PluginMetadata Migration + Deprecated Enum Deletion + Lint Cleanup)
 
 - **PluginMetadata migration**: Completed full migration of `crates/core/plugins` from deprecated `plugin::PluginMetadata` (Uuid id, Vec<Uuid> dependencies) to canonical `squirrel_interfaces::plugins::PluginMetadata` (String id, Vec<String> dependencies). 28 files migrated, deprecated struct deleted, all HashMap/DashMap keys converted from Uuid to String, Plugin trait `id()` returns `&str`.
