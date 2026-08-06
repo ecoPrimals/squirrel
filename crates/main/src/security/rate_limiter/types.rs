@@ -78,10 +78,6 @@ pub(crate) enum ViolationType {
     RateLimitExceeded,
     #[cfg(test)]
     SuspiciousActivity,
-    #[cfg(test)]
-    RepeatedViolations,
-    #[cfg(test)]
-    MaliciousRequest,
 }
 
 #[derive(Debug, Clone, PartialEq)]

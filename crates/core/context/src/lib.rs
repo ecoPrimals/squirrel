@@ -4,7 +4,12 @@
 
 #![cfg_attr(
     test,
-    allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::float_cmp,
+        reason = "test code needs direct assertions"
+    )
 )]
 #![warn(missing_docs)]
 #![expect(

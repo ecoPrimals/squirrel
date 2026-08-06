@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 6, 2026 — Wave 157a: Dep Cleanup + Lint Hygiene + Retry Modernization)
+
+- **Stale dependency excise**: Removed 5 unused workspace dependencies (`tower`, `tower-http`, `async-recursion`, `semver`, `test-case`).
+- **Lint hygiene**: Added `reason = "..."` to all 14 crate-root `#[cfg_attr(test, allow(...))]` and 11 test/example/bench `#![allow(...)]` blocks — zero unreasoned `allow` attributes remain.
+- **Retry mechanism modernization**: `RetryFuture<T>` type alias (`Pin<Box<dyn Future>>`) replaced with generic `Fut` parameter — eliminates forced heap allocation in retry closures. Tests simplified from `Box::pin(async { ... })` to bare `async { ... }`.
+- **Dead code cleanup**: Removed unused `ViolationType` variants, dead import in transport tests.
+- Root docs updated: README, CONTEXT, CURRENT_STATUS reflect accurate crate count (13), test count (5,668), file count (838), line count (257K).
+- 5,668 tests passing, 0 failures, 0 new warnings.
+
 ### Summary (Aug 6, 2026 — Wave 156z: Orphan Crate Excise + Debt Cleanup)
 
 - **`squirrel-core` crate removed**: Fully orphaned 13,907-line crate with 0 reverse dependencies. Contains Songbird mesh/federation/swarm/service-discovery code absorbed into squirrel during early development. Archived for upstream Songbird primal.

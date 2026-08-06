@@ -30,7 +30,11 @@ use super::*;
 /// fails (e.g. corrupted env), fall back to a minimal localhost URL so presets stay constructible.
 fn parse_deployment_endpoint(url: &str) -> Url {
     #[expect(clippy::expect_used, reason = "static literal is always valid")]
-    let fallback = Url::parse("http://127.0.0.1:8444/").expect("static fallback URL");
+    let fallback = Url::parse(&format!(
+        "http://127.0.0.1:{}/",
+        universal_constants::network::DEFAULT_CLI_MCP_PORT
+    ))
+    .expect("static fallback URL");
     Url::parse(url).unwrap_or(fallback)
 }
 

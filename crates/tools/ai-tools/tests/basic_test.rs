@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(missing_docs, clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    missing_docs,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test module needs direct assertions"
+)]
 
 use squirrel_ai_tools::{
     Result,

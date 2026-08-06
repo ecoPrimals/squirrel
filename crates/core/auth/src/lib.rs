@@ -9,7 +9,14 @@
     clippy::unnecessary_wraps,
     reason = "Auth subsystem; progressive style and documentation tightening"
 )]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        reason = "test code needs direct assertions"
+    )
+)]
 #![warn(missing_docs)]
 //! Squirrel Authentication & Security System
 //!

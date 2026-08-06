@@ -39,7 +39,8 @@
     unused_imports,
     unused_variables,
     dead_code,
-    deprecated
+    deprecated,
+    reason = "test module — pedantic lints relaxed for test clarity"
 )]
 //! Integration tests for AI routing functionality
 

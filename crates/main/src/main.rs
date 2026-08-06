@@ -2,7 +2,14 @@
 // ORC-Notice: Core coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        reason = "test code needs direct assertions"
+    )
+)]
 #![expect(
     clippy::option_if_let_else,
     clippy::cast_possible_truncation,

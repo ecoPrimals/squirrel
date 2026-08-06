@@ -73,7 +73,7 @@ Other workspace crates include auth, context, interfaces, config, commands, `uni
 
 ## Test suite
 
-- **5,753** tests passing (default features), 0 failures. Full suite ~100s. See `CURRENT_STATUS.md` for authoritative counts.
+- **5,668** tests passing (default features), 0 failures. Full suite ~100s. See `CURRENT_STATUS.md` for authoritative counts.
 - **Zero `.unwrap()`** and **zero `panic!()`** in production code — all error handling is typed.
 - **Property-based** tests (e.g. `proptest` for serialization invariants).
 - Coverage target: 90% (see `CURRENT_STATUS.md` for latest figures).

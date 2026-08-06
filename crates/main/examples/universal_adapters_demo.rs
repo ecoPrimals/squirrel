@@ -39,7 +39,8 @@
     unused_imports,
     unused_variables,
     dead_code,
-    deprecated
+    deprecated,
+    reason = "example/bench — pedantic lints relaxed"
 )]
 
 //! Universal Adapters Demonstration

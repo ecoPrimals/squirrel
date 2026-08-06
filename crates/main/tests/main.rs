@@ -50,6 +50,7 @@
     missing_docs,
     unused_imports,
     unused_variables,
+    reason = "integration test harness — pedantic lints relaxed for test clarity"
 )]
 
 #[path = "integration/additional_coverage_tests.rs"]

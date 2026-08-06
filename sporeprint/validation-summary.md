@@ -1,12 +1,20 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 5,753 tests (default features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 5,668 tests (default features), 44 IPC methods."
 date = 2026-08-06
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 157a — Dep Cleanup + Lint Hygiene + Retry Modernization (Aug 6, 2026)
+
+- 5 stale workspace deps removed (tower, tower-http, async-recursion, semver, test-case)
+- `reason =` added to all 25 `#[allow(...)]` blocks (14 crate roots + 11 test/example files)
+- Retry mechanism: `Pin<Box<dyn Future>>` → generic `Fut` param (eliminates forced heap alloc)
+- Dead code: unused ViolationType variants, dead import cleaned
+- Root docs updated: 13 crates, 838 files, 257K lines, 5,668 tests passing
 
 ## Wave 156z — Orphan Crate Excise + Debt Cleanup (Aug 6, 2026)
 

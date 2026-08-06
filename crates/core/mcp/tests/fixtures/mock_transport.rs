@@ -42,6 +42,7 @@
     dead_code,
     deprecated,
     unexpected_cfgs,
+    reason = "test fixture — pedantic lints relaxed for test clarity"
 )]
 //! Mock Transport for Testing
 //!

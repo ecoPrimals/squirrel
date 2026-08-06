@@ -6,7 +6,7 @@
 
 use super::*;
 use anyhow::Context;
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use universal_patterns::transport::UniversalTransport;

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![expect(missing_docs, reason = "Test code: local lint noise")]
-#![allow(clippy::expect_used)]
+#![allow(clippy::expect_used, reason = "integration test needs direct assertions")]
 // Integration tests gated behind `integration-tests` feature — API migration
 // (CryptoClient → CapabilityCryptoConfig endpoint) tracked in CURRENT_STATUS.md known issues.
 #[cfg(not(feature = "integration-tests"))]

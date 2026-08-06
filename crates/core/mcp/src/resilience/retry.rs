@@ -10,14 +10,12 @@ use serde::{Deserialize, Serialize};
 use squirrel_mcp_config::unified::LoadedConfig;
 use std::error::Error as StdError;
 use std::future::Future;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
-/// Pin-boxed future type used by retry operation closures.
-pub(crate) type RetryFuture<T> =
-    Pin<Box<dyn Future<Output = std::result::Result<T, Box<dyn StdError + Send + Sync>>> + Send>>;
+/// Type-erased error used by retry operation closures.
+pub(crate) type RetryBoxError = Box<dyn StdError + Send + Sync>;
 
 /// Serde helpers for Duration serialization
 mod duration_serde {
@@ -234,9 +232,10 @@ impl RetryMechanism {
     /// * The maximum number of retry attempts is exceeded (`RetryError::MaxAttemptsExceeded`)
     /// * The retry operation is cancelled for any reason (`RetryError::Cancelled`)
     /// * An internal error occurs in the retry mechanism (`RetryError::Internal`)
-    pub async fn execute<F, T>(&self, mut operation: F) -> std::result::Result<T, RetryError>
+    pub async fn execute<F, Fut, T>(&self, mut operation: F) -> std::result::Result<T, RetryError>
     where
-        F: FnMut() -> RetryFuture<T>,
+        F: FnMut() -> Fut,
+        Fut: Future<Output = std::result::Result<T, RetryBoxError>> + Send,
         T: Send + 'static,
     {
         let mut attempts: u32 = 0;
@@ -359,14 +358,15 @@ impl RetryMechanism {
     /// * The maximum number of retry attempts is exceeded (`RetryError::MaxAttemptsExceeded`)
     /// * The retry operation is cancelled for any reason (`RetryError::Cancelled`)
     /// * An internal error occurs in the retry mechanism (`RetryError::Internal`)
-    pub async fn execute_with_predicate<F, T, P>(
+    pub async fn execute_with_predicate<F, Fut, T, P>(
         &self,
         mut operation: F,
         should_retry: P,
     ) -> std::result::Result<T, RetryError>
     where
-        F: FnMut() -> RetryFuture<T>,
-        P: Fn(&Box<dyn StdError + Send + Sync>) -> bool + Send + Sync + 'static,
+        F: FnMut() -> Fut,
+        Fut: Future<Output = std::result::Result<T, RetryBoxError>> + Send,
+        P: Fn(&RetryBoxError) -> bool + Send + Sync + 'static,
         T: Send + 'static,
     {
         let mut attempts: u32 = 0;
@@ -444,13 +444,14 @@ impl RetryMechanism {
     /// * Any attempt times out (`RetryError::Cancelled` with timeout message)
     /// * The retry operation is cancelled for any reason (`RetryError::Cancelled`)
     /// * An internal error occurs in the retry mechanism (`RetryError::Internal`)
-    pub async fn execute_with_timeout<F, T>(
+    pub async fn execute_with_timeout<F, Fut, T>(
         &self,
         mut operation: F,
         timeout: Duration,
     ) -> std::result::Result<T, RetryError>
     where
-        F: FnMut() -> RetryFuture<T>,
+        F: FnMut() -> Fut,
+        Fut: Future<Output = std::result::Result<T, RetryBoxError>> + Send,
         T: Send + 'static,
     {
         let mut attempts: u32 = 0;

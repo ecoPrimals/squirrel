@@ -52,12 +52,10 @@ chrono = { version = "0.4", features = ["serde"] }
 url = "2.5"
 
 # Additional common dependencies
-async-recursion = "1.0"
 bytes = { version = "1.5", features = ["serde"] }
 regex = "1.10"
 serde_yaml_ng = "0.10"
 dashmap = "5.5"
-semver = "1.0"
 
 # More common dependencies
 rand = "0.9"
@@ -92,7 +90,6 @@ strum = { version = "0.27", features = ["derive"] }
 
 # Dev and test dependencies
 tokio-test = "0.4"
-test-case = "3.0"
 tempfile = "3.8"
 pretty_assertions = "1.4"
 proptest = "1.10.0"
@@ -113,8 +110,7 @@ metrics-exporter-prometheus = "0.12"
 # HTTP / AI client (optional; ai-tools + mcp)
 tokio-stream = { version = "0.1", features = ["sync"] }
 axum = { version = "0.7", features = ["json"] }
-tower = "0.4"
-tower-http = { version = "0.5", features = ["cors", "trace"] }
+# tower/tower-http: REMOVED — HTTP middleware moves to Songbird mesh via IPC
 
 # mcp-specific externals
 serde_bytes = "0.11"

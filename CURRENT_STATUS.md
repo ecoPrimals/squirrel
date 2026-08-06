@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: Aug 6, 2026 (Wave 156z — Orphan Crate Excise + Debt Cleanup)
+**Last Updated**: Aug 6, 2026 (Wave 157a — Dep Cleanup + Lint Hygiene + Retry Modernization)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -12,20 +12,20 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors, **0 warnings** |
-| Tests | **5,753** passing / 0 failures across 13 workspace crates (default features) |
+| Tests | **5,668** passing / 0 failures across 13 workspace crates (default features) |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn`; `async-trait` only remains as transitive dev-dep from `wasm-bindgen-test` |
 | Clippy | CLEAN — `pedantic + nursery + cargo`, `expect_used/unwrap_used = deny` workspace-wide; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
-| Unsafe Code | 0 in production — `unsafe_code = "forbid"` in workspace `[lints.rust]` (all 16 crates) |
+| Unsafe Code | 0 in production — `unsafe_code = "forbid"` in workspace `[lints.rust]` (all 13 crates) |
 | Pure Rust | 100% default features **and** `--all-features` (zero C deps, zero non-Rust crypto); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed; `ed25519-dalek` feature-gated behind `local-crypto`; `blake3` → `features = ["pure"]` (no SIMD assembly); `pprof`, `openai`, `libloading`, `nvml-wrapper` removed; `nix` → `rustix` (pure Rust syscalls); `rand` upgraded 0.8→0.9.4 (RUSTSEC-2026-0097); `ring`/`reqwest`/`jsonwebtoken`/`rustls` **ELIMINATED** from Cargo.lock (stadial gate); `zstd`/`flate2`/`lz4_flex` **ELIMINATED** from Cargo.lock (compression feature emptied: `CompressionFormat` is metadata-only, no codec wired) |
 | ecoBin | Compliant v3.0 — 4.4 MB static-pie musl binary, stripped, BLAKE3 checksummed, zero host paths (`--remap-path-prefix`), zero dynamic deps; `deny.toml` bans 14 C-dep crates + `tokio-tungstenite` (Tower Atomic) + `reqwest` (Tower Atomic); pure Rust `sys_info` via `/proc` parsing |
 | Coverage | **90.1%** region coverage / 89.6% line coverage via `cargo-llvm-cov` (**target met**); remaining uncovered: binary entry points, demo bins, WASM-only SDK paths, live IPC server loops |
 | `.unwrap()` in code | 0 — workspace-wide elimination; all Results use `?` or `.expect("invariant")` |
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors + `anyhow::Result` (`PrimalError`, `AIToolsError`, `SDKError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`, `anyhow::Error`) |
-| Crates | 16 workspace members |
+| Crates | 13 workspace members |
 | Files >800 lines (prod) | 0 — `compute_client/types.rs` split (788→482L); `federation/service.rs` split (784→449L); `universal_executor.rs` split (794→633L); `routing/agent.rs` split (794→479L); `jsonrpc_server.rs` split (829→336L); `provider_trait.rs` refactored 983→728L; `env_vars.rs` (1091L) → module tree (36 files, max 107L); visualization thinned (~1,800L removed); largest prod file: 777L |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]`; 1 `#[allow]` remains with documented reason: 1 `dead_code` on trait method (Rust 1.94: `#[expect]` unfulfilled in check but needed under test compilation); `PrimalDependency.primal_type` evolved to `String` — no deprecated field, no `#[allow(deprecated)]` needed; dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |

@@ -11,7 +11,7 @@ async fn test_retry_success_first_attempt() {
     let retry = RetryMechanism::default();
 
     let result = retry
-        .execute(|| Box::pin(async { Ok::<i32, Box<dyn StdError + Send + Sync>>(42) }))
+        .execute(|| async { Ok::<i32, RetryBoxError>(42) })
         .await;
 
     assert!(result.is_ok());
@@ -39,17 +39,15 @@ async fn test_retry_success_after_failure() {
     let result: std::result::Result<i32, RetryError> = retry
         .execute(|| {
             let attempts_clone = attempts.clone();
-            Box::pin(async move {
+            async move {
                 attempts_clone.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
                 if attempts_clone.load(std::sync::atomic::Ordering::SeqCst) < 2 {
-                    Err(Box::<dyn StdError + Send + Sync>::from(
-                        "Temporary failure".to_string(),
-                    ))
+                    Err(RetryBoxError::from("Temporary failure".to_string()))
                 } else {
                     Ok(42)
                 }
-            })
+            }
         })
         .await;
 
@@ -79,14 +77,11 @@ async fn test_retry_max_attempts_exceeded() {
     let result: std::result::Result<i32, RetryError> = retry
         .execute(|| {
             let attempts_clone = attempts.clone();
-            Box::pin(async move {
+            async move {
                 attempts_clone.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
-                // Always fail
-                Err(Box::<dyn StdError + Send + Sync>::from(
-                    "Persistent failure".to_string(),
-                ))
-            })
+                Err(RetryBoxError::from("Persistent failure".to_string()))
+            }
         })
         .await;
 
@@ -141,16 +136,12 @@ async fn test_reset_metrics() {
 
     // Execute a successful operation
     let _: std::result::Result<i32, RetryError> = retry
-        .execute(|| Box::pin(async { Ok::<i32, Box<dyn StdError + Send + Sync>>(42) }))
+        .execute(|| async { Ok::<i32, RetryBoxError>(42) })
         .await;
 
     // Execute a failing operation
     let _: std::result::Result<i32, RetryError> = retry
-        .execute(|| {
-            Box::pin(async {
-                Err::<i32, Box<dyn StdError + Send + Sync>>(Box::from("Failure".to_string()))
-            })
-        })
+        .execute(|| async { Err::<i32, RetryBoxError>(RetryBoxError::from("Failure".to_string())) })
         .await;
 
     // Verify metrics were recorded
@@ -187,28 +178,21 @@ async fn test_predicate_retry() {
         .execute_with_predicate(
             move || {
                 let count = counter_clone.fetch_add(1, Ordering::SeqCst);
-                let future: RetryFuture<()> = if count < 2 {
-                    // Return an I/O error for the first two attempts
-                    Box::pin(async {
+                async move {
+                    if count < 2 {
                         Err(Box::new(std::io::Error::new(
                             std::io::ErrorKind::ConnectionReset,
                             "Connection reset",
-                        ))
-                            as Box<dyn StdError + Send + Sync>)
-                    })
-                } else if count < 3 {
-                    // Return a permission error which shouldn't be retried
-                    Box::pin(async {
+                        )) as RetryBoxError)
+                    } else if count < 3 {
                         Err(Box::new(std::io::Error::new(
                             std::io::ErrorKind::PermissionDenied,
                             "Permission denied",
-                        ))
-                            as Box<dyn StdError + Send + Sync>)
-                    })
-                } else {
-                    Box::pin(async { Ok(()) })
-                };
-                future
+                        )) as RetryBoxError)
+                    } else {
+                        Ok(())
+                    }
+                }
             },
             |err| {
                 // Only retry connection errors, not permission errors
@@ -247,17 +231,12 @@ async fn test_execute_with_timeout() {
         .execute_with_timeout(
             move || {
                 let count = counter_clone.fetch_add(1, Ordering::SeqCst);
-                let future: RetryFuture<()> = if count < 2 {
-                    // Simulate an operation that takes too long
-                    Box::pin(async {
+                async move {
+                    if count < 2 {
                         tokio::time::sleep(Duration::from_millis(50)).await;
-                        Ok(())
-                    })
-                } else {
-                    // Third attempt succeeds quickly
-                    Box::pin(async { Ok(()) })
-                };
-                future
+                    }
+                    Ok::<(), RetryBoxError>(())
+                }
             },
             Duration::from_millis(10),
         )

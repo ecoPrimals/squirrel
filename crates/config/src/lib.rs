@@ -2,7 +2,14 @@
 // ORC-Notice: Configuration mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        reason = "test code needs direct assertions"
+    )
+)]
 #![warn(missing_docs)]
 #![expect(
     clippy::missing_errors_doc,

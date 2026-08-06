@@ -48,3 +48,4 @@ tarpaulin-report.json
 *.profraw
 *.profdata
 command_history.json
+*.rlib

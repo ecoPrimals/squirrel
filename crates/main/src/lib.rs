@@ -25,6 +25,7 @@
         clippy::many_single_char_names,
         clippy::needless_pass_by_value,
         clippy::default_trait_access,
+        reason = "test code needs direct assertions and concise literals"
     )
 )]
 // Progressive lint tightening — architectural lints deferred until trait/API stabilization.

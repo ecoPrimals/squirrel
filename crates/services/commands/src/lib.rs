@@ -36,7 +36,14 @@
 )]
 //!
 //! Core command processing functionality for the Squirrel MCP ecosystem.
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        reason = "test code needs direct assertions"
+    )
+)]
 #![warn(missing_docs)]
 //! This service handles basic command execution and validation.
 
