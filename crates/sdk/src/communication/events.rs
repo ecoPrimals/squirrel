@@ -7,12 +7,13 @@
 
 use std::collections::HashMap;
 
-use crate::infrastructure::error::PluginResult;
+use crate::infrastructure::error::Result as PluginResult;
 use crate::utils::{current_timestamp_iso, generate_listener_id};
 use serde::{Deserialize, Serialize};
 use std::future::Future;
 use std::pin::Pin;
 use tokio::sync::Mutex as TokioMutex;
+use universal_error::sdk::CommunicationError;
 
 /// Event data structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -263,25 +264,18 @@ impl EventBus {
 
             // Check if a listener was actually removed
             if event_listeners.len() == original_len {
-                return Err(
-                    crate::infrastructure::error::PluginError::EventHandlingError {
-                        event_type: event_type.to_string(),
-                        message: format!("Listener with ID '{}' not found", listener_id),
-                    },
-                );
+                return Err(CommunicationError::Event(format!(
+                    "{event_type}: listener '{listener_id}' not found"
+                )).into());
             }
 
-            // If no listeners remain for this event type, remove the entry entirely
             if event_listeners.is_empty() {
                 listeners.remove(event_type);
             }
         } else {
-            return Err(
-                crate::infrastructure::error::PluginError::EventHandlingError {
-                    event_type: event_type.to_string(),
-                    message: format!("Event listeners for type '{}' not found", event_type),
-                },
-            );
+            return Err(CommunicationError::Event(format!(
+                "{event_type}: no listeners registered"
+            )).into());
         }
 
         Ok(())
@@ -289,19 +283,15 @@ impl EventBus {
 
     /// Unsubscribe from an event (sync version for backward compatibility)
     pub fn unsubscribe(&self, event_type: &str, listener_id: &str) -> PluginResult<()> {
-        // Try non-blocking first
         if let Ok(mut listeners) = self.listeners.try_lock() {
             if let Some(event_listeners) = listeners.get_mut(event_type) {
                 let original_len = event_listeners.len();
                 event_listeners.retain(|entry| entry.id != listener_id);
 
                 if event_listeners.len() == original_len {
-                    return Err(
-                        crate::infrastructure::error::PluginError::EventHandlingError {
-                            event_type: event_type.to_string(),
-                            message: format!("Listener with ID '{}' not found", listener_id),
-                        },
-                    );
+                    return Err(CommunicationError::Event(format!(
+                        "{event_type}: listener '{listener_id}' not found"
+                    )).into());
                 }
 
                 if event_listeners.is_empty() {
@@ -309,12 +299,9 @@ impl EventBus {
                 }
                 return Ok(());
             } else {
-                return Err(
-                    crate::infrastructure::error::PluginError::EventHandlingError {
-                        event_type: event_type.to_string(),
-                        message: format!("Event listeners for type '{}' not found", event_type),
-                    },
-                );
+                return Err(CommunicationError::Event(format!(
+                    "{event_type}: no listeners registered"
+                )).into());
             }
         }
 
@@ -383,10 +370,10 @@ pub mod event_types {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infrastructure::error::PluginError;
     use futures::FutureExt;
     use std::sync::Arc;
     use tokio::sync::Mutex as TokioMutex;
+    use universal_error::sdk::SDKError;
 
     #[derive(Debug)]
     struct TestListener {
@@ -407,7 +394,7 @@ mod tests {
         fn handle_event(
             &self,
             event: Event,
-        ) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+        ) -> Pin<Box<dyn Future<Output = Result<(), SDKError>> + Send + '_>> {
             async move {
                 let mut events = self.received_events.lock().await;
                 events.push(event);
@@ -531,13 +518,8 @@ mod tests {
             fn handle_event(
                 &self,
                 _event: Event,
-            ) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
-                async move {
-                    Err(PluginError::InternalError {
-                        message: "fail".into(),
-                    })
-                }
-                .boxed()
+            ) -> Pin<Box<dyn Future<Output = Result<(), SDKError>> + Send + '_>> {
+                async move { Err(SDKError::General("fail".into())) }.boxed()
             }
         }
 
@@ -559,7 +541,7 @@ mod tests {
             fn handle_event(
                 &self,
                 _event: Event,
-            ) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+            ) -> Pin<Box<dyn Future<Output = Result<(), SDKError>> + Send + '_>> {
                 let n = self.n.clone();
                 async move {
                     *n.lock().await += 1;

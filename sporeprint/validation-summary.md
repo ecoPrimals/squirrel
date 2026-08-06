@@ -1,12 +1,21 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,455 tests (default features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,077 tests (default features), 44 IPC methods."
 date = 2026-08-06
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 156p — PluginError → SDKError Migration (Aug 6, 2026)
+
+- SDK error system fully migrated from deprecated `PluginError` (44 variants, ~580 refs) to `SDKError` hierarchy
+- 15 consumer files migrated (config, operations, manager, plugin_config, utils, events, connection, http, fs, commands, http_types, context, message)
+- Common `From` impls moved to `universal-error/src/sdk.rs` (orphan-rule compliant)
+- 50KB dead infrastructure deleted: severity.rs, severity_tests.rs, context.rs, macros.rs
+- `PluginError` enum quarantined as `pub(crate)` fossil for serde backward compat
+- 0 warnings, 6,077 tests passing
 
 ## Wave 156o — Pre-sized Collections + String Builder + API Ergonomics (Aug 6, 2026)
 

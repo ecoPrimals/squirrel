@@ -6,8 +6,9 @@
 //! This module provides configuration loading and management capabilities for WASM plugins.
 //! Configuration is validated and access is controlled through sandbox permissions.
 
-use crate::error::{PluginError, PluginResult};
+use super::error::Result;
 use serde::{Deserialize, Serialize};
+use universal_error::sdk::InfrastructureError;
 use universal_constants::env_vars;
 #[cfg(target_arch = "wasm32")]
 use universal_constants::network::get_bind_address;
@@ -48,7 +49,7 @@ impl PluginSdkConfig {
     }
 
     /// Validate the entire configuration
-    pub fn validate(&self) -> PluginResult<()> {
+    pub fn validate(&self) -> Result<()> {
         self.plugin.validate()?;
         self.mcp.validate()?;
         self.logging.validate()?;
@@ -136,33 +137,37 @@ impl McpClientConfig {
     }
 
     /// Validate MCP configuration
-    pub fn validate(&self) -> PluginResult<()> {
+    pub fn validate(&self) -> Result<()> {
         if self.server_url.is_empty() {
-            return Err(PluginError::InvalidConfiguration {
-                message: "MCP server URL cannot be empty".to_string(),
-            });
+            return Err(
+                InfrastructureError::Configuration("MCP server URL cannot be empty".to_string())
+                    .into(),
+            );
         }
 
         #[cfg(not(target_arch = "wasm32"))]
         {
             let u = self.server_url.trim();
             if u.starts_with("ws://") || u.starts_with("wss://") {
-                return Err(PluginError::InvalidConfiguration {
-                    message: "MCP_SERVER_URL cannot use ws:// or wss:// on native targets; use unix://… IPC (Tower Atomic / service mesh).".to_string(),
-                });
+                return Err(InfrastructureError::Configuration(
+                    "MCP_SERVER_URL cannot use ws:// or wss:// on native targets; use unix://… IPC (Tower Atomic / service mesh).".to_string(),
+                )
+                .into());
             }
         }
 
         if self.timeout_ms == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "MCP timeout must be greater than 0".to_string(),
-            });
+            return Err(
+                InfrastructureError::Configuration("MCP timeout must be greater than 0".to_string())
+                    .into(),
+            );
         }
 
         if self.max_message_size == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "MCP max message size must be greater than 0".to_string(),
-            });
+            return Err(InfrastructureError::Configuration(
+                "MCP max message size must be greater than 0".to_string(),
+            )
+            .into());
         }
 
         Ok(())
@@ -216,21 +221,21 @@ impl LoggingConfig {
     }
 
     /// Validate logging configuration
-    pub fn validate(&self) -> PluginResult<()> {
+    pub fn validate(&self) -> Result<()> {
         let valid_levels = ["trace", "debug", "info", "warn", "error"];
         if !valid_levels.contains(&self.min_level.as_str()) {
-            return Err(PluginError::InvalidConfiguration {
-                message: format!(
-                    "Invalid log level '{}', must be one of: {:?}",
-                    self.min_level, valid_levels
-                ),
-            });
+            return Err(InfrastructureError::Configuration(format!(
+                "Invalid log level '{}', must be one of: {:?}",
+                self.min_level, valid_levels
+            ))
+            .into());
         }
 
         if self.max_entries == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "Log max entries must be greater than 0".to_string(),
-            });
+            return Err(InfrastructureError::Configuration(
+                "Log max entries must be greater than 0".to_string(),
+            )
+            .into());
         }
 
         Ok(())
@@ -292,23 +297,26 @@ impl NetworkConfig {
     }
 
     /// Validate network configuration
-    pub fn validate(&self) -> PluginResult<()> {
+    pub fn validate(&self) -> Result<()> {
         if self.host.is_empty() {
-            return Err(PluginError::InvalidConfiguration {
-                message: "Network host cannot be empty".to_string(),
-            });
+            return Err(
+                InfrastructureError::Configuration("Network host cannot be empty".to_string())
+                    .into(),
+            );
         }
 
         if self.port == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "Network port must be greater than 0".to_string(),
-            });
+            return Err(InfrastructureError::Configuration(
+                "Network port must be greater than 0".to_string(),
+            )
+            .into());
         }
 
         if self.max_connections == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "Max connections must be greater than 0".to_string(),
-            });
+            return Err(InfrastructureError::Configuration(
+                "Max connections must be greater than 0".to_string(),
+            )
+            .into());
         }
 
         Ok(())
@@ -362,29 +370,33 @@ impl HttpConfig {
     }
 
     /// Validate HTTP configuration
-    pub fn validate(&self) -> PluginResult<()> {
+    pub fn validate(&self) -> Result<()> {
         if self.default_timeout_ms == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "HTTP default timeout must be greater than 0".to_string(),
-            });
+            return Err(InfrastructureError::Configuration(
+                "HTTP default timeout must be greater than 0".to_string(),
+            )
+            .into());
         }
 
         if self.max_request_size == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "HTTP max request size must be greater than 0".to_string(),
-            });
+            return Err(InfrastructureError::Configuration(
+                "HTTP max request size must be greater than 0".to_string(),
+            )
+            .into());
         }
 
         if self.max_response_size == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "HTTP max response size must be greater than 0".to_string(),
-            });
+            return Err(InfrastructureError::Configuration(
+                "HTTP max response size must be greater than 0".to_string(),
+            )
+            .into());
         }
 
         if self.user_agent.is_empty() {
-            return Err(PluginError::InvalidConfiguration {
-                message: "HTTP user agent cannot be empty".to_string(),
-            });
+            return Err(
+                InfrastructureError::Configuration("HTTP user agent cannot be empty".to_string())
+                    .into(),
+            );
         }
 
         Ok(())
@@ -440,35 +452,40 @@ impl PerformanceConfig {
     }
 
     /// Validate performance configuration
-    pub fn validate(&self) -> PluginResult<()> {
+    pub fn validate(&self) -> Result<()> {
         if self.max_plugin_id_length == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "Max plugin ID length must be greater than 0".to_string(),
-            });
+            return Err(InfrastructureError::Configuration(
+                "Max plugin ID length must be greater than 0".to_string(),
+            )
+            .into());
         }
 
         if self.string_pool_capacity == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "String pool capacity must be greater than 0".to_string(),
-            });
+            return Err(InfrastructureError::Configuration(
+                "String pool capacity must be greater than 0".to_string(),
+            )
+            .into());
         }
 
         if self.batch_processor_size == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "Batch processor size must be greater than 0".to_string(),
-            });
+            return Err(InfrastructureError::Configuration(
+                "Batch processor size must be greater than 0".to_string(),
+            )
+            .into());
         }
 
         if self.fs_buffer_size == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "File system buffer size must be greater than 0".to_string(),
-            });
+            return Err(InfrastructureError::Configuration(
+                "File system buffer size must be greater than 0".to_string(),
+            )
+            .into());
         }
 
         if self.session_timeout_seconds == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "Session timeout must be greater than 0".to_string(),
-            });
+            return Err(InfrastructureError::Configuration(
+                "Session timeout must be greater than 0".to_string(),
+            )
+            .into());
         }
 
         Ok(())
@@ -483,6 +500,7 @@ pub use super::plugin_config::*;
 mod tests {
     use super::*;
     use crate::plugin::Permission;
+    use universal_error::sdk::{InfrastructureError, SDKError};
 
     #[test]
     fn test_default_config() {
@@ -501,12 +519,20 @@ mod tests {
 
         // Empty name should fail
         config.metadata.name = String::new();
-        assert!(config.validate().is_err());
+        let err = config.validate().unwrap_err();
+        assert!(matches!(
+            err,
+            SDKError::Infrastructure(InfrastructureError::Configuration(_))
+        ));
 
         // Invalid version should fail
         config.metadata.name = "test".to_string();
         config.metadata.version = "invalid".to_string();
-        assert!(config.validate().is_err());
+        let err = config.validate().unwrap_err();
+        assert!(matches!(
+            err,
+            SDKError::Infrastructure(InfrastructureError::Configuration(_))
+        ));
     }
 
     #[test]
@@ -529,8 +555,11 @@ mod tests {
         config
             .settings
             .insert("n".to_string(), serde_json::json!(42));
-        let err: Result<Option<String>, _> = config.get_setting("n");
-        assert!(err.is_err());
+        let err = config.get_setting::<String>("n").unwrap_err();
+        assert!(matches!(
+            err,
+            SDKError::Communication(_) | SDKError::General(_)
+        ));
     }
 
     #[test]
@@ -643,6 +672,16 @@ mod tests {
     fn test_sandbox_config_validation() {
         let config = SandboxConfig::from_env();
         assert!(config.validate().is_ok());
+
+        let invalid = SandboxConfig {
+            memory_limit_mb: 0,
+            ..config.clone()
+        };
+        let err = invalid.validate().unwrap_err();
+        assert!(matches!(
+            err,
+            SDKError::Infrastructure(InfrastructureError::Configuration(_))
+        ));
     }
 
     #[test]

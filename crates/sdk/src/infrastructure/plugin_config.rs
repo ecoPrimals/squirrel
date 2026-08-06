@@ -6,8 +6,9 @@
 //! Extracted from the main config module to keep the infrastructure env-config
 //! types separate from the plugin-domain serde/manifest types.
 
-use crate::error::{PluginError, PluginResult};
+use super::error::Result;
 use crate::plugin::Permission;
+use universal_error::sdk::InfrastructureError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -142,23 +143,30 @@ impl SandboxConfig {
     }
 
     /// Validate sandbox configuration
-    pub fn validate(&self) -> PluginResult<()> {
+    pub fn validate(&self) -> Result<()> {
         if self.memory_limit_mb == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "Memory limit must be greater than 0".to_string(),
-            });
+            return Err(
+                InfrastructureError::Configuration("Memory limit must be greater than 0".to_string())
+                    .into(),
+            );
         }
 
         if self.cpu_limit_percent == 0 || self.cpu_limit_percent > 100 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "CPU limit must be between 1 and 100".to_string(),
-            });
+            return Err(
+                InfrastructureError::Configuration(
+                    "CPU limit must be between 1 and 100".to_string(),
+                )
+                .into(),
+            );
         }
 
         if self.execution_timeout_seconds == 0 {
-            return Err(PluginError::InvalidConfiguration {
-                message: "Execution timeout must be greater than 0".to_string(),
-            });
+            return Err(
+                InfrastructureError::Configuration(
+                    "Execution timeout must be greater than 0".to_string(),
+                )
+                .into(),
+            );
         }
 
         Ok(())
@@ -250,23 +258,27 @@ pub struct PluginDependency {
 
 impl PluginConfig {
     /// Validate the configuration
-    pub fn validate(&self) -> PluginResult<()> {
+    pub fn validate(&self) -> Result<()> {
         if self.metadata.name.is_empty() {
-            return Err(PluginError::InvalidConfiguration {
-                message: "Plugin name cannot be empty".to_string(),
-            });
+            return Err(
+                InfrastructureError::Configuration("Plugin name cannot be empty".to_string()).into(),
+            );
         }
 
         if self.metadata.version.is_empty() {
-            return Err(PluginError::InvalidConfiguration {
-                message: "Plugin version cannot be empty".to_string(),
-            });
+            return Err(
+                InfrastructureError::Configuration("Plugin version cannot be empty".to_string())
+                    .into(),
+            );
         }
 
         if !self.metadata.version.chars().any(|c| c.is_ascii_digit()) {
-            return Err(PluginError::InvalidConfiguration {
-                message: "Plugin version must contain at least one digit".to_string(),
-            });
+            return Err(
+                InfrastructureError::Configuration(
+                    "Plugin version must contain at least one digit".to_string(),
+                )
+                .into(),
+            );
         }
 
         for permission in &self.permissions {
@@ -304,7 +316,7 @@ impl PluginConfig {
     }
 
     /// Get a setting value by key
-    pub fn get_setting<T>(&self, key: &str) -> PluginResult<Option<T>>
+    pub fn get_setting<T>(&self, key: &str) -> Result<Option<T>>
     where
         T: for<'de> Deserialize<'de>,
     {
@@ -318,7 +330,7 @@ impl PluginConfig {
     }
 
     /// Set a setting value
-    pub fn set_setting<T>(&mut self, key: &str, value: T) -> PluginResult<()>
+    pub fn set_setting<T>(&mut self, key: &str, value: T) -> Result<()>
     where
         T: Serialize,
     {

@@ -8,7 +8,7 @@
 
 use super::connection::ConnectionManager;
 use super::types::McpMessage;
-use crate::infrastructure::error::PluginResult;
+use crate::infrastructure::error::Result;
 use tracing::{debug, info, warn};
 
 /// Message handler for MCP protocol
@@ -78,7 +78,7 @@ impl MessageHandler {
         &mut self,
         connection: &mut ConnectionManager,
         message: &McpMessage,
-    ) -> PluginResult<()> {
+    ) -> Result<()> {
         let message_json = serde_json::to_string(message)?;
         debug!("Sending MCP message: {}", message_json);
 
@@ -115,7 +115,7 @@ impl MessageHandler {
     pub async fn handle_incoming_message(
         &mut self,
         message_json: &str,
-    ) -> PluginResult<McpMessage> {
+    ) -> Result<McpMessage> {
         let message: McpMessage = serde_json::from_str(message_json)?;
         debug!("Received MCP message: {:?}", message);
         Ok(message)
@@ -153,7 +153,7 @@ impl MessageHandler {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn handle_notification(&mut self, message: &McpMessage) -> PluginResult<()> {
+    pub async fn handle_notification(&mut self, message: &McpMessage) -> Result<()> {
         match message.message_type.as_str() {
             "ping" => {
                 debug!("Received ping from server");
@@ -284,6 +284,7 @@ impl Default for MessageHandler {
 mod tests {
     use super::*;
     use serde_json::json;
+    use universal_error::sdk::{CommunicationError, SDKError};
 
     #[test]
     fn test_message_handler_creation() {
@@ -349,7 +350,10 @@ mod tests {
         let invalid_json = r#"{"invalid": json}"#;
 
         let result = handler.handle_incoming_message(invalid_json).await;
-        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(SDKError::Communication(CommunicationError::Serialization(_)))
+        ));
     }
 
     #[tokio::test]

@@ -5,8 +5,9 @@
 //!
 //! This module provides command registration and execution capabilities for WASM plugins.
 
-use crate::error::{PluginError, PluginResult};
+use crate::infrastructure::error::Result;
 use crate::utils::{generate_command_id, safe_lock, safe_lock_or_fallback};
+use universal_error::sdk::{CommunicationError, SDKError};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -135,7 +136,7 @@ pub trait CommandHandler: Send + Sync + std::fmt::Debug {
         &self,
         params: serde_json::Value,
         context: CommandContext,
-    ) -> futures::future::BoxFuture<'_, PluginResult<CommandResult>>;
+    ) -> futures::future::BoxFuture<'_, Result<CommandResult>>;
 }
 
 /// Command registry for managing plugin commands
@@ -170,13 +171,14 @@ impl CommandRegistry {
     }
 
     /// Register a command
-    pub async fn register_command(&self, definition: CommandDefinition) -> PluginResult<()> {
+    pub async fn register_command(&self, definition: CommandDefinition) -> Result<()> {
         let mut commands = safe_lock(&self.commands, "commands")?;
 
         if commands.contains_key(&definition.name) {
-            return Err(PluginError::PluginAlreadyExists {
-                plugin_id: format!("Command '{}' already registered", definition.name),
-            });
+            return Err(SDKError::General(format!(
+                "Plugin already exists: Command '{}' already registered",
+                definition.name
+            )));
         }
 
         commands.insert(definition.name.clone(), definition);
@@ -188,7 +190,7 @@ impl CommandRegistry {
         &self,
         definition: CommandDefinition,
         handler: H,
-    ) -> PluginResult<()>
+    ) -> Result<()>
     where
         H: CommandHandler + Send + Sync + 'static,
     {
@@ -203,7 +205,7 @@ impl CommandRegistry {
     }
 
     /// Unregister a command
-    pub async fn unregister_command(&self, name: &str) -> PluginResult<()> {
+    pub async fn unregister_command(&self, name: &str) -> Result<()> {
         {
             let mut commands = safe_lock(&self.commands, "commands")?;
             commands.remove(name);
@@ -236,12 +238,12 @@ impl CommandRegistry {
         name: &str,
         params: serde_json::Value,
         context: CommandContext,
-    ) -> PluginResult<CommandResult> {
+    ) -> Result<CommandResult> {
         // Get command definition
         let command = self
             .get_command(name)
-            .ok_or_else(|| PluginError::UnknownCommand {
-                command: name.to_string(),
+            .ok_or_else(|| {
+                SDKError::Communication(CommunicationError::Command(format!("unknown: {name}")))
             })?;
 
         // Validate parameters
@@ -251,8 +253,10 @@ impl CommandRegistry {
         let handlers = self.handlers.lock().await;
         let handler = handlers
             .get(name)
-            .ok_or_else(|| PluginError::UnknownCommand {
-                command: format!("No handler for command: {}", name),
+            .ok_or_else(|| {
+                SDKError::Communication(CommunicationError::Command(format!(
+                    "unknown: No handler for command: {name}"
+                )))
             })?;
 
         // Execute command - tokio::Mutex is designed to be held across await points
@@ -264,7 +268,7 @@ impl CommandRegistry {
         &self,
         command: &CommandDefinition,
         params: &serde_json::Value,
-    ) -> PluginResult<()> {
+    ) -> Result<()> {
         // Basic validation - in a real implementation, you'd use a JSON schema validator
         if let Some(schema_obj) = command.parameters.as_object()
             && let Some(_properties) = schema_obj.get("properties").and_then(|p| p.as_object())
@@ -277,9 +281,9 @@ impl CommandRegistry {
                         .unwrap_or(&serde_json::Map::new())
                         .contains_key(field_name)
                 {
-                    return Err(PluginError::MissingParameter {
-                        parameter: field_name.to_string(),
-                    });
+                    return Err(SDKError::General(format!(
+                        "Missing required parameter: {field_name}"
+                    )));
                 }
             }
         }
@@ -313,7 +317,7 @@ where
     F: Fn(
             serde_json::Value,
             CommandContext,
-        ) -> futures::future::BoxFuture<'static, PluginResult<CommandResult>>
+        ) -> futures::future::BoxFuture<'static, Result<CommandResult>>
         + Send
         + Sync
         + std::fmt::Debug,
@@ -326,7 +330,7 @@ where
     F: Fn(
             serde_json::Value,
             CommandContext,
-        ) -> futures::future::BoxFuture<'static, PluginResult<CommandResult>>
+        ) -> futures::future::BoxFuture<'static, Result<CommandResult>>
         + Send
         + Sync
         + std::fmt::Debug,
@@ -342,7 +346,7 @@ where
     F: Fn(
             serde_json::Value,
             CommandContext,
-        ) -> futures::future::BoxFuture<'static, PluginResult<CommandResult>>
+        ) -> futures::future::BoxFuture<'static, Result<CommandResult>>
         + Send
         + Sync
         + std::fmt::Debug,
@@ -351,7 +355,7 @@ where
         &self,
         params: serde_json::Value,
         context: CommandContext,
-    ) -> futures::future::BoxFuture<'_, PluginResult<CommandResult>> {
+    ) -> futures::future::BoxFuture<'_, Result<CommandResult>> {
         Box::pin(async move { (self.handler_fn)(params, context).await })
     }
 }
@@ -379,7 +383,7 @@ mod tests {
             &self,
             params: serde_json::Value,
             _context: CommandContext,
-        ) -> futures::future::BoxFuture<'_, PluginResult<CommandResult>> {
+        ) -> futures::future::BoxFuture<'_, Result<CommandResult>> {
             async move { Ok(CommandResult::success(params)) }.boxed()
         }
     }

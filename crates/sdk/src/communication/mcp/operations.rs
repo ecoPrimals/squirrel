@@ -7,7 +7,8 @@
 //! tools, resources, and prompts management.
 
 use super::types::{McpPrompt, McpResource, McpTool};
-use crate::error::{PluginError, PluginResult};
+use crate::infrastructure::error::Result;
+use universal_error::sdk::CommunicationError;
 use tracing::debug;
 
 /// Operation handler for MCP protocol operations
@@ -79,19 +80,21 @@ impl OperationHandler {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn list_tools(&mut self) -> PluginResult<Vec<McpTool>> {
+    pub async fn list_tools(&mut self) -> Result<Vec<McpTool>> {
         self.operation_counter += 1;
         debug!("Listing tools (operation #{})", self.operation_counter);
 
         if !self.connected {
-            return Err(PluginError::McpError {
-                message: "list_tools: no MCP server connected".to_string(),
-            });
+            return Err(CommunicationError::MCP(
+                "list_tools: no MCP server connected".to_string(),
+            )
+            .into());
         }
 
-        Err(PluginError::McpError {
-            message: "list_tools: IPC transport not yet wired".to_string(),
-        })
+        Err(CommunicationError::MCP(
+            "list_tools: IPC transport not yet wired".to_string(),
+        )
+        .into())
     }
 
     /// Execute a tool
@@ -124,7 +127,7 @@ impl OperationHandler {
         &mut self,
         name: &str,
         input: serde_json::Value,
-    ) -> PluginResult<serde_json::Value> {
+    ) -> Result<serde_json::Value> {
         self.operation_counter += 1;
         debug!(
             "Executing tool '{}' (operation #{})",
@@ -132,15 +135,17 @@ impl OperationHandler {
         );
 
         if !self.connected {
-            return Err(PluginError::McpError {
-                message: format!("tool '{name}' not available: no MCP server connected"),
-            });
+            return Err(CommunicationError::MCP(format!(
+                "tool '{name}' not available: no MCP server connected"
+            ))
+            .into());
         }
 
         let _ = input;
-        Err(PluginError::McpError {
-            message: format!("tool '{name}': IPC transport not yet wired"),
-        })
+        Err(CommunicationError::MCP(format!(
+            "tool '{name}': IPC transport not yet wired"
+        ))
+        .into())
     }
 
     /// List available resources
@@ -162,19 +167,21 @@ impl OperationHandler {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn list_resources(&mut self) -> PluginResult<Vec<McpResource>> {
+    pub async fn list_resources(&mut self) -> Result<Vec<McpResource>> {
         self.operation_counter += 1;
         debug!("Listing resources (operation #{})", self.operation_counter);
 
         if !self.connected {
-            return Err(PluginError::McpError {
-                message: "list_resources: no MCP server connected".to_string(),
-            });
+            return Err(CommunicationError::MCP(
+                "list_resources: no MCP server connected".to_string(),
+            )
+            .into());
         }
 
-        Err(PluginError::McpError {
-            message: "list_resources: IPC transport not yet wired".to_string(),
-        })
+        Err(CommunicationError::MCP(
+            "list_resources: IPC transport not yet wired".to_string(),
+        )
+        .into())
     }
 
     /// Get a resource
@@ -200,7 +207,7 @@ impl OperationHandler {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn get_resource(&mut self, uri: &str) -> PluginResult<serde_json::Value> {
+    pub async fn get_resource(&mut self, uri: &str) -> Result<serde_json::Value> {
         self.operation_counter += 1;
         debug!(
             "Getting resource '{}' (operation #{})",
@@ -208,14 +215,16 @@ impl OperationHandler {
         );
 
         if !self.connected {
-            return Err(PluginError::McpError {
-                message: format!("resource '{uri}' not available: no MCP server connected"),
-            });
+            return Err(CommunicationError::MCP(format!(
+                "resource '{uri}' not available: no MCP server connected"
+            ))
+            .into());
         }
 
-        Err(PluginError::McpError {
-            message: format!("resource '{uri}': IPC transport not yet wired"),
-        })
+        Err(CommunicationError::MCP(format!(
+            "resource '{uri}': IPC transport not yet wired"
+        ))
+        .into())
     }
 
     /// List available prompts
@@ -237,19 +246,21 @@ impl OperationHandler {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn list_prompts(&mut self) -> PluginResult<Vec<McpPrompt>> {
+    pub async fn list_prompts(&mut self) -> Result<Vec<McpPrompt>> {
         self.operation_counter += 1;
         debug!("Listing prompts (operation #{})", self.operation_counter);
 
         if !self.connected {
-            return Err(PluginError::McpError {
-                message: "list_prompts: no MCP server connected".to_string(),
-            });
+            return Err(CommunicationError::MCP(
+                "list_prompts: no MCP server connected".to_string(),
+            )
+            .into());
         }
 
-        Err(PluginError::McpError {
-            message: "list_prompts: IPC transport not yet wired".to_string(),
-        })
+        Err(CommunicationError::MCP(
+            "list_prompts: IPC transport not yet wired".to_string(),
+        )
+        .into())
     }
 
     /// Get a prompt
@@ -282,7 +293,7 @@ impl OperationHandler {
         &mut self,
         name: &str,
         parameters: serde_json::Value,
-    ) -> PluginResult<McpPrompt> {
+    ) -> Result<McpPrompt> {
         self.operation_counter += 1;
         debug!(
             "Getting prompt '{}' (operation #{})",
@@ -290,15 +301,17 @@ impl OperationHandler {
         );
 
         if !self.connected {
-            return Err(PluginError::McpError {
-                message: format!("prompt '{name}' not available: no MCP server connected"),
-            });
+            return Err(CommunicationError::MCP(format!(
+                "prompt '{name}' not available: no MCP server connected"
+            ))
+            .into());
         }
 
         let _ = parameters;
-        Err(PluginError::McpError {
-            message: format!("prompt '{name}': IPC transport not yet wired"),
-        })
+        Err(CommunicationError::MCP(format!(
+            "prompt '{name}': IPC transport not yet wired"
+        ))
+        .into())
     }
 }
 
@@ -312,6 +325,7 @@ impl Default for OperationHandler {
 mod tests {
     use super::*;
     use serde_json::json;
+    use universal_error::sdk::{CommunicationError, SDKError};
 
     #[test]
     fn test_operation_handler_creation() {
@@ -332,10 +346,10 @@ mod tests {
         let result = handler.list_tools().await;
         assert!(result.is_err());
         match result {
-            Err(PluginError::McpError { message }) => {
+            Err(SDKError::Communication(CommunicationError::MCP(message))) => {
                 assert!(message.contains("no MCP server connected"), "{message}");
             }
-            other => panic!("expected McpError, got {other:?}"),
+            other => panic!("expected MCP communication error, got {other:?}"),
         }
     }
 
@@ -345,10 +359,10 @@ mod tests {
         let result = handler.list_tools().await;
         assert!(result.is_err());
         match result {
-            Err(PluginError::McpError { message }) => {
+            Err(SDKError::Communication(CommunicationError::MCP(message))) => {
                 assert!(message.contains("IPC transport not yet wired"), "{message}");
             }
-            other => panic!("expected McpError, got {other:?}"),
+            other => panic!("expected MCP communication error, got {other:?}"),
         }
     }
 
@@ -359,11 +373,11 @@ mod tests {
         let result = handler.execute_tool("calculator", input).await;
         assert!(result.is_err());
         match result {
-            Err(PluginError::McpError { message }) => {
+            Err(SDKError::Communication(CommunicationError::MCP(message))) => {
                 assert!(message.contains("calculator"));
                 assert!(message.contains("no MCP server connected"));
             }
-            _ => panic!("expected McpError"),
+            _ => panic!("expected MCP communication error"),
         }
     }
 
@@ -373,10 +387,10 @@ mod tests {
         let result = handler.list_resources().await;
         assert!(result.is_err());
         match result {
-            Err(PluginError::McpError { message }) => {
+            Err(SDKError::Communication(CommunicationError::MCP(message))) => {
                 assert!(message.contains("no MCP server connected"));
             }
-            _ => panic!("expected McpError"),
+            _ => panic!("expected MCP communication error"),
         }
     }
 
@@ -386,11 +400,11 @@ mod tests {
         let result = handler.get_resource("file:///config/app.json").await;
         assert!(result.is_err());
         match result {
-            Err(PluginError::McpError { message }) => {
+            Err(SDKError::Communication(CommunicationError::MCP(message))) => {
                 assert!(message.contains("file:///config/app.json"));
                 assert!(message.contains("no MCP server connected"));
             }
-            _ => panic!("expected McpError"),
+            _ => panic!("expected MCP communication error"),
         }
     }
 
@@ -400,10 +414,10 @@ mod tests {
         let result = handler.list_prompts().await;
         assert!(result.is_err());
         match result {
-            Err(PluginError::McpError { message }) => {
+            Err(SDKError::Communication(CommunicationError::MCP(message))) => {
                 assert!(message.contains("no MCP server connected"));
             }
-            _ => panic!("expected McpError"),
+            _ => panic!("expected MCP communication error"),
         }
     }
 
@@ -414,11 +428,11 @@ mod tests {
         let result = handler.get_prompt("summarize", params).await;
         assert!(result.is_err());
         match result {
-            Err(PluginError::McpError { message }) => {
+            Err(SDKError::Communication(CommunicationError::MCP(message))) => {
                 assert!(message.contains("summarize"));
                 assert!(message.contains("no MCP server connected"));
             }
-            _ => panic!("expected McpError"),
+            _ => panic!("expected MCP communication error"),
         }
     }
 }

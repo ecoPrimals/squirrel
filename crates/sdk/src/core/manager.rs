@@ -4,8 +4,9 @@
 //! Plugin lifecycle manager — registration, startup, shutdown of WASM plugins.
 
 use super::plugin::{PluginStatus, WasmPlugin};
-use crate::error::{PluginError, PluginResult};
+use crate::infrastructure::error::Result;
 use crate::utils::safe_lock;
+use universal_error::sdk::{InfrastructureError, SDKError};
 
 /// Manager for registered WASM plugins.
 pub struct PluginManager {
@@ -27,11 +28,11 @@ impl PluginManager {
     }
 
     /// Register a plugin
-    pub fn register_plugin(&self, id: String, plugin: Box<dyn WasmPlugin>) -> PluginResult<()> {
+    pub fn register_plugin(&self, id: String, plugin: Box<dyn WasmPlugin>) -> Result<()> {
         let mut plugins = safe_lock(&self.plugins, "plugins")?;
 
         if plugins.contains_key(&id) {
-            return Err(PluginError::PluginAlreadyExists { plugin_id: id });
+            return Err(SDKError::General(format!("plugin already exists: {id}")));
         }
 
         plugins.insert(id, plugin);
@@ -39,42 +40,41 @@ impl PluginManager {
     }
 
     /// Unregister a plugin
-    pub fn unregister_plugin(&self, id: &str) -> PluginResult<()> {
+    pub fn unregister_plugin(&self, id: &str) -> Result<()> {
         let mut plugins = safe_lock(&self.plugins, "plugins")?;
 
         if let Some(mut plugin) = plugins.remove(id)
             && let Err(e) = plugin.stop()
         {
-            return Err(PluginError::InternalError {
-                message: format!("Failed to stop plugin: {e:?}"),
-            });
+            return Err(SDKError::General(format!("Failed to stop plugin: {e:?}")));
         }
 
         Ok(())
     }
 
     /// Check if a plugin exists by ID
-    pub fn has_plugin(&self, id: &str) -> PluginResult<bool> {
+    pub fn has_plugin(&self, id: &str) -> Result<bool> {
         let plugins = safe_lock(&self.plugins, "plugins")?;
         Ok(plugins.contains_key(id))
     }
 
     /// List all plugin IDs
-    pub fn list_plugins(&self) -> PluginResult<Vec<String>> {
+    pub fn list_plugins(&self) -> Result<Vec<String>> {
         let plugins = safe_lock(&self.plugins, "plugins")?;
         Ok(plugins.keys().cloned().collect())
     }
 
     /// Start all plugins
-    pub fn start_all(&mut self) -> PluginResult<()> {
+    pub fn start_all(&mut self) -> Result<()> {
         let plugins = safe_lock(&self.plugins, "plugins")?;
 
         for (id, plugin) in plugins.iter() {
             let info = plugin.get_info();
             if matches!(info.state, PluginStatus::Uninitialized) {
-                return Err(PluginError::InitializationError {
-                    reason: format!("Plugin {id} is not initialized"),
-                });
+                return Err(
+                    InfrastructureError::Configuration(format!("Plugin {id} is not initialized"))
+                        .into(),
+                );
             }
         }
 
@@ -82,14 +82,12 @@ impl PluginManager {
     }
 
     /// Stop all plugins
-    pub fn stop_all(&mut self) -> PluginResult<()> {
+    pub fn stop_all(&mut self) -> Result<()> {
         let mut plugins = safe_lock(&self.plugins, "plugins")?;
 
         for plugin in plugins.values_mut() {
             if let Err(e) = plugin.stop() {
-                return Err(PluginError::InternalError {
-                    message: format!("Failed to stop plugin: {e:?}"),
-                });
+                return Err(SDKError::General(format!("Failed to stop plugin: {e:?}")));
             }
         }
 
@@ -123,10 +121,11 @@ macro_rules! register_plugin {
 /// Utility functions for plugin development
 pub mod utils {
     use super::super::plugin::{PluginContext, PluginInfo};
-    use crate::error::PluginResult;
+    use crate::infrastructure::error::Result;
+    use universal_error::sdk::InfrastructureError;
 
     /// Initialize the SDK for the current plugin
-    pub fn init_sdk(plugin_id: String) -> PluginResult<()> {
+    pub fn init_sdk(plugin_id: String) -> Result<()> {
         crate::internal::init_plugin_environment(&plugin_id)?;
         Ok(())
     }
@@ -142,29 +141,31 @@ pub mod utils {
     }
 
     /// Validate plugin info
-    pub fn validate_plugin_info(info: &PluginInfo) -> PluginResult<()> {
+    pub fn validate_plugin_info(info: &PluginInfo) -> Result<()> {
         if info.id.is_empty() {
-            return Err(crate::error::PluginError::InvalidConfiguration {
-                message: "Plugin ID cannot be empty".to_string(),
-            });
+            return Err(
+                InfrastructureError::Configuration("Plugin ID cannot be empty".to_string()).into(),
+            );
         }
 
         if info.name.is_empty() {
-            return Err(crate::error::PluginError::InvalidConfiguration {
-                message: "Plugin name cannot be empty".to_string(),
-            });
+            return Err(
+                InfrastructureError::Configuration("Plugin name cannot be empty".to_string())
+                    .into(),
+            );
         }
 
         if info.version.is_empty() {
-            return Err(crate::error::PluginError::InvalidConfiguration {
-                message: "Plugin version cannot be empty".to_string(),
-            });
+            return Err(
+                InfrastructureError::Configuration("Plugin version cannot be empty".to_string())
+                    .into(),
+            );
         }
 
         if semver::Version::parse(&info.version).is_err() {
-            return Err(crate::error::PluginError::InvalidConfiguration {
-                message: "Invalid version format".to_string(),
-            });
+            return Err(
+                InfrastructureError::Configuration("Invalid version format".to_string()).into(),
+            );
         }
 
         Ok(())
@@ -179,7 +180,7 @@ mod tests {
     use super::PluginManager;
     use super::utils;
     use crate::config::PluginConfig;
-    use crate::error::PluginError;
+    use universal_error::sdk::{InfrastructureError, SDKError};
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
     use wasm_bindgen::prelude::*;
@@ -291,7 +292,7 @@ mod tests {
             "p1".to_string(),
             Box::new(MockPlugin::new("p1", PluginStatus::Active, fail)),
         );
-        assert!(matches!(err, Err(PluginError::PluginAlreadyExists { .. })));
+        assert!(matches!(err, Err(SDKError::General(_))));
     }
 
     #[test]
@@ -305,7 +306,10 @@ mod tests {
         .expect("should succeed");
         let mut mgr = mgr;
         let err = mgr.start_all().unwrap_err();
-        assert!(matches!(err, PluginError::InitializationError { .. }));
+        assert!(matches!(
+            err,
+            SDKError::Infrastructure(InfrastructureError::Configuration(_))
+        ));
     }
 
     #[test]
@@ -334,7 +338,7 @@ mod tests {
         )
         .expect("should succeed");
         let err = mgr.unregister_plugin("bad").unwrap_err();
-        assert!(matches!(err, PluginError::InternalError { .. }));
+        assert!(matches!(err, SDKError::General(_)));
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -349,7 +353,7 @@ mod tests {
         .expect("should succeed");
         let mut mgr = mgr;
         let err = mgr.stop_all().unwrap_err();
-        assert!(matches!(err, PluginError::InternalError { .. }));
+        assert!(matches!(err, SDKError::General(_)));
     }
 
     #[test]

@@ -5,7 +5,7 @@
 //!
 //! This module provides context management for plugins running in the sandbox environment.
 
-use crate::error::PluginResult;
+use crate::infrastructure::error::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -71,7 +71,7 @@ impl PluginContext {
     }
 
     /// Get a value from context
-    pub fn get<T>(&self, key: &str) -> PluginResult<Option<T>>
+    pub fn get<T>(&self, key: &str) -> Result<Option<T>>
     where
         T: for<'de> Deserialize<'de>,
     {
@@ -83,7 +83,7 @@ impl PluginContext {
     }
 
     /// Set a value in context
-    pub fn set<T>(&mut self, key: &str, value: T) -> PluginResult<()>
+    pub fn set<T>(&mut self, key: &str, value: T) -> Result<()>
     where
         T: Serialize,
     {

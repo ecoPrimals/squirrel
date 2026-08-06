@@ -3,8 +3,9 @@
 
 //! HTTP request/response types for the WASM client.
 
-use crate::error::{PluginError, PluginResult};
+use crate::infrastructure::error::Result as SdkResult;
 use serde::{Deserialize, Serialize};
+use universal_error::sdk::{CommunicationError, SDKError};
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -30,7 +31,7 @@ pub enum HttpMethod {
 impl FromStr for HttpMethod {
     type Err = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
             "GET" => Ok(Self::Get),
             "POST" => Ok(Self::Post),
@@ -204,7 +205,7 @@ impl HttpRequest {
     ///
     /// # Returns
     ///
-    /// Returns `Ok(Self)` on success for method chaining, or a `PluginError` if
+    /// Returns `Ok(Self)` on success for method chaining, or an [`SDKError`] if
     /// JSON serialization fails.
     ///
     /// # Errors
@@ -233,11 +234,10 @@ impl HttpRequest {
     /// let request = HttpRequest::new("https://api.example.com/users".to_string(), HttpMethod::Post)
     ///     .json(&user)?;
     /// ```
-    pub fn json<T: Serialize>(mut self, data: &T) -> PluginResult<Self> {
-        let json_body =
-            serde_json::to_string(data).map_err(|e| PluginError::SerializationError {
-                message: e.to_string(),
-            })?;
+    pub fn json<T: Serialize>(mut self, data: &T) -> SdkResult<Self> {
+        let json_body = serde_json::to_string(data).map_err(|e| {
+            SDKError::Communication(CommunicationError::Serialization(e.to_string()))
+        })?;
 
         self.body = Some(json_body);
         self.headers
@@ -265,9 +265,9 @@ pub struct HttpResponse {
 
 impl HttpResponse {
     /// Parse response body as JSON
-    pub fn json<T: for<'de> Deserialize<'de>>(&self) -> PluginResult<T> {
-        serde_json::from_str(&self.body).map_err(|e| PluginError::SerializationError {
-            message: e.to_string(),
+    pub fn json<T: for<'de> Deserialize<'de>>(&self) -> SdkResult<T> {
+        serde_json::from_str(&self.body).map_err(|e| {
+            SDKError::Communication(CommunicationError::Serialization(e.to_string()))
         })
     }
 

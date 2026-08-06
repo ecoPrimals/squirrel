@@ -11,7 +11,8 @@ mod http_types;
 
 pub use http_types::{HttpMethod, HttpRequest, HttpResponse};
 
-use crate::error::{PluginError, PluginResult};
+use crate::infrastructure::error::Result;
+use universal_error::sdk::{ClientError, SDKError};
 use serde::Serialize;
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
@@ -83,7 +84,7 @@ impl HttpClient {
     ///
     /// # Returns
     ///
-    /// Returns `Ok(HttpResponse)` on success, or a `PluginError` if the request fails.
+    /// Returns `Ok(HttpResponse)` on success, or an `SDKError` if the request fails.
     ///
     /// # Errors
     ///
@@ -98,7 +99,7 @@ impl HttpClient {
     /// ```ignore
     /// use squirrel_sdk::http::{HttpClient, HttpRequest, HttpMethod};
     ///
-    /// async fn make_request() -> Result<(), squirrel_sdk::PluginError> {
+    /// async fn make_request() -> Result<(), squirrel_sdk::SDKError> {
     ///     let client = HttpClient::new();
     ///     let request = HttpRequest::new(
     ///         "https://api.example.com/users".to_string(),
@@ -110,23 +111,20 @@ impl HttpClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn request(&self, request: HttpRequest) -> PluginResult<HttpResponse> {
+    pub async fn request(&self, request: HttpRequest) -> Result<HttpResponse> {
         // Create web request
         let opts = RequestInit::new();
         opts.set_method(request.method.as_str());
         opts.set_mode(RequestMode::Cors);
 
         // Set headers
-        let headers = Headers::new().map_err(|_| PluginError::InternalError {
-            message: "Failed to create headers".to_string(),
-        })?;
+        let headers = Headers::new()
+            .map_err(|_| SDKError::General("Failed to create headers".to_string()))?;
 
         for (key, value) in &request.headers {
             headers
                 .set(key, value)
-                .map_err(|_| PluginError::InternalError {
-                    message: "Failed to set header".to_string(),
-                })?;
+                .map_err(|_| SDKError::General("Failed to set header".to_string()))?;
         }
         opts.set_headers(&headers);
 
@@ -137,30 +135,26 @@ impl HttpClient {
 
         // Create and send request
         let web_request = WebRequest::new_with_str_and_init(&request.url, &opts).map_err(|_| {
-            PluginError::InternalError {
-                message: "Failed to create request".to_string(),
-            }
+            SDKError::General("Failed to create request".to_string())
         })?;
 
-        let window = web_sys::window().ok_or_else(|| PluginError::InternalError {
-            message: "No window object".to_string(),
-        })?;
+        let window = web_sys::window()
+            .ok_or_else(|| SDKError::General("No window object".to_string()))?;
 
         let response_promise = window.fetch_with_request(&web_request);
         let response_js =
             JsFuture::from(response_promise)
                 .await
-                .map_err(|_| PluginError::NetworkError {
-                    operation: "fetch".to_string(),
-                    message: "Request failed".to_string(),
+                .map_err(|_| {
+                    SDKError::from(ClientError::Connection(
+                        "fetch: Request failed".to_string(),
+                    ))
                 })?;
 
         let response: Response =
             response_js
                 .dyn_into()
-                .map_err(|_| PluginError::InternalError {
-                    message: "Invalid response type".to_string(),
-                })?;
+                .map_err(|_| SDKError::General("Invalid response type".to_string()))?;
 
         // Extract response data
         let status = response.status();
@@ -174,17 +168,16 @@ impl HttpClient {
         // This is simplified for the example
 
         // Get response body
-        let body_promise = response.text().map_err(|_| PluginError::NetworkError {
-            operation: "fetch".to_string(),
-            message: "Failed to read response body".to_string(),
+        let body_promise = response.text().map_err(|_| {
+            SDKError::from(ClientError::Connection(
+                "fetch: Failed to read response body".to_string(),
+            ))
         })?;
-        let body_js =
-            JsFuture::from(body_promise)
-                .await
-                .map_err(|_| PluginError::NetworkError {
-                    operation: "fetch".to_string(),
-                    message: "Failed to read response body".to_string(),
-                })?;
+        let body_js = JsFuture::from(body_promise).await.map_err(|_| {
+            SDKError::from(ClientError::Connection(
+                "fetch: Failed to read response body".to_string(),
+            ))
+        })?;
         let body = body_js.as_string().unwrap_or_default();
 
         Ok(HttpResponse {
@@ -217,7 +210,7 @@ impl HttpClient {
     /// ```ignore
     /// use squirrel_sdk::http::{HttpClient, HttpMethod};
     ///
-    /// async fn make_request() -> Result<(), squirrel_sdk::PluginError> {
+    /// async fn make_request() -> Result<(), squirrel_sdk::SDKError> {
     ///     let client = HttpClient::new();
     ///     
     ///     let response = client
@@ -267,7 +260,7 @@ impl<'a> RequestBuilder<'a> {
     }
 
     /// Set JSON body
-    pub fn json<T: Serialize>(mut self, data: &T) -> PluginResult<Self> {
+    pub fn json<T: Serialize>(mut self, data: &T) -> Result<Self> {
         self.request = self.request.json(data)?;
         Ok(self)
     }
@@ -279,7 +272,7 @@ impl<'a> RequestBuilder<'a> {
     }
 
     /// Send the request
-    pub async fn send(self) -> PluginResult<HttpResponse> {
+    pub async fn send(self) -> Result<HttpResponse> {
         self.client.request(self.request).await
     }
 }
@@ -297,32 +290,29 @@ pub mod utils {
     use super::*;
 
     /// Create a simple GET request
-    pub async fn get(url: &str) -> PluginResult<HttpResponse> {
+    pub async fn get(url: &str) -> Result<HttpResponse> {
         let client = HttpClient::new();
         let request = HttpRequest::new(url.to_string(), HttpMethod::Get);
         client.request(request).await
     }
 
     /// Create a simple POST request with JSON body
-    pub async fn post_json<T: Serialize>(url: &str, data: &T) -> PluginResult<HttpResponse> {
+    pub async fn post_json<T: Serialize>(url: &str, data: &T) -> Result<HttpResponse> {
         let client = HttpClient::new();
         let request = HttpRequest::new(url.to_string(), HttpMethod::Post).json(data)?;
         client.request(request).await
     }
 
     /// Download a file as text
-    pub async fn download_text(url: &str) -> PluginResult<String> {
+    pub async fn download_text(url: &str) -> Result<String> {
         let response = get(url).await?;
         if response.is_success() {
             Ok(response.body)
         } else {
-            Err(PluginError::NetworkError {
-                operation: "download".to_string(),
-                message: format!(
-                    "Download failed: {} {}",
-                    response.status, response.status_text
-                ),
-            })
+            Err(SDKError::from(ClientError::Connection(format!(
+                "download: Download failed: {} {}",
+                response.status, response.status_text
+            ))))
         }
     }
 
@@ -341,6 +331,7 @@ mod tests {
     use serde::{Deserialize, Serialize, Serializer};
     use serde_json::json;
     use std::str::FromStr;
+    use universal_error::sdk::CommunicationError;
 
     #[test]
     fn test_http_method_conversion() {
@@ -418,7 +409,7 @@ mod tests {
         struct FailSer;
 
         impl Serialize for FailSer {
-            fn serialize<S: Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
+            fn serialize<S: Serializer>(&self, _serializer: S) -> std::result::Result<S::Ok, S::Error> {
                 Err(serde::ser::Error::custom("fail"))
             }
         }
@@ -426,7 +417,10 @@ mod tests {
         let err = HttpRequest::new("https://example.com".to_string(), HttpMethod::Post)
             .json(&FailSer)
             .unwrap_err();
-        assert!(matches!(err, PluginError::SerializationError { .. }));
+        assert!(matches!(
+            err,
+            SDKError::Communication(CommunicationError::Serialization(_))
+        ));
     }
 
     #[test]
@@ -491,7 +485,10 @@ mod tests {
         };
         assert!(!response.is_success());
         let err = response.json::<serde_json::Value>().unwrap_err();
-        assert!(matches!(err, PluginError::SerializationError { .. }));
+        assert!(matches!(
+            err,
+            SDKError::Communication(CommunicationError::Serialization(_))
+        ));
     }
 
     #[test]
@@ -545,7 +542,7 @@ mod tests {
     fn test_request_builder_json_propagates_serialization_error() {
         struct FailSer;
         impl Serialize for FailSer {
-            fn serialize<S: Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
+            fn serialize<S: Serializer>(&self, _serializer: S) -> std::result::Result<S::Ok, S::Error> {
                 Err(serde::ser::Error::custom("fail"))
             }
         }
@@ -555,7 +552,10 @@ mod tests {
             .request_builder("https://example.com".to_string(), HttpMethod::Post)
             .json(&FailSer)
         {
-            Err(e) => assert!(matches!(e, PluginError::SerializationError { .. })),
+            Err(e) => assert!(matches!(
+                e,
+                SDKError::Communication(CommunicationError::Serialization(_))
+            )),
             Ok(_) => panic!("expected serialization error"),
         }
     }
@@ -571,7 +571,7 @@ mod tests {
             .await
             .expect_err("expected failure without window");
         match err {
-            PluginError::InternalError { message } => {
+            SDKError::General(message) => {
                 assert!(
                     message.contains("window")
                         || message.contains("header")
@@ -579,7 +579,7 @@ mod tests {
                     "unexpected: {message}"
                 );
             }
-            PluginError::NetworkError { .. } => {}
+            SDKError::Client(_) => {}
             other => panic!("unexpected error: {other:?}"),
         }
     }

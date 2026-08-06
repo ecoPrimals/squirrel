@@ -5,9 +5,7 @@
 
 // Error handling
 pub mod error;
-pub use error::{
-    EnhancedError, ErrorCategory, ErrorContext, ErrorSeverity, PluginError, ValidationError,
-};
+pub use error::{SDKError, ValidationError};
 
 // Configuration
 pub mod config;

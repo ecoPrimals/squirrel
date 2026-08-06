@@ -11,6 +11,16 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 6, 2026 — Wave 156p: PluginError → SDKError Migration)
+
+- **SDK error system migration**: Completed full migration of `crates/sdk` from deprecated `PluginError` (44-variant flat enum, ~580 refs) to `universal_error::sdk::SDKError` hierarchical error system.
+- **Phase 1 — Alias flip**: `Error`/`Result`/`PluginResult` aliases in `mod.rs` now point to `SDKError`. `Plugin` trait in `lib.rs` updated from `Result<_, PluginError>` to `Result<_, SDKError>`.
+- **Phase 2 — Consumer migration**: Migrated all 15 consumer files (`config.rs`, `operations.rs`, `manager.rs`, `plugin_config.rs`, `utils.rs`, `events.rs`, `connection.rs`, `http.rs`, `fs.rs`, `commands.rs`, `http_types.rs`, `context.rs`, `message.rs`). Every `PluginError::*` construction replaced with corresponding `SDKError` hierarchy construction.
+- **Phase 3 — From impls**: Common `From` impls (`io::Error`, `serde_json::Error`, `ParseIntError`, `ParseFloatError`, `Utf8Error`, `mpsc` errors, etc.) moved to `universal-error/src/sdk.rs` (orphan-rule compliant). `From<PluginError> for SDKError` bridge retained for transitional compatibility.
+- **Phase 4 — Dead infrastructure deleted**: Removed `severity.rs` (12KB), `severity_tests.rs` (17KB), `context.rs` (13KB), `macros.rs` (8KB) — 50KB of dead code with zero external consumers.
+- **Phase 5 — Fossil quarantine**: `PluginError` enum in `core.rs` slimmed from 420→100 lines, marked `pub(crate)`, kept only for serde backward compat.
+- **6,077 tests passing**, zero warnings across workspace.
+
 ### Summary (Aug 6, 2026 — Wave 156o: Pre-sized Collections + String Builder + API Ergonomics)
 
 - **`with_capacity` in hot paths**: 7 sites where collection size is known upfront — `TaskManager::find_assignable_tasks`, `HealthMonitor::get_health_summary`, `BatchProcessor::process` chunk, `UniversalPrimalEcosystem::discover`, `MonitoringService::get_status`, neural policy initialization. Eliminates reallocations in request/discovery/batch processing paths.

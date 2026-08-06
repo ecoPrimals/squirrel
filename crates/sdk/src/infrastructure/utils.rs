@@ -3,8 +3,9 @@
 
 //! Utility functions for plugin development
 
-use crate::error::{PluginError, PluginResult};
+use crate::infrastructure::error::Result;
 use std::sync::{Mutex, MutexGuard};
+use universal_error::sdk::{InfrastructureError, SDKError};
 use wasm_bindgen::prelude::*;
 
 /// Set up panic hook for better error messages in WASM
@@ -32,7 +33,7 @@ pub fn console_log(message: &str) {
 }
 
 /// Convert a Result<T, E> to a Result<T, JsValue> for WASM compatibility
-pub fn to_js_result<T, E>(result: Result<T, E>) -> Result<T, JsValue>
+pub fn to_js_result<T, E>(result: std::result::Result<T, E>) -> std::result::Result<T, JsValue>
 where
     E: std::fmt::Display,
 {
@@ -40,12 +41,12 @@ where
 }
 
 /// Convert a JsValue to a serde Value
-pub fn js_to_serde(js_val: JsValue) -> Result<serde_json::Value, JsValue> {
+pub fn js_to_serde(js_val: JsValue) -> std::result::Result<serde_json::Value, JsValue> {
     serde_wasm_bindgen::from_value(js_val).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 /// Convert a serde Value to a JsValue
-pub fn serde_to_js(val: &serde_json::Value) -> Result<JsValue, JsValue> {
+pub fn serde_to_js(val: &serde_json::Value) -> std::result::Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(val).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
@@ -94,11 +95,12 @@ pub fn current_timestamp_iso() -> String {
 ///
 /// # Returns
 ///
-/// Returns a `MutexGuard` on success, or a `PluginError` on failure
-pub fn safe_lock<'a, T>(mutex: &'a Mutex<T>, context: &str) -> PluginResult<MutexGuard<'a, T>> {
-    mutex.lock().map_err(|e| PluginError::LockError {
-        resource: context.to_string(),
-        message: format!("Failed to acquire lock: {}", e),
+/// Returns a `MutexGuard` on success, or an `SDKError` on failure
+pub fn safe_lock<'a, T>(mutex: &'a Mutex<T>, context: &str) -> Result<MutexGuard<'a, T>> {
+    mutex.lock().map_err(|e| {
+        let err: SDKError =
+            InfrastructureError::Utility(format!("lock({context}): {e}")).into();
+        err
     })
 }
 
@@ -238,12 +240,12 @@ pub async fn sleep_ms(ms: u64) {
 /// # Returns
 ///
 /// Returns the normalized ID on success, or an error if validation fails
-pub fn validate_plugin_id(id: &str) -> PluginResult<String> {
+pub fn validate_plugin_id(id: &str) -> Result<String> {
     if id.is_empty() {
-        return Err(PluginError::ValidationError {
-            field: "plugin_id".to_string(),
-            message: "Plugin ID cannot be empty".to_string(),
-        });
+        return Err(InfrastructureError::Validation(
+            "plugin_id: cannot be empty".to_string(),
+        )
+        .into());
     }
 
     let max_length =
@@ -253,22 +255,21 @@ pub fn validate_plugin_id(id: &str) -> PluginResult<String> {
             .unwrap_or(64);
 
     if id.len() > max_length {
-        return Err(PluginError::ValidationError {
-            field: "plugin_id".to_string(),
-            message: format!("Plugin ID cannot be longer than {} characters", max_length),
-        });
+        return Err(InfrastructureError::Validation(format!(
+            "plugin_id: cannot be longer than {max_length} characters"
+        ))
+        .into());
     }
 
-    // Check for valid characters (alphanumeric, hyphens, underscores)
     if !id
         .chars()
         .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
     {
-        return Err(PluginError::ValidationError {
-            field: "plugin_id".to_string(),
-            message: "Plugin ID can only contain alphanumeric characters, hyphens, and underscores"
+        return Err(InfrastructureError::Validation(
+            "plugin_id: can only contain alphanumeric characters, hyphens, and underscores"
                 .to_string(),
-        });
+        )
+        .into());
     }
 
     Ok(id.to_string())
@@ -276,100 +277,63 @@ pub fn validate_plugin_id(id: &str) -> PluginResult<String> {
 
 /// Common error conversion utilities
 pub mod error_conversion {
-    #![cfg_attr(
-        not(test),
-        expect(
-            clippy::wildcard_imports,
-            reason = "Aligned with parent module re-exports"
-        )
-    )]
+    use universal_error::sdk::{
+        ClientError, CommunicationError, InfrastructureError, SDKError,
+    };
 
-    use super::*;
-
-    /// Convert a serialization error to PluginError
-    pub fn serde_error(e: serde_json::Error) -> PluginError {
-        PluginError::SerializationError {
-            message: e.to_string(),
-        }
+    /// Convert a serde error to SDKError
+    pub fn serde_error(e: serde_json::Error) -> SDKError {
+        CommunicationError::Serialization(e.to_string()).into()
     }
 
-    /// Convert a network error to PluginError
-    pub fn network_error(operation: &str, e: impl std::fmt::Display) -> PluginError {
-        PluginError::NetworkError {
-            operation: operation.to_string(),
-            message: e.to_string(),
-        }
+    /// Convert a network error to SDKError
+    pub fn network_error(operation: &str, e: impl std::fmt::Display) -> SDKError {
+        ClientError::Connection(format!("{operation}: {e}")).into()
     }
 
-    /// Convert a filesystem error to PluginError
-    pub fn fs_error(operation: &str, e: impl std::fmt::Display) -> PluginError {
-        PluginError::FileSystemError {
-            operation: operation.to_string(),
-            message: e.to_string(),
-        }
+    /// Convert a filesystem error to SDKError
+    pub fn fs_error(operation: &str, e: impl std::fmt::Display) -> SDKError {
+        SDKError::General(format!("fs({operation}): {e}"))
     }
 
-    /// Convert a configuration error to PluginError
-    pub fn config_error(e: impl std::fmt::Display) -> PluginError {
-        PluginError::ConfigurationError {
-            message: e.to_string(),
-        }
+    /// Convert a config error to SDKError
+    pub fn config_error(e: impl std::fmt::Display) -> SDKError {
+        InfrastructureError::Configuration(e.to_string()).into()
     }
 
-    /// Convert a timeout error to PluginError
-    pub fn timeout_error(operation: &str, seconds: u64) -> PluginError {
-        PluginError::TimeoutError {
-            operation: operation.to_string(),
-            seconds,
-        }
+    /// Convert a timeout error to SDKError
+    pub fn timeout_error(_operation: &str, seconds: u64) -> SDKError {
+        ClientError::Timeout(seconds).into()
     }
 
-    /// Convert a storage error to PluginError
-    pub fn storage_error(operation: &str, e: impl std::fmt::Display) -> PluginError {
-        PluginError::StorageError {
-            operation: operation.to_string(),
-            message: e.to_string(),
-        }
+    /// Convert a storage error to SDKError
+    pub fn storage_error(operation: &str, e: impl std::fmt::Display) -> SDKError {
+        SDKError::General(format!("storage({operation}): {e}"))
     }
 
-    /// Convert a connection error to PluginError
-    pub fn connection_error(endpoint: &str, e: impl std::fmt::Display) -> PluginError {
-        PluginError::ConnectionError {
-            endpoint: endpoint.to_string(),
-            message: e.to_string(),
-        }
+    /// Convert a connection error to SDKError
+    pub fn connection_error(endpoint: &str, e: impl std::fmt::Display) -> SDKError {
+        ClientError::Connection(format!("{endpoint}: {e}")).into()
     }
 
-    /// Convert a validation error to PluginError
-    pub fn validation_error(field: &str, message: &str) -> PluginError {
-        PluginError::ValidationError {
-            field: field.to_string(),
-            message: message.to_string(),
-        }
+    /// Convert a validation error to SDKError
+    pub fn validation_error(field: &str, message: &str) -> SDKError {
+        InfrastructureError::Validation(format!("{field}: {message}")).into()
     }
 
-    /// Convert a command execution error to PluginError
-    pub fn command_error(command: &str, e: impl std::fmt::Display) -> PluginError {
-        PluginError::CommandExecutionError {
-            command: command.to_string(),
-            message: e.to_string(),
-        }
+    /// Convert a command error to SDKError
+    pub fn command_error(command: &str, e: impl std::fmt::Display) -> SDKError {
+        CommunicationError::Command(format!("{command}: {e}")).into()
     }
 
-    /// Convert an event handling error to PluginError
-    pub fn event_error(event_type: &str, e: impl std::fmt::Display) -> PluginError {
-        PluginError::EventHandlingError {
-            event_type: event_type.to_string(),
-            message: e.to_string(),
-        }
+    /// Convert an event error to SDKError
+    pub fn event_error(event_type: &str, e: impl std::fmt::Display) -> SDKError {
+        CommunicationError::Event(format!("{event_type}: {e}")).into()
     }
 
-    /// Convert a lock error to PluginError
-    pub fn lock_error(resource: &str, e: impl std::fmt::Display) -> PluginError {
-        PluginError::LockError {
-            resource: resource.to_string(),
-            message: e.to_string(),
-        }
+    /// Convert a lock error to SDKError
+    pub fn lock_error(resource: &str, e: impl std::fmt::Display) -> SDKError {
+        InfrastructureError::Utility(format!("lock({resource}): {e}")).into()
     }
 }
 
@@ -603,22 +567,22 @@ mod tests {
     fn test_error_conversion_serde() {
         use super::error_conversion;
         let err = serde_json::from_str::<serde_json::Value>("{").unwrap_err();
-        let pe = error_conversion::serde_error(err);
-        assert!(matches!(pe, crate::PluginError::SerializationError { .. }));
+        let se = error_conversion::serde_error(err);
+        assert!(matches!(se, SDKError::Communication(_)));
     }
 
     #[test]
     fn test_error_conversion_network() {
         use super::error_conversion;
-        let pe = error_conversion::network_error("fetch", "connection refused");
-        assert!(matches!(pe, crate::PluginError::NetworkError { .. }));
+        let se = error_conversion::network_error("fetch", "connection refused");
+        assert!(matches!(se, SDKError::Client(_)));
     }
 
     #[test]
     fn test_error_conversion_validation() {
         use super::error_conversion;
-        let pe = error_conversion::validation_error("field", "invalid");
-        assert!(matches!(pe, crate::PluginError::ValidationError { .. }));
+        let se = error_conversion::validation_error("field", "invalid");
+        assert!(matches!(se, SDKError::Infrastructure(_)));
     }
 
     #[test]
@@ -674,38 +638,14 @@ mod tests {
     #[test]
     fn test_error_conversion_helpers() {
         use super::error_conversion;
-        assert!(matches!(
-            error_conversion::fs_error("read", "e"),
-            crate::PluginError::FileSystemError { .. }
-        ));
-        assert!(matches!(
-            error_conversion::config_error("bad"),
-            crate::PluginError::ConfigurationError { .. }
-        ));
-        assert!(matches!(
-            error_conversion::timeout_error("op", 5),
-            crate::PluginError::TimeoutError { .. }
-        ));
-        assert!(matches!(
-            error_conversion::storage_error("get", "e"),
-            crate::PluginError::StorageError { .. }
-        ));
-        assert!(matches!(
-            error_conversion::connection_error("ws://x", "e"),
-            crate::PluginError::ConnectionError { .. }
-        ));
-        assert!(matches!(
-            error_conversion::command_error("cmd", "e"),
-            crate::PluginError::CommandExecutionError { .. }
-        ));
-        assert!(matches!(
-            error_conversion::event_error("ev", "e"),
-            crate::PluginError::EventHandlingError { .. }
-        ));
-        assert!(matches!(
-            error_conversion::lock_error("r", "e"),
-            crate::PluginError::LockError { .. }
-        ));
+        assert!(matches!(error_conversion::fs_error("read", "e"), SDKError::General(_)));
+        assert!(matches!(error_conversion::config_error("bad"), SDKError::Infrastructure(_)));
+        assert!(matches!(error_conversion::timeout_error("op", 5), SDKError::Client(_)));
+        assert!(matches!(error_conversion::storage_error("get", "e"), SDKError::General(_)));
+        assert!(matches!(error_conversion::connection_error("ws://x", "e"), SDKError::Client(_)));
+        assert!(matches!(error_conversion::command_error("cmd", "e"), SDKError::Communication(_)));
+        assert!(matches!(error_conversion::event_error("ev", "e"), SDKError::Communication(_)));
+        assert!(matches!(error_conversion::lock_error("r", "e"), SDKError::Infrastructure(_)));
     }
 
     #[test]

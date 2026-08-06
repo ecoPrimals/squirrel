@@ -210,6 +210,74 @@ impl ErrorContextTrait for ClientError {
     }
 }
 
+// ── Common From impls ─────────────────────────────────────────────────
+
+impl From<serde_json::Error> for SDKError {
+    fn from(e: serde_json::Error) -> Self {
+        CommunicationError::Serialization(e.to_string()).into()
+    }
+}
+
+impl From<std::io::Error> for SDKError {
+    fn from(e: std::io::Error) -> Self {
+        Self::General(format!("IO: {e}"))
+    }
+}
+
+impl From<std::num::ParseIntError> for SDKError {
+    fn from(e: std::num::ParseIntError) -> Self {
+        InfrastructureError::Validation(e.to_string()).into()
+    }
+}
+
+impl From<std::num::ParseFloatError> for SDKError {
+    fn from(e: std::num::ParseFloatError) -> Self {
+        InfrastructureError::Validation(e.to_string()).into()
+    }
+}
+
+impl From<std::string::FromUtf8Error> for SDKError {
+    fn from(e: std::string::FromUtf8Error) -> Self {
+        CommunicationError::Serialization(e.to_string()).into()
+    }
+}
+
+impl From<std::str::Utf8Error> for SDKError {
+    fn from(e: std::str::Utf8Error) -> Self {
+        CommunicationError::Serialization(e.to_string()).into()
+    }
+}
+
+impl From<std::time::SystemTimeError> for SDKError {
+    fn from(e: std::time::SystemTimeError) -> Self {
+        Self::General(e.to_string())
+    }
+}
+
+impl From<std::sync::mpsc::RecvError> for SDKError {
+    fn from(e: std::sync::mpsc::RecvError) -> Self {
+        CommunicationError::Event(e.to_string()).into()
+    }
+}
+
+impl<T> From<std::sync::mpsc::SendError<T>> for SDKError {
+    fn from(e: std::sync::mpsc::SendError<T>) -> Self {
+        CommunicationError::Event(e.to_string()).into()
+    }
+}
+
+impl From<std::sync::mpsc::TryRecvError> for SDKError {
+    fn from(e: std::sync::mpsc::TryRecvError) -> Self {
+        CommunicationError::Event(e.to_string()).into()
+    }
+}
+
+impl<T> From<std::sync::mpsc::TrySendError<T>> for SDKError {
+    fn from(e: std::sync::mpsc::TrySendError<T>) -> Self {
+        CommunicationError::Event(e.to_string()).into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

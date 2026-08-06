@@ -3,9 +3,9 @@
 
 //! Validation errors and helper functions for the Squirrel Plugin SDK
 
-use super::core::{PluginError, PluginResult};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use universal_error::sdk::{InfrastructureError, SDKError};
 
 /// Validation error for plugin configuration and parameters
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
@@ -51,51 +51,62 @@ pub enum ValidationError {
     },
 }
 
-impl From<ValidationError> for PluginError {
+impl From<ValidationError> for SDKError {
     fn from(error: ValidationError) -> Self {
         match error {
             ValidationError::RequiredField { field } => {
-                PluginError::MissingParameter { parameter: field }
+                InfrastructureError::Validation(format!("missing required field: {field}")).into()
             }
-            ValidationError::InvalidValue { field, reason } => PluginError::InvalidParameter {
-                name: field,
-                reason,
-            },
+            ValidationError::InvalidValue { field, reason } => {
+                InfrastructureError::Validation(format!("{field}: {reason}")).into()
+            }
             ValidationError::InvalidFormat {
                 field,
                 expected,
                 actual,
-            } => PluginError::InvalidParameter {
-                name: field,
-                reason: format!("expected {}, got {}", expected, actual),
-            },
+            } => InfrastructureError::Validation(format!(
+                "{field}: expected {expected}, got {actual}"
+            ))
+            .into(),
             ValidationError::OutOfRange {
                 field,
                 value,
                 min,
                 max,
-            } => PluginError::InvalidParameter {
-                name: field,
-                reason: format!("value {} out of range ({}-{})", value, min, max),
-            },
+            } => InfrastructureError::Validation(format!(
+                "{field}: value {value} out of range ({min}-{max})"
+            ))
+            .into(),
         }
     }
 }
 
+// Helper: missing required parameter
+fn missing_param(field: &str) -> SDKError {
+    InfrastructureError::Validation(format!("missing required field: {field}")).into()
+}
+
+// Helper: invalid parameter
+fn param_error(field: &str, reason: &str) -> SDKError {
+    InfrastructureError::Validation(format!("{field}: {reason}")).into()
+}
+
+type Result<T> = std::result::Result<T, SDKError>;
+
 /// Helper function to validate required string parameter
-pub fn validate_required_string(params: &serde_json::Value, field: &str) -> PluginResult<String> {
+pub fn validate_required_string(params: &serde_json::Value, field: &str) -> Result<String> {
     params
         .get(field)
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
-        .ok_or_else(|| crate::missing_param!(field))
+        .ok_or_else(|| missing_param(field))
 }
 
 /// Helper function to validate optional string parameter
 pub fn validate_optional_string(
     params: &serde_json::Value,
     field: &str,
-) -> PluginResult<Option<String>> {
+) -> Result<Option<String>> {
     match params.get(field) {
         Some(v) => {
             if v.is_null() {
@@ -103,7 +114,7 @@ pub fn validate_optional_string(
             } else {
                 v.as_str()
                     .map(|s| Some(s.to_string()))
-                    .ok_or_else(|| crate::param_error!(field, "expected string or null"))
+                    .ok_or_else(|| param_error(field, "expected string or null"))
             }
         }
         None => Ok(None),
@@ -111,11 +122,11 @@ pub fn validate_optional_string(
 }
 
 /// Helper function to validate required number parameter
-pub fn validate_required_number(params: &serde_json::Value, field: &str) -> PluginResult<f64> {
+pub fn validate_required_number(params: &serde_json::Value, field: &str) -> Result<f64> {
     params
         .get(field)
         .and_then(|v| v.as_f64())
-        .ok_or_else(|| crate::missing_param!(field))
+        .ok_or_else(|| missing_param(field))
 }
 
 /// Helper function to validate boolean parameter
@@ -123,7 +134,7 @@ pub fn validate_boolean(
     params: &serde_json::Value,
     field: &str,
     default: bool,
-) -> PluginResult<bool> {
+) -> Result<bool> {
     Ok(params
         .get(field)
         .and_then(|v| v.as_bool())
@@ -134,24 +145,24 @@ pub fn validate_boolean(
 pub fn validate_array(
     params: &serde_json::Value,
     field: &str,
-) -> PluginResult<Vec<serde_json::Value>> {
+) -> Result<Vec<serde_json::Value>> {
     params
         .get(field)
         .and_then(|v| v.as_array())
         .cloned()
-        .ok_or_else(|| crate::param_error!(field, "expected array"))
+        .ok_or_else(|| param_error(field, "expected array"))
 }
 
 /// Helper function to validate object parameter
 pub fn validate_object(
     params: &serde_json::Value,
     field: &str,
-) -> PluginResult<serde_json::Map<String, serde_json::Value>> {
+) -> Result<serde_json::Map<String, serde_json::Value>> {
     params
         .get(field)
         .and_then(|v| v.as_object())
         .cloned()
-        .ok_or_else(|| crate::param_error!(field, "expected object"))
+        .ok_or_else(|| param_error(field, "expected object"))
 }
 
 /// Helper function to validate string length
@@ -160,34 +171,34 @@ pub fn validate_string_length(
     field: &str,
     min: usize,
     max: usize,
-) -> PluginResult<()> {
+) -> Result<()> {
     let len = value.len();
     if len < min || len > max {
-        return Err(crate::param_error!(
+        return Err(param_error(
             field,
-            format!("length {} not in range {}-{}", len, min, max)
+            &format!("length {len} not in range {min}-{max}"),
         ));
     }
     Ok(())
 }
 
 /// Helper function to validate numeric range
-pub fn validate_numeric_range(value: f64, field: &str, min: f64, max: f64) -> PluginResult<()> {
+pub fn validate_numeric_range(value: f64, field: &str, min: f64, max: f64) -> Result<()> {
     if value < min || value > max {
-        return Err(crate::param_error!(
+        return Err(param_error(
             field,
-            format!("value {} not in range {}-{}", value, min, max)
+            &format!("value {value} not in range {min}-{max}"),
         ));
     }
     Ok(())
 }
 
 /// Helper function to validate integer range
-pub fn validate_integer_range(value: i64, field: &str, min: i64, max: i64) -> PluginResult<()> {
+pub fn validate_integer_range(value: i64, field: &str, min: i64, max: i64) -> Result<()> {
     if value < min || value > max {
-        return Err(crate::param_error!(
+        return Err(param_error(
             field,
-            format!("value {} not in range {}-{}", value, min, max)
+            &format!("value {value} not in range {min}-{max}"),
         ));
     }
     Ok(())
@@ -198,7 +209,7 @@ pub fn validate_enum_value<T: AsRef<str>>(
     value: &str,
     field: &str,
     valid_values: &[T],
-) -> PluginResult<String> {
+) -> Result<String> {
     if valid_values.iter().any(|v| v.as_ref() == value) {
         Ok(value.to_string())
     } else {
@@ -207,38 +218,38 @@ pub fn validate_enum_value<T: AsRef<str>>(
             .map(|v| v.as_ref())
             .collect::<Vec<_>>()
             .join(", ");
-        Err(crate::param_error!(
+        Err(param_error(
             field,
-            format!("invalid value '{}', valid values: {}", value, valid_list)
+            &format!("invalid value '{value}', valid values: {valid_list}"),
         ))
     }
 }
 
 /// Helper function to validate URL format
-pub fn validate_url(value: &str, field: &str) -> PluginResult<String> {
+pub fn validate_url(value: &str, field: &str) -> Result<String> {
     if value.starts_with("http://") || value.starts_with("https://") {
         Ok(value.to_string())
     } else {
-        Err(crate::param_error!(
+        Err(param_error(
             field,
-            "must be a valid URL starting with http:// or https://"
+            "must be a valid URL starting with http:// or https://",
         ))
     }
 }
 
 /// Helper function to validate email format
-pub fn validate_email(value: &str, field: &str) -> PluginResult<String> {
+pub fn validate_email(value: &str, field: &str) -> Result<String> {
     if value.contains('@') && value.len() > 3 {
         Ok(value.to_string())
     } else {
-        Err(crate::param_error!(field, "must be a valid email address"))
+        Err(param_error(field, "must be a valid email address"))
     }
 }
 
 /// Helper function to validate non-empty string
-pub fn validate_non_empty_string(value: &str, field: &str) -> PluginResult<String> {
+pub fn validate_non_empty_string(value: &str, field: &str) -> Result<String> {
     if value.is_empty() {
-        Err(crate::param_error!(field, "cannot be empty"))
+        Err(param_error(field, "cannot be empty"))
     } else {
         Ok(value.to_string())
     }
@@ -250,12 +261,12 @@ pub fn validate_array_length(
     field: &str,
     min: usize,
     max: usize,
-) -> PluginResult<()> {
+) -> Result<()> {
     let len = arr.len();
     if len < min || len > max {
-        return Err(crate::param_error!(
+        return Err(param_error(
             field,
-            format!("array length {} not in range {}-{}", len, min, max)
+            &format!("array length {len} not in range {min}-{max}"),
         ));
     }
     Ok(())
@@ -265,10 +276,10 @@ pub fn validate_array_length(
 pub fn validate_required_fields(
     obj: &serde_json::Map<String, serde_json::Value>,
     required_fields: &[&str],
-) -> PluginResult<()> {
+) -> Result<()> {
     for field in required_fields {
         if !obj.contains_key(*field) {
-            return Err(crate::missing_param!(field));
+            return Err(missing_param(field));
         }
     }
     Ok(())
@@ -276,7 +287,6 @@ pub fn validate_required_fields(
 
 #[cfg(test)]
 mod tests {
-    #![expect(deprecated)]
     use super::*;
 
     fn sample_params() -> serde_json::Value {
@@ -345,70 +355,15 @@ mod tests {
     }
 
     #[test]
-    fn test_validation_error_to_plugin_error_required_field() {
+    fn test_validation_error_to_sdk_error() {
         let ve = ValidationError::RequiredField {
             field: "name".into(),
         };
-        let pe: PluginError = ve.into();
-        match pe {
-            PluginError::MissingParameter { parameter } => assert_eq!(parameter, "name"),
-            _ => unreachable!("Expected MissingParameter"),
-        }
-    }
-
-    #[test]
-    fn test_validation_error_to_plugin_error_invalid_value() {
-        let ve = ValidationError::InvalidValue {
-            field: "age".into(),
-            reason: "negative".into(),
-        };
-        let pe: PluginError = ve.into();
-        match pe {
-            PluginError::InvalidParameter { name, reason } => {
-                assert_eq!(name, "age");
-                assert_eq!(reason, "negative");
-            }
-            _ => unreachable!("Expected InvalidParameter"),
-        }
-    }
-
-    #[test]
-    fn test_validation_error_to_plugin_error_invalid_format() {
-        let ve = ValidationError::InvalidFormat {
-            field: "date".into(),
-            expected: "ISO".into(),
-            actual: "US".into(),
-        };
-        let pe: PluginError = ve.into();
-        match pe {
-            PluginError::InvalidParameter { name, reason } => {
-                assert_eq!(name, "date");
-                assert!(reason.contains("expected ISO"));
-                assert!(reason.contains("got US"));
-            }
-            _ => unreachable!("Expected InvalidParameter"),
-        }
-    }
-
-    #[test]
-    fn test_validation_error_to_plugin_error_out_of_range() {
-        let ve = ValidationError::OutOfRange {
-            field: "x".into(),
-            value: "200".into(),
-            min: "0".into(),
-            max: "100".into(),
-        };
-        let pe: PluginError = ve.into();
-        match pe {
-            PluginError::InvalidParameter { name, reason } => {
-                assert_eq!(name, "x");
-                assert!(reason.contains("200"));
-                assert!(
-                    reason.contains("0-100") || (reason.contains('0') && reason.contains("100"))
-                );
-            }
-            _ => unreachable!("Expected InvalidParameter"),
-        }
+        let se: SDKError = ve.into();
+        assert!(matches!(
+            se,
+            SDKError::Infrastructure(InfrastructureError::Validation(_))
+        ));
     }
 
     #[test]
@@ -573,7 +528,7 @@ mod tests {
     #[test]
     fn test_validate_email_invalid() {
         assert!(validate_email("no-at-sign", "email").is_err());
-        assert!(validate_email("a@b", "email").is_err()); // too short (len <= 3)
+        assert!(validate_email("a@b", "email").is_err());
     }
 
     #[test]

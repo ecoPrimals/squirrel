@@ -7,10 +7,11 @@
 //! host `WebSocket` API when `MCP_SERVER_URL` is a `ws:` / `wss:` URL.
 
 use crate::config::McpClientConfig;
-use crate::infrastructure::error::{PluginError, PluginResult};
+use crate::infrastructure::error::Result;
 use serde_json::json;
 use std::time::Duration;
 use tracing::{debug, info, warn};
+use universal_error::sdk::{ClientError, SDKError};
 
 #[cfg(all(not(target_arch = "wasm32"), unix))]
 use tokio::io::AsyncWriteExt;
@@ -24,12 +25,12 @@ use web_sys::WebSocket;
 ///
 /// Accepts `unix:///absolute/path.sock`, or an absolute filesystem path. Legacy `ws://` / `wss://`
 /// URLs are rejected on native targets (use Songbird IPC instead).
-pub(crate) fn parse_unix_socket_path(server_url: &str) -> Result<std::path::PathBuf, PluginError> {
+pub(crate) fn parse_unix_socket_path(server_url: &str) -> Result<std::path::PathBuf> {
     let s = server_url.trim();
     if s.starts_with("ws://") || s.starts_with("wss://") {
-        return Err(PluginError::InvalidConfiguration {
-            message: "MCP_SERVER_URL must use Unix IPC (unix://…) on native targets; embedded WebSocket was removed. Route MCP via service mesh IPC (Tower Atomic).".to_string(),
-        });
+        return Err(SDKError::General(
+            "MCP_SERVER_URL must use Unix IPC (unix://…) on native targets; embedded WebSocket was removed. Route MCP via service mesh IPC (Tower Atomic).".to_string(),
+        ));
     }
     if let Some(rest) = s.strip_prefix("unix://") {
         return Ok(std::path::PathBuf::from(rest));
@@ -37,16 +38,15 @@ pub(crate) fn parse_unix_socket_path(server_url: &str) -> Result<std::path::Path
     if s.starts_with('/') {
         return Ok(std::path::PathBuf::from(s));
     }
-    Err(PluginError::InvalidConfiguration {
-        message: format!("MCP_SERVER_URL must be unix://… or an absolute path; got: {s}"),
-    })
+    Err(SDKError::General(format!(
+        "MCP_SERVER_URL must be unix://… or an absolute path; got: {s}"
+    )))
 }
 
-fn jsonrpc_envelope_bytes(message: &str) -> Result<Vec<u8>, PluginError> {
-    let params: serde_json::Value =
-        serde_json::from_str(message).map_err(|e| PluginError::JsonError {
-            message: format!("invalid MCP JSON payload: {e}"),
-        })?;
+fn jsonrpc_envelope_bytes(message: &str) -> Result<Vec<u8>> {
+    let params: serde_json::Value = serde_json::from_str(message).map_err(|e| {
+        SDKError::General(format!("invalid MCP JSON payload: {e}"))
+    })?;
     let id = params.get("id").cloned().unwrap_or(json!(null));
     let envelope = json!({
         "jsonrpc": "2.0",
@@ -54,9 +54,8 @@ fn jsonrpc_envelope_bytes(message: &str) -> Result<Vec<u8>, PluginError> {
         "method": "mcp.message",
         "params": params,
     });
-    let mut buf = serde_json::to_vec(&envelope).map_err(|e| PluginError::SerializationError {
-        message: e.to_string(),
-    })?;
+    let mut buf = serde_json::to_vec(&envelope)
+        .map_err(|e| SDKError::General(e.to_string()))?;
     buf.push(b'\n');
     Ok(buf)
 }
@@ -89,19 +88,15 @@ impl ConnectionManager {
     }
 
     /// Establish a connection to the configured MCP endpoint.
-    pub async fn establish_connection(&mut self, config: &McpClientConfig) -> PluginResult<()> {
+    pub async fn establish_connection(&mut self, config: &McpClientConfig) -> Result<()> {
         debug!("Establishing MCP transport to: {}", config.server_url);
 
         #[cfg(all(not(target_arch = "wasm32"), unix))]
         {
             let path = parse_unix_socket_path(&config.server_url)?;
-            let stream =
-                UnixStream::connect(&path)
-                    .await
-                    .map_err(|e| PluginError::ConnectionError {
-                        endpoint: config.server_url.clone(),
-                        message: e.to_string(),
-                    })?;
+            let stream = UnixStream::connect(&path).await.map_err(|e| {
+                SDKError::from(ClientError::Connection(format!("{}: {e}", config.server_url)))
+            })?;
             self.ipc_stream = Some(stream);
             info!("MCP IPC connected (unix socket)");
         }
@@ -109,9 +104,9 @@ impl ConnectionManager {
         #[cfg(all(not(target_arch = "wasm32"), not(unix)))]
         {
             let _ = config;
-            return Err(PluginError::NotSupported {
-                feature: "MCP IPC requires Unix domain sockets on this platform".to_string(),
-            });
+            return Err(SDKError::General(
+                "Not supported: MCP IPC requires Unix domain sockets on this platform".to_string(),
+            ));
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -119,11 +114,9 @@ impl ConnectionManager {
             use wasm_bindgen::JsCast;
             use wasm_bindgen::prelude::*;
 
-            let ws =
-                WebSocket::new(&config.server_url).map_err(|e| PluginError::ConnectionError {
-                    endpoint: config.server_url.clone(),
-                    message: format!("{e:?}"),
-                })?;
+            let ws = WebSocket::new(&config.server_url).map_err(|e| {
+                ClientError::Connection(format!("{}: {e:?}", config.server_url)).into()
+            })?;
 
             let onopen_callback = Closure::wrap(Box::new(move || {
                 info!("WebSocket connection opened");
@@ -156,42 +149,41 @@ impl ConnectionManager {
     ///
     /// On native Unix, the payload is framed as a JSON-RPC 2.0 object (one line, newline-terminated)
     /// for compatibility with the Songbird / primal JSON-RPC listeners.
-    pub async fn send_message(&mut self, message: &str) -> PluginResult<()> {
+    pub async fn send_message(&mut self, message: &str) -> Result<()> {
         if message.len() > self.config.max_message_size {
-            return Err(PluginError::ResourceLimitExceeded {
-                resource: "mcp_transport_message".to_string(),
-                limit: format!(
-                    "max {} bytes (got {})",
-                    self.config.max_message_size,
-                    message.len()
-                ),
-            });
+            return Err(SDKError::General(format!(
+                "Resource limit exceeded: mcp_transport_message (max {} bytes (got {}))",
+                self.config.max_message_size,
+                message.len()
+            )));
         }
 
         #[cfg(all(not(target_arch = "wasm32"), unix))]
         if let Some(stream) = &mut self.ipc_stream {
             let line = jsonrpc_envelope_bytes(message)?;
-            stream
-                .write_all(&line)
-                .await
-                .map_err(|e| PluginError::ConnectionError {
-                    endpoint: self.config.server_url.clone(),
-                    message: e.to_string(),
-                })?;
+            stream.write_all(&line).await.map_err(|e| {
+                SDKError::from(ClientError::Connection(format!(
+                    "{}: {e}",
+                    self.config.server_url
+                )))
+            })?;
             debug!("MCP IPC send (native)");
         } else {
-            return Err(PluginError::ConnectionError {
-                endpoint: self.config.server_url.clone(),
-                message: "No MCP IPC connection available".to_string(),
-            });
+            return Err(
+                ClientError::Connection(format!(
+                    "{}: No MCP IPC connection available",
+                    self.config.server_url
+                ))
+                .into(),
+            );
         }
 
         #[cfg(all(not(target_arch = "wasm32"), not(unix)))]
         {
             let _ = message;
-            return Err(PluginError::NotSupported {
-                feature: "MCP IPC requires Unix domain sockets on this platform".to_string(),
-            });
+            return Err(SDKError::General(
+                "Not supported: MCP IPC requires Unix domain sockets on this platform".to_string(),
+            ));
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -199,17 +191,20 @@ impl ConnectionManager {
             ws.send_with_str(message)?;
             debug!("MCP message sent (WASM WebSocket)");
         } else {
-            return Err(PluginError::ConnectionError {
-                endpoint: self.config.server_url.clone(),
-                message: "No MCP WebSocket connection available".to_string(),
-            });
+            return Err(
+                ClientError::Connection(format!(
+                    "{}: No MCP WebSocket connection available",
+                    self.config.server_url
+                ))
+                .into(),
+            );
         }
 
         Ok(())
     }
 
     /// Close the connection.
-    pub async fn close(&mut self) -> PluginResult<()> {
+    pub async fn close(&mut self) -> Result<()> {
         #[cfg(all(not(target_arch = "wasm32"), unix))]
         if let Some(mut stream) = self.ipc_stream.take() {
             if let Err(e) = stream.shutdown().await {
@@ -251,12 +246,11 @@ impl ConnectionManager {
     }
 
     /// Reconnect with exponential backoff (same policy as the previous WebSocket client).
-    pub async fn reconnect(&mut self, config: &McpClientConfig, attempt: u32) -> PluginResult<()> {
+    pub async fn reconnect(&mut self, config: &McpClientConfig, attempt: u32) -> Result<()> {
         if attempt >= config.max_reconnect_attempts {
-            return Err(PluginError::TemporaryFailure {
-                operation: "mcp_reconnect".to_string(),
-                message: "Max reconnection attempts reached".to_string(),
-            });
+            return Err(SDKError::General(
+                "Temporary failure: mcp_reconnect - Max reconnection attempts reached".to_string(),
+            ));
         }
 
         info!(
@@ -283,6 +277,7 @@ impl ConnectionManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use universal_error::sdk::{ClientError, SDKError};
 
     #[test]
     fn test_connection_manager_creation() {
@@ -304,7 +299,10 @@ mod tests {
         let mut manager = ConnectionManager::new(config);
 
         let result = manager.send_message("test message").await;
-        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(SDKError::Client(ClientError::Connection(_)))
+        ));
     }
 
     #[tokio::test]
@@ -314,7 +312,7 @@ mod tests {
 
         let large_message = "x".repeat(config.max_message_size + 1);
         let result = manager.send_message(&large_message).await;
-        assert!(result.is_err());
+        assert!(matches!(result, Err(SDKError::General(_))));
     }
 
     #[tokio::test]
@@ -335,7 +333,7 @@ mod tests {
         let mut manager = ConnectionManager::new(config.clone());
 
         let result = manager.reconnect(&config, 2).await;
-        assert!(result.is_err());
+        assert!(matches!(result, Err(SDKError::General(_))));
     }
 
     #[cfg(all(not(target_arch = "wasm32"), unix))]
@@ -349,6 +347,9 @@ mod tests {
             parse_unix_socket_path("/tmp/x.sock").unwrap(),
             std::path::PathBuf::from("/tmp/x.sock")
         );
-        assert!(parse_unix_socket_path("ws://x").is_err());
+        assert!(matches!(
+            parse_unix_socket_path("ws://x"),
+            Err(SDKError::General(_))
+        ));
     }
 }

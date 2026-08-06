@@ -250,40 +250,38 @@ pub fn enabled_features() -> Vec<&'static str> {
 }
 
 /// Get SDK configuration
-pub fn get_sdk_config() -> Result<PluginSdkConfig, PluginError> {
+pub fn get_sdk_config() -> Result<PluginSdkConfig, universal_error::sdk::SDKError> {
+    use universal_error::sdk::InfrastructureError;
     let config = PluginSdkConfig::default();
     config
         .validate()
-        .map_err(|e| PluginError::InitializationError {
-            reason: format!("Failed to get SDK config: {}", e),
-        })?;
+        .map_err(|e| InfrastructureError::Configuration(format!("Failed to get SDK config: {e}")))?;
     Ok(config)
 }
 
 /// Validate SDK environment
-pub fn validate_environment() -> Result<(), PluginError> {
-    // Check WASM environment
+pub fn validate_environment() -> Result<(), universal_error::sdk::SDKError> {
+    use universal_error::sdk::InfrastructureError;
     #[cfg(target_arch = "wasm32")]
     {
         if web_sys::window().is_none() {
-            return Err(PluginError::InitializationError {
-                reason: "SDK requires browser environment".to_string(),
-            });
+            return Err(InfrastructureError::Configuration(
+                "SDK requires browser environment".to_string(),
+            ).into());
         }
     }
 
-    // Check required features
     if !has_feature("mcp") {
-        return Err(PluginError::InitializationError {
-            reason: "MCP feature is required".to_string(),
-        });
+        return Err(InfrastructureError::Configuration(
+            "MCP feature is required".to_string(),
+        ).into());
     }
 
     Ok(())
 }
 
 /// Create a new plugin instance
-pub fn create_plugin<T: Plugin>(config: PluginConfig) -> Result<T, PluginError> {
+pub fn create_plugin<T: Plugin>(config: PluginConfig) -> Result<T, universal_error::sdk::SDKError> {
     validate_environment()?;
     T::new(config)
 }
@@ -291,45 +289,45 @@ pub fn create_plugin<T: Plugin>(config: PluginConfig) -> Result<T, PluginError> 
 /// Plugin trait for SDK compatibility
 pub trait Plugin: Sized {
     /// Create a new plugin instance
-    fn new(config: PluginConfig) -> Result<Self, PluginError>;
+    fn new(config: PluginConfig) -> Result<Self, universal_error::sdk::SDKError>;
 
     /// Get plugin information
     fn info(&self) -> &PluginInfo;
 
     /// Initialize the plugin
-    fn init(&mut self) -> Result<(), PluginError>;
+    fn init(&mut self) -> Result<(), universal_error::sdk::SDKError>;
 
     /// Start the plugin
-    fn start(&mut self) -> Result<(), PluginError>;
+    fn start(&mut self) -> Result<(), universal_error::sdk::SDKError>;
 
     /// Stop the plugin
-    fn stop(&mut self) -> Result<(), PluginError>;
+    fn stop(&mut self) -> Result<(), universal_error::sdk::SDKError>;
 
     /// Handle a command
     fn handle_command(
         &mut self,
         command: &str,
         params: serde_json::Value,
-    ) -> Result<serde_json::Value, PluginError>;
+    ) -> Result<serde_json::Value, universal_error::sdk::SDKError>;
 
     /// Handle an event
-    fn handle_event(&mut self, event: &Event) -> Result<(), PluginError>;
+    fn handle_event(&mut self, event: &Event) -> Result<(), universal_error::sdk::SDKError>;
 
     /// Get plugin state
     fn get_state(&self) -> serde_json::Value;
 
     /// Set plugin state
-    fn set_state(&mut self, state: serde_json::Value) -> Result<(), PluginError>;
+    fn set_state(&mut self, state: serde_json::Value) -> Result<(), universal_error::sdk::SDKError>;
 
     /// Cleanup resources
-    fn cleanup(&mut self) -> Result<(), PluginError>;
+    fn cleanup(&mut self) -> Result<(), universal_error::sdk::SDKError>;
 }
 
 // Re-export key types for convenience
 pub use crate::communication::{CommandRegistry, EventBus, McpClient};
 pub use crate::core::{BasePlugin, PluginInfo, PluginStats, WasmPlugin};
-pub use crate::infrastructure::error::PluginResult;
-pub use crate::infrastructure::{Logger, PluginConfig, PluginError};
+pub use crate::infrastructure::error::{PluginResult, SDKError};
+pub use crate::infrastructure::{Logger, PluginConfig};
 
 #[cfg(feature = "fs")]
 pub use crate::client::fs::FileSystem;

@@ -16,7 +16,8 @@
 //! The rest of this module defines shared types ([`FileMetadata`], [`FileContent`], path helpers)
 //! used once a host-backed implementation is connected.
 
-use crate::error::{PluginError, PluginResult};
+use crate::infrastructure::error::Result as SdkResult;
+use universal_error::sdk::{CommunicationError, SDKError};
 use crate::plugin::Permission;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
@@ -50,14 +51,12 @@ pub enum FileContent {
 
 impl FileContent {
     /// Get content as UTF-8 string
-    pub fn as_text(&self) -> PluginResult<String> {
+    pub fn as_text(&self) -> SdkResult<String> {
         match self {
             FileContent::Text(content) => Ok(content.clone()),
-            FileContent::Binary(data) => {
-                String::from_utf8(data.clone()).map_err(|e| PluginError::SerializationError {
-                    message: format!("Invalid UTF-8: {}", e),
-                })
-            }
+            FileContent::Binary(data) => String::from_utf8(data.clone()).map_err(|e| {
+                CommunicationError::Serialization(format!("Invalid UTF-8: {e}")).into()
+            }),
         }
     }
 
@@ -70,14 +69,12 @@ impl FileContent {
     }
 
     /// Get content as text reference (for Text variant)
-    pub fn as_text_ref(&self) -> PluginResult<&str> {
+    pub fn as_text_ref(&self) -> SdkResult<&str> {
         match self {
             FileContent::Text(content) => Ok(content),
-            FileContent::Binary(data) => {
-                std::str::from_utf8(data).map_err(|e| PluginError::SerializationError {
-                    message: format!("Invalid UTF-8: {}", e),
-                })
-            }
+            FileContent::Binary(data) => std::str::from_utf8(data).map_err(|e| {
+                CommunicationError::Serialization(format!("Invalid UTF-8: {e}")).into()
+            }),
         }
     }
 
@@ -191,7 +188,8 @@ impl FileSystem {
     /// `fs.exists` capability.
     #[wasm_bindgen]
     pub async fn exists(&self, path: String) -> Result<bool, JsValue> {
-        self.check_file_permission(&path, false)?;
+        self.check_file_permission(&path, false)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
         Ok(false)
     }
 
@@ -201,7 +199,8 @@ impl FileSystem {
     /// wired. Uses `serde_wasm_bindgen` (wasm32-only).
     #[wasm_bindgen]
     pub async fn metadata(&self, path: String) -> Result<JsValue, JsValue> {
-        self.check_file_permission(&path, false)?;
+        self.check_file_permission(&path, false)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let metadata = FileMetadata {
             name: path.split('/').next_back().unwrap_or(&path).to_string(),
@@ -221,7 +220,8 @@ impl FileSystem {
     /// WASM sandbox stub: returns empty listing until a host filesystem is wired.
     #[wasm_bindgen]
     pub async fn list_directory(&self, path: String) -> Result<JsValue, JsValue> {
-        self.check_file_permission(&path, false)?;
+        self.check_file_permission(&path, false)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let entries: Vec<DirectoryEntry> = vec![];
         serde_wasm_bindgen::to_value(&entries)
@@ -231,30 +231,36 @@ impl FileSystem {
     /// Create a directory (WASM sandbox stub: no-op until host wired).
     #[wasm_bindgen]
     pub async fn create_directory(&self, path: String) -> Result<(), JsValue> {
-        self.check_file_permission(&path, true)?;
+        self.check_file_permission(&path, true)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
         Ok(())
     }
 
     /// Delete a file or directory (WASM sandbox stub: no-op until host wired).
     #[wasm_bindgen]
     pub async fn delete(&self, path: String) -> Result<(), JsValue> {
-        self.check_file_permission(&path, true)?;
+        self.check_file_permission(&path, true)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
         Ok(())
     }
 
     /// Copy a file (WASM sandbox stub: no-op until host wired).
     #[wasm_bindgen]
     pub async fn copy(&self, source: String, destination: String) -> Result<(), JsValue> {
-        self.check_file_permission(&source, false)?;
-        self.check_file_permission(&destination, true)?;
+        self.check_file_permission(&source, false)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        self.check_file_permission(&destination, true)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
         Ok(())
     }
 
     /// Move/rename a file (WASM sandbox stub: no-op until host wired).
     #[wasm_bindgen]
     pub async fn move_file(&self, source: String, destination: String) -> Result<(), JsValue> {
-        self.check_file_permission(&source, true)?;
-        self.check_file_permission(&destination, true)?;
+        self.check_file_permission(&source, true)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        self.check_file_permission(&destination, true)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
         Ok(())
     }
 }
@@ -263,19 +269,19 @@ impl FileSystem {
 impl FileSystem {
     /// Internal file reading (WASM sandbox stub: returns empty content
     /// until a host filesystem is wired via the plugin bridge).
-    async fn read_file_internal(&self, path: &str, write: bool) -> PluginResult<FileContent> {
+    async fn read_file_internal(&self, path: &str, write: bool) -> SdkResult<FileContent> {
         self.check_file_permission(path, write)?;
         Ok(FileContent::Binary(Vec::new()))
     }
 
     /// Internal file writing (WASM sandbox stub: no-op until host wired).
-    async fn write_file_internal(&self, path: &str, _data: Vec<u8>) -> PluginResult<()> {
+    async fn write_file_internal(&self, path: &str, _data: Vec<u8>) -> SdkResult<()> {
         self.check_file_permission(path, true)?;
         Ok(())
     }
 
     /// Check file system permissions
-    fn check_file_permission(&self, path: &str, write: bool) -> Result<(), JsValue> {
+    fn check_file_permission(&self, path: &str, write: bool) -> SdkResult<()> {
         let _permission = if write {
             Permission::FileSystemWrite(path.to_string())
         } else {
@@ -306,10 +312,10 @@ impl FileUploadHandler {
         _file: &[u8],
         filename: String,
         _mime_type: String,
-    ) -> PluginResult<String> {
-        Err(PluginError::McpError {
-            message: format!("WASM sandbox: filesystem not connected — cannot upload '{filename}'"),
-        })
+    ) -> SdkResult<String> {
+        Err(SDKError::General(format!(
+            "WASM sandbox: filesystem not connected — cannot upload '{filename}'"
+        )))
     }
 
     /// Create a download link for file content
@@ -318,7 +324,7 @@ impl FileUploadHandler {
         content: &[u8],
         _filename: String,
         mime_type: String,
-    ) -> PluginResult<String> {
+    ) -> SdkResult<String> {
         let uint8_array = js_sys::Uint8Array::new_with_length(content.len() as u32);
         uint8_array.copy_from(content);
 
@@ -329,14 +335,10 @@ impl FileUploadHandler {
         blob_options.set_type(&mime_type);
 
         let blob = web_sys::Blob::new_with_u8_array_sequence_and_options(&array, &blob_options)
-            .map_err(|e| PluginError::JsError {
-                message: format!("Failed to create blob: {:?}", e),
-            })?;
+            .map_err(|e| SDKError::General(format!("Failed to create blob: {e:?}")))?;
 
-        let url =
-            web_sys::Url::create_object_url_with_blob(&blob).map_err(|e| PluginError::JsError {
-                message: format!("Failed to create object URL: {:?}", e),
-            })?;
+        let url = web_sys::Url::create_object_url_with_blob(&blob)
+            .map_err(|e| SDKError::General(format!("Failed to create object URL: {e:?}")))?;
 
         Ok(url)
     }
@@ -439,10 +441,9 @@ pub mod utils {
 }
 
 /// Create a download URL for file content
-pub fn create_download_url(content: &[u8], mime_type: &str) -> PluginResult<String> {
-    let _window = web_sys::window().ok_or_else(|| PluginError::JsError {
-        message: "No window object".to_string(),
-    })?;
+pub fn create_download_url(content: &[u8], mime_type: &str) -> SdkResult<String> {
+    let _window = web_sys::window()
+        .ok_or_else(|| SDKError::General("No window object".to_string()))?;
 
     let uint8_array = js_sys::Uint8Array::new_with_length(content.len() as u32);
     uint8_array.copy_from(content);
@@ -454,14 +455,10 @@ pub fn create_download_url(content: &[u8], mime_type: &str) -> PluginResult<Stri
     blob_options.set_type(mime_type);
 
     let blob = web_sys::Blob::new_with_u8_array_sequence_and_options(&blob_parts, &blob_options)
-        .map_err(|e| PluginError::JsError {
-            message: format!("Failed to create blob: {:?}", e),
-        })?;
+        .map_err(|e| SDKError::General(format!("Failed to create blob: {e:?}")))?;
 
-    let url =
-        web_sys::Url::create_object_url_with_blob(&blob).map_err(|e| PluginError::JsError {
-            message: format!("Failed to create URL: {:?}", e),
-        })?;
+    let url = web_sys::Url::create_object_url_with_blob(&blob)
+        .map_err(|e| SDKError::General(format!("Failed to create URL: {e:?}")))?;
 
     Ok(url)
 }
@@ -756,14 +753,14 @@ mod tests {
         let r = create_download_url(b"x", "text/plain");
         assert!(r.is_err());
         match r {
-            Err(crate::error::PluginError::JsError { message }) => {
+            Err(SDKError::General(message)) => {
                 assert!(
                     message.contains("window")
                         || message.contains("Failed")
                         || message.contains("not implemented")
                 );
             }
-            _ => unreachable!("expected JsError"),
+            _ => unreachable!("expected SDKError::General"),
         }
     }
 }
