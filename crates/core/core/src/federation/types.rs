@@ -71,7 +71,7 @@ pub struct FederationNode {
 }
 
 /// Coarse health classification for a federation node or link.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum NodeHealth {
     /// Fully responsive within SLOs.
     Healthy,

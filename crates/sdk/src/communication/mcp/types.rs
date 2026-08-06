@@ -43,7 +43,7 @@ pub struct McpMessage {
 ///
 /// Represents the current connection status of the MCP client, used for
 /// connection lifecycle management and user feedback.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ConnectionState {
     /// Client is disconnected from the server
     Disconnected,

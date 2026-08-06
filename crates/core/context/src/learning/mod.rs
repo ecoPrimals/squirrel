@@ -220,7 +220,7 @@ impl Default for PolicyNetworkConfig {
 }
 
 /// Learning system state
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum LearningState {
     /// System is initializing
     Initializing,

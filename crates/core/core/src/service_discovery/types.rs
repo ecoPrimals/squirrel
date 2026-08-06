@@ -303,7 +303,7 @@ impl ServiceEndpoint {
 }
 
 /// Health status for service discovery (distinct from crate-level `HealthStatus` for primals).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ServiceHealthStatus {
     /// Service is healthy and available
     Healthy,
@@ -358,7 +358,7 @@ pub struct ServiceQuery {
 }
 
 /// Sort field enumeration
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SortField {
     /// Sort by service name
     Name,
@@ -371,7 +371,7 @@ pub enum SortField {
 }
 
 /// Direction applied when ordering a result set by [`SortField`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum SortOrder {
     /// Ascending order
     #[default]

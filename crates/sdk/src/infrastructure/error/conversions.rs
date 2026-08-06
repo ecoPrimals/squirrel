@@ -273,6 +273,68 @@ impl From<anyhow::Error> for PluginError {
     }
 }
 
+impl From<PluginError> for universal_error::sdk::SDKError {
+    #[expect(deprecated, reason = "bridge from deprecated PluginError to SDKError")]
+    fn from(err: PluginError) -> Self {
+        use universal_error::sdk::{ClientError, CommunicationError, InfrastructureError};
+        match err {
+            PluginError::McpError { message } => CommunicationError::MCP(message).into(),
+            PluginError::SerializationError { message } => {
+                CommunicationError::Serialization(message).into()
+            }
+            PluginError::JsonError { message } => {
+                CommunicationError::Serialization(message).into()
+            }
+            PluginError::EventHandlingError {
+                event_type,
+                message,
+            } => CommunicationError::Event(format!("{event_type}: {message}")).into(),
+            PluginError::CommandExecutionError { command, message } => {
+                CommunicationError::Command(format!("{command}: {message}")).into()
+            }
+            PluginError::CommunicationError { target, message } => {
+                CommunicationError::MCP(format!("{target}: {message}")).into()
+            }
+            PluginError::NetworkError { operation, message } => {
+                ClientError::Connection(format!("{operation}: {message}")).into()
+            }
+            PluginError::ConnectionError { endpoint, message } => {
+                ClientError::Connection(format!("{endpoint}: {message}")).into()
+            }
+            PluginError::HttpError { status, message } => {
+                ClientError::Http(format!("{status}: {message}")).into()
+            }
+            PluginError::TimeoutError { seconds, .. } => ClientError::Timeout(seconds).into(),
+            PluginError::ConfigurationError { message }
+            | PluginError::InvalidConfiguration { message } => {
+                InfrastructureError::Configuration(message).into()
+            }
+            PluginError::ValidationError { field, message } => {
+                InfrastructureError::Validation(format!("{field}: {message}")).into()
+            }
+            PluginError::InitializationError { reason } => {
+                InfrastructureError::Configuration(reason).into()
+            }
+            PluginError::LockError { resource, message } => {
+                InfrastructureError::Utility(format!("lock({resource}): {message}")).into()
+            }
+            PluginError::FileSystemError { operation, message } => {
+                Self::General(format!("fs({operation}): {message}"))
+            }
+            PluginError::StorageError { operation, message } => {
+                Self::General(format!("storage({operation}): {message}"))
+            }
+            PluginError::CacheError { operation, message } => {
+                Self::General(format!("cache({operation}): {message}"))
+            }
+            PluginError::ContextError { context, message } => {
+                Self::General(format!("context({context}): {message}"))
+            }
+            other => Self::General(other.to_string()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -57,7 +57,7 @@ pub struct RoutingConfig {
 }
 
 /// Load balancing strategies available for agent selection
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub enum LoadBalancingStrategy {
     /// Simple round-robin selection
     RoundRobin,
@@ -94,7 +94,7 @@ pub struct AgentSelectionConfig {
 }
 
 /// Agent selection modes
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub enum SelectionMode {
     /// Fully automatic selection
     Automatic,

@@ -97,7 +97,7 @@ pub struct ResourceUtilization {
 }
 
 /// Performance trend direction
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum TrendDirection {
     /// Performance is improving.
     Improving,
@@ -136,7 +136,7 @@ pub struct PerformanceThreshold {
 }
 
 /// Threshold comparison direction
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ThresholdDirection {
     /// Alert when value is above threshold.
     Above,

@@ -79,7 +79,7 @@ pub struct ServiceMeshLoadBalancerConfig {
 }
 
 /// Load balancing strategy for service mesh.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum MeshLoadBalancingStrategy {
     /// Distributes requests evenly in cyclic order across endpoints.
     RoundRobin,
@@ -222,7 +222,7 @@ pub struct ScaleEvent {
 }
 
 /// Type of scaling event.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ScaleEventType {
     /// Add capacity to meet rising load.
     ScaleUp,

@@ -86,7 +86,7 @@ pub struct PartitionInfo {
 }
 
 /// Strategies for recovering from network partitions
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum PartitionRecoveryStrategy {
     /// Wait for partition to heal naturally
     WaitForHealing,

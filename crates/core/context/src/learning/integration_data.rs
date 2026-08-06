@@ -85,7 +85,7 @@ pub struct IntegrationState {
 }
 
 /// Integration status
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum IntegrationStatus {
     Initializing,
     Active,

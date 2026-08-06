@@ -15,7 +15,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 /// Kind of token issued or validated by the manager.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TokenType {
     /// Short-lived API access token.
     Access,

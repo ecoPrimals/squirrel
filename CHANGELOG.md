@@ -11,6 +11,13 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 5, 2026 — Wave 156m: PluginError→SDKError Bridge + 20 More Copy Derives)
+
+- **`From<PluginError> for SDKError` bridge**: Maps all 40+ `PluginError` variants to the hierarchical `SDKError` structure in `crates/sdk/src/infrastructure/error/conversions.rs`. Communication variants → `CommunicationError::MCP`/`Event`/`Command`/`Serialization`, network variants → `ClientError::Connection`/`Http`/`Timeout`, infrastructure variants → `InfrastructureError::Configuration`/`Validation`/`Utility`, remaining → `SDKError::General`. Enables incremental migration of the 670-ref deprecated `PluginError` surface.
+- **20 additional enums derive `Copy`**: `MeshLoadBalancingStrategy`, `ScaleEventType`, `LoadBalancingStrategy` (routing), `SelectionMode`, `AgentHealthStatus`, `ServiceHealthStatus`, `SortField`, `SortOrder`, `NodeHealth`, `LearningState`, `IntegrationStatus`, `LearningAlgorithm`, `PartitionRecoveryStrategy`, `PluginType`, `TokenType`, `TrendDirection`, `ThresholdDirection`, `HttpMethod`, `ConnectionState`, `NodeStatus`, `ConsensusNodeState`. Total: 45 enums now derive `Copy` across Waves 156l–m.
+- **`persist_session_context` graceful degradation**: (from 156l) Returns `Ok(())` instead of `NotImplemented` error.
+- **6,455 tests passing**, zero warnings across workspace.
+
 ### Summary (Aug 5, 2026 — Wave 156l: PrimalDependency Migration, Copy Derives, Unwrap Elimination)
 
 - **`ecosystem_api::PrimalDependency.primal_type` migrated to `String`**: Deprecated `PrimalType` enum field replaced with capability-domain `String` (e.g. `"any"`, `"security"`). `ecosystem_api::UniversalPrimalProvider::primal_type()` trait method evolved from `PrimalType` enum return to `&str`. `#[allow(deprecated)]` and `#![allow(deprecated)]` removed from `PrimalDependency` struct and `traits/primal.rs`. Re-export in `types/mod.rs` refined: `PrimalDependency` no longer wrapped in deprecated guard.

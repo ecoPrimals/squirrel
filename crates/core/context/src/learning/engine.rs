@@ -80,7 +80,7 @@ impl Default for LearningEngineConfig {
 }
 
 /// Learning algorithm type
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum LearningAlgorithm {
     /// Q-Learning
     QLearning,

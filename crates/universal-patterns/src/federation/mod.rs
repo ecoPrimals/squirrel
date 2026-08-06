@@ -258,7 +258,7 @@ pub struct FederationNode {
 }
 
 /// Node status in the federation
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum NodeStatus {
     /// Node is active and available
     Active,

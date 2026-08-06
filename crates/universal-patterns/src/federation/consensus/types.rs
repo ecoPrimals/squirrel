@@ -40,7 +40,7 @@ impl Default for ConsensusConfig {
 }
 
 /// Consensus node state
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ConsensusNodeState {
     /// Node is a follower
     Follower,

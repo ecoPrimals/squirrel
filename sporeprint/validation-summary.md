@@ -8,6 +8,13 @@ primals = ["squirrel"]
 springs = []
 +++
 
+## Wave 156m — PluginError→SDKError Bridge + 20 More Copy Derives (Aug 5, 2026)
+
+- `From<PluginError> for SDKError` bridge added: maps all 40+ deprecated variants to hierarchical SDKError
+- 20 additional enums derive `Copy` across core, context, plugins, mcp, main, sdk, universal-patterns
+- Total: 45 Copy-derived enums across Waves 156l–m
+- 0 warnings, 6,455 tests passing
+
 ## Wave 156l — PrimalDependency Migration, Copy Derives, Unwrap Elimination (Aug 5, 2026)
 
 - `ecosystem_api::PrimalDependency.primal_type` migrated from deprecated `PrimalType` enum to `String`

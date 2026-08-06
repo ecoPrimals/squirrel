@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 /// Health status of a registered agent
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AgentHealthStatus {
     /// Agent is healthy and available
     Healthy,
