@@ -1,6 +1,6 @@
 # Squirrel Status — Wave 157b: C8 Upstream Absorption Excision
 
-**Date**: Aug 6, 2026 | **From**: eastGate overwatch | **HEAD**: TBD (pending commit)
+**Date**: Aug 6, 2026 | **From**: eastGate overwatch | **HEAD**: `1304646a`
 
 ## Summary
 
