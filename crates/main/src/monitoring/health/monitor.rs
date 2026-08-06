@@ -147,7 +147,7 @@ impl HealthMonitor {
     pub async fn get_health_summary(&self) -> Result<HashMap<String, HealthState>, PrimalError> {
         let component_health = self.component_health.read().await;
 
-        let mut summary = HashMap::new();
+        let mut summary = HashMap::with_capacity(component_health.len());
         for (name, health) in component_health.iter() {
             summary.insert(name.clone(), health.state);
         }

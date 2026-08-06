@@ -191,9 +191,9 @@ pub struct PluginContext {
 
 impl PluginContext {
     /// Create a new plugin context
-    pub fn new(plugin_id: String) -> Self {
+    pub fn new(plugin_id: impl Into<String>) -> Self {
         Self {
-            plugin_id,
+            plugin_id: plugin_id.into(),
             working_directory: "/".to_string(),
             environment: HashMap::new(),
             config: serde_json::json!({}),
@@ -207,8 +207,8 @@ impl PluginContext {
     }
 
     /// Set environment variable
-    pub fn set_env(&mut self, key: String, value: String) {
-        self.environment.insert(key, value);
+    pub fn set_env(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.environment.insert(key.into(), value.into());
     }
 
     /// Get config value

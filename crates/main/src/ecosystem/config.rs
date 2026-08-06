@@ -109,13 +109,13 @@ impl Default for EcosystemConfig {
 impl EcosystemConfig {
     /// Create a new ecosystem configuration with specified values
     #[must_use]
-    pub fn new(service_name: String, service_host: String, service_port: u16) -> Self {
+    pub fn new(service_name: impl Into<String>, service_host: impl Into<String>, service_port: u16) -> Self {
         use uuid::Uuid;
 
         Self {
             service_id: Arc::from(format!("primal-squirrel-{}", Uuid::new_v4())),
-            service_name,
-            service_host,
+            service_name: service_name.into(),
+            service_host: service_host.into(),
             service_port,
             ..Default::default()
         }
@@ -164,8 +164,8 @@ impl EcosystemConfig {
 
     /// Add metadata entry
     #[must_use]
-    pub fn with_metadata(mut self, key: String, value: String) -> Self {
-        self.metadata.insert(key, value);
+    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.metadata.insert(key.into(), value.into());
         self
     }
 }

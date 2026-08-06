@@ -184,13 +184,13 @@ impl PolicyNetwork {
             let input_size = layer_sizes[i];
             let output_size = layer_sizes[i + 1];
 
-            let mut layer_weights = Vec::new();
-            let mut layer_biases = Vec::new();
+            let mut layer_weights = Vec::with_capacity(output_size);
+            let mut layer_biases = Vec::with_capacity(output_size);
 
             let xavier_std = (2.0 / (input_size + output_size) as f64).sqrt();
 
             for _ in 0..output_size {
-                let mut neuron_weights = Vec::new();
+                let mut neuron_weights = Vec::with_capacity(input_size);
                 for _ in 0..input_size {
                     neuron_weights
                         .push(rand::random::<f64>().mul_add(xavier_std, -(xavier_std / 2.0)));

@@ -185,8 +185,9 @@ impl UniversalPrimalEcosystem {
         // Search through all discovered services, regardless of their "primal type"
         for capability_services in services.values() {
             for service in capability_services {
-                let mut matched_capabilities = Vec::new();
-                let mut missing_capabilities = Vec::new();
+                let cap_count = request.required_capabilities.len();
+                let mut matched_capabilities = Vec::with_capacity(cap_count);
+                let mut missing_capabilities = Vec::with_capacity(cap_count);
 
                 // Check required capabilities
                 for required_cap in &request.required_capabilities {

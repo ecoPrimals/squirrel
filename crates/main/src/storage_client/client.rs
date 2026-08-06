@@ -664,29 +664,26 @@ impl UniversalStorageClient {
     /// Get configuration-based storage recommendations using config field
     pub fn get_config_based_storage_recommendations(&self) -> Vec<serde_json::Value> {
         // Use fixed values to generate configuration-specific recommendations
-        let mut recommendations = Vec::new();
-
-        // Simplified recommendations using fixed values
-        recommendations.push(serde_json::json!({
-            "category": "capacity",
-            "severity": "medium",
-            "description": "Consider increasing max file size limit for better user experience",
-            "suggested_value": "500"
-        }));
-
-        recommendations.push(serde_json::json!({
-            "category": "performance",
-            "severity": "medium",
-            "description": "Increase connection pool size for better throughput",
-            "suggested_value": "10"
-        }));
-
-        recommendations.push(serde_json::json!({
-            "category": "performance",
-            "severity": "low",
-            "description": "Enable more parallel operations for faster uploads",
-            "suggested_value": "5"
-        }));
+        let recommendations = vec![
+            serde_json::json!({
+                "category": "capacity",
+                "severity": "medium",
+                "description": "Consider increasing max file size limit for better user experience",
+                "suggested_value": "500"
+            }),
+            serde_json::json!({
+                "category": "performance",
+                "severity": "medium",
+                "description": "Increase connection pool size for better throughput",
+                "suggested_value": "10"
+            }),
+            serde_json::json!({
+                "category": "performance",
+                "severity": "low",
+                "description": "Enable more parallel operations for faster uploads",
+                "suggested_value": "5"
+            }),
+        ];
 
         debug!(
             "Generated {} configuration-based storage recommendations",

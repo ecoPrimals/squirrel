@@ -33,10 +33,10 @@ pub struct Event {
 
 impl Event {
     /// Create a new event
-    pub fn new(event_type: String, payload: serde_json::Value) -> Self {
+    pub fn new(event_type: impl Into<String>, payload: serde_json::Value) -> Self {
         Self {
             id: crate::utils::generate_uuid(),
-            event_type,
+            event_type: event_type.into(),
             source: "plugin".to_string(),
             timestamp: current_timestamp_iso(),
             payload,
@@ -45,11 +45,11 @@ impl Event {
     }
 
     /// Create a new event with custom source
-    pub fn with_source(event_type: String, payload: serde_json::Value, source: String) -> Self {
+    pub fn with_source(event_type: impl Into<String>, payload: serde_json::Value, source: impl Into<String>) -> Self {
         Self {
             id: crate::utils::generate_uuid(),
-            event_type,
-            source,
+            event_type: event_type.into(),
+            source: source.into(),
             timestamp: current_timestamp_iso(),
             payload,
             metadata: HashMap::new(),
@@ -57,8 +57,8 @@ impl Event {
     }
 
     /// Add metadata to the event
-    pub fn with_metadata(mut self, key: String, value: serde_json::Value) -> Self {
-        self.metadata.insert(key, value);
+    pub fn with_metadata(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
+        self.metadata.insert(key.into(), value);
         self
     }
 

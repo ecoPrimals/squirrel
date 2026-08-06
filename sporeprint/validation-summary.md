@@ -8,6 +8,15 @@ primals = ["squirrel"]
 springs = []
 +++
 
+## Wave 156o — Pre-sized Collections + String Builder + API Ergonomics (Aug 6, 2026)
+
+- 7 `with_capacity` additions in hot paths (task manager, health monitor, batch processor, discovery, monitoring)
+- `rule_to_mdc` String builder: `push_str(&format!)` → `write!` + `with_capacity(512)` — zero intermediate allocations
+- 10 more constructor/builder params evolved to `impl Into<String>` (SecurityContext, EcosystemConfig, Event, PluginContext)
+- `vec![]` initializer for known-size recommendations
+- Neural policy init: 3 inner vecs pre-sized with `with_capacity`
+- 0 warnings, 6,455 tests passing
+
 ## Wave 156n — Allocation Hygiene + API Ergonomics (Aug 6, 2026)
 
 - 2 `Option<&String>` params evolved to `Option<&str>` in `dignity.rs`; call sites: `.as_ref()` → `.as_deref()`

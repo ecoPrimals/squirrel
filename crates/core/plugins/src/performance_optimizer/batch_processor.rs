@@ -96,7 +96,7 @@ impl BatchProcessor {
         let mut ops_this_call = 0u64;
 
         while !queue.is_empty() {
-            let mut chunk: Vec<Arc<ZeroCopyPluginEntry>> = Vec::new();
+            let mut chunk: Vec<Arc<ZeroCopyPluginEntry>> = Vec::with_capacity(self.config.max_batch_size);
             while chunk.len() < self.config.max_batch_size {
                 match queue.front() {
                     Some(BatchOperation::PluginLoad { .. }) => {

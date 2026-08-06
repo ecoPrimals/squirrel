@@ -409,37 +409,32 @@ impl RuleParser {
 
 /// Convert a rule to MDC format for saving
 pub fn rule_to_mdc(rule: &Rule) -> Result<String> {
-    let mut output = String::new();
+    use std::fmt::Write;
+    let mut output = String::with_capacity(512);
 
     // Generate frontmatter
     output.push_str("---\n");
 
-    // Add metadata fields
-    output.push_str(&format!("id: {}\n", rule.id));
-    output.push_str(&format!("name: {}\n", rule.name));
-    output.push_str(&format!("description: {}\n", rule.description));
-    output.push_str(&format!("category: {}\n", rule.category));
-    output.push_str(&format!("priority: {}\n", rule.priority));
+    let _ = write!(output, "id: {}\n", rule.id);
+    let _ = write!(output, "name: {}\n", rule.name);
+    let _ = write!(output, "description: {}\n", rule.description);
+    let _ = write!(output, "category: {}\n", rule.category);
+    let _ = write!(output, "priority: {}\n", rule.priority);
+    let _ = write!(output, "version: {}\n", rule.version);
 
-    // Add version
-    output.push_str(&format!("version: {}\n", rule.version));
-
-    // Add patterns
     if !rule.patterns.is_empty() {
         output.push_str("patterns:\n");
         for pattern in &rule.patterns {
-            output.push_str(&format!("  - \"{pattern}\"\n"));
+            let _ = write!(output, "  - \"{pattern}\"\n");
         }
     }
 
-    // Add metadata
     let metadata_json = serde_json::to_string_pretty(&rule.metadata)?;
     output.push_str("metadata: |\n");
     for line in metadata_json.lines() {
-        output.push_str(&format!("  {line}\n"));
+        let _ = write!(output, "  {line}\n");
     }
 
-    // End frontmatter
     output.push_str("---\n\n");
 
     // Add conditions section if conditions exist

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: Aug 6, 2026 (Wave 156n — Allocation Hygiene + API Ergonomics)
+**Last Updated**: Aug 6, 2026 (Wave 156o — Pre-sized Collections + String Builder + API Ergonomics)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 

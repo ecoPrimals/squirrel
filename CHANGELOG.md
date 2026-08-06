@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 6, 2026 — Wave 156o: Pre-sized Collections + String Builder + API Ergonomics)
+
+- **`with_capacity` in hot paths**: 7 sites where collection size is known upfront — `TaskManager::find_assignable_tasks`, `HealthMonitor::get_health_summary`, `BatchProcessor::process` chunk, `UniversalPrimalEcosystem::discover`, `MonitoringService::get_status`, neural policy initialization. Eliminates reallocations in request/discovery/batch processing paths.
+- **`vec![]` for known-size init**: `storage_client::get_config_based_storage_recommendations` replaced `Vec::new()` + 3×`push` with `vec![...]`.
+- **`rule_to_mdc` String builder**: Replaced 8 `push_str(&format!(...))` allocations with `write!(output, ...)` + `String::with_capacity(512)` — eliminates intermediate `String` allocations during rule serialization.
+- **`impl Into<String>` API ergonomics (batch 2)**: 10 more constructor/builder params evolved across `SecurityContext` (4 params), `EcosystemConfig` (4 params), `Event` (3 params), `PluginContext` (3 params). Total: 24 params evolved to `impl Into<String>` across Waves 156n–o.
+- **6,455 tests passing**, zero warnings across workspace.
+
 ### Summary (Aug 6, 2026 — Wave 156n: Allocation Hygiene + API Ergonomics)
 
 - **`&String` → `&str` parameter evolution**: 2 `Option<&String>` params in `dignity.rs` (`lacks_human_oversight`, `lacks_explainability`) evolved to `Option<&str>`. Call sites migrated from `.as_ref()` to `.as_deref()`.

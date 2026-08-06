@@ -380,8 +380,8 @@ impl TaskManager {
                 .collect()
         };
 
-        let mut assignable_tasks = Vec::new();
         let pending_len = pending_tasks.len();
+        let mut assignable_tasks = Vec::with_capacity(pending_len);
 
         for task in pending_tasks {
             if self.check_prerequisites(&task).await? {

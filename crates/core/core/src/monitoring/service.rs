@@ -272,7 +272,7 @@ impl MonitoringService {
             .iter()
             .map(Arc::clone)
             .collect();
-        let mut provider_statuses = Vec::new();
+        let mut provider_statuses = Vec::with_capacity(providers.len());
 
         for provider in &providers {
             let health = match provider.provider_health().await {
