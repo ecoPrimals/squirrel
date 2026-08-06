@@ -63,7 +63,7 @@ impl EcosystemPrimalType {
     }
 }
 
-#[allow(deprecated)]
+#[expect(deprecated, reason = "implements FromStr for deprecated enum (serde compat)")]
 impl std::str::FromStr for EcosystemPrimalType {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -79,7 +79,7 @@ impl std::str::FromStr for EcosystemPrimalType {
     }
 }
 
-#[allow(deprecated)]
+#[expect(deprecated, reason = "implements Display for deprecated enum (logging compat)")]
 impl std::fmt::Display for EcosystemPrimalType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
@@ -176,7 +176,7 @@ impl std::fmt::Display for CapabilityDomain {
     since = "0.2.0",
     note = "Use CapabilityDomain for routing; do not infer primal types"
 )]
-#[allow(deprecated)]
+#[expect(deprecated, reason = "backward-compat shim for serde deserialization")]
 #[must_use]
 pub fn infer_primal_type_from_capability(capability: &str) -> EcosystemPrimalType {
     use universal_constants::capabilities as caps;
@@ -577,7 +577,7 @@ mod tests {
 
     // --- EcosystemPrimalType (deprecated but still used in registration) ---
 
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "tests deprecated enum backward compat")]
     #[test]
     fn ecosystem_primal_type_from_str_accepts_case_insensitive() {
         assert_eq!(
@@ -594,13 +594,13 @@ mod tests {
         );
     }
 
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "tests deprecated enum backward compat")]
     #[test]
     fn ecosystem_primal_type_from_str_rejects_unknown() {
         assert!("unknown".parse::<EcosystemPrimalType>().is_err());
     }
 
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "tests deprecated enum backward compat")]
     #[test]
     fn ecosystem_primal_type_display_and_capability() {
         let t = EcosystemPrimalType::Squirrel;
@@ -608,7 +608,7 @@ mod tests {
         assert!(!t.capability().is_empty());
     }
 
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "tests deprecated enum backward compat")]
     #[test]
     fn capability_identifier_from_domain() {
         let domain = CapabilityDomain::new("security");
@@ -619,7 +619,7 @@ mod tests {
         assert_eq!(from.as_str(), "security");
     }
 
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "tests deprecated enum backward compat")]
     #[test]
     fn ecosystem_primal_type_endpoint_env_prefix() {
         assert_eq!(

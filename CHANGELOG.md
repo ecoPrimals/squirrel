@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 5, 2026 — Wave 156k: Lint Hygiene — allow→expect Migration + Dead Attribute Cleanup)
+
+- **15 `#[allow(deprecated)]` → `#[expect(deprecated, reason)]`**: All PrimalType/EcosystemPrimalType shim sites migrated across `ecosystem/types.rs` (8), `ecosystem-api/types/primal.rs` (4), `ecosystem-api/types/mod.rs` (1), `ecosystem-api/types/tests.rs` (1). Two exceptions documented: `PrimalDependency` struct (derive-generated serde code escapes `#[expect]` scope) and `SecurityServiceProvider::initialize` trait method (Rust 1.94 inconsistent dead_code detection between `check` and test compilation).
+- **2 `#[allow(clippy::struct_excessive_bools)]` → `#[expect]`**: `LearningSystemConfig` and `LearningIntegrationConfig` in context/learning.
+- **1 `#[allow(dead_code)]` straggler resolved**: `SecurityServiceProvider::initialize` — kept as `#[allow]` with documented reason (Rust 1.94 edge case).
+- **Deprecated `PrimalDependency.primal_type` warning suppressed**: derive-generated serde code for deprecated `PrimalType` field escaped `#[expect]` scope; `#[allow(deprecated)]` with documented reason.
+- **Zero `#[allow]` remaining without documented reason**: All surviving `#[allow]` attributes (2 total) have inline comments explaining the Rust edge case.
+- **Zero warnings**, zero test regressions.
+
 ### Summary (Aug 5, 2026 — Wave 156j: EcosystemPrimalType → String Migration + Context Quality)
 
 - **`EcosystemPrimalType` enum eliminated from all struct fields**: 9 struct/event fields across 5 files (`EcosystemServiceRegistration`, `DiscoveredService`, `PrimalApiRequest`, `PrimalStatus`, `EcosystemRegistryEvent` variants) migrated from `EcosystemPrimalType` enum to `String` capability-domain values (e.g. `"ai"`, `"security"`). Construction sites in `manager.rs`, `ecosystem_integration.rs`, `optimized_implementations.rs`, and `discovery.rs` now use `crate::niche::DOMAIN` / `primary_capability.to_string()` instead of deprecated enum variants. `PrimalApiRequest::new()` signature changed to `impl Into<String>` for caller flexibility.

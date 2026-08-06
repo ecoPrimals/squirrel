@@ -174,10 +174,9 @@ pub trait UniversalSecurityService: Send + Sync {
     async fn health_check(&self) -> Result<SecurityHealth, SecurityError>;
 
     /// Initialize the security service
-    #[allow(
-        dead_code,
-        reason = "trait contract: concrete adapters implement; integration tests only"
-    )]
+    // NOTE: `#[allow]` not `#[expect]` — Rust 1.94 edge case: trait method dead_code
+    // detection is inconsistent between `cargo check` (unfulfilled) and test compilation.
+    #[allow(dead_code)]
     async fn initialize(&mut self, config: SecurityServiceConfig) -> Result<(), SecurityError>;
 }
 

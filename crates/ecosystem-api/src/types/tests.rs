@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #[cfg(test)]
-#[allow(deprecated)]
+#[expect(deprecated, reason = "tests exercise deprecated PrimalType for backward compat")]
 mod tests {
     use super::super::*;
     use std::collections::HashMap;

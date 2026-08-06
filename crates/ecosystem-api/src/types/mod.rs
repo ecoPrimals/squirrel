@@ -33,7 +33,7 @@ mod tests;
 // Re-export all types for backward compatibility
 pub use context::{NetworkLocation, PrimalContext};
 pub use health::{HealthCheckConfig, HealthStatus, PrimalEndpoints, PrimalHealth, ResourceUsage};
-#[allow(deprecated)]
+#[expect(deprecated, reason = "re-exports deprecated PrimalType for downstream compat")]
 pub use primal::{
     CapabilityDomain, CapabilityIdentifier, PrimalCapability, PrimalDependency, PrimalType,
 };

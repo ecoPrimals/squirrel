@@ -32,7 +32,7 @@ pub struct ContextMonitoringResults {
 
 /// Learning integration configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools, reason = "config struct with boolean feature toggles")]
 pub struct LearningIntegrationConfig {
     pub enable_context_manager: bool,
     pub enable_rule_manager: bool,

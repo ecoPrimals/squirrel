@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: Aug 5, 2026 (Wave 156j — EcosystemPrimalType → String Migration + Context Quality)
+**Last Updated**: Aug 5, 2026 (Wave 156k — Lint Hygiene: allow→expect Migration)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -27,7 +27,7 @@
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors + `anyhow::Result` (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`, `anyhow::Error`) |
 | Crates | 16 workspace members |
 | Files >800 lines (prod) | 0 — `compute_client/types.rs` split (788→482L); `federation/service.rs` split (784→449L); `universal_executor.rs` split (794→633L); `routing/agent.rs` split (794→479L); `jsonrpc_server.rs` split (829→336L); `provider_trait.rs` refactored 983→728L; `env_vars.rs` (1091L) → module tree (36 files, max 107L); visualization thinned (~1,800L removed); largest prod file: 777L |
-| `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]`; 1 `#[allow(dead_code)]` remains on trait method (Rust 1.94 edge case: `#[expect]` unfulfilled in check but needed under clippy); dead suppressions caught automatically |
+| `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]`; 2 `#[allow]` remain with documented reasons: 1 `dead_code` on trait method (Rust 1.94: `#[expect]` unfulfilled in check but needed under test compilation), 1 `deprecated` on `PrimalDependency` (derive-generated serde code escapes `#[expect]` scope); dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
 | cargo deny | `advisories ok, bans ok, licenses ok, sources ok` |

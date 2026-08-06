@@ -134,7 +134,7 @@ pub enum PrimalType {
     Any,
 }
 
-#[allow(deprecated)]
+#[expect(deprecated, reason = "impl block for deprecated enum (serde backward compat)")]
 impl PrimalType {
     /// Get string representation (for serialization/backward compatibility)
     #[must_use]
@@ -313,6 +313,8 @@ pub enum PrimalCapability {
 
 /// Dependency on another primal's capabilities
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+// NOTE: `#[allow]` not `#[expect]` — derive-generated serde code for PrimalType field
+// escapes `#[expect]` scope, causing unfulfilled-expectation warnings.
 #[allow(deprecated)]
 pub struct PrimalDependency {
     /// Type of primal (or Any for capability-based discovery)
@@ -331,7 +333,7 @@ pub struct PrimalDependency {
 mod tests {
     use super::*;
 
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "tests deprecated enum backward compat")]
     #[test]
     fn capability_domain_is_primary_routing_key() {
         let cases = [
@@ -440,7 +442,7 @@ mod tests {
         assert_eq!(id_from_domain.as_str(), "storage");
     }
 
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "tests deprecated PrimalDependency struct")]
     #[test]
     fn primal_dependency_serde() {
         let d = PrimalDependency {
