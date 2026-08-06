@@ -428,7 +428,7 @@ pub struct RemoteAIResponseStream {
 }
 
 /// Router statistics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct RouterStats {
     /// Total number of requests processed.
     pub total_requests: u64,
@@ -440,18 +440,6 @@ pub struct RouterStats {
     pub average_latency_ms: f64,
     /// Request count per provider.
     pub provider_usage: HashMap<String, u64>,
-}
-
-impl Default for RouterStats {
-    fn default() -> Self {
-        Self {
-            total_requests: 0,
-            successful_requests: 0,
-            failed_requests: 0,
-            average_latency_ms: 0.0,
-            provider_usage: HashMap::new(),
-        }
-    }
 }
 
 /// Check if a task matches given capabilities

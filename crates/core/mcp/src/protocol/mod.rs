@@ -24,6 +24,7 @@ pub trait MCPProtocol: Send + Sync {
 }
 
 /// Simple MCP protocol implementation
+#[derive(Default)]
 pub struct SimpleMCPProtocol;
 
 impl MCPProtocol for SimpleMCPProtocol {
@@ -34,11 +35,5 @@ impl MCPProtocol for SimpleMCPProtocol {
 
     async fn get_version(&self) -> ProtocolVersion {
         ProtocolVersion::default()
-    }
-}
-
-impl Default for SimpleMCPProtocol {
-    fn default() -> Self {
-        Self
     }
 }

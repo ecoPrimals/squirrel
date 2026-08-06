@@ -6,93 +6,8 @@
 //! including service registration, primal types, capabilities, and
 //! configuration structures.
 
+pub use ecosystem_api::{CapabilityDomain, CapabilityIdentifier};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-
-/// Runtime capability identifier — primary routing key for ecosystem discovery.
-///
-/// Accepts any string-based capability domain (e.g. `"security"`, `"storage"`,
-/// `"ai.coordination"`). Prefer [`CapabilityDomain`] when routing discovery queries.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct CapabilityIdentifier(Arc<str>);
-
-impl CapabilityIdentifier {
-    /// Create a capability identifier from a string-based capability domain.
-    #[must_use]
-    pub fn new(capability: impl AsRef<str>) -> Self {
-        Self(Arc::from(capability.as_ref()))
-    }
-
-    /// Create from a [`CapabilityDomain`].
-    #[must_use]
-    pub fn from_domain(domain: &CapabilityDomain) -> Self {
-        Self(Arc::from(domain.as_str()))
-    }
-
-    /// View this identifier as a [`CapabilityDomain`] for discovery routing.
-    #[must_use]
-    pub fn as_domain(&self) -> CapabilityDomain {
-        CapabilityDomain::new(self.as_str())
-    }
-
-    /// Get the capability domain string.
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    /// Prefix for `{PREFIX}_ENDPOINT`-style configuration.
-    ///
-    /// Hyphens in capability strings become underscores, then the result is uppercased
-    /// (for example `service-mesh` → `SERVICE_MESH`).
-    #[must_use]
-    pub fn endpoint_env_prefix(&self) -> String {
-        self.as_str().replace('-', "_").to_uppercase()
-    }
-}
-
-/// Capability domain for ecosystem routing — what Squirrel needs, not who provides it.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct CapabilityDomain(CapabilityIdentifier);
-
-impl CapabilityDomain {
-    /// Create a capability domain from a string (e.g. `"security"`, `"storage"`).
-    #[must_use]
-    pub fn new(domain: impl AsRef<str>) -> Self {
-        Self(CapabilityIdentifier::new(domain))
-    }
-
-    /// Get the domain string used for discovery routing.
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        self.0.as_str()
-    }
-
-    /// Get the underlying capability identifier.
-    #[must_use]
-    pub const fn identifier(&self) -> &CapabilityIdentifier {
-        &self.0
-    }
-
-    /// Prefix for `{PREFIX}_ENDPOINT`-style configuration.
-    #[must_use]
-    pub fn endpoint_env_prefix(&self) -> String {
-        self.0.endpoint_env_prefix()
-    }
-}
-
-impl From<&str> for CapabilityDomain {
-    fn from(s: &str) -> Self {
-        Self::new(s)
-    }
-}
-
-impl std::fmt::Display for CapabilityDomain {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
 
 /// Pick the primary capability domain from a provider's advertised capabilities.
 #[must_use]
@@ -119,30 +34,6 @@ pub fn primary_capability_from_iter<'a>(
         }
     }
     CapabilityIdentifier::new(caps.first().copied().unwrap_or("unknown"))
-}
-
-impl From<&str> for CapabilityIdentifier {
-    fn from(s: &str) -> Self {
-        Self::new(s)
-    }
-}
-
-impl From<String> for CapabilityIdentifier {
-    fn from(s: String) -> Self {
-        Self(Arc::from(s))
-    }
-}
-
-impl From<CapabilityDomain> for CapabilityIdentifier {
-    fn from(domain: CapabilityDomain) -> Self {
-        Self::from_domain(&domain)
-    }
-}
-
-impl std::fmt::Display for CapabilityIdentifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
 }
 
 /// Well-known capability domain constants for discovery routing.

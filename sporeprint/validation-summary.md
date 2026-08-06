@@ -1,12 +1,20 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,302 tests (default features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,298 tests (default features), 44 IPC methods."
 date = 2026-08-06
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 156v — Deduplication + thiserror + Default Derives (Aug 6, 2026)
+
+- ModelRegistry deduplicated (config/model_registry.rs 760→11L shim, -749 lines)
+- CapabilityDomain/Identifier unified (canonical in ecosystem-api, main re-exports)
+- 4 error types migrated to thiserror (JsonRpcError, RpcError, WireFormatError, CLI PluginError)
+- 14 manual Default impls → #[derive(Default)] (-161 lines)
+- 0 warnings, 6,298 tests passing
 
 ## Wave 156u — Legacy Pattern Modernization + Error Consolidation (Aug 6, 2026)
 

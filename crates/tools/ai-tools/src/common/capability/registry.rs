@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
@@ -13,8 +13,16 @@ use tracing::{info, warn};
 use super::{AICapabilities, CostMetrics, CostTier, ModelType, TaskType};
 
 // Global registry singleton
-static GLOBAL_REGISTRY: LazyLock<RwLock<ModelRegistry>> =
-    LazyLock::new(|| RwLock::new(ModelRegistry::default()));
+static GLOBAL_REGISTRY: LazyLock<Arc<RwLock<ModelRegistry>>> =
+    LazyLock::new(|| Arc::new(RwLock::new(ModelRegistry::default())));
+
+#[cfg(test)]
+impl ModelRegistry {
+    /// Test-only access to the underlying model map.
+    pub(crate) fn models(&self) -> &HashMap<String, HashMap<String, ModelCapabilities>> {
+        &self.models
+    }
+}
 
 /// Model registry for AI model capabilities
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -121,6 +129,16 @@ pub struct PerformanceConfig {
 
     /// Quality score (0-100)
     pub quality_score: Option<u8>,
+
+    /// Legacy alias for [`Self::avg_tokens_per_second`]
+    #[serde(default)]
+    pub tokens_per_second: Option<f64>,
+
+    /// Context window size in tokens
+    pub context_window_size: Option<usize>,
+
+    /// Memory usage per token
+    pub memory_per_token: Option<f64>,
 }
 
 /// Resource requirements configuration
@@ -153,6 +171,10 @@ pub struct ResourceConfig {
 
     /// Hardware requirements as a string description
     pub hardware_requirements: Option<String>,
+
+    /// Supported CPU/GPU architectures
+    #[serde(default)]
+    pub supported_architectures: Vec<String>,
 }
 
 const fn default_memory_mb() -> u32 {
@@ -198,6 +220,11 @@ impl ModelRegistry {
             models: HashMap::new(),
             config_paths: vec![],
         }
+    }
+
+    /// Get the global model registry instance as a shared lock handle
+    pub fn instance() -> Arc<RwLock<Self>> {
+        Arc::clone(&GLOBAL_REGISTRY)
     }
 
     /// Get the global model registry instance
@@ -618,13 +645,21 @@ impl ModelCapabilities {
         if let Some(latency) = self.performance.avg_latency_ms {
             capabilities.performance_metrics.avg_latency_ms = Some(latency);
         }
-        if let Some(rps) = self.performance.requests_per_second {
+        if let Some(rps) = self
+            .performance
+            .requests_per_second
+            .or(self.performance.tokens_per_second)
+        {
             capabilities.performance_metrics.requests_per_second = Some(rps);
         }
         if let Some(success) = self.performance.success_rate {
             capabilities.performance_metrics.success_rate = Some(success);
         }
-        if let Some(tokens) = self.performance.avg_tokens_per_second {
+        if let Some(tokens) = self
+            .performance
+            .avg_tokens_per_second
+            .or(self.performance.tokens_per_second)
+        {
             capabilities.performance_metrics.avg_tokens_per_second = Some(tokens);
         }
         if let Some(throughput) = self.performance.max_throughput_rps {
@@ -653,15 +688,21 @@ impl ModelCapabilities {
             .hardware_requirements
             .clone_from(&self.resources.hardware_requirements);
 
-        // Set cost metrics
-        let cost_metrics = CostMetrics {
-            cost_per_1k_input_tokens: self.cost.cost_per_1k_input_tokens,
-            cost_per_1k_output_tokens: self.cost.cost_per_1k_output_tokens,
-            cost_per_request: self.cost.cost_per_request,
-            has_fixed_cost: self.cost.has_fixed_cost,
-            is_free: self.cost.is_free,
-        };
-        capabilities.cost_metrics = cost_metrics;
+        // Set cost metrics when any cost data is present
+        if self.cost.cost_per_1k_input_tokens.is_some()
+            || self.cost.cost_per_1k_output_tokens.is_some()
+            || self.cost.cost_per_request.is_some()
+            || self.cost.has_fixed_cost
+            || self.cost.is_free
+        {
+            capabilities.cost_metrics = CostMetrics {
+                cost_per_1k_input_tokens: self.cost.cost_per_1k_input_tokens,
+                cost_per_1k_output_tokens: self.cost.cost_per_1k_output_tokens,
+                cost_per_request: self.cost.cost_per_request,
+                has_fixed_cost: self.cost.has_fixed_cost,
+                is_free: self.cost.is_free,
+            };
+        }
 
         capabilities
     }
@@ -702,7 +743,8 @@ impl ModelCapabilities {
             "free" => CostTier::Free,
             "low" => CostTier::Low,
             "medium" => CostTier::Medium,
-            _ => CostTier::High,
+            "high" => CostTier::High,
+            _ => CostTier::Medium,
         }
     }
 }

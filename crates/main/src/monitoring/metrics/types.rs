@@ -51,7 +51,7 @@ pub struct MetricValue {
 }
 
 /// System-wide metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SystemMetrics {
     /// CPU usage percentage
     pub cpu_usage: f64,

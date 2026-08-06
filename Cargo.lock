@@ -2768,6 +2768,7 @@ dependencies = [
  "criterion",
  "dashmap",
  "dirs",
+ "ecosystem-api",
  "futures",
  "hkdf",
  "metrics",

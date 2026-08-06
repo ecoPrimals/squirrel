@@ -1,29 +1,37 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-use std::error::Error;
-use std::fmt;
+use thiserror::Error;
 
 /// Errors that can occur in the plugin system
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum PluginError {
     /// Plugin not found
+    #[error("Plugin not found: {0}")]
     NotFound(String),
     /// Plugin already exists
+    #[error("Plugin already exists: {0}")]
     AlreadyExists(String),
     /// IO error
-    IoError(std::io::Error),
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
     /// Plugin loading error
+    #[error("Plugin loading error: {0}")]
     LoadError(String),
     /// Plugin initialization error
+    #[error("Plugin initialization error: {0}")]
     InitError(String),
     /// Plugin validation error
+    #[error("Plugin validation error: {0}")]
     ValidationError(String),
     /// Command registration error
+    #[error("Command registration error: {0}")]
     RegisterError(String),
     /// Security error
+    #[error("Security error: {0}")]
     SecurityError(String),
     /// Unknown plugin error
+    #[error("Unknown plugin error: {0}")]
     Unknown(String),
 }
 
@@ -36,30 +44,6 @@ impl PluginError {
     /// Create a new AlreadyExists error
     pub fn plugin_already_exists(name: &str) -> Self {
         PluginError::AlreadyExists(name.to_string())
-    }
-}
-
-impl fmt::Display for PluginError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PluginError::NotFound(name) => write!(f, "Plugin not found: {}", name),
-            PluginError::AlreadyExists(name) => write!(f, "Plugin already exists: {}", name),
-            PluginError::IoError(err) => write!(f, "IO error: {}", err),
-            PluginError::LoadError(msg) => write!(f, "Plugin loading error: {}", msg),
-            PluginError::InitError(msg) => write!(f, "Plugin initialization error: {}", msg),
-            PluginError::ValidationError(msg) => write!(f, "Plugin validation error: {}", msg),
-            PluginError::RegisterError(msg) => write!(f, "Command registration error: {}", msg),
-            PluginError::SecurityError(msg) => write!(f, "Security error: {}", msg),
-            PluginError::Unknown(msg) => write!(f, "Unknown plugin error: {}", msg),
-        }
-    }
-}
-
-impl Error for PluginError {}
-
-impl From<std::io::Error> for PluginError {
-    fn from(err: std::io::Error) -> Self {
-        PluginError::IoError(err)
     }
 }
 
@@ -78,6 +62,7 @@ impl From<&str> for PluginError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::error::Error;
 
     #[test]
     fn test_plugin_error_display() {

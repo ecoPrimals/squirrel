@@ -7,13 +7,16 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use universal_constants::primal_names;
 
-/// Runtime capability identifier — accepts any string-based capability domain.
+/// Runtime capability identifier — primary routing key for ecosystem discovery.
+///
+/// Accepts any string-based capability domain (e.g. `"security"`, `"storage"`,
+/// `"ai.coordination"`). Prefer [`CapabilityDomain`] when routing discovery queries.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CapabilityIdentifier(Arc<str>);
 
 impl CapabilityIdentifier {
-    /// Create from a string-based capability domain (e.g. `"security"`, `"storage"`).
+    /// Create a capability identifier from a string-based capability domain.
     #[must_use]
     pub fn new(capability: impl AsRef<str>) -> Self {
         Self(Arc::from(capability.as_ref()))
@@ -25,7 +28,7 @@ impl CapabilityIdentifier {
         Self(Arc::from(domain.as_str()))
     }
 
-    /// View as a [`CapabilityDomain`] for discovery routing.
+    /// View this identifier as a [`CapabilityDomain`] for discovery routing.
     #[must_use]
     pub fn as_domain(&self) -> CapabilityDomain {
         CapabilityDomain::new(self.as_str())
@@ -38,13 +41,16 @@ impl CapabilityIdentifier {
     }
 
     /// Prefix for `{PREFIX}_ENDPOINT`-style configuration.
+    ///
+    /// Hyphens in capability strings become underscores, then the result is uppercased
+    /// (for example `service-mesh` → `SERVICE_MESH`).
     #[must_use]
     pub fn endpoint_env_prefix(&self) -> String {
         self.as_str().replace('-', "_").to_uppercase()
     }
 }
 
-/// Capability domain for ecosystem routing — what is needed, not who provides it.
+/// Capability domain for ecosystem routing — what Squirrel needs, not who provides it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CapabilityDomain(Arc<str>);
@@ -60,6 +66,12 @@ impl CapabilityDomain {
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    /// Get the underlying capability identifier.
+    #[must_use]
+    pub fn identifier(&self) -> CapabilityIdentifier {
+        CapabilityIdentifier::new(self.as_str())
     }
 
     /// Prefix for `{PREFIX}_ENDPOINT`-style configuration.

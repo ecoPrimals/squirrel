@@ -183,7 +183,8 @@ pub struct RoutingMetric {
 }
 
 /// Structured JSON-RPC error extracted from a response.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]
+#[error("JSON-RPC error {code}: {message}")]
 pub struct RpcError {
     /// JSON-RPC error code (e.g., -32601 for method not found).
     pub code: i32,
@@ -212,11 +213,3 @@ impl RpcError {
         (-32099..=-32000).contains(&self.code)
     }
 }
-
-impl std::fmt::Display for RpcError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "JSON-RPC error {}: {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for RpcError {}

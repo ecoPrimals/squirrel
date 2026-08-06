@@ -111,7 +111,7 @@ pub struct ExecutionResult {
 }
 
 /// Resource usage statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ResourceUsage {
     /// Memory usage in bytes
     pub memory_bytes: u64,
@@ -164,13 +164,3 @@ impl Default for ResourceLimits {
     }
 }
 
-impl Default for ResourceUsage {
-    fn default() -> Self {
-        Self {
-            memory_bytes: 0,
-            cpu_seconds: 0.0,
-            processes_created: 0,
-            file_descriptors_used: 0,
-        }
-    }
-}

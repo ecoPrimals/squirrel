@@ -629,20 +629,3 @@ impl MetricsCollector {
     }
 }
 
-impl Default for SystemMetrics {
-    fn default() -> Self {
-        Self {
-            cpu_usage: 0.0,
-            memory_usage: 0,
-            memory_percentage: 0.0,
-            disk_usage: 0.0,
-            network_bytes_sent: 0.0,
-            network_bytes_received: 0.0,
-            active_connections: 0,
-            request_rate: 0.0,
-            error_rate: 0.0,
-            avg_response_time: 0.0,
-            uptime: 0,
-        }
-    }
-}

@@ -54,7 +54,7 @@ pub enum AgentStatus {
 }
 
 /// Agent resource usage
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AgentResourceUsage {
     /// CPU usage percentage
     pub cpu_percent: f64,
@@ -116,7 +116,7 @@ pub enum DeploymentHealth {
 }
 
 /// Deployment metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DeploymentMetrics {
     /// Total deployments
     pub total_deployments: u64,
@@ -131,7 +131,7 @@ pub struct DeploymentMetrics {
 }
 
 /// Resource utilization metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ResourceUtilization {
     /// CPU utilization percentage
     pub cpu_percent: f64,
@@ -242,20 +242,6 @@ impl Default for DeploymentSecurityConfig {
     }
 }
 
-impl Default for AgentResourceUsage {
-    fn default() -> Self {
-        Self {
-            cpu_percent: 0.0,
-            memory_mb: 0,
-            storage_mb: 0,
-            network_mbps: 0.0,
-            active_requests: 0,
-            total_requests: 0,
-            avg_response_time_ms: 0.0,
-        }
-    }
-}
-
 impl Default for DeploymentStatus {
     fn default() -> Self {
         Self::new()
@@ -277,25 +263,3 @@ impl DeploymentStatus {
     }
 }
 
-impl Default for DeploymentMetrics {
-    fn default() -> Self {
-        Self {
-            total_deployments: 0,
-            successful_deployments: 0,
-            failed_deployments: 0,
-            avg_deployment_time_seconds: 0.0,
-            resource_utilization: ResourceUtilization::default(),
-        }
-    }
-}
-
-impl Default for ResourceUtilization {
-    fn default() -> Self {
-        Self {
-            cpu_percent: 0.0,
-            memory_percent: 0.0,
-            storage_percent: 0.0,
-            network_percent: 0.0,
-        }
-    }
-}

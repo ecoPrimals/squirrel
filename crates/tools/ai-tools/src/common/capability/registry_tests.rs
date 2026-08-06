@@ -135,7 +135,7 @@ fn test_get_cost_tier_string_mapping() {
         ("Low", CostTier::Low),
         ("MEDIUM", CostTier::Medium),
         ("high", CostTier::High),
-        ("weird", CostTier::High),
+        ("weird", CostTier::Medium),
     ];
     for (tier_str, expected) in cases {
         let m = ModelCapabilities {
@@ -180,6 +180,7 @@ fn test_to_ai_capabilities_covers_types_and_performance_branches() {
             max_throughput_rps: Some(2.0),
             max_batch_size: Some(8),
             quality_score: Some(80),
+            ..Default::default()
         },
         resources: ResourceConfig {
             min_memory_mb: 512,
@@ -190,6 +191,7 @@ fn test_to_ai_capabilities_covers_types_and_performance_branches() {
             load_time_ms: Some(100),
             requires_specific_hardware: true,
             hardware_requirements: Some("gpu".to_string()),
+            ..Default::default()
         },
         cost: CostConfig {
             cost_per_1k_input_tokens: Some(0.1),
@@ -422,4 +424,221 @@ fn test_get_providers_lists_keys() {
         api_endpoint: None,
     });
     assert!(r.get_providers().contains(&"pa".to_string()));
+}
+
+fn sample_model_capabilities(name: &str, provider_id: &str) -> ModelCapabilities {
+    ModelCapabilities {
+        name: name.to_string(),
+        provider_id: provider_id.to_string(),
+        version: Some("1.0".to_string()),
+        model_types: vec!["LargeLanguageModel".to_string()],
+        task_types: vec!["TextGeneration".to_string()],
+        max_context_size: Some(8192),
+        supports_streaming: true,
+        supports_function_calling: true,
+        supports_tool_use: false,
+        performance: PerformanceConfig {
+            tokens_per_second: Some(20.0),
+            avg_latency_ms: Some(500),
+            max_batch_size: Some(32),
+            context_window_size: Some(8192),
+            memory_per_token: Some(0.001),
+            ..Default::default()
+        },
+        resources: ResourceConfig {
+            min_memory_mb: 512,
+            min_gpu_memory_mb: Some(1024),
+            min_cpu_cores: Some(2),
+            requires_gpu: false,
+            supported_architectures: vec!["x86_64".to_string()],
+            ..Default::default()
+        },
+        cost: CostConfig {
+            cost_per_1k_input_tokens: Some(0.03),
+            cost_per_1k_output_tokens: Some(0.06),
+            cost_per_request: None,
+            has_fixed_cost: false,
+            is_free: false,
+        },
+        priority: 80,
+        handles_sensitive_data: false,
+        cost_tier: "High".to_string(),
+        api_endpoint: None,
+    }
+}
+
+#[test]
+fn test_model_registry_default() {
+    let registry = ModelRegistry::default();
+    assert!(registry.models().is_empty());
+}
+
+#[test]
+fn test_model_registry_get_nonexistent() {
+    let registry = ModelRegistry::default();
+    assert!(registry.get_model_capabilities("openai", "gpt-4").is_none());
+    assert!(
+        registry
+            .get_model_capabilities("nonexistent", "model")
+            .is_none()
+    );
+}
+
+#[test]
+fn test_model_registry_get_provider_models() {
+    let mut registry = ModelRegistry::default();
+    registry.register_model(sample_model_capabilities("gpt-4", "openai"));
+    registry.register_model(sample_model_capabilities("gpt-3.5", "openai"));
+    registry.register_model(sample_model_capabilities("claude-3", "anthropic"));
+
+    let openai_models = registry.get_provider_models("openai");
+    assert_eq!(openai_models.len(), 2);
+
+    let anthropic_models = registry.get_provider_models("anthropic");
+    assert_eq!(anthropic_models.len(), 1);
+
+    let none_models = registry.get_provider_models("nonexistent");
+    assert!(none_models.is_empty());
+}
+
+#[test]
+fn test_model_registry_import_defaults() {
+    let mut registry = ModelRegistry::default();
+    registry.import_defaults();
+
+    assert!(!registry.models().is_empty());
+    assert!(!registry.get_provider_models("openai").is_empty());
+    assert!(!registry.get_provider_models("anthropic").is_empty());
+    assert!(!registry.get_provider_models("gemini").is_empty());
+}
+
+#[test]
+fn test_model_capabilities_to_ai_capabilities() {
+    let model = sample_model_capabilities("gpt-4", "openai");
+    let caps = model.to_ai_capabilities();
+
+    assert!(caps.supports_streaming);
+    assert!(caps.supports_function_calling);
+    assert!(!caps.supports_tool_use);
+    assert_eq!(caps.performance_metrics.avg_latency_ms, Some(500));
+    assert_eq!(caps.performance_metrics.avg_tokens_per_second, Some(20.0));
+    assert_eq!(caps.resource_requirements.min_memory_mb, 512);
+    assert_eq!(caps.resource_requirements.min_gpu_memory_mb, Some(1024));
+    assert!(!caps.resource_requirements.requires_gpu);
+    assert_eq!(caps.cost_metrics.cost_per_1k_input_tokens, Some(0.03));
+    assert_eq!(caps.cost_metrics.cost_per_1k_output_tokens, Some(0.06));
+}
+
+#[test]
+fn test_model_capabilities_to_ai_capabilities_all_model_types() {
+    let mut model = sample_model_capabilities("test", "test");
+    model.model_types = vec![
+        "LargeLanguageModel".to_string(),
+        "Embedding".to_string(),
+        "ImageGeneration".to_string(),
+        "ImageUnderstanding".to_string(),
+        "AudioTranscription".to_string(),
+        "AudioGeneration".to_string(),
+        "MultiModal".to_string(),
+        "CustomType".to_string(),
+    ];
+    model.task_types = vec![
+        "TextGeneration".to_string(),
+        "ImageGeneration".to_string(),
+        "ImageUnderstanding".to_string(),
+        "TextEmbedding".to_string(),
+        "AudioTranscription".to_string(),
+        "AudioGeneration".to_string(),
+        "DataAnalysis".to_string(),
+        "FunctionExecution".to_string(),
+        "CustomTask".to_string(),
+    ];
+
+    let caps = model.to_ai_capabilities();
+    assert!(caps.supported_model_types.len() >= 8);
+    assert!(caps.supported_task_types.len() >= 9);
+}
+
+#[test]
+fn test_model_registry_serde() {
+    let mut registry = ModelRegistry::default();
+    registry.register_model(sample_model_capabilities("gpt-4", "openai"));
+
+    let json = serde_json::to_string(&registry).expect("should succeed");
+    let deserialized: ModelRegistry = serde_json::from_str(&json).expect("should succeed");
+    assert!(
+        deserialized
+            .get_model_capabilities("openai", "gpt-4")
+            .is_some()
+    );
+}
+
+#[test]
+fn test_model_capabilities_serde() {
+    let model = sample_model_capabilities("gpt-4", "openai");
+    let json = serde_json::to_string(&model).expect("should succeed");
+    let deserialized: ModelCapabilities = serde_json::from_str(&json).expect("should succeed");
+    assert_eq!(deserialized.name, "gpt-4");
+    assert_eq!(deserialized.provider_id, "openai");
+    assert_eq!(deserialized.priority, 80);
+    assert!(!deserialized.handles_sensitive_data);
+}
+
+#[test]
+fn test_default_priority_on_deserialize() {
+    let json = r#"{
+        "name": "m",
+        "provider_id": "p",
+        "cost_tier": "Medium"
+    }"#;
+    let model: ModelCapabilities = serde_json::from_str(json).expect("should succeed");
+    assert_eq!(model.priority, 50);
+}
+
+#[test]
+fn test_performance_config_default() {
+    let config = PerformanceConfig::default();
+    assert!(config.tokens_per_second.is_none());
+    assert!(config.avg_latency_ms.is_none());
+    assert!(config.max_batch_size.is_none());
+}
+
+#[test]
+fn test_resource_config_default() {
+    let config = ResourceConfig::default();
+    assert_eq!(config.min_memory_mb, 0);
+    assert!(config.min_gpu_memory_mb.is_none());
+    assert!(!config.requires_gpu);
+}
+
+#[test]
+fn test_cost_config_default() {
+    let config = CostConfig::default();
+    assert!(config.cost_per_1k_input_tokens.is_none());
+    assert!(!config.has_fixed_cost);
+    assert!(!config.is_free);
+}
+
+#[test]
+fn test_model_registry_instance() {
+    let instance = ModelRegistry::instance();
+    let _guard = instance.read().expect("should succeed");
+}
+
+#[test]
+fn test_model_capabilities_no_cost() {
+    let mut model = sample_model_capabilities("test", "test");
+    model.cost = CostConfig::default();
+
+    let caps = model.to_ai_capabilities();
+    assert!(caps.cost_metrics.cost_per_1k_input_tokens.is_none());
+}
+
+#[test]
+fn test_model_capabilities_no_context_size() {
+    let mut model = sample_model_capabilities("test", "test");
+    model.max_context_size = None;
+
+    let caps = model.to_ai_capabilities();
+    assert!(caps.supports_streaming);
 }

@@ -27,7 +27,7 @@ pub struct ProductionCommandRegistry {
 }
 
 /// Command execution statistics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct CommandStats {
     /// Total number of command executions
     pub total_executions: u64,
@@ -39,18 +39,6 @@ pub struct CommandStats {
     pub average_duration_ms: f64,
     /// Timestamp of last execution
     pub last_execution: Option<chrono::DateTime<chrono::Utc>>,
-}
-
-impl Default for CommandStats {
-    fn default() -> Self {
-        Self {
-            total_executions: 0,
-            successful_executions: 0,
-            failed_executions: 0,
-            average_duration_ms: 0.0,
-            last_execution: None,
-        }
-    }
 }
 
 impl ProductionCommandRegistry {

@@ -18,7 +18,7 @@ use super::types::SecurityEventType;
 ///
 /// Real-time statistics about the security monitoring system's operation
 /// and the security events it has processed.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct SecurityMonitoringStats {
     /// Total events processed
     pub total_events: u64,
@@ -43,21 +43,6 @@ pub struct SecurityMonitoringStats {
 
     /// Event counts by type
     pub event_types: HashMap<String, u64>,
-}
-
-impl Default for SecurityMonitoringStats {
-    fn default() -> Self {
-        Self {
-            total_events: 0,
-            alerts_generated: 0,
-            active_threats: 0,
-            monitored_clients: 0,
-            events_per_second: 0.0,
-            alert_rate: 0.0,
-            uptime: Duration::from_secs(0),
-            event_types: HashMap::new(),
-        }
-    }
 }
 
 /// Statistics collector for security monitoring

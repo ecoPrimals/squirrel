@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 use std::time::Instant;
+use thiserror::Error;
 
 // ── Arc<str> serde helpers (zero-copy for hot-path jsonrpc/method fields) ────
 
@@ -81,7 +82,8 @@ pub struct JsonRpcResponse {
 }
 
 /// JSON-RPC 2.0 Error
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Error)]
+#[error("{message} (code {code})")]
 pub struct JsonRpcError {
     /// Error code
     pub code: i32,
@@ -93,14 +95,6 @@ pub struct JsonRpcError {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<Value>,
 }
-
-impl std::fmt::Display for JsonRpcError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} (code {})", self.message, self.code)
-    }
-}
-
-impl std::error::Error for JsonRpcError {}
 
 // ── Method normalisation ─────────────────────────────────────────────────────
 

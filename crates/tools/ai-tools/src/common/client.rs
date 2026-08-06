@@ -172,7 +172,7 @@ pub struct HealthCheckResult {
 }
 
 /// Client metrics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ClientMetrics {
     /// Total requests made
     pub total_requests: u64,
@@ -186,19 +186,6 @@ pub struct ClientMetrics {
     pub total_tokens: u64,
     /// Total cost
     pub total_cost: f64,
-}
-
-impl Default for ClientMetrics {
-    fn default() -> Self {
-        Self {
-            total_requests: 0,
-            successful_requests: 0,
-            failed_requests: 0,
-            avg_response_time_ms: 0.0,
-            total_tokens: 0,
-            total_cost: 0.0,
-        }
-    }
 }
 
 impl ClientMetrics {

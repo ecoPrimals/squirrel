@@ -193,7 +193,7 @@ pub enum HealthState {
 }
 
 /// Performance metrics summary
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PerformanceSummary {
     /// CPU usage percentage
     pub cpu_usage: f64,
@@ -517,20 +517,6 @@ impl Default for MonitoringConfig {
                 ("error_rate".to_string(), 5.0),
                 ("response_time".to_string(), 1000.0),
             ]),
-        }
-    }
-}
-
-impl Default for PerformanceSummary {
-    fn default() -> Self {
-        Self {
-            cpu_usage: 0.0,
-            memory_usage: 0.0,
-            network_io: 0.0,
-            disk_io: 0.0,
-            avg_response_time: 0.0,
-            requests_per_second: 0.0,
-            error_rate: 0.0,
         }
     }
 }

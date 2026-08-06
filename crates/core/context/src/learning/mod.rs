@@ -359,7 +359,7 @@ pub struct LearningSystem {
 }
 
 /// Learning system statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LearningSystemStats {
     /// Total episodes
     pub total_episodes: u64,
@@ -390,23 +390,6 @@ pub struct LearningSystemStats {
 
     /// Last performance measurement
     pub last_performance: Option<DateTime<Utc>>,
-}
-
-impl Default for LearningSystemStats {
-    fn default() -> Self {
-        Self {
-            total_episodes: 0,
-            total_actions: 0,
-            total_rewards: 0.0,
-            average_reward_per_episode: 0.0,
-            success_rate: 0.0,
-            learning_accuracy: 0.0,
-            policy_updates: 0,
-            rule_adaptations: 0,
-            uptime: Duration::from_secs(0),
-            last_performance: None,
-        }
-    }
 }
 
 impl LearningSystem {

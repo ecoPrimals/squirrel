@@ -143,6 +143,7 @@ impl HookRegistry {
 }
 
 /// Hook that logs command execution events with descriptive messages
+#[derive(Default)]
 pub struct LoggingHook;
 
 impl LoggingHook {
@@ -168,13 +169,8 @@ impl Hook for LoggingHook {
     }
 }
 
-impl Default for LoggingHook {
-    fn default() -> Self {
-        Self
-    }
-}
-
 /// Hook that collects and records command execution metrics
+#[derive(Default)]
 pub struct MetricsHook;
 
 impl MetricsHook {
@@ -197,12 +193,6 @@ impl Hook for MetricsHook {
     fn execute(&self, command: &dyn Command) -> Result<(), CommandError> {
         tracing::info!(command = command.name(), "Metrics recorded");
         Ok(())
-    }
-}
-
-impl Default for MetricsHook {
-    fn default() -> Self {
-        Self
     }
 }
 

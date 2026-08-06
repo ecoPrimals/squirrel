@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 6, 2026 — Wave 156v: Deduplication + thiserror + Default Derives)
+
+- **ModelRegistry deduplicated**: `config/model_registry.rs` (760L) → 11-line re-export shim; canonical implementation in `common/capability/registry.rs`. ~749 net lines removed.
+- **CapabilityDomain/Identifier unified**: Duplicate definitions consolidated — canonical in `ecosystem-api`, `main` re-exports. Arc<str> interning + transparent serde preserved.
+- **4 more error types migrated to thiserror**: `JsonRpcError`, `RpcError`, `WireFormatError`, CLI `PluginError` — 42 lines of manual Display/Error impls removed.
+- **14 manual Default impls → `#[derive(Default)]`**: Config/metrics/stats structs across 7 crates — 161 net lines removed.
+- 0 errors, 0 warnings, 6,298 tests passing.
+
 ### Summary (Aug 6, 2026 — Wave 156u: Legacy Pattern Modernization + Error Consolidation)
 
 - **PrimalError consolidated**: Eliminated 5 duplicate variants (`ConfigurationError`, `ConfigError`, `NetworkError`, `NotFoundError`, `SerializationError`) — ~85 call sites across 25 files migrated to canonical variants.
