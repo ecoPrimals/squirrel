@@ -1,12 +1,18 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,294 tests (default features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,293 tests (default features), 44 IPC methods."
 date = 2026-08-06
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 156x — Plugin Dead Code Elimination (Aug 6, 2026)
+
+- PluginV2 + 5 dead extension scaffolds + ZeroCopyPlugin trait + dead interfaces scaffolds deleted
+- WebPluginExt naming collision resolved
+- Net -677 lines, 0 warnings, 6,293 tests passing
 
 ## Wave 156w — Config Excise + PrimalType Fossil + Bincode Cleanup (Aug 6, 2026)
 

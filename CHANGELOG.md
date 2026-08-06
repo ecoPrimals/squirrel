@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 6, 2026 — Wave 156x: Plugin Dead Code Elimination)
+
+- **PluginV2 deleted**: Entire `plugin_v2.rs` removed — `PluginV2` trait, `WebPluginExtV2`, `PluginWrapper<T>`, `PluginCallbacks`, `ExamplePluginV2`. Zero production adoption; intermediate experiment superseded by `interfaces::Plugin`.
+- **5 dead extension scaffolds deleted**: `ToolPlugin`, `AppPlugin`, `MonitoringPlugin`, `TestUtilsPlugin` (0 implementors each), plus `WebPluginExt` naming collision resolved.
+- **`ZeroCopyPlugin` trait deleted**: 0 implementors; optimizer/registry types kept, trait surface removed.
+- **Dead interfaces scaffolds deleted**: `PluginRegistry` and `PluginFactory` traits in `squirrel-interfaces` (0 implementors each).
+- **Net -677 lines** across 13 files.
+- 0 errors, 0 warnings, 6,293 tests passing.
+
 ### Summary (Aug 6, 2026 — Wave 156w: Config Excise + PrimalType Fossil + Bincode Cleanup)
 
 - **External `config` 0.14 crate excised**: Replaced with hand-rolled TOML/YAML/env loader in `universal-patterns`. Removed `config`, `encoding_rs`, `yaml-rust2`, `ron`, `json5`, `rust-ini` from dependency tree (-234 lockfile lines). `async-trait` no longer pulled via `config` (only remains as transitive dev-dep from `wasm-bindgen-test`).

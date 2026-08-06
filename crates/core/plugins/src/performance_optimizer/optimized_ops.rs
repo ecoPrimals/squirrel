@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use crate::zero_copy::{ZeroCopyPlugin, ZeroCopyPluginEntry, ZeroCopyPluginRegistry};
+use crate::zero_copy::{ZeroCopyPluginEntry, ZeroCopyPluginRegistry};
 
 use super::optimizer::get_global_optimizer;
 use super::types::{OptimizationRecommendation, OptimizerMetrics};
@@ -33,7 +33,7 @@ pub async fn fast_capability_query(
 /// Batch load multiple plugins efficiently
 pub async fn batch_load(
     plugin_entries: Vec<Arc<ZeroCopyPluginEntry>>,
-) -> Vec<crate::errors::Result<Arc<dyn ZeroCopyPlugin>>> {
+) -> Vec<crate::errors::Result<Arc<ZeroCopyPluginEntry>>> {
     get_global_optimizer()
         .batch_load_plugins(plugin_entries)
         .await

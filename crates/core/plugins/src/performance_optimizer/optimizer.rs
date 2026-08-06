@@ -12,7 +12,7 @@ use tracing::{debug, info, instrument};
 use uuid::Uuid;
 
 use crate::errors::{PluginError, Result};
-use crate::zero_copy::{ZeroCopyPlugin, ZeroCopyPluginEntry, ZeroCopyPluginRegistry};
+use crate::zero_copy::{ZeroCopyPluginEntry, ZeroCopyPluginRegistry};
 
 use super::batch_processor::BatchProcessor;
 use super::config::PerformanceOptimizerConfig;
@@ -242,7 +242,7 @@ impl PluginPerformanceOptimizer {
     pub async fn batch_load_plugins(
         &self,
         plugin_entries: Vec<Arc<ZeroCopyPluginEntry>>,
-    ) -> Vec<Result<Arc<dyn ZeroCopyPlugin>>> {
+    ) -> Vec<Result<Arc<ZeroCopyPluginEntry>>> {
         self.batch_processor
             .batch_load_plugins(plugin_entries)
             .await
@@ -591,7 +591,7 @@ mod tests {
         ));
         let empty = opt.batch_load_plugins(vec![e.clone()]).await;
         assert_eq!(empty.len(), 1);
-        assert!(empty[0].is_err());
+        assert!(empty[0].is_ok());
 
         let id2 = Uuid::new_v4();
         let m2 = ZeroCopyPluginMetadata::new(id2, "a".into(), "1".into(), "d".into(), "a".into());
@@ -602,7 +602,7 @@ mod tests {
         ));
         let batch = opt.batch_load_plugins(vec![e, e2]).await;
         assert_eq!(batch.len(), 2);
-        assert!(batch.iter().all(Result::is_err));
+        assert!(batch.iter().all(Result::is_ok));
     }
 
     #[tokio::test]

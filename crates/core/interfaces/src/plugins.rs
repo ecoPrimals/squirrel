@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::future::Future;
 use std::pin::Pin;
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::{collections::HashMap, fmt::Debug};
 
 /// Metadata about a plugin
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -192,55 +192,6 @@ pub trait CommandsPlugin: Plugin {
 
     /// Get help text for a command
     fn get_command_help(&self, command_id: &str) -> Option<String>;
-}
-
-/// Plugin registry interface
-///
-/// The associated type [`PluginRegistry::PluginHandle`] is defined by each
-/// implementation (for example an enum in `squirrel-plugins`).
-pub trait PluginRegistry: Send + Sync {
-    /// Concrete handle type used by this registry (often an enum for dispatch).
-    type PluginHandle: Clone + Send + Sync + Debug;
-
-    /// Register a plugin with the registry
-    fn register_plugin<P: Plugin + 'static>(
-        &self,
-        plugin: Arc<P>,
-    ) -> impl std::future::Future<Output = Result<String>> + Send;
-
-    /// Get a plugin by ID
-    fn get_plugin(
-        &self,
-        id: &str,
-    ) -> impl std::future::Future<Output = Option<Self::PluginHandle>> + Send;
-
-    /// Get a plugin by capability
-    fn get_plugin_by_capability(
-        &self,
-        capability: &str,
-    ) -> impl std::future::Future<Output = Option<Self::PluginHandle>> + Send;
-
-    /// List all plugins
-    fn list_plugins(&self) -> impl std::future::Future<Output = Vec<Self::PluginHandle>> + Send;
-}
-
-/// Plugin factory interface
-///
-/// This trait defines a factory for creating plugins
-pub trait PluginFactory: Send + Sync {
-    /// Concrete plugin type produced by this factory
-    type Output: Plugin + 'static;
-
-    /// Create a plugin
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if plugin creation fails due to initialization issues,
-    /// missing dependencies, or invalid configuration.
-    fn create_plugin(&self) -> Result<Arc<Self::Output>>;
-
-    /// Get the ID of the plugin that this factory creates
-    fn plugin_id(&self) -> &str;
 }
 
 #[cfg(test)]

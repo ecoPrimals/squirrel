@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-use crate::plugin::{Plugin, PluginMetadata, PluginStatus, WebEndpoint, WebPluginExt};
+use crate::plugin::{Plugin, PluginMetadata, PluginStatus};
 use anyhow::Result;
-use serde_json::{json, Value};
 use std::any::Any;
 use std::fmt;
 
@@ -67,40 +66,5 @@ impl Plugin for HelloWorldPlugin {
 
     fn as_any(&self) -> &dyn Any {
         self
-    }
-}
-
-impl WebPluginExt for HelloWorldPlugin {
-    fn get_endpoints(&self) -> Vec<WebEndpoint> {
-        vec![
-            WebEndpoint {
-                path: "/hello".to_string(),
-                method: "GET".to_string(),
-                permissions: vec![],
-            },
-            WebEndpoint {
-                path: "/echo".to_string(),
-                method: "POST".to_string(),
-                permissions: vec![],
-            },
-        ]
-    }
-
-    async fn handle_web_endpoint(
-        &self,
-        endpoint: &WebEndpoint,
-        body: Option<Value>,
-    ) -> Result<Value> {
-        match (endpoint.path.as_str(), endpoint.method.as_str()) {
-            ("/hello", "GET") => Ok(json!({ "message": "Hello, World!" })),
-            ("/echo", "POST") => {
-                if let Some(body) = body {
-                    Ok(body)
-                } else {
-                    Ok(json!({ "error": "No body provided" }))
-                }
-            }
-            _ => Ok(json!({ "error": "Endpoint not found" })),
-        }
     }
 }

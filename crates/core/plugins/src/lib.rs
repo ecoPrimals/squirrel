@@ -37,7 +37,6 @@ mod manager;
 mod metrics;
 mod performance_optimizer;
 mod plugin;
-mod plugin_v2;
 mod registry;
 mod state;
 mod traits;
@@ -67,8 +66,6 @@ pub use performance_optimizer::{
     get_global_optimizer, init_global_optimizer, optimized_ops,
 };
 pub use plugin::Plugin;
-// Re-export canonical PluginMetadata from interfaces
-pub use plugin_v2::PluginV2;
 pub use registry::PluginRegistry;
 pub use squirrel_interfaces::plugins::PluginMetadata;
 pub use state::{FileStateManager, MemoryStateManager, PluginStateManager, StateManagerBackend};
@@ -80,6 +77,6 @@ pub use unified_manager::{
 };
 pub use zero_copy::{
     PluginEvent, PluginMetadataBuilder, PluginMetrics, RegistryStats, ResourceLimits,
-    SecuritySettings, StateTransition, ZeroCopyPlugin, ZeroCopyPluginConfig, ZeroCopyPluginEntry,
+    SecuritySettings, StateTransition, ZeroCopyPluginConfig, ZeroCopyPluginEntry,
     ZeroCopyPluginMetadata, ZeroCopyPluginRegistry, ZeroCopyPluginState,
 };

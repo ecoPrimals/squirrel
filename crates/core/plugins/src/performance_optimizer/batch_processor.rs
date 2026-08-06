@@ -11,7 +11,7 @@ use tokio::time::MissedTickBehavior;
 use tracing::{debug, info};
 
 use crate::errors::{PluginError, Result};
-use crate::zero_copy::{ZeroCopyPlugin, ZeroCopyPluginEntry};
+use crate::zero_copy::ZeroCopyPluginEntry;
 
 use super::config::BatchProcessingConfig;
 use super::types::{BatchOperation, BatchStatistics};
@@ -48,25 +48,15 @@ impl BatchProcessor {
 
     fn process_plugin_entries(
         entries: Vec<Arc<ZeroCopyPluginEntry>>,
-    ) -> Vec<Result<Arc<dyn ZeroCopyPlugin>>> {
-        entries
-            .into_iter()
-            .map(|entry| match entry.instance.as_ref() {
-                Some(plugin) => Ok(Arc::clone(plugin)),
-                None => Err(PluginError::LoadError(format!(
-                    "plugin '{}' ({}) has no loaded instance; register a concrete implementation before batch load",
-                    entry.name(),
-                    entry.id()
-                ))),
-            })
-            .collect()
+    ) -> Vec<Result<Arc<ZeroCopyPluginEntry>>> {
+        entries.into_iter().map(Ok).collect()
     }
 
     #[expect(clippy::cast_precision_loss, reason = "Batch metrics calculation")]
     pub(super) async fn batch_load_plugins(
         &self,
         plugin_entries: Vec<Arc<ZeroCopyPluginEntry>>,
-    ) -> Vec<Result<Arc<dyn ZeroCopyPlugin>>> {
+    ) -> Vec<Result<Arc<ZeroCopyPluginEntry>>> {
         if plugin_entries.is_empty() {
             return Vec::new();
         }

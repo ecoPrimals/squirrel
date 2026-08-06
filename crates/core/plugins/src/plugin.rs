@@ -7,7 +7,6 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::any::Any;
 use std::fmt::Debug;
 use std::future::Future;
@@ -69,7 +68,7 @@ pub trait Plugin: Send + Sync {
     fn as_any(&self) -> &dyn Any;
 }
 
-/// A simplified web plugin endpoint for use with the trait below
+/// A simplified web plugin endpoint for legacy adapter conversions
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WebEndpoint {
     /// Path to the endpoint
@@ -80,20 +79,6 @@ pub struct WebEndpoint {
 
     /// Required permissions
     pub permissions: Vec<String>,
-}
-
-/// Web plugin extension trait (Phase 2 — WASM sandbox)
-#[expect(dead_code, reason = "Phase 2 web plugin system; HelloWorldPlugin implements it for testing")]
-pub trait WebPluginExt: Plugin + Send + Sync {
-    /// Get the endpoints provided by this plugin
-    fn get_endpoints(&self) -> Vec<WebEndpoint>;
-
-    /// Handle web endpoint request
-    async fn handle_web_endpoint(
-        &self,
-        endpoint: &WebEndpoint,
-        data: Option<Value>,
-    ) -> Result<Value>;
 }
 
 // Re-export the CommandsPlugin trait from interfaces for convenience
