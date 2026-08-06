@@ -3,7 +3,6 @@
 
 //! Directory structure management for rules
 use crate::rules::error::{Result, RuleError};
-use async_recursion::async_recursion;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
@@ -62,7 +61,6 @@ impl RuleDirectoryManager {
     }
 
     /// List all rule files in a category
-    #[async_recursion]
     pub async fn list_rule_files(&self, category: Option<&str>) -> Result<Vec<PathBuf>> {
         let base_path = match category {
             Some(cat) => self.rules_dir.join(cat),

@@ -199,7 +199,7 @@ impl BiomeManifestParser {
 
         let content = fs::read_to_string(path)
             .await
-            .map_err(|e| PrimalError::ConfigError(format!("Failed to read manifest file: {e}")))?;
+            .map_err(|e| PrimalError::Configuration(format!("Failed to read manifest file: {e}")))?;
 
         self.parse_content(&content)
     }
@@ -209,7 +209,7 @@ impl BiomeManifestParser {
         debug!("Parsing biome.yaml manifest content");
 
         let mut manifest: BiomeManifest = serde_yaml_ng::from_str(content)
-            .map_err(|e| PrimalError::ConfigError(format!("Failed to parse YAML: {e}")))?;
+            .map_err(|e| PrimalError::Configuration(format!("Failed to parse YAML: {e}")))?;
 
         if self.config.strict_validation {
             self.validate_manifest(&mut manifest)?;
@@ -221,7 +221,7 @@ impl BiomeManifestParser {
     fn validate_manifest(&self, manifest: &mut BiomeManifest) -> Result<(), PrimalError> {
         // Validate metadata
         if manifest.metadata.name.is_empty() {
-            return Err(PrimalError::ConfigError(
+            return Err(PrimalError::Configuration(
                 "Biome name cannot be empty".to_string(),
             ));
         }
@@ -229,12 +229,12 @@ impl BiomeManifestParser {
         // Validate agents
         for agent in &manifest.agents {
             if agent.name.is_empty() {
-                return Err(PrimalError::ConfigError(
+                return Err(PrimalError::Configuration(
                     "Agent name cannot be empty".to_string(),
                 ));
             }
             if agent.capabilities.is_empty() {
-                return Err(PrimalError::ConfigError(format!(
+                return Err(PrimalError::Configuration(format!(
                     "Agent '{}' must have at least one capability",
                     agent.name
                 )));
@@ -244,7 +244,7 @@ impl BiomeManifestParser {
         // Validate services
         for (name, service) in &manifest.services {
             if service.endpoints.is_empty() {
-                return Err(PrimalError::ConfigError(format!(
+                return Err(PrimalError::Configuration(format!(
                     "Service '{name}' must have at least one endpoint"
                 )));
             }
@@ -256,7 +256,7 @@ impl BiomeManifestParser {
     /// Validates YAML syntax without full manifest parsing.
     pub fn validate_yaml_schema(&self, content: &str) -> Result<(), PrimalError> {
         let _: serde_yaml_ng::Value = serde_yaml_ng::from_str(content)
-            .map_err(|e| PrimalError::ConfigError(format!("Invalid YAML syntax: {e}")))?;
+            .map_err(|e| PrimalError::Configuration(format!("Invalid YAML syntax: {e}")))?;
 
         Ok(())
     }

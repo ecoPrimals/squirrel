@@ -117,7 +117,7 @@ async fn test_record_metric_error_unregistered() {
     let result = collector
         .record_metric("nonexistent_metric", 10.0, labels);
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), PrimalError::NotFoundError(_)));
+    assert!(matches!(result.unwrap_err(), PrimalError::ResourceNotFound(_)));
 }
 
 #[tokio::test]
@@ -153,7 +153,7 @@ async fn test_get_metric_info_not_found() {
 
     let result = collector.get_metric_info("missing_metric");
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), PrimalError::NotFoundError(_)));
+    assert!(matches!(result.unwrap_err(), PrimalError::ResourceNotFound(_)));
 }
 
 #[tokio::test]

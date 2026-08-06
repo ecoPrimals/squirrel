@@ -65,9 +65,7 @@ impl UniversalSecurityAdapter {
             })?;
 
         let method = format!("security.{operation}");
-        let params = serde_json::to_value(parameters).map_err(|e| {
-            PrimalError::SerializationError(format!("Failed to serialize security params: {e}"))
-        })?;
+        let params = serde_json::to_value(parameters).map_err(PrimalError::Serialization)?;
 
         super::ipc::send_rpc_request(&socket, &method, Some(params))
             .await

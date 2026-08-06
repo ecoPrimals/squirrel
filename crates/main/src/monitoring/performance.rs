@@ -194,7 +194,7 @@ impl PerformanceTracker {
         if let Some(metric) = metrics.get(name) {
             Ok(metric.clone())
         } else {
-            Err(PrimalError::NotFoundError(format!(
+            Err(PrimalError::ResourceNotFound(format!(
                 "Performance metric '{name}' not found"
             )))
         }
@@ -297,7 +297,7 @@ impl PerformanceTracker {
 
             Ok(comparison)
         } else {
-            Err(PrimalError::NotFoundError(format!(
+            Err(PrimalError::ResourceNotFound(format!(
                 "Baseline '{baseline_name}' not found"
             )))
         }

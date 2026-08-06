@@ -374,7 +374,7 @@ impl AgentDeploymentManager {
 
             info!("Agent {} stopped successfully", agent_id);
         } else {
-            return Err(PrimalError::NotFoundError(format!(
+            return Err(PrimalError::ResourceNotFound(format!(
                 "Agent {agent_id} not found"
             )));
         }
@@ -416,7 +416,7 @@ impl AgentDeploymentManager {
         if let Some(agent) = agents.get(agent_id) {
             Ok(agent.status.clone())
         } else {
-            Err(PrimalError::NotFoundError(format!(
+            Err(PrimalError::ResourceNotFound(format!(
                 "Agent {agent_id} not found"
             )))
         }

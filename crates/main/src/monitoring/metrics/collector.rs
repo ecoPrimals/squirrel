@@ -272,7 +272,7 @@ impl MetricsCollector {
 
             Ok(())
         } else {
-            Err(PrimalError::NotFoundError(format!(
+            Err(PrimalError::ResourceNotFound(format!(
                 "Metric '{name}' not registered"
             )))
         }
@@ -314,7 +314,7 @@ impl MetricsCollector {
     /// Get metric definition and metadata
     pub fn get_metric_info(&self, metric_name: &str) -> Result<MetricInfo, PrimalError> {
         let Some(definition) = self.metrics.get(metric_name) else {
-            return Err(PrimalError::NotFoundError(format!(
+            return Err(PrimalError::ResourceNotFound(format!(
                 "Metric '{metric_name}' not found"
             )));
         };

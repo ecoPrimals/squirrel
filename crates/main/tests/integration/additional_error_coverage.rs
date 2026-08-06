@@ -39,7 +39,7 @@ mod additional_error_coverage {
     #[test]
     fn test_primal_error_network_variants() {
         let err1 = PrimalError::Network("connection failed".to_string());
-        let err2 = PrimalError::NetworkError("timeout".to_string());
+        let err2 = PrimalError::Network("timeout".to_string());
 
         assert!(err1.to_string().contains("Network error"));
         assert!(err2.to_string().contains("Network error"));
@@ -49,8 +49,8 @@ mod additional_error_coverage {
     #[test]
     fn test_primal_error_config_variants() {
         let err1 = PrimalError::Configuration("missing field".to_string());
-        let err2 = PrimalError::ConfigurationError("invalid value".to_string());
-        let err3 = PrimalError::ConfigError("parse error".to_string());
+        let err2 = PrimalError::Configuration("invalid value".to_string());
+        let err3 = PrimalError::Configuration("parse error".to_string());
 
         assert!(err1.to_string().contains("Configuration"));
         assert!(err2.to_string().contains("Configuration"));
@@ -61,7 +61,7 @@ mod additional_error_coverage {
     fn test_primal_error_resource_variants() {
         let err1 = PrimalError::ResourceNotFound("database".to_string());
         let err2 = PrimalError::ResourceError("out of memory".to_string());
-        let err3 = PrimalError::NotFoundError("endpoint".to_string());
+        let err3 = PrimalError::ResourceNotFound("endpoint".to_string());
 
         assert!(!err1.to_string().is_empty());
         assert!(!err2.to_string().is_empty());
@@ -274,7 +274,7 @@ mod additional_error_coverage {
             // PrimalError::NotImplemented removed in favor of specific error types
             PrimalError::Registry("corrupted".to_string()),
             PrimalError::ParsingError("malformed".to_string()),
-            PrimalError::SerializationError("encoding".to_string()),
+            PrimalError::serialization_message("encoding"),
         ];
 
         for err in errors {

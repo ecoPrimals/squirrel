@@ -404,7 +404,7 @@ impl UniversalClient {
         )
         .await
         .map_err(|e| {
-            PrimalError::NetworkError(format!(
+            PrimalError::Network(format!(
                 "Failed to connect to Unix socket {}: {e}",
                 socket_path.display()
             ))
@@ -416,27 +416,25 @@ impl UniversalClient {
         universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut stream)
             .await
             .map_err(|e| {
-                PrimalError::NetworkError(format!("Failed to write riboCipher preamble: {e}"))
+                PrimalError::Network(format!("Failed to write riboCipher preamble: {e}"))
             })?;
         stream
             .write_all(&request_bytes)
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to write: {e}")))?;
+            .map_err(|e| PrimalError::Network(format!("Failed to write: {e}")))?;
         stream
             .write_all(b"\n")
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to write delimiter: {e}")))?;
+            .map_err(|e| PrimalError::Network(format!("Failed to write delimiter: {e}")))?;
 
         let mut response_bytes = Vec::new();
         stream
             .read_to_end(&mut response_bytes)
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to read: {e}")))?;
+            .map_err(|e| PrimalError::Network(format!("Failed to read: {e}")))?;
 
         let json_rpc_response: serde_json::Value = serde_json::from_slice(&response_bytes)
-            .map_err(|e| {
-                PrimalError::SerializationError(format!("Failed to deserialize response: {e}"))
-            })?;
+            .map_err(PrimalError::Serialization)?;
 
         universal_patterns::extract_rpc_result(&json_rpc_response)
             .map_err(|rpc_err| PrimalError::RemoteError(rpc_err.to_string()))
@@ -498,9 +496,7 @@ impl UniversalClient {
             .send_jsonrpc_over_unix(&socket_path, &json_rpc_request)
             .await?;
 
-        serde_json::from_value(response).map_err(|e| {
-            PrimalError::SerializationError(format!("Failed to deserialize response: {e}"))
-        })
+        serde_json::from_value(response).map_err(PrimalError::Serialization)
     }
 }
 

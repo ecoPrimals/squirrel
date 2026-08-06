@@ -170,9 +170,7 @@ impl UniversalSecurityClient {
             crate::niche::PRIMAL_ID,
             &provider.provider_id,
             "security_operation",
-            serde_json::to_value(&request).map_err(|e| {
-                PrimalError::SerializationError(format!("Failed to serialize request: {e}"))
-            })?,
+            serde_json::to_value(&request).map_err(PrimalError::Serialization)?,
             self.context.clone(),
         );
 

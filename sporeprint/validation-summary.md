@@ -8,6 +8,14 @@ primals = ["squirrel"]
 springs = []
 +++
 
+## Wave 156u — Legacy Pattern Modernization + Error Consolidation (Aug 6, 2026)
+
+- PrimalError: 5 duplicate variants eliminated, ~85 call sites migrated
+- 6 error types migrated to thiserror (-82 net lines of manual Display/Error impls)
+- 26 Pin<Box<dyn Future>> eliminated (UniversalServiceRegistry + PluginStateManager)
+- async-recursion dependency removed (function was iterative, not recursive)
+- 0 warnings, 6,302 tests passing
+
 ## Wave 156t — Timeout Consolidation + De-Async + Smart Refactoring (Aug 6, 2026)
 
 - 157 functions de-asynced (session, metrics, biomeos, discovery/rpc/providers)

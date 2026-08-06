@@ -11,6 +11,14 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 6, 2026 — Wave 156u: Legacy Pattern Modernization + Error Consolidation)
+
+- **PrimalError consolidated**: Eliminated 5 duplicate variants (`ConfigurationError`, `ConfigError`, `NetworkError`, `NotFoundError`, `SerializationError`) — ~85 call sites across 25 files migrated to canonical variants.
+- **6 error types migrated to thiserror**: `CoreError`, `RuleError`, `ValidationError`, `ResilienceError`, `ErrorHandlerError`, `ClientError` — removed ~82 lines of hand-rolled Display/Error impls.
+- **26 `Pin<Box<dyn Future>>` eliminated**: `UniversalServiceRegistry` (14) and `PluginStateManager` (12) converted to native async fn / `impl Future + Send` — neither was used as `dyn Trait`.
+- **`async-recursion` dependency removed**: `list_rule_files` was iterative (stack-based loop), not recursive.
+- 0 errors, 0 warnings, 6,302 tests passing.
+
 ### Summary (Aug 6, 2026 — Wave 156t: Timeout Consolidation + De-Async + Smart Refactoring)
 
 - **157 functions de-asynced**: Removed unnecessary `async` from functions with no `.await` — session (7), metrics collector (19), biomeos_integration (90), discovery/rpc/providers (41). Callers updated across 35+ files.

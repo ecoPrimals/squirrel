@@ -63,9 +63,7 @@ impl DefenseClient {
         &self,
         event: &SecurityEvent,
     ) -> Result<Option<SecurityAlert>, PrimalError> {
-        let event_value = serde_json::to_value(event).map_err(|e| {
-            PrimalError::SerializationError(format!("Failed to serialize security event: {e}"))
-        })?;
+        let event_value = serde_json::to_value(event).map_err(PrimalError::Serialization)?;
 
         let response = self
             .call_defense_rpc(

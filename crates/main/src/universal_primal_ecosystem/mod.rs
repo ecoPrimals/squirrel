@@ -203,11 +203,11 @@ impl UniversalPrimalEcosystem {
                     .and_then(|d| d.get("data"))
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| {
-                        PrimalError::SerializationError("Missing data in response".to_string())
+                        PrimalError::serialization_message("Missing data in response")
                     })?;
 
                 let data = STANDARD.decode(data_str).map_err(|e| {
-                    PrimalError::SerializationError(format!("Failed to decode data: {e}"))
+                    PrimalError::serialization_message(format!("Failed to decode data: {e}"))
                 })?;
 
                 Ok(data)

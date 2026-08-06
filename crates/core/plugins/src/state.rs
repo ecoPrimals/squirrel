@@ -9,30 +9,18 @@ use anyhow::Result;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::future::Future;
-use std::pin::Pin;
 use tokio::sync::RwLock;
 
 /// Plugin state manager trait
 pub trait PluginStateManager: Send + Sync + Debug {
     /// Get plugin state
-    fn get_state<'a>(
-        &'a self,
-        plugin_id: &'a str,
-    ) -> Pin<Box<dyn Future<Output = Result<Option<Value>>> + Send + 'a>>;
+    fn get_state(&self, plugin_id: &str) -> impl std::future::Future<Output = Result<Option<Value>>> + Send;
 
     /// Set plugin state
-    fn set_state<'a>(
-        &'a self,
-        plugin_id: &'a str,
-        state: Value,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
+    fn set_state(&self, plugin_id: &str, state: Value) -> impl std::future::Future<Output = Result<()>> + Send;
 
     /// Remove plugin state
-    fn remove_state<'a>(
-        &'a self,
-        plugin_id: &'a str,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
+    fn remove_state(&self, plugin_id: &str) -> impl std::future::Future<Output = Result<()>> + Send;
 }
 
 /// In-memory plugin state manager
@@ -53,39 +41,23 @@ impl MemoryStateManager {
 }
 
 impl PluginStateManager for MemoryStateManager {
-    fn get_state<'a>(
-        &'a self,
-        plugin_id: &'a str,
-    ) -> Pin<Box<dyn Future<Output = Result<Option<Value>>> + Send + 'a>> {
-        Box::pin(async move {
-            let states = self.states.read().await;
-            Ok(states.get(plugin_id).cloned())
-        })
+    async fn get_state(&self, plugin_id: &str) -> Result<Option<Value>> {
+        let states = self.states.read().await;
+        Ok(states.get(plugin_id).cloned())
     }
 
-    fn set_state<'a>(
-        &'a self,
-        plugin_id: &'a str,
-        state: Value,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
-        Box::pin(async move {
-            let mut states = self.states.write().await;
-            states.insert(plugin_id.to_string(), state);
-            drop(states);
-            Ok(())
-        })
+    async fn set_state(&self, plugin_id: &str, state: Value) -> Result<()> {
+        let mut states = self.states.write().await;
+        states.insert(plugin_id.to_string(), state);
+        drop(states);
+        Ok(())
     }
 
-    fn remove_state<'a>(
-        &'a self,
-        plugin_id: &'a str,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
-        Box::pin(async move {
-            let mut states = self.states.write().await;
-            states.remove(plugin_id);
-            drop(states);
-            Ok(())
-        })
+    async fn remove_state(&self, plugin_id: &str) -> Result<()> {
+        let mut states = self.states.write().await;
+        states.remove(plugin_id);
+        drop(states);
+        Ok(())
     }
 }
 
@@ -110,79 +82,63 @@ impl FileStateManager {
 }
 
 impl PluginStateManager for FileStateManager {
-    fn get_state<'a>(
-        &'a self,
-        plugin_id: &'a str,
-    ) -> Pin<Box<dyn Future<Output = Result<Option<Value>>> + Send + 'a>> {
-        Box::pin(async move {
-            // Check cache first
-            let cache = self.cache.read().await;
-            if let Some(value) = cache.get(plugin_id) {
-                let result = Ok(Some(value.clone()));
+    async fn get_state(&self, plugin_id: &str) -> Result<Option<Value>> {
+        // Check cache first
+        let cache = self.cache.read().await;
+        if let Some(value) = cache.get(plugin_id) {
+            let result = Ok(Some(value.clone()));
+            drop(cache);
+            return result;
+        }
+
+        // If not in cache, try to read from file
+        let file_path = format!("{}/{}.json", self.base_dir, plugin_id);
+        match tokio::fs::read_to_string(&file_path).await {
+            Ok(content) => {
+                let value: Value = serde_json::from_str(&content)?;
+                // Update cache
                 drop(cache);
-                return result;
+                let mut cache = self.cache.write().await;
+                cache.insert(plugin_id.to_string(), value.clone());
+                drop(cache);
+                Ok(Some(value))
             }
-
-            // If not in cache, try to read from file
-            let file_path = format!("{}/{}.json", self.base_dir, plugin_id);
-            match tokio::fs::read_to_string(&file_path).await {
-                Ok(content) => {
-                    let value: Value = serde_json::from_str(&content)?;
-                    // Update cache
-                    drop(cache);
-                    let mut cache = self.cache.write().await;
-                    cache.insert(plugin_id.to_string(), value.clone());
-                    drop(cache);
-                    Ok(Some(value))
-                }
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-                Err(e) => Err(e.into()),
-            }
-        })
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 
-    fn set_state<'a>(
-        &'a self,
-        plugin_id: &'a str,
-        state: Value,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
-        Box::pin(async move {
-            // Update cache
-            let mut cache = self.cache.write().await;
-            cache.insert(plugin_id.to_string(), state.clone());
+    async fn set_state(&self, plugin_id: &str, state: Value) -> Result<()> {
+        // Update cache
+        let mut cache = self.cache.write().await;
+        cache.insert(plugin_id.to_string(), state.clone());
 
-            // Ensure directory exists
-            tokio::fs::create_dir_all(&self.base_dir).await?;
+        // Ensure directory exists
+        tokio::fs::create_dir_all(&self.base_dir).await?;
 
-            // Write to file
-            let file_path = format!("{}/{}.json", self.base_dir, plugin_id);
-            let content = serde_json::to_string(&state)?;
-            tokio::fs::write(&file_path, content).await?;
-            drop(cache);
+        // Write to file
+        let file_path = format!("{}/{}.json", self.base_dir, plugin_id);
+        let content = serde_json::to_string(&state)?;
+        tokio::fs::write(&file_path, content).await?;
+        drop(cache);
 
-            Ok(())
-        })
+        Ok(())
     }
 
-    fn remove_state<'a>(
-        &'a self,
-        plugin_id: &'a str,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
-        Box::pin(async move {
-            // Remove from cache
-            let mut cache = self.cache.write().await;
-            cache.remove(plugin_id);
+    async fn remove_state(&self, plugin_id: &str) -> Result<()> {
+        // Remove from cache
+        let mut cache = self.cache.write().await;
+        cache.remove(plugin_id);
 
-            // Remove file if exists
-            let file_path = format!("{}/{}.json", self.base_dir, plugin_id);
-            let result = match tokio::fs::remove_file(&file_path).await {
-                Ok(()) => Ok(()),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                Err(e) => Err(e.into()),
-            };
-            drop(cache);
-            result
-        })
+        // Remove file if exists
+        let file_path = format!("{}/{}.json", self.base_dir, plugin_id);
+        let result = match tokio::fs::remove_file(&file_path).await {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(e.into()),
+        };
+        drop(cache);
+        result
     }
 }
 
@@ -196,34 +152,24 @@ pub enum StateManagerBackend {
 }
 
 impl PluginStateManager for StateManagerBackend {
-    fn get_state<'a>(
-        &'a self,
-        plugin_id: &'a str,
-    ) -> Pin<Box<dyn Future<Output = Result<Option<Value>>> + Send + 'a>> {
+    async fn get_state(&self, plugin_id: &str) -> Result<Option<Value>> {
         match self {
-            Self::Memory(m) => m.get_state(plugin_id),
-            Self::File(f) => f.get_state(plugin_id),
+            Self::Memory(m) => m.get_state(plugin_id).await,
+            Self::File(f) => f.get_state(plugin_id).await,
         }
     }
 
-    fn set_state<'a>(
-        &'a self,
-        plugin_id: &'a str,
-        state: Value,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+    async fn set_state(&self, plugin_id: &str, state: Value) -> Result<()> {
         match self {
-            Self::Memory(m) => m.set_state(plugin_id, state),
-            Self::File(f) => f.set_state(plugin_id, state),
+            Self::Memory(m) => m.set_state(plugin_id, state).await,
+            Self::File(f) => f.set_state(plugin_id, state).await,
         }
     }
 
-    fn remove_state<'a>(
-        &'a self,
-        plugin_id: &'a str,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+    async fn remove_state(&self, plugin_id: &str) -> Result<()> {
         match self {
-            Self::Memory(m) => m.remove_state(plugin_id),
-            Self::File(f) => f.remove_state(plugin_id),
+            Self::Memory(m) => m.remove_state(plugin_id).await,
+            Self::File(f) => f.remove_state(plugin_id).await,
         }
     }
 }

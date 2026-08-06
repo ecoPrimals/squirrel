@@ -80,10 +80,10 @@ fn test_discovery_error_conversion() {
     let primal_err: PrimalError = disc_err.into();
 
     match primal_err {
-        PrimalError::NetworkError(msg) => {
+        PrimalError::Network(msg) => {
             assert!(msg.contains("Discovery error"));
         }
-        _ => unreachable!("Expected NetworkError variant"),
+        _ => unreachable!("Expected Network variant"),
     }
 }
 
@@ -91,11 +91,8 @@ fn test_discovery_error_conversion() {
 fn test_all_error_variants() {
     let variants = vec![
         PrimalError::Network("test".to_string()),
-        PrimalError::NetworkError("test".to_string()),
         PrimalError::Authentication("test".to_string()),
         PrimalError::Configuration("test".to_string()),
-        PrimalError::ConfigurationError("test".to_string()),
-        PrimalError::ConfigError("test".to_string()),
         PrimalError::ParsingError("test".to_string()),
         PrimalError::InvalidOperation("test".to_string()),
         PrimalError::ServiceDiscoveryFailed("test".to_string()),
@@ -105,11 +102,10 @@ fn test_all_error_variants() {
         PrimalError::OperationFailed("test".to_string()),
         PrimalError::OperationNotSupported("test".to_string()),
         PrimalError::ResourceNotFound("test".to_string()),
-        PrimalError::NotFoundError("test".to_string()),
         PrimalError::ResourceError("test".to_string()),
         PrimalError::General("test".to_string()),
         PrimalError::ValidationError("test".to_string()),
-        PrimalError::SerializationError("test".to_string()),
+        PrimalError::serialization_message("test"),
         PrimalError::SecurityError("test".to_string()),
         PrimalError::ComputeError("test".to_string()),
         PrimalError::StorageError("test".to_string()),
@@ -149,15 +145,12 @@ fn test_error_source_chain() {
 }
 
 #[test]
-fn test_duplicate_variant_messages() {
-    // Test that duplicate variant names have correct messages
+fn test_canonical_variant_messages() {
     let network1 = PrimalError::Network("msg1".to_string());
-    let network2 = PrimalError::NetworkError("msg2".to_string());
+    let network2 = PrimalError::Network("msg2".to_string());
     assert_ne!(network1.to_string(), network2.to_string());
 
     let config1 = PrimalError::Configuration("c1".to_string());
-    let config2 = PrimalError::ConfigurationError("c2".to_string());
-    let config3 = PrimalError::ConfigError("c3".to_string());
+    let config2 = PrimalError::Configuration("c2".to_string());
     assert_ne!(config1.to_string(), config2.to_string());
-    assert_ne!(config1.to_string(), config3.to_string());
 }

@@ -428,7 +428,7 @@ async fn test_update_nonexistent_session() {
     let result = manager.update_session("nonexistent_session_id", data);
     assert!(matches!(
         result,
-        Err(PrimalError::NotFoundError(msg)) if msg.contains("nonexistent_session_id")
+        Err(PrimalError::ResourceNotFound(msg)) if msg.contains("nonexistent_session_id")
     ));
 }
 
@@ -441,7 +441,7 @@ async fn test_terminate_nonexistent_session() {
     let result = manager.terminate_session("nonexistent_session_id");
     assert!(matches!(
         result,
-        Err(PrimalError::NotFoundError(msg)) if msg.contains("nonexistent_session_id")
+        Err(PrimalError::ResourceNotFound(msg)) if msg.contains("nonexistent_session_id")
     ));
 }
 

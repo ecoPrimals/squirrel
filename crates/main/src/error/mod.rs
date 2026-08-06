@@ -24,10 +24,6 @@ pub enum PrimalError {
     #[error("Network error: {0}")]
     Network(String),
 
-    /// Network communication error
-    #[error("Network error: {0}")]
-    NetworkError(String),
-
     /// Authentication failed
     #[error("Authentication failed: {0}")]
     Authentication(String),
@@ -35,14 +31,6 @@ pub enum PrimalError {
     /// Configuration is invalid
     #[error("Configuration error: {0}")]
     Configuration(String),
-
-    /// Configuration error
-    #[error("Configuration error: {0}")]
-    ConfigurationError(String),
-
-    /// Configuration error
-    #[error("Configuration error: {0}")]
-    ConfigError(String),
 
     /// Parsing failed
     #[error("Parsing error: {0}")]
@@ -80,10 +68,6 @@ pub enum PrimalError {
     #[error("Resource not found: {0}")]
     ResourceNotFound(String),
 
-    /// Resource not found
-    #[error("Not found: {0}")]
-    NotFoundError(String),
-
     /// Resource error
     #[error("Resource error: {0}")]
     ResourceError(String),
@@ -95,10 +79,6 @@ pub enum PrimalError {
     /// Validation failed
     #[error("Validation error: {0}")]
     ValidationError(String),
-
-    /// Serialization failed
-    #[error("Serialization error: {0}")]
-    SerializationError(String),
 
     /// Security violation
     #[error("Security error: {0}")]
@@ -141,6 +121,14 @@ pub enum PrimalError {
     RemoteError(String),
 }
 
+impl PrimalError {
+    /// Creates a [`PrimalError::Serialization`] from a custom message.
+    pub fn serialization_message(message: impl Into<String>) -> Self {
+        use serde::de::Error as _;
+        Self::Serialization(serde_json::Error::custom(message.into()))
+    }
+}
+
 /// Converts any `Send + Sync` boxed error into [`PrimalError`].
 ///
 /// This is retained for call sites that still produce type-erased errors (e.g. third-party
@@ -155,7 +143,7 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for PrimalError {
 // Add support for DiscoveryError conversion
 impl From<crate::capabilities::discovery::DiscoveryError> for PrimalError {
     fn from(err: crate::capabilities::discovery::DiscoveryError) -> Self {
-        Self::NetworkError(format!("Discovery error: {err}"))
+        Self::Network(format!("Discovery error: {err}"))
     }
 }
 

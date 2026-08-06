@@ -1,53 +1,43 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-use std::error::Error;
-use std::fmt;
+use thiserror::Error;
 
 /// Errors that can occur in the MCP client
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum ClientError {
     /// Client is not connected to the server
+    #[error("Client not connected: {0}")]
     NotConnected(String),
 
     /// Request timed out
+    #[error("Timeout: {0}")]
     Timeout(String),
 
     /// Response channel was closed
+    #[error("Response channel closed: {0}")]
     ResponseChannelClosed(String),
 
     /// Failed to serialize or deserialize a message
+    #[error("Serialization error: {0}")]
     SerializationError(String),
 
     /// Failed to connect to server
+    #[error("Connection failed: {0}")]
     ConnectionFailed(String),
 
     /// Invalid message received
+    #[error("Invalid message: {0}")]
     InvalidMessage(String),
 
     /// Client is already connected
+    #[error("Already connected: {0}")]
     AlreadyConnected(String),
 
     /// Error received from remote endpoint
+    #[error("Remote error: {0}")]
     RemoteError(String),
 }
-
-impl fmt::Display for ClientError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::NotConnected(msg) => write!(f, "Client not connected: {msg}"),
-            Self::Timeout(msg) => write!(f, "Timeout: {msg}"),
-            Self::ResponseChannelClosed(msg) => write!(f, "Response channel closed: {msg}"),
-            Self::SerializationError(msg) => write!(f, "Serialization error: {msg}"),
-            Self::ConnectionFailed(msg) => write!(f, "Connection failed: {msg}"),
-            Self::InvalidMessage(msg) => write!(f, "Invalid message: {msg}"),
-            Self::AlreadyConnected(msg) => write!(f, "Already connected: {msg}"),
-            Self::RemoteError(msg) => write!(f, "Remote error: {msg}"),
-        }
-    }
-}
-
-impl Error for ClientError {}
 
 #[cfg(test)]
 mod tests {

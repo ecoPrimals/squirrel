@@ -6,61 +6,51 @@
 //! This module defines the various error types used in the resilience framework
 //! and their handling mechanisms.
 
-use std::error::Error as StdError;
-use std::fmt;
+use thiserror::Error;
 
 /// Error type for resilience operations
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ResilienceError {
     /// Circuit breaker prevented an operation from executing
+    #[error("Circuit open: {0}")]
     CircuitOpen(String),
 
     /// Maximum retry attempts were exceeded
+    #[error("Retry exceeded: {0}")]
     RetryExceeded(String),
 
     /// Recovery strategy failed
+    #[error("Recovery failed: {0}")]
     RecoveryFailed(String),
 
     /// State synchronization failed
+    #[error("State synchronization failed: {0}")]
     SyncFailed(String),
 
     /// Operation timed out
+    #[error("Timeout: {0}")]
     Timeout(String),
 
     /// Generic error with message
+    #[error("Resilience error: {0}")]
     General(String),
 
     /// Operation failed after recovery attempts
+    #[error("Operation failed: {0}")]
     OperationFailed(String),
 
     /// Bulkhead isolation error
+    #[error("Bulkhead isolation error: {0}")]
     Bulkhead(String),
 
     /// Rate limiting error
+    #[error("Rate limit exceeded: {0}")]
     RateLimit(String),
 
     /// Health check failed
+    #[error("Health check failed: {0}")]
     HealthCheck(String),
 }
-
-impl fmt::Display for ResilienceError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::CircuitOpen(msg) => write!(f, "Circuit open: {msg}"),
-            Self::RetryExceeded(msg) => write!(f, "Retry exceeded: {msg}"),
-            Self::RecoveryFailed(msg) => write!(f, "Recovery failed: {msg}"),
-            Self::SyncFailed(msg) => write!(f, "State synchronization failed: {msg}"),
-            Self::Timeout(msg) => write!(f, "Timeout: {msg}"),
-            Self::General(msg) => write!(f, "Resilience error: {msg}"),
-            Self::OperationFailed(msg) => write!(f, "Operation failed: {msg}"),
-            Self::Bulkhead(msg) => write!(f, "Bulkhead isolation error: {msg}"),
-            Self::RateLimit(msg) => write!(f, "Rate limit exceeded: {msg}"),
-            Self::HealthCheck(msg) => write!(f, "Health check failed: {msg}"),
-        }
-    }
-}
-
-impl StdError for ResilienceError {}
 
 /// Convenience type alias for Results from resilience operations
 pub type Result<T> = std::result::Result<T, ResilienceError>;

@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::VecDeque;
 use std::sync::Arc;
+use thiserror::Error;
 use tokio::sync::RwLock;
 use tracing::{info, instrument, warn};
 use uuid::Uuid;
@@ -16,64 +17,42 @@ use uuid::Uuid;
 ///
 /// These represent failures that happen during error recording, recovery,
 /// or management operations.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ErrorHandlerError {
     /// Error that occurs during recovery operations
     ///
     /// This represents failures that happen when trying to
     /// recover from another error.
+    #[error("Recovery error: {0}")]
     Recovery(String),
 
     /// Error related to state management
     ///
     /// This represents failures in maintaining or
     /// transitioning state during error handling.
+    #[error("State error: {0}")]
     State(String),
 
     /// Error related to recovery strategy
     ///
     /// This represents failures in applying or managing
     /// error recovery strategies.
+    #[error("Strategy error: {0}")]
     Strategy(String),
 
     /// Error related to context management
     ///
     /// This represents failures in maintaining or accessing
     /// error context information.
+    #[error("Context error: {0}")]
     Context(String),
 
     /// Error during JSON serialization or deserialization
     ///
     /// This occurs when error data cannot be properly
     /// serialized or deserialized.
-    SerdeJson(serde_json::Error),
-}
-
-impl std::fmt::Display for ErrorHandlerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Recovery(msg) => write!(f, "Recovery error: {msg}"),
-            Self::State(msg) => write!(f, "State error: {msg}"),
-            Self::Strategy(msg) => write!(f, "Strategy error: {msg}"),
-            Self::Context(msg) => write!(f, "Context error: {msg}"),
-            Self::SerdeJson(err) => write!(f, "JSON error: {err}"),
-        }
-    }
-}
-
-impl std::error::Error for ErrorHandlerError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::SerdeJson(err) => Some(err),
-            _ => None,
-        }
-    }
-}
-
-impl From<serde_json::Error> for ErrorHandlerError {
-    fn from(err: serde_json::Error) -> Self {
-        Self::SerdeJson(err)
-    }
+    #[error("JSON error: {0}")]
+    SerdeJson(#[from] serde_json::Error),
 }
 
 /// Local context for error handling

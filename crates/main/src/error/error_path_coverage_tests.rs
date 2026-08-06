@@ -181,12 +181,9 @@ mod error_path_tests {
         // Ensure all error variants can be instantiated
         let errors: Vec<PrimalError> = vec![
             PrimalError::Network("test".to_string()),
-            PrimalError::NetworkError("test".to_string()),
             PrimalError::Authentication("test".to_string()),
             PrimalError::Configuration("test".to_string()),
             PrimalError::OperationNotSupported("test".to_string()),
-            PrimalError::ConfigurationError("test".to_string()),
-            PrimalError::ConfigError("test".to_string()),
             PrimalError::ParsingError("test".to_string()),
             PrimalError::InvalidOperation("test".to_string()),
             PrimalError::ServiceDiscoveryFailed("test".to_string()),
@@ -194,13 +191,11 @@ mod error_path_tests {
             PrimalError::Registry("test".to_string()),
             PrimalError::Internal("test".to_string()),
             PrimalError::OperationFailed("test".to_string()),
-            PrimalError::OperationNotSupported("test".to_string()),
             PrimalError::ResourceNotFound("test".to_string()),
-            PrimalError::NotFoundError("test".to_string()),
             PrimalError::ResourceError("test".to_string()),
             PrimalError::General("test".to_string()),
             PrimalError::ValidationError("test".to_string()),
-            PrimalError::SerializationError("test".to_string()),
+            PrimalError::serialization_message("test"),
             PrimalError::SecurityError("test".to_string()),
             PrimalError::ComputeError("test".to_string()),
             PrimalError::StorageError("test".to_string()),
@@ -253,7 +248,7 @@ mod error_path_tests {
     fn test_error_from_option_conversion() {
         let maybe_value: Option<String> = None;
         let result: Result<String, PrimalError> =
-            maybe_value.ok_or_else(|| PrimalError::NotFoundError("Value missing".to_string()));
+            maybe_value.ok_or_else(|| PrimalError::ResourceNotFound("Value missing".to_string()));
 
         assert!(result.is_err());
     }
@@ -308,10 +303,8 @@ mod error_path_tests {
     #[test]
     fn primal_error_config_error_variants_distinct() {
         let a = PrimalError::Configuration("a".into());
-        let b = PrimalError::ConfigurationError("b".into());
-        let c = PrimalError::ConfigError("c".into());
+        let b = PrimalError::Configuration("b".into());
         assert_ne!(a.to_string(), b.to_string());
-        assert_ne!(b.to_string(), c.to_string());
     }
 
     #[test]
@@ -352,11 +345,6 @@ mod error_path_tests {
                 .contains('a')
         );
         assert!(
-            PrimalError::NotFoundError("b".into())
-                .to_string()
-                .contains('b')
-        );
-        assert!(
             PrimalError::ResourceError("c".into())
                 .to_string()
                 .contains('c')
@@ -366,7 +354,7 @@ mod error_path_tests {
     #[test]
     fn primal_error_serialization_and_general() {
         assert!(
-            PrimalError::SerializationError("s".into())
+            PrimalError::serialization_message("s")
                 .to_string()
                 .contains('s')
         );

@@ -45,7 +45,7 @@ async fn test_biomeos_registration() {
             // Registration successful - biomeOS server was available
             println!("✅ Registration successful - biomeOS server available");
         }
-        Err(PrimalError::Network(_) | PrimalError::NetworkError(_)) => {
+        Err(PrimalError::Network(_)) => {
             // Expected when no biomeOS server is running
             println!("✅ Network error as expected (no server)");
         }
@@ -264,7 +264,7 @@ async fn test_error_handling_patterns() {
     // Test 1: Registration with no server
     match integration.register_with_biomeos() {
         Ok(()) => println!("Registration succeeded (server available)"),
-        Err(PrimalError::Network(msg) | PrimalError::NetworkError(msg)) => {
+        Err(PrimalError::Network(msg)) => {
             println!("✅ Network error handled: {}", msg);
             assert!(!msg.is_empty(), "Error message should not be empty");
         }

@@ -258,7 +258,7 @@ impl SessionManagerImpl {
         self.sessions
             .get(session_id)
             .map(|entry| entry.value().metadata.clone())
-            .ok_or_else(|| PrimalError::NotFoundError(format!("Session not found: {session_id}")))
+            .ok_or_else(|| PrimalError::ResourceNotFound(format!("Session not found: {session_id}")))
     }
 
     /// Updates session data, merging with existing data and refreshing last activity.
@@ -268,7 +268,7 @@ impl SessionManagerImpl {
         data: HashMap<String, serde_json::Value>,
     ) -> Result<(), PrimalError> {
         let Some(mut session_entry) = self.sessions.get_mut(session_id) else {
-            return Err(PrimalError::NotFoundError(format!(
+            return Err(PrimalError::ResourceNotFound(format!(
                 "Cannot update session: {session_id} not found"
             )));
         };
@@ -293,7 +293,7 @@ impl SessionManagerImpl {
     /// Terminates a session, transitioning it to the Terminated state.
     pub fn terminate_session(&self, session_id: &str) -> Result<(), PrimalError> {
         let Some(mut session_entry) = self.sessions.get_mut(session_id) else {
-            return Err(PrimalError::NotFoundError(format!(
+            return Err(PrimalError::ResourceNotFound(format!(
                 "Cannot terminate session: {session_id} not found"
             )));
         };

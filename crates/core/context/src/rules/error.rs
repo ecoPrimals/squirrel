@@ -2,49 +2,66 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Error types for the rules module
-use std::fmt;
 use std::io;
 use std::path::PathBuf;
+use thiserror::Error;
 
 /// Result type for rule operations
 pub type Result<T> = std::result::Result<T, RuleError>;
 
 /// Error type for rule operations
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum RuleError {
     /// IO error
-    IoError(io::Error),
+    #[error("IO error: {0}")]
+    IoError(#[from] io::Error),
     /// Serialization/Deserialization error
+    #[error("Serialization error: {0}")]
     SerializationError(String),
     /// Invalid rule format
+    #[error("Invalid rule format: {0}")]
     InvalidFormat(String),
     /// Rule not found
+    #[error("Rule not found: {0}")]
     NotFound(String),
     /// Rule already exists
+    #[error("Rule already exists: {0}")]
     AlreadyExists(String),
     /// Directory operation error
+    #[error("Directory operation error: {0}")]
     DirectoryError(String),
     /// Validation error
+    #[error("Validation error: {0}")]
     ValidationError(String),
     /// Plugin error
+    #[error("Plugin error: {0}")]
     PluginError(String),
     /// Plugin not found
+    #[error("Plugin not found: {0}")]
     PluginNotFound(String),
     /// Evaluation error
+    #[error("Evaluation error: {0}")]
     EvaluationError(String),
     /// Action execution error
+    #[error("Action execution error: {0}")]
     ActionExecutionError(String),
     /// Invalid path error
+    #[error("Invalid path: {0}")]
     InvalidPath(String),
     /// Invalid type error
+    #[error("Invalid type: {0}")]
     InvalidType(String),
     /// Rule parse error
+    #[error("Parse error: {0}")]
     ParseError(String),
     /// Rule dependency error
+    #[error("Dependency error: {0}")]
     DependencyError(String),
     /// Rule circular dependency error
+    #[error("Circular dependency error: {0}")]
     CircularDependencyError(String),
     /// Rule validation error
+    #[error("Rule validation error for '{rule_id}': {}", errors.join(", "))]
     RuleValidationError {
         /// Rule ID
         rule_id: String,
@@ -52,49 +69,8 @@ pub enum RuleError {
         errors: Vec<String>,
     },
     /// Path not found in file system
+    #[error("Path not found: {}", .0.display())]
     PathNotFound(PathBuf),
-}
-
-impl fmt::Display for RuleError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RuleError::IoError(e) => write!(f, "IO error: {e}"),
-            RuleError::SerializationError(e) => write!(f, "Serialization error: {e}"),
-            RuleError::InvalidFormat(e) => write!(f, "Invalid rule format: {e}"),
-            RuleError::NotFound(id) => write!(f, "Rule not found: {id}"),
-            RuleError::AlreadyExists(id) => write!(f, "Rule already exists: {id}"),
-            RuleError::DirectoryError(e) => write!(f, "Directory operation error: {e}"),
-            RuleError::ValidationError(e) => write!(f, "Validation error: {e}"),
-            RuleError::PluginError(e) => write!(f, "Plugin error: {e}"),
-            RuleError::PluginNotFound(e) => write!(f, "Plugin not found: {e}"),
-            RuleError::EvaluationError(e) => write!(f, "Evaluation error: {e}"),
-            RuleError::ActionExecutionError(e) => write!(f, "Action execution error: {e}"),
-            RuleError::InvalidPath(e) => write!(f, "Invalid path: {e}"),
-            RuleError::InvalidType(e) => write!(f, "Invalid type: {e}"),
-            RuleError::ParseError(e) => write!(f, "Parse error: {e}"),
-            RuleError::DependencyError(e) => write!(f, "Dependency error: {e}"),
-            RuleError::CircularDependencyError(e) => write!(f, "Circular dependency error: {e}"),
-            RuleError::RuleValidationError { rule_id, errors } => {
-                write!(f, "Rule validation error for '{rule_id}': ")?;
-                for (i, error) in errors.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{error}")?;
-                }
-                Ok(())
-            }
-            RuleError::PathNotFound(path) => write!(f, "Path not found: {}", path.display()),
-        }
-    }
-}
-
-impl std::error::Error for RuleError {}
-
-impl From<io::Error> for RuleError {
-    fn from(error: io::Error) -> Self {
-        RuleError::IoError(error)
-    }
 }
 
 impl From<serde_json::Error> for RuleError {

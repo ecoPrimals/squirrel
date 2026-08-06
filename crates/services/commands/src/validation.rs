@@ -5,10 +5,10 @@ use super::{Command, CommandError, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::error::Error;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::sync::RwLock;
+use thiserror::Error;
 
 /// Trait for implementing command validation rules.
 ///
@@ -33,21 +33,14 @@ pub trait ValidationRule: Send + Sync + std::fmt::Debug {
 }
 
 /// Error type for validation failures
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
+#[error("{rule_name}: {message}")]
 pub struct ValidationError {
     /// Name of the validation rule that failed
     pub rule_name: String,
     /// Error message describing the validation failure
     pub message: String,
 }
-
-impl std::fmt::Display for ValidationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.rule_name, self.message)
-    }
-}
-
-impl Error for ValidationError {}
 
 impl From<ValidationError> for CommandError {
     fn from(error: ValidationError) -> Self {

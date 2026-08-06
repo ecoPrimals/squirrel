@@ -1,50 +1,43 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
+use thiserror::Error;
+
 /// Error types for the squirrel-core crate
 /// Core error types
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum CoreError {
     /// General error
+    #[error("General error: {0}")]
     General(String),
     /// Service discovery error
+    #[error("Service discovery error: {0}")]
     ServiceDiscovery(String),
     /// Configuration error
+    #[error("Configuration error: {0}")]
     Configuration(String),
     /// Network error
+    #[error("Network error: {0}")]
     Network(String),
     /// Serialization error
+    #[error("Serialization error: {0}")]
     Serialization(String),
     /// Timeout error
+    #[error("Timeout error: {0}")]
     Timeout(String),
     /// Not found error
+    #[error("Not found: {0}")]
     NotFound(String),
     /// Already exists error
+    #[error("Already exists: {0}")]
     AlreadyExists(String),
     /// Invalid service configuration
+    #[error("Invalid service config: {0}")]
     InvalidServiceConfig(String),
     /// Service not found
+    #[error("Service not found: {0}")]
     ServiceNotFound(String),
 }
-
-impl std::fmt::Display for CoreError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::General(msg) => write!(f, "General error: {msg}"),
-            Self::ServiceDiscovery(msg) => write!(f, "Service discovery error: {msg}"),
-            Self::Configuration(msg) => write!(f, "Configuration error: {msg}"),
-            Self::Network(msg) => write!(f, "Network error: {msg}"),
-            Self::Serialization(msg) => write!(f, "Serialization error: {msg}"),
-            Self::Timeout(msg) => write!(f, "Timeout error: {msg}"),
-            Self::NotFound(msg) => write!(f, "Not found: {msg}"),
-            Self::AlreadyExists(msg) => write!(f, "Already exists: {msg}"),
-            Self::InvalidServiceConfig(msg) => write!(f, "Invalid service config: {msg}"),
-            Self::ServiceNotFound(msg) => write!(f, "Service not found: {msg}"),
-        }
-    }
-}
-
-impl std::error::Error for CoreError {}
 
 /// Core result type
 pub type CoreResult<T> = std::result::Result<T, CoreError>;

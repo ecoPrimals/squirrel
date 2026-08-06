@@ -176,7 +176,7 @@ impl UniversalAiAdapter {
         )
         .await
         .map_err(|e| {
-            PrimalError::NetworkError(format!(
+            PrimalError::Network(format!(
                 "Failed to connect to {} at {}: {e}",
                 self.metadata.name,
                 self.socket_path.display(),
@@ -186,32 +186,32 @@ impl UniversalAiAdapter {
         universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut stream)
             .await
             .map_err(|e| {
-                PrimalError::NetworkError(format!("Failed to send riboCipher preamble: {e}"))
+                PrimalError::Network(format!("Failed to send riboCipher preamble: {e}"))
             })?;
         stream
             .write_all(&request_json)
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to send request: {e}")))?;
+            .map_err(|e| PrimalError::Network(format!("Failed to send request: {e}")))?;
         stream
             .write_all(b"\n")
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to send newline: {e}")))?;
+            .map_err(|e| PrimalError::Network(format!("Failed to send newline: {e}")))?;
         stream
             .flush()
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to flush: {e}")))?;
+            .map_err(|e| PrimalError::Network(format!("Failed to flush: {e}")))?;
 
         // Read response
         let mut response_buf = Vec::new();
         let bytes_read = tokio::time::timeout(self.timeout, stream.read_to_end(&mut response_buf))
             .await
             .map_err(|_| {
-                PrimalError::NetworkError(format!(
+                PrimalError::Network(format!(
                     "Timeout reading response from {}",
                     self.metadata.name
                 ))
             })?
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to read response: {e}")))?;
+            .map_err(|e| PrimalError::Network(format!("Failed to read response: {e}")))?;
 
         debug!(
             "Received response from {}: {} bytes in {}ms",

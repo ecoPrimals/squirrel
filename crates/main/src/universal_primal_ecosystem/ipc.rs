@@ -62,7 +62,7 @@ impl UniversalPrimalEcosystem {
         )
         .await
         .map_err(|e| {
-            PrimalError::NetworkError(format!(
+            PrimalError::Network(format!(
                 "Failed to connect to Unix socket {socket_path}: {e}"
             ))
         })?;
@@ -75,39 +75,35 @@ impl UniversalPrimalEcosystem {
             "params": request.payload,
         });
 
-        let request_bytes = serde_json::to_vec(&json_rpc_request).map_err(|e| {
-            PrimalError::SerializationError(format!("Failed to serialize request: {e}"))
-        })?;
+        let request_bytes = serde_json::to_vec(&json_rpc_request).map_err(PrimalError::Serialization)?;
 
         // riboCipher preamble (Wave 113 outbound compliance)
         universal_patterns::transport::ribocipher::write_ndjson_preamble(&mut stream)
             .await
             .map_err(|e| {
-                PrimalError::NetworkError(format!("Failed to write riboCipher preamble: {e}"))
+                PrimalError::Network(format!("Failed to write riboCipher preamble: {e}"))
             })?;
 
         stream
             .write_all(&request_bytes)
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to write to socket: {e}")))?;
+            .map_err(|e| PrimalError::Network(format!("Failed to write to socket: {e}")))?;
 
         stream
             .write_all(b"\n")
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to write delimiter: {e}")))?;
+            .map_err(|e| PrimalError::Network(format!("Failed to write delimiter: {e}")))?;
 
         // Read response
         let mut response_bytes = Vec::new();
         stream
             .read_to_end(&mut response_bytes)
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to read from socket: {e}")))?;
+            .map_err(|e| PrimalError::Network(format!("Failed to read from socket: {e}")))?;
 
         // Deserialize JSON-RPC response
         let json_rpc_response: serde_json::Value = serde_json::from_slice(&response_bytes)
-            .map_err(|e| {
-                PrimalError::SerializationError(format!("Failed to deserialize response: {e}"))
-            })?;
+            .map_err(PrimalError::Serialization)?;
 
         let result = universal_patterns::extract_rpc_result(&json_rpc_response)
             .map_err(|rpc_err| PrimalError::RemoteError(rpc_err.to_string()))?;
@@ -164,7 +160,7 @@ impl UniversalPrimalEcosystem {
             "params": request.payload,
         });
         let body_bytes = serde_json::to_vec(&json_rpc_body)
-            .map_err(|e| PrimalError::SerializationError(format!("Serialize request: {e}")))?;
+            .map_err(PrimalError::Serialization)?;
 
         let http_request = format!(
             "POST {path} HTTP/1.1\r\n\
@@ -182,30 +178,30 @@ impl UniversalPrimalEcosystem {
             tokio::net::TcpStream::connect(&addr),
         )
         .await
-        .map_err(|_| PrimalError::NetworkError(format!("Timeout connecting to {addr}")))?
-        .map_err(|e| PrimalError::NetworkError(format!("TCP connect to {addr}: {e}")))?;
+        .map_err(|_| PrimalError::Network(format!("Timeout connecting to {addr}")))?
+        .map_err(|e| PrimalError::Network(format!("TCP connect to {addr}: {e}")))?;
 
         stream
             .write_all(http_request.as_bytes())
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Write HTTP headers: {e}")))?;
+            .map_err(|e| PrimalError::Network(format!("Write HTTP headers: {e}")))?;
         stream
             .write_all(&body_bytes)
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Write HTTP body: {e}")))?;
+            .map_err(|e| PrimalError::Network(format!("Write HTTP body: {e}")))?;
 
         let mut response_buf = Vec::new();
         stream
             .read_to_end(&mut response_buf)
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Read HTTP response: {e}")))?;
+            .map_err(|e| PrimalError::Network(format!("Read HTTP response: {e}")))?;
 
         let response_str = String::from_utf8_lossy(&response_buf);
         let body_start = response_str.find("\r\n\r\n").map_or(0, |i| i + 4);
         let body = &response_buf[body_start..];
 
         let json_rpc_response: serde_json::Value = serde_json::from_slice(body).map_err(|e| {
-            PrimalError::SerializationError(format!("Deserialize HTTP JSON-RPC response: {e}"))
+            PrimalError::Serialization(e)
         })?;
 
         let result = universal_patterns::extract_rpc_result(&json_rpc_response)
@@ -285,7 +281,7 @@ mod ipc_tests {
             .send_capability_request(&svc, req)
             .await
             .expect_err("expected network error on unreachable port");
-        assert!(matches!(err, PrimalError::NetworkError(_)));
+        assert!(matches!(err, PrimalError::Network(_)));
     }
 
     #[tokio::test]

@@ -240,9 +240,7 @@ impl JsonExporter {
 impl MetricsExporter for JsonExporter {
     async fn export_metrics(&self, metrics: AllMetrics) -> Result<String, PrimalError> {
         // Convert metrics to JSON format
-        serde_json::to_string_pretty(&metrics).map_err(|e| {
-            PrimalError::SerializationError(format!("Failed to serialize metrics: {e}"))
-        })
+        serde_json::to_string_pretty(&metrics).map_err(PrimalError::Serialization)
     }
 
     fn name(&self) -> &str {

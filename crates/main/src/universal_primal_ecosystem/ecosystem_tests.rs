@@ -244,7 +244,7 @@ async fn send_capability_request_https_attempts_tcp_connection() {
         PrimalContext::default(),
     );
     let err = eco.send_capability_request(&svc, req).await.unwrap_err();
-    assert!(matches!(err, PrimalError::NetworkError(_)));
+    assert!(matches!(err, PrimalError::Network(_)));
 }
 
 #[tokio::test]

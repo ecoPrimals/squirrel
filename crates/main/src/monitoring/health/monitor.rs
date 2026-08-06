@@ -193,7 +193,7 @@ impl HealthMonitor {
         component_health
             .get(component)
             .cloned()
-            .ok_or_else(|| PrimalError::NotFoundError(format!("Component not found: {component}")))
+            .ok_or_else(|| PrimalError::ResourceNotFound(format!("Component not found: {component}")))
     }
 
     /// Create a health snapshot
@@ -388,7 +388,7 @@ mod tests {
     async fn get_component_health_not_found() {
         let m = HealthMonitor::new();
         let err = m.get_component_health("nope").await.unwrap_err();
-        assert!(matches!(err, PrimalError::NotFoundError(_)));
+        assert!(matches!(err, PrimalError::ResourceNotFound(_)));
     }
 
     #[tokio::test]

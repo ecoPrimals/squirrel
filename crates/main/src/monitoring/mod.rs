@@ -347,7 +347,7 @@ impl MonitoringSystem {
             let metrics = self.metrics_collector.get_all_metrics().await?;
             exporter.export_metrics(metrics).await
         } else {
-            Err(PrimalError::NotFoundError(
+            Err(PrimalError::ResourceNotFound(
                 "Prometheus exporter not configured".to_string(),
             ))
         }
