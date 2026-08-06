@@ -121,13 +121,13 @@ pub trait PluginDistribution: Send + Sync + Debug {
     async fn download_plugin_package(&self, id: Uuid, destination: &Path) -> Result<PluginPackage>;
     
     /// Install plugin package
-    async fn install_plugin_package(&self, id: Uuid) -> Result<Uuid>;
+    async fn install_plugin_package(&self, id: Uuid) -> Result<String>;
     
     /// Uninstall plugin
-    async fn uninstall_plugin(&self, id: Uuid) -> Result<()>;
-    
+    async fn uninstall_plugin(&self, id: &str) -> Result<()>;
+
     /// Update plugin
-    async fn update_plugin(&self, id: Uuid) -> Result<Uuid>;
+    async fn update_plugin(&self, id: &str) -> Result<String>;
     
     /// Add repository
     async fn add_repository(&self, repository: PluginRepository) -> Result<Uuid>;
@@ -148,7 +148,11 @@ pub trait PluginDistribution: Send + Sync + Debug {
     async fn refresh_repositories(&self) -> Result<()>;
     
     /// Create plugin package
-    async fn create_plugin_package(&self, plugin_id: Uuid, destination: &Path) -> Result<PluginPackage>;
+    async fn create_plugin_package(
+        &self,
+        plugin_id: &str,
+        destination: &Path,
+    ) -> Result<PluginPackage>;
     
     /// Verify plugin package
     async fn verify_plugin_package(&self, package_path: &Path) -> Result<bool>;
@@ -199,19 +203,19 @@ impl PluginDistribution for DefaultPluginDistribution {
         ))
     }
 
-    async fn install_plugin_package(&self, id: Uuid) -> Result<Uuid> {
+    async fn install_plugin_package(&self, id: Uuid) -> Result<String> {
         Err(anyhow::anyhow!(
             "No plugin repository configured — cannot install package {id}"
         ))
     }
 
-    async fn uninstall_plugin(&self, id: Uuid) -> Result<()> {
+    async fn uninstall_plugin(&self, id: &str) -> Result<()> {
         Err(anyhow::anyhow!(
             "No distribution backend configured — cannot uninstall plugin {id}"
         ))
     }
 
-    async fn update_plugin(&self, id: Uuid) -> Result<Uuid> {
+    async fn update_plugin(&self, id: &str) -> Result<String> {
         Err(anyhow::anyhow!(
             "No plugin repository configured — cannot update plugin {id}"
         ))
@@ -258,7 +262,7 @@ impl PluginDistribution for DefaultPluginDistribution {
 
     async fn create_plugin_package(
         &self,
-        plugin_id: Uuid,
+        plugin_id: &str,
         _destination: &Path,
     ) -> Result<PluginPackage> {
         Err(anyhow::anyhow!(

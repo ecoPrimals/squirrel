@@ -5,7 +5,6 @@
 
 use anyhow::Result;
 use std::collections::{BTreeMap, HashMap};
-use uuid::Uuid;
 
 use crate::plugin::Plugin;
 use crate::types::PluginStatus;
@@ -42,7 +41,7 @@ impl PluginManagementAPI {
     }
 
     /// Get plugin details by ID
-    pub(super) async fn get_plugin_details(&self, plugin_id: Uuid) -> Result<WebResponse> {
+    pub(super) async fn get_plugin_details(&self, plugin_id: &str) -> Result<WebResponse> {
         let plugin = PluginRegistry::get_plugin(self.manager.as_ref(), plugin_id).await?;
         let plugin_info = self.plugin_to_info(&plugin).await?;
 
@@ -69,7 +68,7 @@ impl PluginManagementAPI {
     }
 
     /// Uninstall a plugin
-    pub(super) async fn uninstall_plugin(&self, plugin_id: Uuid) -> Result<WebResponse> {
+    pub(super) async fn uninstall_plugin(&self, plugin_id: &str) -> Result<WebResponse> {
         // Get plugin info before uninstalling
         let plugin = PluginRegistry::get_plugin(self.manager.as_ref(), plugin_id).await?;
         let plugin_name = plugin.metadata().name.clone();
@@ -77,7 +76,7 @@ impl PluginManagementAPI {
         // Emit WebSocket event
         self.emit_websocket_event(WebSocketMessage {
             event_type: "plugin.uninstall.started".to_string(),
-            plugin_id: Some(plugin_id),
+            plugin_id: Some(plugin_id.to_string()),
             data: serde_json::json!({
                 "name": plugin_name
             }),
@@ -103,12 +102,12 @@ impl PluginManagementAPI {
     }
 
     /// Start a plugin
-    pub(super) async fn start_plugin(&self, plugin_id: Uuid) -> Result<WebResponse> {
+    pub(super) async fn start_plugin(&self, plugin_id: &str) -> Result<WebResponse> {
         PluginManagerTrait::initialize_plugin(self.manager.as_ref(), plugin_id).await?;
 
         self.emit_websocket_event(WebSocketMessage {
             event_type: "plugin.started".to_string(),
-            plugin_id: Some(plugin_id),
+            plugin_id: Some(plugin_id.to_string()),
             data: serde_json::json!({}),
             timestamp: chrono::Utc::now(),
         })
@@ -126,12 +125,12 @@ impl PluginManagementAPI {
     }
 
     /// Stop a plugin
-    pub(super) async fn stop_plugin(&self, plugin_id: Uuid) -> Result<WebResponse> {
+    pub(super) async fn stop_plugin(&self, plugin_id: &str) -> Result<WebResponse> {
         PluginManagerTrait::shutdown_plugin(self.manager.as_ref(), plugin_id).await?;
 
         self.emit_websocket_event(WebSocketMessage {
             event_type: "plugin.stopped".to_string(),
-            plugin_id: Some(plugin_id),
+            plugin_id: Some(plugin_id.to_string()),
             data: serde_json::json!({}),
             timestamp: chrono::Utc::now(),
         })
@@ -149,13 +148,13 @@ impl PluginManagementAPI {
     }
 
     /// Restart a plugin
-    pub(super) async fn restart_plugin(&self, plugin_id: Uuid) -> Result<WebResponse> {
+    pub(super) async fn restart_plugin(&self, plugin_id: &str) -> Result<WebResponse> {
         PluginManagerTrait::shutdown_plugin(self.manager.as_ref(), plugin_id).await?;
         PluginManagerTrait::initialize_plugin(self.manager.as_ref(), plugin_id).await?;
 
         self.emit_websocket_event(WebSocketMessage {
             event_type: "plugin.restarted".to_string(),
-            plugin_id: Some(plugin_id),
+            plugin_id: Some(plugin_id.to_string()),
             data: serde_json::json!({}),
             timestamp: chrono::Utc::now(),
         })
@@ -177,7 +176,7 @@ impl PluginManagementAPI {
     /// Returns the plugin's metadata-based configuration including capabilities,
     /// dependencies, version, and author. In-memory config derived from the
     /// registered plugin — no external persistence backend required.
-    pub(super) async fn get_plugin_config(&self, plugin_id: Uuid) -> Result<WebResponse> {
+    pub(super) async fn get_plugin_config(&self, plugin_id: &str) -> Result<WebResponse> {
         let plugin = PluginRegistry::get_plugin(self.manager.as_ref(), plugin_id).await?;
         let metadata = plugin.metadata();
 
@@ -199,7 +198,7 @@ impl PluginManagementAPI {
     /// Update plugin configuration
     pub(super) async fn update_plugin_config(
         &self,
-        plugin_id: Uuid,
+        plugin_id: &str,
         config: PluginConfigurationRequest,
     ) -> Result<WebResponse> {
         // In real implementation, this would update plugin configuration
@@ -207,7 +206,7 @@ impl PluginManagementAPI {
 
         self.emit_websocket_event(WebSocketMessage {
             event_type: "plugin.config.updated".to_string(),
-            plugin_id: Some(plugin_id),
+            plugin_id: Some(plugin_id.to_string()),
             data: serde_json::json!({
                 "configuration": config.configuration
             }),
@@ -233,7 +232,7 @@ impl PluginManagementAPI {
     )]
     pub(super) async fn execute_plugin_command(
         &self,
-        _plugin_id: Uuid,
+        _plugin_id: &str,
         _exec_request: PluginExecutionRequest,
     ) -> Result<WebResponse> {
         Ok(WebResponse {
@@ -277,21 +276,21 @@ impl PluginManagementAPI {
     )]
     pub(super) async fn get_marketplace_plugin_details(
         &self,
-        plugin_id: Uuid,
+        plugin_id: &str,
     ) -> Result<WebResponse> {
         Ok(WebResponse {
             status: HttpStatus::NotFound,
             headers: HashMap::new(),
             body: Some(serde_json::json!({
                 "error": "not_found",
-                "plugin_id": plugin_id.to_string(),
+                "plugin_id": plugin_id,
                 "note": "plugin marketplace discovery not yet wired"
             })),
         })
     }
 
     /// Install plugin from marketplace
-    pub(super) async fn install_marketplace_plugin(&self, plugin_id: Uuid) -> Result<WebResponse> {
+    pub(super) async fn install_marketplace_plugin(&self, plugin_id: &str) -> Result<WebResponse> {
         // This would integrate with the install_plugin method
         let install_request = PluginInstallRequest {
             source: format!("marketplace://{plugin_id}"),
@@ -332,9 +331,11 @@ impl PluginManagementAPI {
         let mut unhealthy_count = 0;
 
         for plugin in plugins {
-            let status =
-                PluginManagerTrait::get_plugin_status(self.manager.as_ref(), plugin.metadata().id)
-                    .await?;
+            let status = PluginManagerTrait::get_plugin_status(
+                self.manager.as_ref(),
+                &plugin.metadata().id,
+            )
+            .await?;
             match status {
                 PluginStatus::Initialized | PluginStatus::Registered => healthy_count += 1,
                 _ => unhealthy_count += 1,
@@ -391,12 +392,12 @@ impl PluginManagementAPI {
     pub(super) async fn plugin_to_info(&self, plugin: &Arc<dyn Plugin>) -> Result<PluginInfo> {
         let metadata = plugin.metadata();
         let status =
-            PluginManagerTrait::get_plugin_status(self.manager.as_ref(), metadata.id).await?;
+            PluginManagerTrait::get_plugin_status(self.manager.as_ref(), &metadata.id).await?;
 
         let endpoints = Self::discovered_http_endpoints(plugin.as_ref());
 
         Ok(PluginInfo {
-            id: metadata.id,
+            id: metadata.id.clone(),
             name: metadata.name.clone(),
             version: metadata.version.clone(),
             description: metadata.description.clone(),

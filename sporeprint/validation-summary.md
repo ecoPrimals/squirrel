@@ -1,12 +1,21 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,371 tests (default features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,366 tests (default features), 44 IPC methods."
 date = 2026-08-06
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 156r — PluginMetadata Migration + Deprecated Enum Deletion (Aug 6, 2026)
+
+- Full `PluginMetadata` migration: 28 files migrated from deprecated `plugin::PluginMetadata` (Uuid id) to canonical `squirrel_interfaces::plugins::PluginMetadata` (String id). Deprecated struct deleted.
+- `AIError` enum deleted (345 lines, zero production callers)
+- `EcosystemPrimalType` de-exported from public API
+- 3 crate-level `#![expect(deprecated)]` blankets eliminated (ai-tools, SDK, plugins)
+- DNS constant extracted, cfg_attr lint hygiene, error type Uuid→String migration
+- 0 warnings, 6,366 tests passing
 
 ## Wave 156q — Port Constants + Lint Hygiene + Dead Code (Aug 6, 2026)
 

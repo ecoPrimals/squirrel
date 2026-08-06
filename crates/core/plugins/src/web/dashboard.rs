@@ -313,7 +313,7 @@ impl PluginDashboard {
         let mut failed_count = 0;
 
         for plugin in &plugins {
-            match PluginManagerTrait::get_plugin_status(self.manager.as_ref(), plugin.metadata().id)
+            match PluginManagerTrait::get_plugin_status(self.manager.as_ref(), &plugin.metadata().id)
                 .await
             {
                 Ok(PluginStatus::Initialized) => active_count += 1,
@@ -373,7 +373,7 @@ impl PluginDashboard {
         for (i, plugin) in plugins.iter().enumerate() {
             let meta = plugin.metadata();
             let status =
-                PluginManagerTrait::get_plugin_status(self.manager.as_ref(), meta.id).await;
+                PluginManagerTrait::get_plugin_status(self.manager.as_ref(), &meta.id).await;
             let (activity_type, description, st) = match status {
                 Ok(PluginStatus::Initialized | PluginStatus::Running) => (
                     "plugin.active",
@@ -414,7 +414,7 @@ impl PluginDashboard {
                 id: Uuid::new_v4(),
                 activity_type: activity_type.to_string(),
                 description,
-                plugin_id: Some(meta.id),
+                plugin_id: Some(meta.id.clone()),
                 plugin_name: Some(meta.name.clone()),
                 timestamp: now - chrono::Duration::seconds(i as i64),
                 status: st.to_string(),
@@ -471,7 +471,7 @@ impl PluginDashboard {
         for plugin in plugins {
             let meta = plugin.metadata();
             let Ok(PluginStatus::Failed) =
-                PluginManagerTrait::get_plugin_status(self.manager.as_ref(), meta.id).await
+                PluginManagerTrait::get_plugin_status(self.manager.as_ref(), &meta.id).await
             else {
                 continue;
             };

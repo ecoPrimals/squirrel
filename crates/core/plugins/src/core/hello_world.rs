@@ -34,15 +34,13 @@ impl HelloWorldPlugin {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            metadata: PluginMetadata {
-                id: uuid::Uuid::new_v4(),
-                name: "hello_world".to_string(),
-                version: "1.0.0".to_string(),
-                description: "A simple Hello World plugin".to_string(),
-                author: "SquirrelLabs".to_string(),
-                capabilities: vec!["core".to_string()],
-                dependencies: Vec::new(),
-            },
+            metadata: PluginMetadata::new(
+                "hello_world",
+                "1.0.0",
+                "A simple Hello World plugin",
+                "SquirrelLabs",
+            )
+            .with_capability("core"),
             status: PluginStatus::Registered,
         }
     }

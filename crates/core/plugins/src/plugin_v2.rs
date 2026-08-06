@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-// NOTE: Using deprecated plugin::PluginMetadata until interfaces crate stabilizes.
-// Migration requires Uuid→String key change across PluginManager, Registry, DependencyResolver.
-#![expect(
-    deprecated,
-    reason = "Uses deprecated plugin::PluginMetadata until interfaces crate stabilizes (see module note)"
-)]
-
 //! `PluginV2` trait with improved thread safety
 //!
 //! This module provides a new version of the Plugin trait that uses callbacks
@@ -17,14 +10,13 @@ use anyhow::Result;
 use serde_json::Value;
 use std::any::Any;
 use std::sync::Arc;
-use uuid::Uuid;
 
 use crate::plugin::{Plugin, PluginMetadata, WebEndpoint};
 
 /// Callback for logging
 pub type LogCallback = Box<dyn Fn(&str, &str) -> Result<()> + Send + Sync>;
 /// Callback for getting plugin by ID
-pub type GetPluginCallback = Box<dyn Fn(Uuid) -> Result<Arc<dyn Plugin>> + Send + Sync>;
+pub type GetPluginCallback = Box<dyn Fn(&str) -> Result<Arc<dyn Plugin>> + Send + Sync>;
 /// Callback for getting plugin by name
 pub type GetPluginByNameCallback = Box<dyn Fn(&str) -> Result<Arc<dyn Plugin>> + Send + Sync>;
 /// Callback for listing plugins
@@ -34,11 +26,11 @@ pub type GetConfigCallback = Box<dyn Fn(&str) -> Result<Value> + Send + Sync>;
 /// Callback for setting config
 pub type SetConfigCallback = Box<dyn Fn(&str, Value) -> Result<()> + Send + Sync>;
 /// Callback for persisting state
-pub type PersistStateCallback = Box<dyn Fn(Uuid, &str, Value) -> Result<()> + Send + Sync>;
+pub type PersistStateCallback = Box<dyn Fn(&str, &str, Value) -> Result<()> + Send + Sync>;
 /// Callback for loading state
-pub type LoadStateCallback = Box<dyn Fn(Uuid, &str) -> Result<Value> + Send + Sync>;
+pub type LoadStateCallback = Box<dyn Fn(&str, &str) -> Result<Value> + Send + Sync>;
 /// Callback for permission check
-pub type CheckPermissionCallback = Box<dyn Fn(&str, Uuid) -> Result<bool> + Send + Sync>;
+pub type CheckPermissionCallback = Box<dyn Fn(&str, &str) -> Result<bool> + Send + Sync>;
 
 /// Callbacks for `PluginV2`
 #[derive(Default)]
@@ -190,10 +182,6 @@ mod tests {
     }
 
     impl PluginV2 for ExamplePluginV2 {
-        #[expect(
-            deprecated,
-            reason = "Tests deprecated path for backward compatibility"
-        )]
         fn metadata(&self) -> &PluginMetadata {
             &self.metadata
         }

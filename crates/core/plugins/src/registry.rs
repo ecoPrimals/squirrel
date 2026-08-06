@@ -9,7 +9,6 @@ use crate::Plugin;
 use crate::errors::Result;
 use crate::types::PluginStatus;
 use std::sync::Arc;
-use uuid::Uuid;
 
 /// Plugin registry trait
 #[expect(
@@ -21,10 +20,10 @@ pub trait PluginRegistry: Send + Sync {
     async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()>;
 
     /// Unregister a plugin
-    async fn unregister_plugin(&self, id: Uuid) -> Result<()>;
+    async fn unregister_plugin(&self, id: &str) -> Result<()>;
 
     /// Get a plugin by ID
-    async fn get_plugin(&self, id: Uuid) -> Result<Arc<dyn Plugin>>;
+    async fn get_plugin(&self, id: &str) -> Result<Arc<dyn Plugin>>;
 
     /// Get a plugin by name
     async fn get_plugin_by_name(&self, name: &str) -> Result<Arc<dyn Plugin>>;
@@ -33,10 +32,10 @@ pub trait PluginRegistry: Send + Sync {
     async fn list_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>>;
 
     /// Get plugin status
-    async fn get_plugin_status(&self, id: Uuid) -> Result<PluginStatus>;
+    async fn get_plugin_status(&self, id: &str) -> Result<PluginStatus>;
 
     /// Set plugin status
-    async fn set_plugin_status(&self, id: Uuid, status: PluginStatus) -> Result<()>;
+    async fn set_plugin_status(&self, id: &str, status: PluginStatus) -> Result<()>;
 
     /// Get all registered plugins
     async fn get_all_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>>;
@@ -55,11 +54,10 @@ mod tests {
     use crate::{PluginError, Result};
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
-    use uuid::Uuid;
 
     struct MockRegistry {
-        plugins: Mutex<HashMap<Uuid, Arc<dyn Plugin>>>,
-        statuses: Mutex<HashMap<Uuid, PluginStatus>>,
+        plugins: Mutex<HashMap<String, Arc<dyn Plugin>>>,
+        statuses: Mutex<HashMap<String, PluginStatus>>,
     }
 
     impl MockRegistry {
@@ -71,36 +69,38 @@ mod tests {
         }
     }
 
-    fn test_plugin(id: Uuid, name: &str) -> Arc<dyn Plugin> {
-        let mut meta = PluginMetadata::new(name, "1.0.0", "desc", "author");
-        meta.id = id;
+    fn test_plugin(id: &str, name: &str) -> Arc<dyn Plugin> {
+        let meta = PluginMetadata::new(id, "1.0.0", "desc", "author").with_name(name);
         crate::discovery::create_noop_plugin(meta)
     }
 
     impl PluginRegistry for MockRegistry {
         async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()> {
-            let id = plugin.id();
+            let id = plugin.id().to_string();
             let mut g = self.plugins.lock().expect("should succeed");
             if g.contains_key(&id) {
-                return Err(PluginError::PluginAlreadyExists(id.to_string()));
+                return Err(PluginError::AlreadyRegistered(id));
             }
             g.insert(id, plugin);
             Ok(())
         }
 
-        async fn unregister_plugin(&self, id: Uuid) -> Result<()> {
-            self.plugins.lock().expect("should succeed").remove(&id);
-            self.statuses.lock().expect("should succeed").remove(&id);
-            Ok(())
-        }
-
-        async fn get_plugin(&self, id: Uuid) -> Result<Arc<dyn Plugin>> {
+        async fn unregister_plugin(&self, id: &str) -> Result<()> {
             self.plugins
                 .lock()
                 .expect("should succeed")
-                .get(&id)
+                .remove(id);
+            self.statuses.lock().expect("should succeed").remove(id);
+            Ok(())
+        }
+
+        async fn get_plugin(&self, id: &str) -> Result<Arc<dyn Plugin>> {
+            self.plugins
+                .lock()
+                .expect("should succeed")
+                .get(id)
                 .cloned()
-                .ok_or_else(|| PluginError::NotFound(id))
+                .ok_or_else(|| PluginError::NotFound(id.to_string()))
         }
 
         async fn get_plugin_by_name(&self, name: &str) -> Result<Arc<dyn Plugin>> {
@@ -123,28 +123,28 @@ mod tests {
                 .collect())
         }
 
-        async fn get_plugin_status(&self, id: Uuid) -> Result<PluginStatus> {
+        async fn get_plugin_status(&self, id: &str) -> Result<PluginStatus> {
             self.statuses
                 .lock()
                 .expect("should succeed")
-                .get(&id)
+                .get(id)
                 .copied()
-                .ok_or_else(|| PluginError::NotFound(id))
+                .ok_or_else(|| PluginError::NotFound(id.to_string()))
         }
 
-        async fn set_plugin_status(&self, id: Uuid, status: PluginStatus) -> Result<()> {
+        async fn set_plugin_status(&self, id: &str, status: PluginStatus) -> Result<()> {
             if !self
                 .plugins
                 .lock()
                 .expect("should succeed")
-                .contains_key(&id)
+                .contains_key(id)
             {
-                return Err(PluginError::NotFound(id));
+                return Err(PluginError::NotFound(id.to_string()));
             }
             self.statuses
                 .lock()
                 .expect("should succeed")
-                .insert(id, status);
+                .insert(id.to_string(), status);
             Ok(())
         }
 
@@ -162,8 +162,7 @@ mod tests {
     #[tokio::test]
     async fn get_plugins_delegates_to_get_all_plugins() {
         let reg = MockRegistry::new();
-        let id = Uuid::new_v4();
-        let p = test_plugin(id, "alpha");
+        let p = test_plugin("alpha-id", "alpha");
         reg.register_plugin(p).await.expect("should succeed");
         let via_get_plugins = reg.get_plugins().await.expect("should succeed");
         let via_get_all = reg.get_all_plugins().await.expect("should succeed");
@@ -174,7 +173,7 @@ mod tests {
     #[tokio::test]
     async fn mock_registry_register_get_list_status_roundtrip() {
         let reg = MockRegistry::new();
-        let id = Uuid::new_v4();
+        let id = "p1-id";
         let p = test_plugin(id, "p1");
         reg.register_plugin(p).await.expect("should succeed");
         assert_eq!(

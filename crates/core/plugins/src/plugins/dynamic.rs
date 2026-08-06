@@ -6,13 +6,12 @@
 //! This module contains types for dynamic plugin loading and metadata handling.
 
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 /// Metadata for a plugin dependency
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginDependency {
     /// Optional ID of the dependency (can be null for optional dependencies)
-    pub id: Option<Uuid>,
+    pub id: Option<String>,
 
     /// Name of the dependency
     pub name: String,
@@ -25,7 +24,7 @@ pub struct PluginDependency {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginMetadata {
     /// Unique identifier for the plugin
-    pub id: Uuid,
+    pub id: String,
 
     /// Name of the plugin
     pub name: String,
@@ -49,7 +48,7 @@ pub struct PluginMetadata {
 impl PluginMetadata {
     /// Create new plugin metadata
     pub fn new(
-        id: Uuid,
+        id: impl Into<String>,
         name: impl Into<String>,
         version: impl Into<String>,
         api_version: impl Into<String>,
@@ -57,7 +56,7 @@ impl PluginMetadata {
         author: impl Into<String>,
     ) -> Self {
         Self {
-            id,
+            id: id.into(),
             name: name.into(),
             version: version.into(),
             api_version: api_version.into(),
@@ -70,12 +69,12 @@ impl PluginMetadata {
     /// Add a dependency to the plugin metadata
     pub fn with_dependency(
         mut self,
-        id: Option<Uuid>,
+        id: Option<impl Into<String>>,
         name: impl Into<String>,
         version: impl Into<String>,
     ) -> Self {
         self.dependencies.push(PluginDependency {
-            id,
+            id: id.map(Into::into),
             name: name.into(),
             version: version.into(),
         });

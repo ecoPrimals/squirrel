@@ -7,6 +7,7 @@
 //! in `universal-error/src/sdk.rs` where orphan rules are satisfied.
 //! This module holds the PluginError bridge and WASM-specific helpers.
 
+#[expect(deprecated, reason = "bridge imports deprecated PluginError fossil")]
 use super::core::PluginError;
 use universal_error::sdk::{
     ClientError, CommunicationError, InfrastructureError, SDKError,
@@ -15,6 +16,7 @@ use wasm_bindgen::prelude::*;
 
 // ── PluginError → SDKError bridge (local type, orphan-safe) ───────────
 
+#[expect(deprecated, reason = "bridge from deprecated PluginError to SDKError")]
 impl From<PluginError> for SDKError {
     #[expect(deprecated, reason = "bridge from deprecated PluginError to SDKError")]
     fn from(err: PluginError) -> Self {

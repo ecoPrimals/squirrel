@@ -12,86 +12,8 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::future::Future;
 use std::pin::Pin;
+pub use squirrel_interfaces::plugins::PluginMetadata;
 use strum::Display;
-use uuid::Uuid;
-
-/// Legacy Plugin metadata - DEPRECATED
-///
-/// Use `squirrel_interfaces::plugins::PluginMetadata` instead.
-/// This will be removed in a future version.
-#[deprecated(
-    since = "2.0.0",
-    note = "Use squirrel_interfaces::plugins::PluginMetadata instead"
-)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PluginMetadata {
-    /// Plugin ID
-    pub id: Uuid,
-
-    /// Plugin name
-    pub name: String,
-
-    /// Plugin version
-    pub version: String,
-
-    /// Plugin description
-    pub description: String,
-
-    /// Plugin author
-    pub author: String,
-
-    /// Plugin capabilities
-    #[serde(default)]
-    pub capabilities: Vec<String>,
-
-    /// Plugin dependencies
-    #[serde(default)]
-    pub dependencies: Vec<Uuid>,
-}
-
-impl PluginMetadata {
-    /// Create a new plugin metadata
-    #[must_use]
-    pub fn new(name: &str, version: &str, description: &str, author: &str) -> Self {
-        Self {
-            id: Uuid::new_v4(),
-            name: name.to_string(),
-            version: version.to_string(),
-            description: description.to_string(),
-            author: author.to_string(),
-            capabilities: Vec::new(),
-            dependencies: Vec::new(),
-        }
-    }
-
-    /// Add a capability to the plugin
-    #[must_use]
-    pub fn with_capability(mut self, capability: &str) -> Self {
-        self.capabilities.push(capability.to_string());
-        self
-    }
-
-    /// Add a dependency to the plugin
-    #[must_use]
-    pub fn with_dependency(mut self, dependency: Uuid) -> Self {
-        self.dependencies.push(dependency);
-        self
-    }
-}
-
-impl Default for PluginMetadata {
-    fn default() -> Self {
-        Self {
-            id: Uuid::new_v4(),
-            name: "Default Plugin".to_string(),
-            version: "0.1.0".to_string(),
-            description: "Default plugin implementation".to_string(),
-            author: "System".to_string(),
-            capabilities: Vec::new(),
-            dependencies: Vec::new(),
-        }
-    }
-}
 
 /// Plugin status
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Copy, Display)]
@@ -130,13 +52,11 @@ impl Default for PluginStatus {
 /// `async_trait` crate (native `async fn` in traits is not object-safe).
 pub trait Plugin: Send + Sync {
     /// Get the plugin ID
-    fn id(&self) -> Uuid {
-        self.metadata().id
+    fn id(&self) -> &str {
+        self.metadata().id.as_str()
     }
 
     /// Get the plugin metadata
-    // Backward compatibility: PluginMetadata during migration to squirrel_interfaces
-    #[expect(deprecated, reason = "backward-compatible alias")]
     fn metadata(&self) -> &PluginMetadata;
 
     /// Initialize the plugin
@@ -180,23 +100,22 @@ pub trait WebPluginExt: Plugin + Send + Sync {
 
 #[cfg(test)]
 mod tests {
-    #![expect(deprecated)]
-
     use super::*;
-    use uuid::Uuid;
 
     #[test]
     fn plugin_metadata_new_default_with_capability_dependency() {
-        let m = PluginMetadata::new("n", "1.0.0", "d", "a")
+        let m = PluginMetadata::new("plugin-id", "1.0.0", "d", "a")
+            .with_name("n")
             .with_capability("web")
-            .with_dependency(Uuid::nil());
+            .with_dependency("dep-id");
+        assert_eq!(m.id, "plugin-id");
         assert_eq!(m.name, "n");
         assert_eq!(m.capabilities, vec!["web"]);
-        assert_eq!(m.dependencies.len(), 1);
+        assert_eq!(m.dependencies, vec!["dep-id"]);
 
-        let def = PluginMetadata::default();
-        assert_eq!(def.name, "Default Plugin");
-        assert!(def.capabilities.is_empty());
+        let unnamed = PluginMetadata::new("default-plugin", "0.1.0", "desc", "System");
+        assert_eq!(unnamed.name, "default-plugin");
+        assert!(unnamed.capabilities.is_empty());
     }
 
     #[test]

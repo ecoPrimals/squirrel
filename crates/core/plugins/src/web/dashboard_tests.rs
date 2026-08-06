@@ -255,10 +255,10 @@ async fn failed_plugin_produces_alert_and_dismiss_hides() {
 
     let manager = Arc::new(DefaultPluginManager::new());
     let meta = PluginMetadata::new("bad", "1.0.0", "d", "a");
-    let id = meta.id;
+    let id = meta.id.clone();
     let p = create_noop_plugin(meta);
     manager.register_plugin(p).await.expect("should succeed");
-    PluginRegistry::set_plugin_status(manager.as_ref(), id, PluginStatus::Failed)
+    PluginRegistry::set_plugin_status(manager.as_ref(), &id, PluginStatus::Failed)
         .await
         .expect("should succeed");
 

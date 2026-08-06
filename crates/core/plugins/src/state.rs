@@ -12,27 +12,26 @@ use std::fmt::Debug;
 use std::future::Future;
 use std::pin::Pin;
 use tokio::sync::RwLock;
-use uuid::Uuid;
 
 /// Plugin state manager trait
 pub trait PluginStateManager: Send + Sync + Debug {
     /// Get plugin state
     fn get_state<'a>(
         &'a self,
-        plugin_id: &'a Uuid,
+        plugin_id: &'a str,
     ) -> Pin<Box<dyn Future<Output = Result<Option<Value>>> + Send + 'a>>;
 
     /// Set plugin state
     fn set_state<'a>(
         &'a self,
-        plugin_id: &'a Uuid,
+        plugin_id: &'a str,
         state: Value,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
 
     /// Remove plugin state
     fn remove_state<'a>(
         &'a self,
-        plugin_id: &'a Uuid,
+        plugin_id: &'a str,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
 }
 
@@ -40,7 +39,7 @@ pub trait PluginStateManager: Send + Sync + Debug {
 #[derive(Debug, Default)]
 pub struct MemoryStateManager {
     /// Plugin state storage
-    states: RwLock<HashMap<Uuid, Value>>,
+    states: RwLock<HashMap<String, Value>>,
 }
 
 impl MemoryStateManager {
@@ -56,7 +55,7 @@ impl MemoryStateManager {
 impl PluginStateManager for MemoryStateManager {
     fn get_state<'a>(
         &'a self,
-        plugin_id: &'a Uuid,
+        plugin_id: &'a str,
     ) -> Pin<Box<dyn Future<Output = Result<Option<Value>>> + Send + 'a>> {
         Box::pin(async move {
             let states = self.states.read().await;
@@ -66,12 +65,12 @@ impl PluginStateManager for MemoryStateManager {
 
     fn set_state<'a>(
         &'a self,
-        plugin_id: &'a Uuid,
+        plugin_id: &'a str,
         state: Value,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         Box::pin(async move {
             let mut states = self.states.write().await;
-            states.insert(*plugin_id, state);
+            states.insert(plugin_id.to_string(), state);
             drop(states);
             Ok(())
         })
@@ -79,7 +78,7 @@ impl PluginStateManager for MemoryStateManager {
 
     fn remove_state<'a>(
         &'a self,
-        plugin_id: &'a Uuid,
+        plugin_id: &'a str,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         Box::pin(async move {
             let mut states = self.states.write().await;
@@ -96,7 +95,7 @@ pub struct FileStateManager {
     /// Base directory for state files
     base_dir: String,
     /// Memory cache for state
-    cache: RwLock<HashMap<Uuid, Value>>,
+    cache: RwLock<HashMap<String, Value>>,
 }
 
 impl FileStateManager {
@@ -113,7 +112,7 @@ impl FileStateManager {
 impl PluginStateManager for FileStateManager {
     fn get_state<'a>(
         &'a self,
-        plugin_id: &'a Uuid,
+        plugin_id: &'a str,
     ) -> Pin<Box<dyn Future<Output = Result<Option<Value>>> + Send + 'a>> {
         Box::pin(async move {
             // Check cache first
@@ -132,7 +131,7 @@ impl PluginStateManager for FileStateManager {
                     // Update cache
                     drop(cache);
                     let mut cache = self.cache.write().await;
-                    cache.insert(*plugin_id, value.clone());
+                    cache.insert(plugin_id.to_string(), value.clone());
                     drop(cache);
                     Ok(Some(value))
                 }
@@ -144,13 +143,13 @@ impl PluginStateManager for FileStateManager {
 
     fn set_state<'a>(
         &'a self,
-        plugin_id: &'a Uuid,
+        plugin_id: &'a str,
         state: Value,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         Box::pin(async move {
             // Update cache
             let mut cache = self.cache.write().await;
-            cache.insert(*plugin_id, state.clone());
+            cache.insert(plugin_id.to_string(), state.clone());
 
             // Ensure directory exists
             tokio::fs::create_dir_all(&self.base_dir).await?;
@@ -167,7 +166,7 @@ impl PluginStateManager for FileStateManager {
 
     fn remove_state<'a>(
         &'a self,
-        plugin_id: &'a Uuid,
+        plugin_id: &'a str,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         Box::pin(async move {
             // Remove from cache
@@ -199,7 +198,7 @@ pub enum StateManagerBackend {
 impl PluginStateManager for StateManagerBackend {
     fn get_state<'a>(
         &'a self,
-        plugin_id: &'a Uuid,
+        plugin_id: &'a str,
     ) -> Pin<Box<dyn Future<Output = Result<Option<Value>>> + Send + 'a>> {
         match self {
             Self::Memory(m) => m.get_state(plugin_id),
@@ -209,7 +208,7 @@ impl PluginStateManager for StateManagerBackend {
 
     fn set_state<'a>(
         &'a self,
-        plugin_id: &'a Uuid,
+        plugin_id: &'a str,
         state: Value,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         match self {
@@ -220,7 +219,7 @@ impl PluginStateManager for StateManagerBackend {
 
     fn remove_state<'a>(
         &'a self,
-        plugin_id: &'a Uuid,
+        plugin_id: &'a str,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         match self {
             Self::Memory(m) => m.remove_state(plugin_id),
@@ -237,68 +236,68 @@ mod tests {
     #[tokio::test]
     async fn test_memory_state_manager_set_and_get() {
         let manager = MemoryStateManager::new();
-        let plugin_id = Uuid::new_v4();
+        let plugin_id = "test-plugin-id";
         let state = json!({"key": "value", "count": 42});
 
         manager
-            .set_state(&plugin_id, state.clone())
+            .set_state(plugin_id, state.clone())
             .await
             .expect("set_state");
-        let retrieved = manager.get_state(&plugin_id).await.expect("get_state");
+        let retrieved = manager.get_state(plugin_id).await.expect("get_state");
         assert_eq!(retrieved, Some(state));
     }
 
     #[tokio::test]
     async fn test_memory_state_manager_get_missing_returns_none() {
         let manager = MemoryStateManager::new();
-        let plugin_id = Uuid::new_v4();
-        let retrieved = manager.get_state(&plugin_id).await.expect("get_state");
+        let plugin_id = "missing-plugin-id";
+        let retrieved = manager.get_state(plugin_id).await.expect("get_state");
         assert!(retrieved.is_none());
     }
 
     #[tokio::test]
     async fn test_memory_state_manager_remove_state() {
         let manager = MemoryStateManager::new();
-        let plugin_id = Uuid::new_v4();
+        let plugin_id = "remove-me";
         manager
-            .set_state(&plugin_id, json!({"x": 1}))
+            .set_state(plugin_id, json!({"x": 1}))
             .await
             .expect("set");
-        manager.remove_state(&plugin_id).await.expect("remove");
-        let retrieved = manager.get_state(&plugin_id).await.expect("get");
+        manager.remove_state(plugin_id).await.expect("remove");
+        let retrieved = manager.get_state(plugin_id).await.expect("get");
         assert!(retrieved.is_none());
     }
 
     #[tokio::test]
     async fn test_memory_state_manager_overwrite() {
         let manager = MemoryStateManager::new();
-        let plugin_id = Uuid::new_v4();
+        let plugin_id = "overwrite-me";
         manager
-            .set_state(&plugin_id, json!({"v": 1}))
+            .set_state(plugin_id, json!({"v": 1}))
             .await
             .expect("set");
         manager
-            .set_state(&plugin_id, json!({"v": 2}))
+            .set_state(plugin_id, json!({"v": 2}))
             .await
             .expect("overwrite");
-        let retrieved = manager.get_state(&plugin_id).await.expect("get");
+        let retrieved = manager.get_state(plugin_id).await.expect("get");
         assert_eq!(retrieved, Some(json!({"v": 2})));
     }
 
     #[tokio::test]
     async fn test_memory_state_manager_multiple_plugins() {
         let manager = MemoryStateManager::new();
-        let id1 = Uuid::new_v4();
-        let id2 = Uuid::new_v4();
-        manager.set_state(&id1, json!({"a": 1})).await.expect("set");
-        manager.set_state(&id2, json!({"b": 2})).await.expect("set");
+        let id1 = "plugin-a";
+        let id2 = "plugin-b";
+        manager.set_state(id1, json!({"a": 1})).await.expect("set");
+        manager.set_state(id2, json!({"b": 2})).await.expect("set");
 
         assert_eq!(
-            manager.get_state(&id1).await.expect("get"),
+            manager.get_state(id1).await.expect("get"),
             Some(json!({"a": 1}))
         );
         assert_eq!(
-            manager.get_state(&id2).await.expect("get"),
+            manager.get_state(id2).await.expect("get"),
             Some(json!({"b": 2}))
         );
     }

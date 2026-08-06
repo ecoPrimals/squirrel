@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-// NOTE: Using deprecated plugin::PluginMetadata until interfaces crate stabilizes.
-// Migration requires Uuid→String key change across PluginManager, Registry, DependencyResolver.
-#![expect(
-    deprecated,
-    reason = "Uses deprecated plugin::PluginMetadata until interfaces crate stabilizes (see module note)"
-)]
-
 //! Plugin manager
 //!
 //! This module provides the core plugin manager implementation.
@@ -25,7 +18,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info};
-use uuid::Uuid;
 
 /// Built-in default no-op plugin so the registry always has a valid entry before IPC-discovered plugins register.
 #[derive(Debug)]
@@ -72,13 +64,13 @@ impl Plugin for DefaultPlugin {
 /// Plugin manager for handling plugin lifecycle and dependencies
 pub struct PluginManager {
     /// Registered plugins
-    plugins: Arc<DashMap<Uuid, Arc<dyn Plugin>>>,
+    plugins: Arc<DashMap<String, Arc<dyn Plugin>>>,
     /// Plugin configurations
-    plugin_configs: Arc<DashMap<Uuid, PluginConfig>>,
+    plugin_configs: Arc<DashMap<String, PluginConfig>>,
     /// Plugin statuses
-    statuses: RwLock<HashMap<Uuid, PluginStatus>>,
+    statuses: RwLock<HashMap<String, PluginStatus>>,
     /// Plugin name to ID mapping
-    name_to_id: RwLock<HashMap<String, Uuid>>,
+    name_to_id: RwLock<HashMap<String, String>>,
     /// Dependency resolver for proper plugin initialization order.
     dependency_resolver: RwLock<DependencyResolver>,
 }
@@ -155,23 +147,23 @@ impl PluginManager {
         signature: Option<Vec<u8>>,
     ) -> Result<()> {
         let metadata = plugin.metadata();
-        let id = metadata.id;
+        let id = metadata.id.clone();
 
         if let Some(_sig_bytes) = signature {
             debug!("Verifying signature for plugin {}", metadata.name);
             // Security verification handled by BearDog framework
         }
 
-        self.plugins.insert(id, plugin.clone());
-        self.plugin_configs.insert(id, PluginConfig::default());
+        self.plugins.insert(id.clone(), plugin.clone());
+        self.plugin_configs.insert(id.clone(), PluginConfig::default());
         self.statuses
             .write()
             .await
-            .insert(id, PluginStatus::Registered);
+            .insert(id.clone(), PluginStatus::Registered);
         self.name_to_id
             .write()
             .await
-            .insert(metadata.name.clone(), id);
+            .insert(metadata.name.clone(), id.clone());
 
         {
             let mut resolver = self.dependency_resolver.write().await;
@@ -199,13 +191,13 @@ impl PluginRegistry for PluginManager {
         self.register_plugin_with_signature(plugin, None).await
     }
 
-    async fn unregister_plugin(&self, id: Uuid) -> Result<()> {
-        if let Some((_, plugin)) = self.plugins.remove(&id) {
+    async fn unregister_plugin(&self, id: &str) -> Result<()> {
+        if let Some((_, plugin)) = self.plugins.remove(id) {
             let metadata = plugin.metadata();
-            self.plugin_configs.remove(&id);
+            self.plugin_configs.remove(id);
             {
                 let mut statuses = self.statuses.write().await;
-                statuses.remove(&id);
+                statuses.remove(id);
             }
             {
                 let mut name_to_id = self.name_to_id.write().await;
@@ -218,9 +210,9 @@ impl PluginRegistry for PluginManager {
         }
     }
 
-    async fn get_plugin(&self, id: Uuid) -> Result<Arc<dyn Plugin>> {
+    async fn get_plugin(&self, id: &str) -> Result<Arc<dyn Plugin>> {
         self.plugins
-            .get(&id)
+            .get(id)
             .map(|entry| entry.value().clone())
             .ok_or_else(|| PluginError::PluginNotFound(id.to_string()))
     }
@@ -228,11 +220,12 @@ impl PluginRegistry for PluginManager {
     async fn get_plugin_by_name(&self, name: &str) -> Result<Arc<dyn Plugin>> {
         let id = {
             let name_to_id = self.name_to_id.read().await;
-            *name_to_id
+            name_to_id
                 .get(name)
+                .cloned()
                 .ok_or_else(|| PluginError::PluginNotFound(name.to_string()))?
         };
-        PluginManagerTrait::get_plugin(self, id).await
+        PluginManagerTrait::get_plugin(self, &id).await
     }
 
     async fn list_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>> {
@@ -243,17 +236,17 @@ impl PluginRegistry for PluginManager {
             .collect())
     }
 
-    async fn get_plugin_status(&self, id: Uuid) -> Result<PluginStatus> {
+    async fn get_plugin_status(&self, id: &str) -> Result<PluginStatus> {
         let statuses = self.statuses.read().await;
         statuses
-            .get(&id)
+            .get(id)
             .copied()
             .ok_or_else(|| PluginError::PluginNotFound(id.to_string()))
     }
 
-    async fn set_plugin_status(&self, id: Uuid, status: PluginStatus) -> Result<()> {
+    async fn set_plugin_status(&self, id: &str, status: PluginStatus) -> Result<()> {
         let mut statuses = self.statuses.write().await;
-        if let std::collections::hash_map::Entry::Occupied(mut e) = statuses.entry(id) {
+        if let std::collections::hash_map::Entry::Occupied(mut e) = statuses.entry(id.to_string()) {
             e.insert(status);
             Ok(())
         } else {
@@ -267,33 +260,33 @@ impl PluginRegistry for PluginManager {
 }
 
 impl PluginManagerTrait for PluginManager {
-    async fn get_plugin(&self, id: Uuid) -> Result<Arc<dyn Plugin>> {
+    async fn get_plugin(&self, id: &str) -> Result<Arc<dyn Plugin>> {
         PluginRegistry::get_plugin(self, id).await
     }
 
-    async fn initialize_plugin(&self, id: Uuid) -> Result<()> {
+    async fn initialize_plugin(&self, id: &str) -> Result<()> {
         let plugin = PluginManagerTrait::get_plugin(self, id).await?;
         plugin.initialize().await?;
         PluginManagerTrait::set_plugin_status(self, id, PluginStatus::Running).await?;
         Ok(())
     }
 
-    async fn shutdown_plugin(&self, id: Uuid) -> Result<()> {
+    async fn shutdown_plugin(&self, id: &str) -> Result<()> {
         let plugin = PluginManagerTrait::get_plugin(self, id).await?;
         plugin.shutdown().await?;
         PluginManagerTrait::set_plugin_status(self, id, PluginStatus::Stopped).await?;
         Ok(())
     }
 
-    async fn get_plugin_status(&self, id: Uuid) -> Result<PluginStatus> {
+    async fn get_plugin_status(&self, id: &str) -> Result<PluginStatus> {
         PluginRegistry::get_plugin_status(self, id).await
     }
 
-    async fn set_plugin_status(&self, id: Uuid, status: PluginStatus) -> Result<()> {
+    async fn set_plugin_status(&self, id: &str, status: PluginStatus) -> Result<()> {
         PluginRegistry::set_plugin_status(self, id, status).await
     }
 
-    async fn load_plugins(&self, directory: &str) -> Result<Vec<Uuid>> {
+    async fn load_plugins(&self, directory: &str) -> Result<Vec<String>> {
         debug!(
             directory = %directory,
             "load_plugins: no bundled dynamic loader in this build; peer-provided plugins register via IPC capability discovery"
@@ -304,7 +297,7 @@ impl PluginManagerTrait for PluginManager {
     async fn initialize_all_plugins(&self) -> Result<()> {
         let plugins = self.list_plugins().await?;
         for plugin in plugins {
-            let id = plugin.metadata().id;
+            let id = plugin.id();
             if let Err(e) = self.initialize_plugin(id).await {
                 error!("Failed to initialize plugin {}: {}", id, e);
             }
@@ -315,7 +308,7 @@ impl PluginManagerTrait for PluginManager {
     async fn shutdown_all_plugins(&self) -> Result<()> {
         let plugins = self.list_plugins().await?;
         for plugin in plugins {
-            let id = plugin.metadata().id;
+            let id = plugin.id();
             if let Err(e) = self.shutdown_plugin(id).await {
                 error!("Failed to shutdown plugin {}: {}", id, e);
             }
@@ -356,14 +349,14 @@ mod tests {
         let manager = PluginManager::new();
         manager.init().await.expect("should succeed");
         let plugin = make_test_plugin("test-plugin");
-        let id = plugin.id();
+        let id = plugin.id().to_string();
         manager
             .register_plugin(plugin)
             .await
             .expect("should succeed");
         let plugins = manager.list_plugins().await.expect("should succeed");
         assert_eq!(plugins.len(), 2);
-        manager.unregister_plugin(id).await.expect("should succeed");
+        manager.unregister_plugin(&id).await.expect("should succeed");
         let plugins = manager.list_plugins().await.expect("should succeed");
         assert_eq!(plugins.len(), 1);
     }
@@ -373,12 +366,12 @@ mod tests {
         let manager = PluginManager::new();
         manager.init().await.expect("should succeed");
         let plugin = make_test_plugin("lookup-plugin");
-        let id = plugin.id();
+        let id = plugin.id().to_string();
         manager
             .register_plugin(plugin)
             .await
             .expect("should succeed");
-        let found = PluginManagerTrait::get_plugin(&manager, id)
+        let found = PluginManagerTrait::get_plugin(&manager, &id)
             .await
             .expect("should succeed");
         assert_eq!(found.metadata().name, "lookup-plugin");
@@ -424,18 +417,18 @@ mod tests {
         let manager = PluginManager::new();
         manager.init().await.expect("should succeed");
         let plugin = make_test_plugin("init-plugin");
-        let id = plugin.id();
+        let id = plugin.id().to_string();
         manager
             .register_plugin(plugin)
             .await
             .expect("should succeed");
-        manager.initialize_plugin(id).await.expect("should succeed");
-        let status = PluginManagerTrait::get_plugin_status(&manager, id)
+        manager.initialize_plugin(&id).await.expect("should succeed");
+        let status = PluginManagerTrait::get_plugin_status(&manager, &id)
             .await
             .expect("should succeed");
         assert_eq!(status, PluginStatus::Running);
-        manager.shutdown_plugin(id).await.expect("should succeed");
-        let status = PluginManagerTrait::get_plugin_status(&manager, id)
+        manager.shutdown_plugin(&id).await.expect("should succeed");
+        let status = PluginManagerTrait::get_plugin_status(&manager, &id)
             .await
             .expect("should succeed");
         assert_eq!(status, PluginStatus::Stopped);
@@ -445,8 +438,7 @@ mod tests {
     async fn test_get_plugin_unknown_id_returns_error() {
         let manager = PluginManager::new();
         manager.init().await.expect("should succeed");
-        let unknown_id = uuid::Uuid::new_v4();
-        let result = PluginManagerTrait::get_plugin(&manager, unknown_id).await;
+        let result = PluginManagerTrait::get_plugin(&manager, "unknown-plugin-id").await;
         match result {
             Ok(_) => unreachable!("expected error for unknown plugin"),
             Err(e) => assert!(matches!(e, PluginError::PluginNotFound(_))),
@@ -457,8 +449,7 @@ mod tests {
     async fn test_unregister_unknown_plugin_returns_error() {
         let manager = PluginManager::new();
         manager.init().await.expect("should succeed");
-        let unknown_id = uuid::Uuid::new_v4();
-        let result = manager.unregister_plugin(unknown_id).await;
+        let result = manager.unregister_plugin("unknown-plugin-id").await;
         let err = result.expect_err("expected error for unknown plugin");
         assert!(matches!(err, PluginError::PluginNotFound(_)));
     }

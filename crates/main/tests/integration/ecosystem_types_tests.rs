@@ -6,7 +6,7 @@
 //! Tests ecosystem primal types and their properties.
 
 // EcosystemPrimalType is deprecated but needed for backward compatibility in tests
-use squirrel::ecosystem::EcosystemPrimalType;
+use squirrel::ecosystem::types::EcosystemPrimalType;
 
 #[test]
 fn test_primal_type_toadstool() {

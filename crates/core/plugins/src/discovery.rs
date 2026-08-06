@@ -18,12 +18,6 @@
 //!   dynamic library loading is not compiled in here; load attempts return structured
 //!   [`PluginError::LoadError`] with discovery hints (other primals expose plugins via IPC).
 
-// Backward compatibility: Uses deprecated plugin::PluginMetadata during migration to squirrel_interfaces
-#![expect(
-    deprecated,
-    reason = "Backward compatibility: uses deprecated plugin::PluginMetadata during migration to squirrel_interfaces"
-)]
-
 use std::path::Path;
 use std::sync::Arc;
 
@@ -33,21 +27,9 @@ use anyhow::Result;
 use serde::Deserialize;
 use tokio::fs;
 use tracing::{debug, info};
-#[cfg(any(test, feature = "testing"))]
-use uuid::Uuid;
 
 use crate::PluginError;
 use crate::plugin::{Plugin, PluginMetadata};
-
-/// Deterministic dependency id: first 128 bits of BLAKE3(plugin dependency name).
-#[cfg(any(test, feature = "testing"))]
-#[must_use]
-fn dependency_id_from_name(name: &str) -> Uuid {
-    let hash = blake3::hash(name.as_bytes());
-    let mut bytes = [0u8; 16];
-    bytes.copy_from_slice(&hash.as_bytes()[..16]);
-    Uuid::from_bytes(bytes)
-}
 
 /// Plugin manifest format
 #[cfg_attr(
@@ -94,7 +76,6 @@ impl PluginManifest {
         not(test),
         expect(dead_code, reason = "Test and feature-gated metadata helper")
     )]
-    #[expect(deprecated, reason = "backward-compatible alias")]
     pub fn to_metadata(&self) -> PluginMetadata {
         let mut metadata =
             PluginMetadata::new(&self.name, &self.version, &self.description, &self.author);
@@ -104,9 +85,8 @@ impl PluginManifest {
             metadata = metadata.with_capability(capability);
         }
 
-        // Dependency names → stable ids (content-addressed) for reproducible resolution/tests.
         for dep_name in &self.dependencies {
-            metadata = metadata.with_dependency(dependency_id_from_name(dep_name));
+            metadata = metadata.with_dependency(dep_name);
         }
 
         metadata
@@ -114,7 +94,7 @@ impl PluginManifest {
 }
 
 /// Plugin loader trait for loading plugins (Phase 2 — WASM sandbox)
-#[expect(dead_code, reason = "Phase 2 file-based plugin discovery")]
+#[allow(dead_code, reason = "Phase 2 file-based plugin discovery")]
 pub trait PluginLoader: Send + Sync {
     /// Load a plugin from a manifest
     fn load_plugin(
@@ -135,7 +115,7 @@ pub trait PluginDiscovery: Send + Sync {
 
 /// File-based plugin discovery (Phase 2 — WASM sandbox)
 #[derive(Debug)]
-#[expect(dead_code, reason = "Phase 2 file-based plugin discovery")]
+#[allow(dead_code, reason = "Phase 2 file-based plugin discovery")]
 pub struct FilePluginDiscovery<L> {
     /// Plugin loader
     loader: L,
@@ -190,20 +170,17 @@ impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
 ///
 /// Used when a manifest is present but this primal does not host native plugin code: the plugin
 /// entry is a documented no-op; real implementations are discovered on other primals via IPC.
-#[expect(deprecated, reason = "backward-compatible alias")]
 #[must_use]
 pub fn create_noop_plugin(metadata: PluginMetadata) -> Arc<dyn Plugin> {
     Arc::new(NoOpPlugin { metadata })
 }
 
 /// No-op plugin: satisfies the [`Plugin`] contract without side effects; logs lifecycle for observability.
-#[expect(deprecated, reason = "backward-compatible alias")]
 #[derive(Debug, Clone)]
 pub struct NoOpPlugin {
     metadata: PluginMetadata,
 }
 
-#[expect(deprecated, reason = "backward-compatible alias")]
 impl Plugin for NoOpPlugin {
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
@@ -388,7 +365,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dependency_ids_are_content_addressed() {
+    fn test_dependency_names_preserved_in_metadata() {
         let json = r#"{
             "name": "p",
             "version": "1.0.0",
@@ -404,8 +381,7 @@ mod tests {
         let a = m1.to_metadata();
         let b = m2.to_metadata();
         assert_eq!(a.dependencies, b.dependencies);
-        assert_eq!(a.dependencies.len(), 2);
-        assert_ne!(a.dependencies[0], a.dependencies[1]);
+        assert_eq!(a.dependencies, vec!["alpha", "beta"]);
     }
 
     #[tokio::test]

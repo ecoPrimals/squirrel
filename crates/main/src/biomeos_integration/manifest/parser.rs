@@ -184,7 +184,7 @@ impl BiomeManifestParser {
                 network_policies: vec![],
                 dns: DnsConfig {
                     enabled: true,
-                    servers: vec!["8.8.8.8".to_string()],
+                    servers: vec![universal_constants::network::DEFAULT_DNS_SERVER.to_string()],
                     search_domains: vec![],
                 },
             },

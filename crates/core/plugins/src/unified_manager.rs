@@ -300,7 +300,8 @@ mod tests {
 
     impl TestPlugin {
         fn with_capabilities(name: &str, capabilities: Vec<String>) -> Self {
-            let mut meta = PluginMetadata::new(name, "1.0.0", "Test plugin", "Test");
+            let mut meta = PluginMetadata::new(name, "1.0.0", "Test plugin", "Test")
+                .with_name(name);
             meta.capabilities = capabilities;
             Self { metadata: meta }
         }

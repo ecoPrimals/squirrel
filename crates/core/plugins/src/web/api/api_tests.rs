@@ -31,7 +31,7 @@ fn web_req(method: HttpMethod, path: &str, body: Option<serde_json::Value>) -> W
 #[test]
 fn api_dtos_serde_roundtrip() {
     let info = PluginInfo {
-        id: Uuid::new_v4(),
+        id: "plugin-id".to_string(),
         name: "n".to_string(),
         version: "1".to_string(),
         description: "d".to_string(),
@@ -101,7 +101,7 @@ fn api_dtos_serde_roundtrip() {
 
     let ws = WebSocketMessage {
         event_type: "e".to_string(),
-        plugin_id: Some(Uuid::new_v4()),
+        plugin_id: Some("plugin-id".to_string()),
         data: json!({}),
         timestamp: chrono::Utc::now(),
     };
@@ -141,7 +141,7 @@ async fn test_plugin_id_extraction_ok_and_errors() {
     let manager = Arc::new(DefaultPluginManager::new());
     let api = PluginManagementAPI::new(manager);
 
-    let plugin_id = Uuid::new_v4();
+    let plugin_id = "my-plugin";
     let path = format!("/api/plugins/{plugin_id}");
     assert_eq!(
         api.extract_plugin_id(&path).expect("should succeed"),
@@ -149,7 +149,7 @@ async fn test_plugin_id_extraction_ok_and_errors() {
     );
 
     assert!(api.extract_plugin_id("/api/plugins").is_err());
-    assert!(api.extract_plugin_id("/api/plugins/not-a-uuid").is_err());
+    assert!(api.extract_plugin_id("/api/plugins/").is_err());
 }
 
 #[tokio::test]
@@ -175,7 +175,7 @@ async fn handle_list_get_plugins_empty_and_with_example_web() {
     assert_eq!(res.body.as_ref().expect("should succeed")["total"], 0);
 
     let ex = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::Plugin>;
-    let ex_id = ex.id();
+    let ex_id = ex.id().to_string();
     manager.register_plugin(ex).await.expect("should succeed");
 
     let res = api
@@ -189,7 +189,7 @@ async fn handle_list_get_plugins_empty_and_with_example_web() {
     let first = &plugins[0];
     assert_eq!(
         first["id"].as_str().expect("should succeed"),
-        ex_id.to_string()
+        ex_id
     );
     let ep_list = first["endpoints"].as_array().expect("should succeed");
     assert!(!ep_list.is_empty());
@@ -199,7 +199,7 @@ async fn handle_list_get_plugins_empty_and_with_example_web() {
 async fn handle_get_plugin_details_and_config() {
     let manager = Arc::new(DefaultPluginManager::new());
     let meta = PluginMetadata::new("t", "1.0.0", "d", "a");
-    let id = meta.id;
+    let id = meta.id.clone();
     let plugin = create_noop_plugin(meta);
     manager
         .register_plugin(plugin)
@@ -229,7 +229,7 @@ async fn handle_get_plugin_details_and_config() {
         .expect("should succeed");
     assert_eq!(cfg.status, HttpStatus::Ok);
     let body = cfg.body.as_ref().expect("should have body");
-    assert_eq!(body["plugin_id"], id.to_string());
+    assert_eq!(body["plugin_id"], id);
     assert_eq!(body["name"], "t");
 }
 
@@ -326,7 +326,7 @@ async fn handle_not_found() {
 async fn handle_uninstall_start_stop_restart_execute_config() {
     let manager = Arc::new(DefaultPluginManager::new());
     let meta = PluginMetadata::new("life", "1.0.0", "d", "a");
-    let id = meta.id;
+    let id = meta.id.clone();
     let plugin = create_noop_plugin(meta);
     manager
         .register_plugin(plugin)
@@ -346,7 +346,7 @@ async fn handle_uninstall_start_stop_restart_execute_config() {
     assert_eq!(un.status, HttpStatus::Ok);
 
     let meta2 = PluginMetadata::new("life2", "1.0.0", "d", "a");
-    let id2 = meta2.id;
+    let id2 = meta2.id.clone();
     manager
         .register_plugin(create_noop_plugin(meta2))
         .await
@@ -414,24 +414,26 @@ async fn handle_uninstall_start_stop_restart_execute_config() {
 async fn marketplace_paths_with_wrong_segment_return_err() {
     let manager = Arc::new(DefaultPluginManager::new());
     let api = PluginManagementAPI::new(manager);
-    let pid = Uuid::new_v4();
-    let err = api
+    let pid = "marketplace-plugin";
+    let res = api
         .handle_request(web_req(
             HttpMethod::Get,
             &format!("/api/marketplace/plugins/{pid}"),
             None,
         ))
-        .await;
-    assert!(err.is_err());
+        .await
+        .expect("should succeed");
+    assert_eq!(res.status, HttpStatus::NotFound);
 
-    let err2 = api
+    let res2 = api
         .handle_request(web_req(
             HttpMethod::Post,
             &format!("/api/marketplace/plugins/{pid}/install"),
             None,
         ))
-        .await;
-    assert!(err2.is_err());
+        .await
+        .expect("should succeed");
+    assert_eq!(res2.status, HttpStatus::NotImplemented);
 }
 
 #[tokio::test]
@@ -453,7 +455,7 @@ async fn get_plugin_unknown_id_errors() {
     let err = api
         .handle_request(web_req(
             HttpMethod::Get,
-            &format!("/api/plugins/{}", Uuid::new_v4()),
+            &format!("/api/plugins/unknown-plugin-id"),
             None,
         ))
         .await;

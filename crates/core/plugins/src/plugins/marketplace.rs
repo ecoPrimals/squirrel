@@ -15,7 +15,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
-use uuid::Uuid;
 
 use super::dynamic::PluginMetadata;
 
@@ -97,7 +96,7 @@ pub trait RepositoryProvider: Send + Sync {
     /// Get a specific plugin by ID
     fn get_plugin(
         &self,
-        id: &Uuid,
+        id: &str,
     ) -> Pin<Box<dyn Future<Output = Result<Option<PluginPackageInfo>>> + Send + '_>>;
 
     /// Search for plugins by query string
@@ -109,7 +108,7 @@ pub trait RepositoryProvider: Send + Sync {
     /// Download a plugin
     fn download_plugin(
         &self,
-        id: &Uuid,
+        id: &str,
         path: &Path,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>>;
 }
@@ -218,7 +217,7 @@ impl RepositoryManager {
     pub async fn get_plugin(
         &self,
         repo_id: &str,
-        plugin_id: &Uuid,
+        plugin_id: &str,
     ) -> Result<Option<PluginPackageInfo>> {
         let repositories = self.repositories.read().await;
 
@@ -230,7 +229,7 @@ impl RepositoryManager {
     }
 
     /// Download a plugin
-    pub async fn download_plugin(&self, repo_id: &str, plugin_id: &Uuid) -> Result<PathBuf> {
+    pub async fn download_plugin(&self, repo_id: &str, plugin_id: &str) -> Result<PathBuf> {
         let repositories = self.repositories.read().await;
 
         if let Some(provider) = repositories.get(repo_id) {

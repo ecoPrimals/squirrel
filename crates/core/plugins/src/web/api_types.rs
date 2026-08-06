@@ -12,7 +12,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginInfo {
     /// Unique plugin identifier.
-    pub id: Uuid,
+    pub id: String,
     /// Plugin display name.
     pub name: String,
     /// Semantic version string.
@@ -123,7 +123,7 @@ pub struct WebSocketMessage {
     /// Event type (e.g. "`plugin_loaded`", "`status_changed`").
     pub event_type: String,
     /// Plugin ID if event is plugin-specific.
-    pub plugin_id: Option<Uuid>,
+    pub plugin_id: Option<String>,
     /// Event payload data.
     pub data: serde_json::Value,
     /// When the event occurred.

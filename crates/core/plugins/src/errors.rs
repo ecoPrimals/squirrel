@@ -74,11 +74,11 @@ pub enum PluginError {
 
     /// Plugin not found error (with UUID)
     #[error("Plugin not found with ID: {0}")]
-    NotFound(uuid::Uuid),
+    NotFound(String),
 
     /// Plugin already registered
     #[error("Plugin already registered: {0}")]
-    AlreadyRegistered(uuid::Uuid),
+    AlreadyRegistered(String),
 
     /// Plugin dependency not found
     #[error("Plugin dependency not found: {0}")]
@@ -86,7 +86,7 @@ pub enum PluginError {
 
     /// Plugin dependency cycle detected
     #[error("Plugin dependency cycle detected: {0}")]
-    DependencyCycle(uuid::Uuid),
+    DependencyCycle(String),
 
     /// Command not found
     #[error("Command not found: {0}")]

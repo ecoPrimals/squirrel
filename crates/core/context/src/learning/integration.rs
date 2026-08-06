@@ -22,7 +22,7 @@ use crate::manager::ContextManager;
 use crate::rules::RuleManager;
 use crate::visualization::VisualizationSystem;
 
-#[cfg_attr(not(test), allow(unused_imports))]
+#[cfg_attr(not(test), allow(unused_imports, reason = "types re-exported for test modules"))]
 pub use super::integration_data::{
     ContextMonitoringResults, IntegrationError, IntegrationRefs, IntegrationState,
     IntegrationStats, IntegrationStatus, LearningIntegrationConfig,

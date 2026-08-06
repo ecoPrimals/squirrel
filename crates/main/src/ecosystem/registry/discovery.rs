@@ -242,7 +242,7 @@ impl DiscoveryOps {
     }
 
     /// Register a service discovered via env/config fallback (no live socket probe).
-    #[cfg_attr(test, allow(dead_code))]
+    #[cfg_attr(test, allow(dead_code, reason = "only called in production; tests use mock discovery"))]
     pub(crate) async fn perform_service_discovery(
         service_registry: &Arc<RwLock<HashMap<Arc<str>, Arc<DiscoveredService>>>>,
         primary_capability: &str,

@@ -7,6 +7,8 @@
 //! This enum exists solely so that old wire-format messages containing
 //! `PluginError` variants can still be deserialized.
 
+#![expect(deprecated, reason = "fossil module: defines + derives deprecated PluginError enum")]
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

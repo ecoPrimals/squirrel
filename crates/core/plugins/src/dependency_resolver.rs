@@ -12,7 +12,6 @@ use semver::{Version, VersionReq};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
-use uuid::Uuid;
 
 use crate::PluginError;
 use crate::plugin::Plugin;
@@ -25,16 +24,16 @@ pub use crate::dependency_types::{
 /// Plugin dependency resolver
 pub struct DependencyResolver {
     /// Registry of available plugins
-    plugins: HashMap<Uuid, Arc<dyn Plugin>>,
+    plugins: HashMap<String, Arc<dyn Plugin>>,
 
     /// Enhanced dependency mapping
-    dependencies: HashMap<Uuid, Vec<EnhancedPluginDependency>>,
+    dependencies: HashMap<String, Vec<EnhancedPluginDependency>>,
 
     /// Name to ID mapping for quick lookups
-    name_to_id: HashMap<String, Uuid>,
+    name_to_id: HashMap<String, String>,
 
     /// Version mapping for conflict detection
-    plugin_versions: HashMap<Uuid, Version>,
+    plugin_versions: HashMap<String, Version>,
 
     /// Resolution cache for performance optimization
     resolution_cache: HashMap<String, ResolutionResult>,
@@ -74,7 +73,7 @@ impl DependencyResolver {
     /// Returns [`anyhow::Error`] if the plugin version is invalid or registration fails.
     pub fn register_plugin(&mut self, plugin: Arc<dyn Plugin>) -> Result<()> {
         let metadata = plugin.metadata();
-        let id = metadata.id;
+        let id = metadata.id.clone();
 
         // Parse version
         let version = Version::parse(&metadata.version).map_err(|e| {
@@ -85,17 +84,18 @@ impl DependencyResolver {
         let metadata_clone = metadata.clone();
 
         // Register plugin
-        self.plugins.insert(id, plugin);
-        self.name_to_id.insert(metadata_clone.name.clone(), id);
-        self.plugin_versions.insert(id, version);
+        self.plugins.insert(id.clone(), plugin);
+        self.name_to_id
+            .insert(metadata_clone.name.clone(), id.clone());
+        self.plugin_versions.insert(id.clone(), version);
 
         // Convert legacy dependencies to enhanced dependencies
         let enhanced_deps: Vec<EnhancedPluginDependency> = metadata_clone
             .dependencies
             .iter()
             .map(|dep_id| EnhancedPluginDependency {
-                id: *dep_id,
-                name: format!("dependency-{dep_id}"),
+                id: dep_id.clone(),
+                name: dep_id.clone(),
                 version_req: "*".to_string(), // Default to any version
                 optional: false,
                 dependency_type: DependencyType::Runtime,
@@ -119,10 +119,11 @@ impl DependencyResolver {
     /// Returns [`anyhow::Error`] if dependency registration fails.
     pub fn register_enhanced_dependencies(
         &mut self,
-        plugin_id: Uuid,
+        plugin_id: &str,
         dependencies: Vec<EnhancedPluginDependency>,
     ) -> Result<()> {
-        self.dependencies.insert(plugin_id, dependencies);
+        self.dependencies
+            .insert(plugin_id.to_string(), dependencies);
         Ok(())
     }
 
@@ -198,9 +199,9 @@ impl DependencyResolver {
                     continue;
                 }
 
-                if let Some(&dep_id) = self.name_to_id.get(&dep.name) {
+                if let Some(dep_id) = self.name_to_id.get(&dep.name) {
                     // Check version compatibility
-                    if let Some(dep_version) = self.plugin_versions.get(&dep_id) {
+                    if let Some(dep_version) = self.plugin_versions.get(dep_id) {
                         let version_req = VersionReq::parse(&dep.version_req).map_err(|e| {
                             PluginError::InvalidVersion(format!(
                                 "Invalid version requirement {}: {}",
@@ -210,11 +211,11 @@ impl DependencyResolver {
 
                         if !version_req.matches(dep_version) {
                             result.version_conflicts.push(VersionConflict {
-                                plugin_id: *plugin_id,
+                                plugin_id: plugin_id.clone(),
                                 dependency_name: dep.name.clone(),
                                 required_version: dep.version_req.clone(),
                                 available_version: dep_version.to_string(),
-                                dependent_plugins: vec![*plugin_id],
+                                dependent_plugins: vec![plugin_id.clone()],
                             });
                         }
                     }
@@ -222,7 +223,9 @@ impl DependencyResolver {
             }
 
             if !missing_deps.is_empty() {
-                result.unresolved_plugins.push((*plugin_id, missing_deps));
+                result
+                    .unresolved_plugins
+                    .push((plugin_id.clone(), missing_deps));
             }
         }
 
@@ -237,9 +240,15 @@ impl DependencyResolver {
         let mut rec_stack = HashSet::new();
         let mut path = Vec::new();
 
-        for &plugin_id in self.plugins.keys() {
-            if !visited.contains(&plugin_id)
-                && self.has_cycle_dfs(plugin_id, &mut visited, &mut rec_stack, &mut path, result)?
+        for plugin_id in self.plugins.keys() {
+            if !visited.contains(plugin_id)
+                && self.has_cycle_dfs(
+                    plugin_id,
+                    &mut visited,
+                    &mut rec_stack,
+                    &mut path,
+                    result,
+                )?
             {
                 // Cycle detected and added to result
             }
@@ -251,26 +260,27 @@ impl DependencyResolver {
     /// DFS helper for cycle detection
     fn has_cycle_dfs(
         &self,
-        plugin_id: Uuid,
-        visited: &mut HashSet<Uuid>,
-        rec_stack: &mut HashSet<Uuid>,
-        path: &mut Vec<Uuid>,
+        plugin_id: &str,
+        visited: &mut HashSet<String>,
+        rec_stack: &mut HashSet<String>,
+        path: &mut Vec<String>,
         result: &mut ResolutionResult,
     ) -> Result<bool> {
-        visited.insert(plugin_id);
-        rec_stack.insert(plugin_id);
-        path.push(plugin_id);
+        let plugin_id = plugin_id.to_string();
+        visited.insert(plugin_id.clone());
+        rec_stack.insert(plugin_id.clone());
+        path.push(plugin_id.clone());
 
         if let Some(deps) = self.dependencies.get(&plugin_id) {
             for dep in deps {
-                if let Some(&dep_id) = self.name_to_id.get(&dep.name) {
-                    if !visited.contains(&dep_id) {
+                if let Some(dep_id) = self.name_to_id.get(&dep.name) {
+                    if !visited.contains(dep_id) {
                         if self.has_cycle_dfs(dep_id, visited, rec_stack, path, result)? {
                             return Ok(true);
                         }
-                    } else if rec_stack.contains(&dep_id) {
+                    } else if rec_stack.contains(dep_id) {
                         // Found cycle - extract the cycle from path
-                        if let Some(cycle_start) = path.iter().position(|&id| id == dep_id) {
+                        if let Some(cycle_start) = path.iter().position(|id| id == dep_id) {
                             let cycle = path[cycle_start..].to_vec();
                             result.circular_dependencies.push(cycle);
                             return Ok(true);
@@ -326,7 +336,7 @@ impl DependencyResolver {
                     && !dep.optional
                 {
                     // Non-optional platform-specific dependency that doesn't match current platform
-                    excluded_plugins.insert(*plugin_id);
+                    excluded_plugins.insert(plugin_id.clone());
                     result.warnings.push(format!(
                                 "Plugin {} excluded due to platform constraint: requires {:?}, current platform: {}",
                                 plugin_id, dep.platform_constraints, self.current_platform
@@ -349,17 +359,17 @@ impl DependencyResolver {
         let mut adj_list = HashMap::new();
 
         // Initialize in-degree and adjacency list
-        for &plugin_id in self.plugins.keys() {
-            in_degree.insert(plugin_id, 0);
-            adj_list.insert(plugin_id, Vec::new());
+        for plugin_id in self.plugins.keys() {
+            in_degree.insert(plugin_id.clone(), 0);
+            adj_list.insert(plugin_id.clone(), Vec::new());
         }
 
         // Build graph and calculate in-degrees
         for (plugin_id, deps) in &self.dependencies {
             for dep in deps {
-                let dep_id = dep.id;
-                if let Some(adj_list_entry) = adj_list.get_mut(&dep_id) {
-                    adj_list_entry.push(*plugin_id);
+                let dep_id = &dep.id;
+                if let Some(adj_list_entry) = adj_list.get_mut(dep_id) {
+                    adj_list_entry.push(plugin_id.clone());
                 }
                 if let Some(in_degree_entry) = in_degree.get_mut(plugin_id) {
                     *in_degree_entry += 1;
@@ -376,24 +386,24 @@ impl DependencyResolver {
         let mut queue = VecDeque::new();
 
         // Add all nodes with in-degree 0 to queue
-        for (&plugin_id, &degree) in &in_degree {
+        for (plugin_id, &degree) in &in_degree {
             if degree == 0 {
-                queue.push_back(plugin_id);
+                queue.push_back(plugin_id.clone());
             }
         }
 
         let mut topo_order = Vec::new();
 
         while let Some(current) = queue.pop_front() {
-            topo_order.push(current);
+            topo_order.push(current.clone());
 
             // For each neighbor of current
             if let Some(neighbors) = adj_list.get(&current) {
-                for &neighbor in neighbors {
-                    if let Some(degree) = in_degree.get_mut(&neighbor) {
+                for neighbor in neighbors {
+                    if let Some(degree) = in_degree.get_mut(neighbor) {
                         *degree -= 1;
                         if *degree == 0 {
-                            queue.push_back(neighbor);
+                            queue.push_back(neighbor.clone());
                         }
                     }
                 }
@@ -423,25 +433,25 @@ impl DependencyResolver {
         let mut extension_plugins = Vec::new();
         let mut other_plugins = Vec::new();
 
-        for &plugin_id in &result.initialization_order {
-            let has_critical_deps = self.dependencies.get(&plugin_id).is_some_and(|deps| {
+        for plugin_id in &result.initialization_order {
+            let has_critical_deps = self.dependencies.get(plugin_id).is_some_and(|deps| {
                 deps.iter()
                     .any(|d| d.dependency_type == DependencyType::Critical)
             });
 
-            let has_extension_deps = self.dependencies.get(&plugin_id).is_some_and(|deps| {
+            let has_extension_deps = self.dependencies.get(plugin_id).is_some_and(|deps| {
                 deps.iter()
                     .any(|d| d.dependency_type == DependencyType::Extension)
             });
 
             if has_critical_deps {
-                critical_plugins.push(plugin_id);
+                critical_plugins.push(plugin_id.clone());
             } else if has_extension_deps {
-                extension_plugins.push(plugin_id);
-            } else if self.dependencies.contains_key(&plugin_id) {
-                runtime_plugins.push(plugin_id);
+                extension_plugins.push(plugin_id.clone());
+            } else if self.dependencies.contains_key(plugin_id) {
+                runtime_plugins.push(plugin_id.clone());
             } else {
-                other_plugins.push(plugin_id);
+                other_plugins.push(plugin_id.clone());
             }
         }
 
@@ -463,7 +473,7 @@ impl DependencyResolver {
         let mut hasher = DefaultHasher::new();
 
         // Hash plugin IDs and versions
-        for (&id, version) in &self.plugin_versions {
+        for (id, version) in &self.plugin_versions {
             id.hash(&mut hasher);
             version.to_string().hash(&mut hasher);
         }
@@ -482,10 +492,10 @@ impl DependencyResolver {
     }
 
     /// Get plugins that depend on a specific plugin
-    pub fn get_dependents(&self, plugin_id: Uuid) -> Vec<Uuid> {
+    pub fn get_dependents(&self, plugin_id: &str) -> Vec<String> {
         let plugin_name = self
             .plugins
-            .get(&plugin_id)
+            .get(plugin_id)
             .map(|p| p.metadata().name.clone());
 
         plugin_name.map_or_else(Vec::new, |name| {
@@ -493,7 +503,7 @@ impl DependencyResolver {
                 .iter()
                 .filter_map(|(id, deps)| {
                     if deps.iter().any(|d| d.name == name) {
-                        Some(*id)
+                        Some(id.clone())
                     } else {
                         None
                     }
@@ -596,7 +606,7 @@ mod tests {
 
         // Set up dependencies: C -> B -> A
         let dep_a_to_b = EnhancedPluginDependency {
-            id: plugin_b.metadata().id,
+            id: plugin_b.metadata().id.clone(),
             name: "plugin-b".to_string(),
             version_req: "^1.0.0".to_string(),
             optional: false,
@@ -605,7 +615,7 @@ mod tests {
         };
 
         let dep_b_to_c = EnhancedPluginDependency {
-            id: plugin_c.metadata().id,
+            id: plugin_c.metadata().id.clone(),
             name: "plugin-c".to_string(),
             version_req: "^1.0.0".to_string(),
             optional: false,
@@ -614,10 +624,10 @@ mod tests {
         };
 
         resolver
-            .register_enhanced_dependencies(plugin_a.metadata().id, vec![dep_a_to_b])
+            .register_enhanced_dependencies(&plugin_a.metadata().id, vec![dep_a_to_b])
             .expect("should succeed");
         resolver
-            .register_enhanced_dependencies(plugin_b.metadata().id, vec![dep_b_to_c])
+            .register_enhanced_dependencies(&plugin_b.metadata().id, vec![dep_b_to_c])
             .expect("should succeed");
 
         // Resolve dependencies
@@ -632,17 +642,17 @@ mod tests {
         let c_index = result
             .initialization_order
             .iter()
-            .position(|&id| id == plugin_c.metadata().id)
+            .position(|id| id == &plugin_c.metadata().id)
             .expect("Plugin C should be in initialization order");
         let b_index = result
             .initialization_order
             .iter()
-            .position(|&id| id == plugin_b.metadata().id)
+            .position(|id| id == &plugin_b.metadata().id)
             .expect("Plugin B should be in initialization order");
         let a_index = result
             .initialization_order
             .iter()
-            .position(|&id| id == plugin_a.metadata().id)
+            .position(|id| id == &plugin_a.metadata().id)
             .expect("Plugin A should be in initialization order");
 
         assert!(c_index < b_index);
@@ -665,7 +675,7 @@ mod tests {
 
         // Create circular dependency: A -> B, B -> A
         let dep_a_to_b = EnhancedPluginDependency {
-            id: plugin_b.metadata().id,
+            id: plugin_b.metadata().id.clone(),
             name: "plugin-b".to_string(),
             version_req: "^1.0.0".to_string(),
             optional: false,
@@ -674,7 +684,7 @@ mod tests {
         };
 
         let dep_b_to_a = EnhancedPluginDependency {
-            id: plugin_a.metadata().id,
+            id: plugin_a.metadata().id.clone(),
             name: "plugin-a".to_string(),
             version_req: "^1.0.0".to_string(),
             optional: false,
@@ -683,10 +693,10 @@ mod tests {
         };
 
         resolver
-            .register_enhanced_dependencies(plugin_a.metadata().id, vec![dep_a_to_b])
+            .register_enhanced_dependencies(&plugin_a.metadata().id, vec![dep_a_to_b])
             .expect("should succeed");
         resolver
-            .register_enhanced_dependencies(plugin_b.metadata().id, vec![dep_b_to_a])
+            .register_enhanced_dependencies(&plugin_b.metadata().id, vec![dep_b_to_a])
             .expect("should succeed");
 
         // Resolution should detect the circular dependency
@@ -716,7 +726,7 @@ mod tests {
 
         // A requires B version ^1.0.0, but B is 2.0.0
         let dep_conflicting = EnhancedPluginDependency {
-            id: plugin_b.metadata().id,
+            id: plugin_b.metadata().id.clone(),
             name: "plugin-b".to_string(),
             version_req: "^1.0.0".to_string(), // Incompatible with 2.0.0
             optional: false,
@@ -725,7 +735,7 @@ mod tests {
         };
 
         resolver
-            .register_enhanced_dependencies(plugin_a.metadata().id, vec![dep_conflicting])
+            .register_enhanced_dependencies(&plugin_a.metadata().id, vec![dep_conflicting])
             .expect("should succeed");
 
         let result = resolver.resolve_dependencies().expect("should succeed");

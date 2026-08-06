@@ -10,7 +10,6 @@ use crate::errors::Result;
 use crate::registry::PluginRegistry;
 use crate::types::PluginStatus;
 use std::sync::Arc;
-use uuid::Uuid;
 
 /// Plugin manager trait
 #[expect(
@@ -19,22 +18,22 @@ use uuid::Uuid;
 )]
 pub trait PluginManagerTrait: PluginRegistry + Send + Sync {
     /// Get a plugin by ID
-    async fn get_plugin(&self, id: Uuid) -> Result<Arc<dyn Plugin>>;
+    async fn get_plugin(&self, id: &str) -> Result<Arc<dyn Plugin>>;
 
     /// Initialize a plugin
-    async fn initialize_plugin(&self, id: Uuid) -> Result<()>;
+    async fn initialize_plugin(&self, id: &str) -> Result<()>;
 
     /// Shutdown a plugin
-    async fn shutdown_plugin(&self, id: Uuid) -> Result<()>;
+    async fn shutdown_plugin(&self, id: &str) -> Result<()>;
 
     /// Get plugin status
-    async fn get_plugin_status(&self, id: Uuid) -> Result<PluginStatus>;
+    async fn get_plugin_status(&self, id: &str) -> Result<PluginStatus>;
 
     /// Set plugin status
-    async fn set_plugin_status(&self, id: Uuid, status: PluginStatus) -> Result<()>;
+    async fn set_plugin_status(&self, id: &str, status: PluginStatus) -> Result<()>;
 
     /// Load plugins from a directory
-    async fn load_plugins(&self, directory: &str) -> Result<Vec<Uuid>>;
+    async fn load_plugins(&self, directory: &str) -> Result<Vec<String>>;
 
     /// Initialize all registered plugins
     async fn initialize_all_plugins(&self) -> Result<()>;

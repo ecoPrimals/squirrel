@@ -140,7 +140,7 @@ pub struct ActivityItem {
     pub id: Uuid,
     pub activity_type: String,
     pub description: String,
-    pub plugin_id: Option<Uuid>,
+    pub plugin_id: Option<String>,
     pub plugin_name: Option<String>,
     pub timestamp: chrono::DateTime<chrono::Utc>,
     pub status: String,

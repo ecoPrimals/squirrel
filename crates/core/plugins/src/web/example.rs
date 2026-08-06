@@ -44,15 +44,13 @@ impl ExampleWebPlugin {
     /// Create a new example web plugin
     #[must_use]
     pub fn new() -> Self {
-        let metadata = PluginMetadata {
-            id: Uuid::new_v4(),
-            name: "example-web-plugin".to_string(),
-            version: "1.0.0".to_string(),
-            description: "Example web plugin for demonstration".to_string(),
-            author: "ecoPrimals Contributors".to_string(),
-            capabilities: vec!["web".to_string()],
-            dependencies: vec![],
-        };
+        let metadata = PluginMetadata::new(
+            "example-web-plugin",
+            "1.0.0",
+            "Example web plugin for demonstration",
+            "ecoPrimals Contributors",
+        )
+        .with_capability("web");
 
         let status = RwLock::new(PluginStatus::Registered);
         let data = RwLock::new(HashMap::new());
@@ -321,10 +319,6 @@ impl ExampleWebPlugin {
 }
 
 impl Plugin for ExampleWebPlugin {
-    #[expect(
-        deprecated,
-        reason = "backward compat: PluginMetadata during migration"
-    )]
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
     }

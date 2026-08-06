@@ -118,7 +118,7 @@
 //! ```ignore
 //! // Old
 //! use sdk::infrastructure::error::SdkError;
-//! use ai_tools::error::AIError;
+//! use ai_tools::error::Error;  // Now AIToolsError
 //! use squirrel_mcp::error::MCPError;
 //!
 //! fn operation() -> Result<(), SomeCustomError> {

@@ -23,12 +23,14 @@ pub struct ContextPluginImpl {
 impl ContextPluginImpl {
     /// Create a new context plugin instance
     pub fn new(name: impl Into<String>, description: impl Into<String>) -> Self {
+        let name = name.into();
         let metadata = PluginMetadata::new(
-            name,
+            name.clone(),
             env!("CARGO_PKG_VERSION"),
             description,
             "ecoPrimals Contributors",
         )
+        .with_name(name)
         .with_capability("context.transform")
         .with_capability("context.validate");
 
@@ -118,7 +120,7 @@ impl ContextPlugin for ContextPluginImpl {
                 "metadata": {
                     "transformation_id": tid,
                     "timestamp": chrono::Utc::now().to_rfc3339(),
-                    "plugin_id": self.metadata.id.to_string(),
+                    "plugin_id": self.metadata.id.clone(),
                 }
             });
 

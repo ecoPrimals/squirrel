@@ -32,10 +32,6 @@
 //! use wasm_bindgen::prelude::*;
 
 #![expect(
-    deprecated,
-    reason = "SDK migration to universal-error in progress; legacy API surface still referenced"
-)]
-#![expect(
     clippy::unused_self,
     clippy::unnecessary_wraps,
     clippy::unused_async,

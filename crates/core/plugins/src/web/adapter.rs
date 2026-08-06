@@ -136,10 +136,6 @@ impl<T> Plugin for LegacyWebPluginAdapter<T>
 where
     T: LegacyWebPluginTrait + Plugin + Send + Sync + 'static,
 {
-    #[expect(
-        deprecated,
-        reason = "backward compat: PluginMetadata during migration"
-    )]
     fn metadata(&self) -> &crate::plugin::PluginMetadata {
         self.plugin.metadata()
     }
@@ -304,10 +300,6 @@ impl<T> Plugin for NewWebPluginAdapter<T>
 where
     T: Plugin + Send + Sync + 'static,
 {
-    #[expect(
-        deprecated,
-        reason = "backward compat: PluginMetadata during migration"
-    )]
     fn metadata(&self) -> &crate::plugin::PluginMetadata {
         self.plugin.metadata()
     }

@@ -23,12 +23,14 @@ pub struct ContextAdapterPluginImpl {
 impl ContextAdapterPluginImpl {
     /// Create a new context adapter plugin instance
     pub fn new(name: impl Into<String>, description: impl Into<String>) -> Self {
+        let name = name.into();
         let metadata = PluginMetadata::new(
-            name,
+            name.clone(),
             env!("CARGO_PKG_VERSION"),
             description,
             "ecoPrimals Contributors",
         )
+        .with_name(name)
         .with_capability("context.adapter")
         .with_capability("context.format");
 
@@ -123,7 +125,7 @@ impl ContextAdapterPlugin for ContextAdapterPluginImpl {
                     "source_format": adapter.source_format,
                     "target_format": adapter.target_format,
                     "timestamp": chrono::Utc::now().to_rfc3339(),
-                    "plugin_id": self.metadata.id.to_string(),
+                    "plugin_id": self.metadata.id.clone(),
                 }
             });
 

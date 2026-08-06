@@ -45,6 +45,7 @@
 )]
 
 use super::*;
+use crate::ecosystem::types::EcosystemPrimalType;
 use crate::monitoring::metrics::MetricsCollector;
 use chrono::Utc;
 use std::collections::HashMap;

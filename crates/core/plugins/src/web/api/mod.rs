@@ -65,7 +65,7 @@ impl PluginManagementAPI {
                 if path.starts_with("/api/plugins/") && path.ends_with("/config") =>
             {
                 let id = self.extract_plugin_id(path)?;
-                self.get_plugin_config(id).await
+                self.get_plugin_config(&id).await
             }
             // Fixed route: must be before the generic `/api/plugins/{uuid}` matcher so
             // paths like `/api/plugins/health` are not parsed as plugin IDs.
@@ -73,7 +73,7 @@ impl PluginManagementAPI {
             (HttpMethod::Get, "/api/plugins/metrics") => self.get_plugin_metrics().await,
             (HttpMethod::Get, path) if path.starts_with("/api/plugins/") => {
                 let id = self.extract_plugin_id(path)?;
-                self.get_plugin_details(id).await
+                self.get_plugin_details(&id).await
             }
             (HttpMethod::Post, "/api/plugins") => {
                 let request_data: PluginInstallRequest =
@@ -82,31 +82,31 @@ impl PluginManagementAPI {
             }
             (HttpMethod::Delete, path) if path.starts_with("/api/plugins/") => {
                 let id = self.extract_plugin_id(path)?;
-                self.uninstall_plugin(id).await
+                self.uninstall_plugin(&id).await
             }
             (HttpMethod::Post, path) if path.ends_with("/start") => {
                 let id = self.extract_plugin_id(path)?;
-                self.start_plugin(id).await
+                self.start_plugin(&id).await
             }
             (HttpMethod::Post, path) if path.ends_with("/stop") => {
                 let id = self.extract_plugin_id(path)?;
-                self.stop_plugin(id).await
+                self.stop_plugin(&id).await
             }
             (HttpMethod::Post, path) if path.ends_with("/restart") => {
                 let id = self.extract_plugin_id(path)?;
-                self.restart_plugin(id).await
+                self.restart_plugin(&id).await
             }
             (HttpMethod::Put, path) if path.ends_with("/config") => {
                 let id = self.extract_plugin_id(path)?;
                 let config_data: PluginConfigurationRequest =
                     serde_json::from_value(request.body.unwrap_or_default())?;
-                self.update_plugin_config(id, config_data).await
+                self.update_plugin_config(&id, config_data).await
             }
             (HttpMethod::Post, path) if path.ends_with("/execute") => {
                 let id = self.extract_plugin_id(path)?;
                 let exec_data: PluginExecutionRequest =
                     serde_json::from_value(request.body.unwrap_or_default())?;
-                self.execute_plugin_command(id, exec_data).await
+                self.execute_plugin_command(&id, exec_data).await
             }
 
             // Marketplace endpoints
@@ -116,11 +116,11 @@ impl PluginManagementAPI {
             }
             (HttpMethod::Get, path) if path.starts_with("/api/marketplace/plugins/") => {
                 let id = self.extract_plugin_id(path)?;
-                self.get_marketplace_plugin_details(id).await
+                self.get_marketplace_plugin_details(&id).await
             }
             (HttpMethod::Post, path) if path.ends_with("/install") => {
                 let id = self.extract_plugin_id(path)?;
-                self.install_marketplace_plugin(id).await
+                self.install_marketplace_plugin(&id).await
             }
             (HttpMethod::Get, "/api/marketplace/categories") => {
                 self.get_marketplace_categories().await
@@ -138,11 +138,14 @@ impl PluginManagementAPI {
     }
 
     /// Extract plugin ID from URL path
-    pub(super) fn extract_plugin_id(&self, path: &str) -> Result<Uuid> {
+    pub(super) fn extract_plugin_id(&self, path: &str) -> Result<String> {
         let parts: Vec<&str> = path.split('/').collect();
         if parts.len() >= 4 {
             let id_str = parts[3];
-            Uuid::parse_str(id_str).map_err(|e| anyhow::anyhow!("Invalid plugin ID: {e}"))
+            if id_str.is_empty() {
+                return Err(anyhow::anyhow!("Invalid plugin ID: empty"));
+            }
+            Ok(id_str.to_string())
         } else {
             Err(anyhow::anyhow!("Invalid path format"))
         }

@@ -38,9 +38,9 @@ pub struct WebPluginRegistry<R: PluginRegistry> {
     /// Plugin registry reference
     registry: Arc<R>,
     /// Endpoints by plugin ID
-    endpoints: RwLock<HashMap<Uuid, Vec<WebEndpoint>>>,
+    endpoints: RwLock<HashMap<String, Vec<WebEndpoint>>>,
     /// Components by plugin ID
-    components: RwLock<HashMap<Uuid, Vec<WebComponent>>>,
+    components: RwLock<HashMap<String, Vec<WebComponent>>>,
     /// Cached routes for pattern matching
     routes: RwLock<HashMap<String, Route>>,
 }
@@ -85,8 +85,8 @@ impl<R: PluginRegistry> WebPluginRegistry<R> {
                     }
                 }
 
-                endpoint_map.insert(plugin.metadata().id, endpoints);
-                component_map.insert(plugin.metadata().id, components);
+                endpoint_map.insert(plugin.metadata().id.clone(), endpoints);
+                component_map.insert(plugin.metadata().id.clone(), components);
 
                 count += 1;
             }

@@ -4,13 +4,12 @@
 //! Data types for plugin dependency resolution.
 
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 /// Enhanced plugin dependency with semantic versioning support
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EnhancedPluginDependency {
     /// Dependency ID
-    pub id: Uuid,
+    pub id: String,
 
     /// Dependency name for human-readable reference
     pub name: String,
@@ -45,16 +44,16 @@ pub enum DependencyType {
 #[derive(Debug, Clone)]
 pub struct ResolutionResult {
     /// Ordered list of plugin IDs for initialization
-    pub initialization_order: Vec<Uuid>,
+    pub initialization_order: Vec<String>,
 
     /// Plugins that couldn't be resolved due to missing dependencies
-    pub unresolved_plugins: Vec<(Uuid, Vec<String>)>,
+    pub unresolved_plugins: Vec<(String, Vec<String>)>,
 
     /// Version conflicts detected during resolution
     pub version_conflicts: Vec<VersionConflict>,
 
     /// Circular dependencies detected
-    pub circular_dependencies: Vec<Vec<Uuid>>,
+    pub circular_dependencies: Vec<Vec<String>>,
 
     /// Warnings generated during resolution
     pub warnings: Vec<String>,
@@ -64,7 +63,7 @@ pub struct ResolutionResult {
 #[derive(Debug, Clone)]
 pub struct VersionConflict {
     /// Plugin ID that has the conflict
-    pub plugin_id: Uuid,
+    pub plugin_id: String,
 
     /// Dependency name causing the conflict
     pub dependency_name: String,
@@ -76,7 +75,7 @@ pub struct VersionConflict {
     pub available_version: String,
 
     /// Plugins that depend on this conflicting dependency
-    pub dependent_plugins: Vec<Uuid>,
+    pub dependent_plugins: Vec<String>,
 }
 
 /// Statistics about the dependency resolution state

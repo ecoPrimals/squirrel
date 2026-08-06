@@ -4,12 +4,6 @@
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
-// Allow deprecated items during error type migration to universal-error crate
-#![expect(
-    deprecated,
-    reason = "Error type migration to universal-error crate in progress"
-)]
-
 //! AI Tools for Squirrel MCP
 //!
 //! This crate provides AI provider integrations and routing capabilities.

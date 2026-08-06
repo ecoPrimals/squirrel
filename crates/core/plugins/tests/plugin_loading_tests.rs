@@ -264,7 +264,7 @@ storage = false
         assert_eq!(plugin_ids.len(), 1);
 
         // Verify plugin is actually registered
-        let plugin_id = plugin_ids[0];
+        let plugin_id = &plugin_ids[0];
         let status = PluginManagerTrait::get_plugin_status(&manager, plugin_id).await;
         assert!(status.is_ok());
     }

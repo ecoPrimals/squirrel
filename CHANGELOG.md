@@ -11,6 +11,17 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 6, 2026 — Wave 156r: PluginMetadata Migration + Deprecated Enum Deletion + Lint Cleanup)
+
+- **PluginMetadata migration**: Completed full migration of `crates/core/plugins` from deprecated `plugin::PluginMetadata` (Uuid id, Vec<Uuid> dependencies) to canonical `squirrel_interfaces::plugins::PluginMetadata` (String id, Vec<String> dependencies). 28 files migrated, deprecated struct deleted, all HashMap/DashMap keys converted from Uuid to String, Plugin trait `id()` returns `&str`.
+- **AIError enum deleted**: Removed 345-line deprecated `AIError` enum from `crates/tools/ai-tools/src/error.rs` (zero production callers, bridge + tests only). Module now just re-exports `universal_error::tools::AIToolsError`.
+- **EcosystemPrimalType de-exported**: Stopped re-exporting deprecated `EcosystemPrimalType` from `ecosystem/mod.rs` public API. Test imports updated to use `ecosystem::types::EcosystemPrimalType`.
+- **3 crate-level `#![expect(deprecated)]` blankets eliminated**: ai-tools blanket removed (no deprecated items), SDK blanket removed and replaced with targeted per-site suppressors, plugins blanket removed after PluginMetadata migration completed.
+- **DNS constant extracted**: `8.8.8.8` hardcoded DNS → `universal_constants::network::DEFAULT_DNS_SERVER`.
+- **cfg_attr lint hygiene**: 2 remaining `#[allow]` without reason on `cfg_attr` attributes updated.
+- **Error types migrated**: `PluginError::NotFound`, `AlreadyRegistered`, `DependencyCycle` changed from `Uuid` to `String`. `EnhancedPluginDependency.id` migrated to `String`.
+- 0 errors, 0 warnings, 6,366 tests passing.
+
 ### Summary (Aug 6, 2026 — Wave 156q: Port Constants + Lint Hygiene + Dead Code)
 
 - **Port literals → constants**: 6 inline port numbers across 4 crates (`federation/types.rs`, `auth/lib.rs`, `builder_presets.rs`, `cli/config_types.rs`) wired to `universal_constants::network` named constants. 3 new constants added: `DEFAULT_HTTP_SERVICE_PORT`, `DEFAULT_ADMIN_PORT`, `DEFAULT_MCP_TCP_PORT`.

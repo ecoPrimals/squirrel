@@ -29,7 +29,7 @@ mod mod_tests;
 
 pub mod registry;
 
-// Re-export public API - registration before types so EcosystemPrimalType is in scope for types
+// Re-export public API
 pub use config::EcosystemConfig;
 pub use manager::EcosystemManager;
 pub use manager::initialize_ecosystem_integration;
@@ -37,7 +37,7 @@ pub use registration::EcosystemServiceRegistration;
 pub use registry::*;
 pub use status::*;
 pub use types::{
-    CapabilityDomain, CapabilityIdentifier, EcosystemPrimalType, HealthCheckConfig,
+    CapabilityDomain, CapabilityIdentifier, HealthCheckConfig,
     ResourceRequirements, ResourceSpec, SecurityConfig, ServiceCapabilities, ServiceEndpoints,
     capabilities, primary_capability_from_iter,
 };

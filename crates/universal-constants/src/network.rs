@@ -236,6 +236,9 @@ pub const DEFAULT_AGENT_DEPLOY_BASE_PORT_HIGH: u16 = 8090;
 /// Legacy gRPC port constant — gRPC fully removed, kept only for config deserialization compat
 pub const DEFAULT_GRPC_PORT: u16 = 50051;
 
+/// Default public DNS server for manifest/container network configuration.
+pub const DEFAULT_DNS_SERVER: &str = "8.8.8.8";
+
 /// Bind to all network interfaces (0.0.0.0)
 ///
 /// Use for production servers that accept external connections.

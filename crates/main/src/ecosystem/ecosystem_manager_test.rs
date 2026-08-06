@@ -3,7 +3,8 @@
 
 #![allow(deprecated)]
 // Tests deprecated path for backward compatibility // Tests deprecated path for backward compatibility
-use crate::ecosystem::{ComponentHealth, EcosystemConfig, EcosystemManager, EcosystemPrimalType};
+use crate::ecosystem::{ComponentHealth, EcosystemConfig, EcosystemManager};
+use crate::ecosystem::types::EcosystemPrimalType;
 use crate::monitoring::metrics::MetricsCollector;
 use std::str::FromStr;
 use std::sync::Arc;

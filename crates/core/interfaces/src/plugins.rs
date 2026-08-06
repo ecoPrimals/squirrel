@@ -38,6 +38,10 @@ pub struct PluginMetadata {
     /// Plugin capabilities
     #[serde(default)]
     pub capabilities: Vec<String>,
+
+    /// Plugin dependency identifiers
+    #[serde(default)]
+    pub dependencies: Vec<String>,
 }
 
 impl PluginMetadata {
@@ -56,13 +60,28 @@ impl PluginMetadata {
             description: description.into(),
             author: author.into(),
             capabilities: Vec::new(),
+            dependencies: Vec::new(),
         }
+    }
+
+    /// Set the human-readable name (defaults to id).
+    #[must_use]
+    pub fn with_name(mut self, name: impl Into<String>) -> Self {
+        self.name = name.into();
+        self
     }
 
     /// Add a capability to the plugin
     #[must_use]
     pub fn with_capability(mut self, capability: impl Into<String>) -> Self {
         self.capabilities.push(capability.into());
+        self
+    }
+
+    /// Add a dependency to the plugin
+    #[must_use]
+    pub fn with_dependency(mut self, dependency: impl Into<String>) -> Self {
+        self.dependencies.push(dependency.into());
         self
     }
 }
@@ -241,6 +260,24 @@ mod tests {
         assert_eq!(meta.description, "A test plugin");
         assert_eq!(meta.author, "TestAuthor");
         assert!(meta.capabilities.is_empty());
+        assert!(meta.dependencies.is_empty());
+    }
+
+    #[test]
+    fn test_plugin_metadata_with_dependency() {
+        let meta = PluginMetadata::new("test", "1.0", "desc", "auth")
+            .with_dependency("other-plugin")
+            .with_dependency("another-plugin");
+        assert_eq!(meta.dependencies.len(), 2);
+        assert_eq!(meta.dependencies[0], "other-plugin");
+    }
+
+    #[test]
+    fn test_plugin_metadata_with_name() {
+        let meta = PluginMetadata::new("test-id", "1.0", "desc", "auth")
+            .with_name("Human Readable Name");
+        assert_eq!(meta.id, "test-id");
+        assert_eq!(meta.name, "Human Readable Name");
     }
 
     #[test]
