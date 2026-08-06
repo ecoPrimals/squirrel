@@ -148,16 +148,16 @@ impl AccessControlManager for DefaultAccessControlManager {
             let has_permission = match access_type {
                 DataAccessType::Read => {
                     data_permissions.public_read
-                        || data_permissions.read_users.contains(&user.to_string())
-                        || data_permissions.admin_users.contains(&user.to_string())
+                        || data_permissions.read_users.iter().any(|u| u == user)
+                        || data_permissions.admin_users.iter().any(|u| u == user)
                 }
                 DataAccessType::Write => {
                     data_permissions.public_write
-                        || data_permissions.write_users.contains(&user.to_string())
-                        || data_permissions.admin_users.contains(&user.to_string())
+                        || data_permissions.write_users.iter().any(|u| u == user)
+                        || data_permissions.admin_users.iter().any(|u| u == user)
                 }
                 DataAccessType::Delete | DataAccessType::Admin => {
-                    data_permissions.admin_users.contains(&user.to_string())
+                    data_permissions.admin_users.iter().any(|u| u == user)
                 }
             };
 
@@ -191,17 +191,17 @@ impl AccessControlManager for DefaultAccessControlManager {
 
         match access_type {
             DataAccessType::Read => {
-                if !data_permissions.read_users.contains(&user.to_string()) {
+                if !data_permissions.read_users.iter().any(|u| u == user) {
                     data_permissions.read_users.push(user.to_string());
                 }
             }
             DataAccessType::Write => {
-                if !data_permissions.write_users.contains(&user.to_string()) {
+                if !data_permissions.write_users.iter().any(|u| u == user) {
                     data_permissions.write_users.push(user.to_string());
                 }
             }
             DataAccessType::Admin | DataAccessType::Delete => {
-                if !data_permissions.admin_users.contains(&user.to_string()) {
+                if !data_permissions.admin_users.iter().any(|u| u == user) {
                     data_permissions.admin_users.push(user.to_string());
                 }
             }

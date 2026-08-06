@@ -410,7 +410,7 @@ mod tests {
             action: &str,
             _resource: &str,
         ) -> Result<bool, SecurityError> {
-            Ok(principal.permissions.contains(&action.to_string()))
+            Ok(principal.permissions.iter().any(|p| p == action))
         }
 
         async fn encrypt(&self, data: &[u8]) -> Result<Vec<u8>, SecurityError> {

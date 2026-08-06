@@ -197,7 +197,7 @@ impl ContextManager {
     fn get_shared_contexts_for_agent(&self, agent_id: &str) -> Vec<SharedContext> {
         self.shared_contexts
             .iter()
-            .filter(|entry| entry.value().shared_with.contains(&agent_id.to_string()))
+            .filter(|entry| entry.value().shared_with.iter().any(|a| a == agent_id))
             .map(|entry| entry.value().clone())
             .collect()
     }
@@ -210,7 +210,7 @@ impl ContextManager {
     pub fn add_agent_to_shared_context(&self, context_id: &str, agent_id: &str) -> Result<()> {
         match self.shared_contexts.get_mut(context_id) {
             Some(mut context) => {
-                if !context.shared_with.contains(&agent_id.to_string()) {
+                if !context.shared_with.iter().any(|a| a == agent_id) {
                     context.shared_with.push(agent_id.to_string());
                     debug!(
                         "Added agent '{}' to shared context '{}'",
@@ -284,7 +284,7 @@ impl ContextManager {
 
         // Check shared context
         if let Some(context) = self.shared_contexts.get(context_id) {
-            return context.shared_with.contains(&agent_id.to_string());
+            return context.shared_with.iter().any(|a| a == agent_id);
         }
 
         false

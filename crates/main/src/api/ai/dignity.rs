@@ -112,7 +112,7 @@ impl DignityEvaluator {
         }
 
         // Human oversight: context indicates no human review
-        if Self::lacks_human_oversight(context_lower.as_ref()) {
+        if Self::lacks_human_oversight(context_lower.as_deref()) {
             flags.push(DignityFlag::MissingHumanOversight);
         }
 
@@ -122,7 +122,7 @@ impl DignityEvaluator {
         }
 
         // Explainability: model may not support provenance
-        if Self::lacks_explainability(request.model, context_lower.as_ref()) {
+        if Self::lacks_explainability(request.model, context_lower.as_deref()) {
             flags.push(DignityFlag::MissingExplanation);
         }
 
@@ -179,7 +179,7 @@ impl DignityEvaluator {
         RISK_PHRASES.iter().any(|p| prompt.contains(p))
     }
 
-    fn lacks_human_oversight(context: Option<&String>) -> bool {
+    fn lacks_human_oversight(context: Option<&str>) -> bool {
         let Some(ctx) = context else { return false };
         const NO_OVERSIGHT: &[&str] = &["automated", "no human", "without review", "unattended"];
         NO_OVERSIGHT.iter().any(|p| ctx.contains(p))
@@ -201,8 +201,8 @@ impl DignityEvaluator {
         None
     }
 
-    fn lacks_explainability(model: Option<&str>, context: Option<&String>) -> bool {
-        let ctx = context.map_or("", String::as_str);
+    fn lacks_explainability(model: Option<&str>, context: Option<&str>) -> bool {
+        let ctx = context.unwrap_or("");
         if ctx.contains("explainable") || ctx.contains("provenance") {
             return false;
         }

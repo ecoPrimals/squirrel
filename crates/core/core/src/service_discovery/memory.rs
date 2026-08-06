@@ -299,8 +299,8 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
         let Some(service) = services.get_mut(service_id.as_str()) else {
             return Err(CoreError::ServiceNotFound(service_id));
         };
-        let old_status = service.health_status.clone();
-        service.health_status = health.clone();
+        let old_status = service.health_status;
+        service.health_status = health;
         service.last_heartbeat = Utc::now();
         drop(services);
 

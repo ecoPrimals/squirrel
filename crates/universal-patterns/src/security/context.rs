@@ -115,7 +115,7 @@ impl SecurityContext {
     ///
     /// Returns `true` if the context has the permission, `false` otherwise.
     pub fn has_permission(&self, permission: &str) -> bool {
-        self.permissions.contains(&permission.to_string())
+        self.permissions.iter().any(|p| p == permission)
     }
 
     /// Get the remaining time before expiration

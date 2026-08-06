@@ -74,7 +74,7 @@ impl WebRequest {
     /// Check if the request has a specific permission
     #[must_use]
     pub fn has_permission(&self, permission: &str) -> bool {
-        self.permissions.contains(&permission.to_string())
+        self.permissions.iter().any(|p| p == permission)
     }
 
     /// Get a query parameter

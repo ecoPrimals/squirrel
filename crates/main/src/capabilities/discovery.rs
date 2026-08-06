@@ -289,7 +289,7 @@ async fn try_socket_scan(capability: &str) -> Result<Option<CapabilityProvider>,
                         // Probe each socket to see what it provides
                         // Errors are logged but don't stop the scan
                         if let Ok(provider) = probe_socket(&path).await
-                            && provider.capabilities.contains(&capability.to_string())
+                            && provider.capabilities.iter().any(|c| c == capability)
                         {
                             return Ok::<Option<CapabilityProvider>, DiscoveryError>(Some(
                                 CapabilityProvider {

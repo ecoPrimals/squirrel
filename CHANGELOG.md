@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 6, 2026 — Wave 156n: Allocation Hygiene + API Ergonomics)
+
+- **`&String` → `&str` parameter evolution**: 2 `Option<&String>` params in `dignity.rs` (`lacks_human_oversight`, `lacks_explainability`) evolved to `Option<&str>`. Call sites migrated from `.as_ref()` to `.as_deref()`.
+- **Redundant Copy clones eliminated**: 6 `.clone()` calls on types that now implement `Copy` (`ServiceHealthStatus`, `HealthState`, `HealthStatus`, `SessionState`) removed across 4 production files. `monitoring::HealthState` also given `Copy` derive.
+- **15 allocation-free comparisons**: Replaced `vec.contains(&x.to_string())` with `vec.iter().any(|e| e == x)` across 15 production sites in 11 files (auth/types, routing/context, sync, discovery, access_control, plugins, security/context, security/traits, task/manager). Eliminates heap allocation per comparison.
+- **`ServiceDefinition`/`ServiceQuery` API ergonomics**: Evolved 11 constructor/builder params from `String` to `impl Into<String>` in `service_discovery/types.rs` (`new`, `with_capability`, `with_metadata`, `with_health_check`, `with_tag`).
+- **`has_capability` allocation eliminated**: `ServiceDefinition::has_capability` changed from `contains(&capability.to_string())` to `iter().any(|c| c == capability)`.
+- **6,455 tests passing**, zero warnings across workspace.
+
 ### Summary (Aug 5, 2026 — Wave 156m: PluginError→SDKError Bridge + 20 More Copy Derives)
 
 - **`From<PluginError> for SDKError` bridge**: Maps all 40+ `PluginError` variants to the hierarchical `SDKError` structure in `crates/sdk/src/infrastructure/error/conversions.rs`. Communication variants → `CommunicationError::MCP`/`Event`/`Command`/`Serialization`, network variants → `ClientError::Connection`/`Http`/`Timeout`, infrastructure variants → `InfrastructureError::Configuration`/`Validation`/`Utility`, remaining → `SDKError::General`. Enables incremental migration of the 670-ref deprecated `PluginError` surface.

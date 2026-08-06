@@ -224,7 +224,7 @@ impl<D: ServiceDiscovery + 'static> ServiceRegistry<D> {
     ) -> CoreResult<()> {
         // Update in discovery
         self.discovery
-            .update_service_health(service_id, health.clone())
+            .update_service_health(service_id, health)
             .await?;
 
         // Update locally

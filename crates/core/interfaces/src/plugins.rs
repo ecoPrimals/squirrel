@@ -122,7 +122,8 @@ pub trait Plugin: Send + Sync + Debug {
     fn has_capability(&self, capability: &str) -> bool {
         self.metadata()
             .capabilities
-            .contains(&capability.to_string())
+            .iter()
+            .any(|c| c == capability)
     }
 }
 

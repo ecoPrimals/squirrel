@@ -209,7 +209,7 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
         let memory_health =
             1.0 - (system_metrics.system_metrics.memory_percentage / 100.0).min(1.0);
         let error_health = 1.0 - system_metrics.system_metrics.error_rate.min(1.0);
-        let status = health.status.clone();
+        let status = health.status;
 
         PrimalHealth {
             status,

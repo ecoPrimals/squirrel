@@ -1,12 +1,21 @@
 +++
 title = "squirrel Validation Summary"
 description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,455 tests (default features), 44 IPC methods."
-date = 2026-08-05
+date = 2026-08-06
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 156n — Allocation Hygiene + API Ergonomics (Aug 6, 2026)
+
+- 2 `Option<&String>` params evolved to `Option<&str>` in `dignity.rs`; call sites: `.as_ref()` → `.as_deref()`
+- 6 redundant `.clone()` on `Copy` types removed; `monitoring::HealthState` given `Copy` derive
+- 15 `vec.contains(&x.to_string())` → `vec.iter().any(|e| e == x)` — zero-allocation comparisons across 11 files
+- 11 constructor/builder params in `ServiceDefinition`/`ServiceQuery` evolved to `impl Into<String>`
+- `ServiceDefinition::has_capability` allocation eliminated
+- 0 warnings, 6,455 tests passing
 
 ## Wave 156m — PluginError→SDKError Bridge + 20 More Copy Derives (Aug 5, 2026)
 

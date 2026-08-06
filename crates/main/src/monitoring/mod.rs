@@ -180,7 +180,7 @@ pub struct SystemStatus {
 }
 
 /// System health state
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HealthState {
     /// All systems operational
     Healthy,

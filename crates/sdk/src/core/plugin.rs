@@ -484,7 +484,7 @@ impl BasePlugin {
     /// Check if plugin has a capability
     #[wasm_bindgen]
     pub fn has_capability(&self, capability: &str) -> bool {
-        self.info.capabilities.contains(&capability.to_string())
+        self.info.capabilities.iter().any(|c| c == capability)
     }
 
     /// Update statistics

@@ -39,15 +39,15 @@ impl ServiceDefinition {
     /// Create a new service definition with required fields
     #[must_use]
     pub fn new(
-        id: String,
-        name: String,
+        id: impl Into<String>,
+        name: impl Into<String>,
         service_type: ServiceType,
         endpoints: Vec<ServiceEndpoint>,
     ) -> Self {
         let now = Utc::now();
         Self {
-            id,
-            name,
+            id: id.into(),
+            name: name.into(),
             service_type,
             endpoints,
             capabilities: Vec::new(),
@@ -60,8 +60,8 @@ impl ServiceDefinition {
 
     /// Add a capability to the service
     #[must_use]
-    pub fn with_capability(mut self, capability: String) -> Self {
-        self.capabilities.push(capability);
+    pub fn with_capability(mut self, capability: impl Into<String>) -> Self {
+        self.capabilities.push(capability.into());
         self
     }
 
@@ -74,8 +74,8 @@ impl ServiceDefinition {
 
     /// Add metadata to the service
     #[must_use]
-    pub fn with_metadata(mut self, key: String, value: String) -> Self {
-        self.metadata.insert(key, value);
+    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.metadata.insert(key.into(), value.into());
         self
     }
 
@@ -89,7 +89,7 @@ impl ServiceDefinition {
     /// Check if service has a specific capability
     #[must_use]
     pub fn has_capability(&self, capability: &str) -> bool {
-        self.capabilities.contains(&capability.to_string())
+        self.capabilities.iter().any(|c| c == capability)
     }
 
     /// Check if service matches metadata filter
@@ -255,8 +255,8 @@ impl ServiceEndpoint {
 
     /// Set health check URL
     #[must_use]
-    pub fn with_health_check(mut self, url: String) -> Self {
-        self.health_check_url = Some(url);
+    pub fn with_health_check(mut self, url: impl Into<String>) -> Self {
+        self.health_check_url = Some(url.into());
         self
     }
 
@@ -269,8 +269,8 @@ impl ServiceEndpoint {
 
     /// Add tag
     #[must_use]
-    pub fn with_tag(mut self, tag: String) -> Self {
-        self.tags.push(tag);
+    pub fn with_tag(mut self, tag: impl Into<String>) -> Self {
+        self.tags.push(tag.into());
         self
     }
 
@@ -396,15 +396,15 @@ impl ServiceQuery {
 
     /// Filter by capability
     #[must_use]
-    pub fn with_capability(mut self, capability: String) -> Self {
-        self.capabilities.push(capability);
+    pub fn with_capability(mut self, capability: impl Into<String>) -> Self {
+        self.capabilities.push(capability.into());
         self
     }
 
     /// Filter by metadata
     #[must_use]
-    pub fn with_metadata(mut self, key: String, value: String) -> Self {
-        self.metadata.insert(key, value);
+    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.metadata.insert(key.into(), value.into());
         self
     }
 
@@ -417,8 +417,8 @@ impl ServiceQuery {
 
     /// Filter by tag
     #[must_use]
-    pub fn with_tag(mut self, tag: String) -> Self {
-        self.tags.push(tag);
+    pub fn with_tag(mut self, tag: impl Into<String>) -> Self {
+        self.tags.push(tag.into());
         self
     }
 

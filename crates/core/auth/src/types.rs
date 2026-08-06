@@ -97,7 +97,7 @@ impl User {
     /// Check if user has a specific role
     #[must_use]
     pub fn has_role(&self, role: &str) -> bool {
-        self.roles.contains(&role.to_string())
+        self.roles.iter().any(|r| r == role)
     }
 
     /// Check if user has a specific permission
@@ -199,7 +199,7 @@ impl AuthContext {
     /// Check if user has a specific role
     #[must_use]
     pub fn has_role(&self, role: &str) -> bool {
-        self.roles.contains(&role.to_string())
+        self.roles.iter().any(|r| r == role)
     }
 
     /// Check if user has a specific permission

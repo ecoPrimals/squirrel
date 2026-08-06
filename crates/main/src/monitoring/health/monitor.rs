@@ -149,7 +149,7 @@ impl HealthMonitor {
 
         let mut summary = HashMap::new();
         for (name, health) in component_health.iter() {
-            summary.insert(name.clone(), health.state.clone());
+            summary.insert(name.clone(), health.state);
         }
 
         Ok(summary)

@@ -21,7 +21,7 @@ pub trait MonitoringPlugin: Plugin + Send + Sync {
 
     /// Check if the plugin supports a specific monitoring target
     fn supports_monitoring_target(&self, target: &str) -> bool {
-        self.get_monitoring_targets().contains(&target.to_string())
+        self.get_monitoring_targets().iter().any(|t| t == target)
     }
 
     /// Handle alerts

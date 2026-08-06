@@ -596,7 +596,7 @@ impl SyncManager {
         let mut recovered_partitions = Vec::new();
 
         for (key, partition) in &self.active_partitions {
-            if partition.affected_peers.contains(&node_id.to_string()) {
+            if partition.affected_peers.iter().any(|p| p == node_id) {
                 recovered_partitions.push(key.clone());
             }
         }

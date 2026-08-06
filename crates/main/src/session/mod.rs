@@ -283,7 +283,7 @@ impl SessionManagerImpl {
         let updated_session = Arc::new(Session {
             metadata: updated_metadata,
             data: updated_data,
-            state: session.state.clone(),
+            state: session.state,
         });
 
         *session_entry.value_mut() = updated_session;

@@ -408,7 +408,7 @@ impl TaskManager {
             tasks
                 .iter()
                 .filter(|(_, task)| {
-                    task.prerequisites.contains(&completed_task_id.to_string())
+                    task.prerequisites.iter().any(|p| p == completed_task_id)
                         && task.status_code == TaskStatus::Waiting
                 })
                 .map(|(id, _)| Arc::clone(id))
