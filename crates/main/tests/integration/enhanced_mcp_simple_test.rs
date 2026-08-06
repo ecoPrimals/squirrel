@@ -20,7 +20,7 @@ async fn test_ai_intelligence() -> Result<()> {
     assert_eq!(ai_intelligence.automation_tasks, 0);
 
     // Test ecosystem analysis
-    let analysis_result = ai_intelligence.generate_ecosystem_report().await?;
+    let analysis_result = ai_intelligence.generate_ecosystem_report()?;
     assert!(!analysis_result.recommendations.is_empty());
 
     Ok(())
@@ -33,8 +33,7 @@ async fn test_mcp_integration() -> Result<()> {
 
     // Test coordination session creation
     let session_id = mcp_integration
-        .create_coordination_session(vec!["test-primal".to_string()], "test-session".to_string())
-        .await?;
+        .create_coordination_session(vec!["test-primal".to_string()], "test-session".to_string())?;
 
     assert!(!session_id.is_empty());
 
@@ -52,8 +51,7 @@ async fn test_context_state_management() -> Result<()> {
             "test-session-001".to_string(),
             Some("user-123".to_string()),
             "test_context".to_string(),
-        )
-        .await?;
+        )?;
 
     // Verify session was created
     assert_eq!(context_state.get_active_sessions(), 1);

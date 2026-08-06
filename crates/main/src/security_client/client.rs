@@ -163,7 +163,7 @@ impl UniversalSecurityClient {
         );
 
         // Select best provider using AI-based routing
-        let provider = self.select_best_provider(&request).await?;
+        let provider = self.select_best_provider(&request)?;
 
         // Create primal request
         let primal_request = PrimalRequest::new(
@@ -183,21 +183,20 @@ impl UniversalSecurityClient {
             .await?;
 
         // Process response and generate AI insights
-        let security_response = self.process_response(response, &provider, &request).await?;
+        let security_response = self.process_response(response, &provider, &request)?;
 
         // Update provider health based on operation
-        self.update_provider_health(&provider.provider_id, &security_response)
-            .await;
+        self.update_provider_health(&provider.provider_id, &security_response);
 
         // Log security event
-        self.log_security_event(&request, &security_response).await;
+        self.log_security_event(&request, &security_response);
 
         info!("Universal security operation completed successfully");
         Ok(security_response)
     }
 
     /// Select best provider using AI-based routing
-    async fn select_best_provider(
+    fn select_best_provider(
         &self,
         request: &UniversalSecurityRequest,
     ) -> UniversalResult<SecurityProvider> {
@@ -213,7 +212,7 @@ impl UniversalSecurityClient {
 
         for entry in self.providers.iter() {
             let provider = entry.value();
-            let score = self.calculate_provider_score(provider, request).await;
+            let score = self.calculate_provider_score(provider, request);
             if score > best_score {
                 best_score = score;
                 best_provider = Some(provider.clone());
@@ -226,7 +225,7 @@ impl UniversalSecurityClient {
     }
 
     /// Calculate provider score for specific request
-    async fn calculate_provider_score(
+    fn calculate_provider_score(
         &self,
         provider: &SecurityProvider,
         request: &UniversalSecurityRequest,
@@ -263,7 +262,7 @@ impl UniversalSecurityClient {
     }
 
     /// Process response and generate AI insights
-    async fn process_response(
+    fn process_response(
         &self,
         response: PrimalResponse,
         provider: &SecurityProvider,
@@ -342,7 +341,7 @@ impl UniversalSecurityClient {
     }
 
     /// Update provider health based on operation results
-    async fn update_provider_health(
+    fn update_provider_health(
         &self,
         provider_id: &str,
         response: &UniversalSecurityResponse,
@@ -364,7 +363,7 @@ impl UniversalSecurityClient {
     }
 
     /// Log security event
-    async fn log_security_event(
+    fn log_security_event(
         &self,
         request: &UniversalSecurityRequest,
         response: &UniversalSecurityResponse,

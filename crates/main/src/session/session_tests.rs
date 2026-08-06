@@ -12,13 +12,11 @@ async fn test_session_creation() {
 
     let session_id = manager
         .create_session(Some("test_client".to_string()))
-        .await
         .expect("should succeed");
     assert!(!session_id.is_empty());
 
     let session = manager
         .get_session(&session_id)
-        .await
         .expect("should succeed");
     assert!(session.is_some());
 }
@@ -28,7 +26,7 @@ async fn test_session_update() {
     let config = SessionConfig::default();
     let manager = SessionManagerImpl::new(config);
 
-    let session_id = manager.create_session(None).await.expect("should succeed");
+    let session_id = manager.create_session(None).expect("should succeed");
 
     let mut data = HashMap::new();
     data.insert(
@@ -38,12 +36,10 @@ async fn test_session_update() {
 
     manager
         .update_session(&session_id, data)
-        .await
         .expect("should succeed");
 
     let session = manager
         .get_session(&session_id)
-        .await
         .expect("should succeed")
         .expect("should succeed");
     assert_eq!(
@@ -57,15 +53,13 @@ async fn test_session_termination() {
     let config = SessionConfig::default();
     let manager = SessionManagerImpl::new(config);
 
-    let session_id = manager.create_session(None).await.expect("should succeed");
+    let session_id = manager.create_session(None).expect("should succeed");
     manager
         .terminate_session(&session_id)
-        .await
         .expect("should succeed");
 
     let session = manager
         .get_session(&session_id)
-        .await
         .expect("should succeed")
         .expect("should succeed");
     assert!(matches!(session.state, SessionState::Terminated));
@@ -86,7 +80,7 @@ async fn test_session_manager_initialization_with_custom_config() {
     assert_eq!(manager.config.enable_logging, config.enable_logging);
 
     // Verify initial state
-    assert_eq!(manager.get_active_session_count().await, 0);
+    assert_eq!(manager.get_active_session_count(), 0);
 }
 
 #[tokio::test]
@@ -99,7 +93,7 @@ async fn test_session_manager_initialization_with_default_config() {
     assert!(manager.config.enable_logging);
 
     // Verify initial state
-    assert_eq!(manager.get_active_session_count().await, 0);
+    assert_eq!(manager.get_active_session_count(), 0);
 }
 
 #[tokio::test]
@@ -110,15 +104,13 @@ async fn test_session_lifecycle_create_get_update_delete() {
     // Create session
     let session_id = manager
         .create_session(Some("lifecycle_test_client".to_string()))
-        .await
         .expect("should succeed");
     assert!(!session_id.is_empty());
-    assert_eq!(manager.get_active_session_count().await, 1);
+    assert_eq!(manager.get_active_session_count(), 1);
 
     // Get session
     let session = manager
         .get_session(&session_id)
-        .await
         .expect("should succeed")
         .expect("should succeed");
     assert_eq!(session.metadata.session_id, session_id);
@@ -141,13 +133,11 @@ async fn test_session_lifecycle_create_get_update_delete() {
 
     manager
         .update_session(&session_id, update_data.clone())
-        .await
         .expect("should succeed");
 
     // Verify update
     let updated_session = manager
         .get_session(&session_id)
-        .await
         .expect("should succeed")
         .expect("should succeed");
     assert_eq!(
@@ -159,18 +149,16 @@ async fn test_session_lifecycle_create_get_update_delete() {
     // Delete/terminate session
     manager
         .terminate_session(&session_id)
-        .await
         .expect("should succeed");
 
     // Verify termination
     let terminated_session = manager
         .get_session(&session_id)
-        .await
         .expect("should succeed")
         .expect("should succeed");
     assert!(matches!(terminated_session.state, SessionState::Terminated));
     // Session still exists in map but is terminated
-    assert_eq!(manager.get_active_session_count().await, 1);
+    assert_eq!(manager.get_active_session_count(), 1);
 }
 
 #[tokio::test]
@@ -183,18 +171,17 @@ async fn test_session_timeout_cleanup() {
     let manager = SessionManagerImpl::new(config);
 
     // Create multiple sessions
-    let _session_id1 = manager.create_session(None).await.expect("should succeed");
-    let _session_id2 = manager.create_session(None).await.expect("should succeed");
-    let session_id3 = manager.create_session(None).await.expect("should succeed");
+    let _session_id1 = manager.create_session(None).expect("should succeed");
+    let _session_id2 = manager.create_session(None).expect("should succeed");
+    let session_id3 = manager.create_session(None).expect("should succeed");
 
-    assert_eq!(manager.get_active_session_count().await, 3);
+    assert_eq!(manager.get_active_session_count(), 3);
 
     // Update one session to keep it active
     let mut keep_alive_data = HashMap::new();
     keep_alive_data.insert("keep_alive".to_string(), serde_json::json!(true));
     manager
         .update_session(&session_id3, keep_alive_data)
-        .await
         .expect("should succeed");
 
     // Yield to let time pass for the ultra-short timeout (5ms)
@@ -203,12 +190,11 @@ async fn test_session_timeout_cleanup() {
     // Cleanup expired sessions
     let removed_count = manager
         .cleanup_expired_sessions()
-        .await
         .expect("should succeed");
     assert!(removed_count >= 2); // At least 2 sessions should be expired
 
     // Verify remaining session count
-    let remaining_count = manager.get_active_session_count().await;
+    let remaining_count = manager.get_active_session_count();
     assert!(remaining_count <= 1);
 }
 
@@ -218,7 +204,7 @@ async fn test_concurrent_session_access() {
     let manager = Arc::new(SessionManagerImpl::new(config));
 
     // Create a session
-    let session_id = manager.create_session(None).await.expect("should succeed");
+    let session_id = manager.create_session(None).expect("should succeed");
 
     // Spawn multiple concurrent tasks accessing the same session
     let mut handles = vec![];
@@ -233,12 +219,10 @@ async fn test_concurrent_session_access() {
             );
             manager_clone
                 .update_session(&session_id_clone, update_data)
-                .await
                 .expect("should succeed");
 
             let session = manager_clone
                 .get_session(&session_id_clone)
-                .await
                 .expect("should succeed")
                 .expect("should succeed");
             assert_eq!(session.metadata.session_id, session_id_clone);
@@ -256,7 +240,6 @@ async fn test_concurrent_session_access() {
     // Verify final session state
     let final_session = manager
         .get_session(&session_id)
-        .await
         .expect("should succeed")
         .expect("should succeed");
     assert_eq!(final_session.metadata.session_id, session_id);
@@ -277,7 +260,6 @@ async fn test_concurrent_session_creation() {
             let client_info = Some(format!("concurrent_client_{i}"));
             manager_clone
                 .create_session(client_info)
-                .await
                 .expect("should succeed")
         });
         handles.push(handle);
@@ -295,7 +277,7 @@ async fn test_concurrent_session_creation() {
     assert_eq!(unique_ids.len(), 20);
 
     // Verify session count
-    assert_eq!(manager.get_active_session_count().await, 20);
+    assert_eq!(manager.get_active_session_count(), 20);
 }
 
 #[tokio::test]
@@ -307,13 +289,11 @@ async fn test_session_metadata_operations() {
     let client_info = Some("metadata_test_client".to_string());
     let session_id = manager
         .create_session(client_info.clone())
-        .await
         .expect("should succeed");
 
     // Get session and verify metadata
     let session = manager
         .get_session(&session_id)
-        .await
         .expect("should succeed")
         .expect("should succeed");
     assert_eq!(session.metadata.session_id, session_id);
@@ -338,12 +318,10 @@ async fn test_session_metadata_operations() {
     update_data.insert("test".to_string(), serde_json::json!("value"));
     manager
         .update_session(&session_id, update_data)
-        .await
         .expect("should succeed");
 
     let updated_session = manager
         .get_session(&session_id)
-        .await
         .expect("should succeed")
         .expect("should succeed");
     assert!(updated_session.metadata.last_activity > last_activity);
@@ -355,7 +333,7 @@ async fn test_session_data_operations() {
     let config = SessionConfig::default();
     let manager = SessionManagerImpl::new(config);
 
-    let session_id = manager.create_session(None).await.expect("should succeed");
+    let session_id = manager.create_session(None).expect("should succeed");
 
     // Test adding data
     let mut data1 = HashMap::new();
@@ -363,12 +341,10 @@ async fn test_session_data_operations() {
     data1.insert("key2".to_string(), serde_json::json!(42));
     manager
         .update_session(&session_id, data1)
-        .await
         .expect("should succeed");
 
     let session = manager
         .get_session(&session_id)
-        .await
         .expect("should succeed")
         .expect("should succeed");
     assert_eq!(session.data.len(), 2);
@@ -381,12 +357,10 @@ async fn test_session_data_operations() {
     data2.insert("key3".to_string(), serde_json::json!({"nested": "object"}));
     manager
         .update_session(&session_id, data2)
-        .await
         .expect("should succeed");
 
     let updated_session = manager
         .get_session(&session_id)
-        .await
         .expect("should succeed")
         .expect("should succeed");
     assert_eq!(updated_session.data.len(), 3);
@@ -406,10 +380,9 @@ async fn test_session_state_transitions() {
     let manager = SessionManagerImpl::new(config);
 
     // Create session - should be Active
-    let session_id = manager.create_session(None).await.expect("should succeed");
+    let session_id = manager.create_session(None).expect("should succeed");
     let session = manager
         .get_session(&session_id)
-        .await
         .expect("should succeed")
         .expect("should succeed");
     assert!(matches!(session.state, SessionState::Active));
@@ -417,11 +390,9 @@ async fn test_session_state_transitions() {
     // Terminate session - should transition to Terminated
     manager
         .terminate_session(&session_id)
-        .await
         .expect("should succeed");
     let terminated_session = manager
         .get_session(&session_id)
-        .await
         .expect("should succeed")
         .expect("should succeed");
     assert!(matches!(terminated_session.state, SessionState::Terminated));
@@ -429,7 +400,6 @@ async fn test_session_state_transitions() {
     // Verify terminated session can still be retrieved but state remains Terminated
     let still_terminated = manager
         .get_session(&session_id)
-        .await
         .expect("should succeed")
         .expect("should succeed");
     assert!(matches!(still_terminated.state, SessionState::Terminated));
@@ -443,7 +413,6 @@ async fn test_get_nonexistent_session() {
     // Try to get a session that doesn't exist
     let result = manager
         .get_session("nonexistent_session_id")
-        .await
         .expect("should succeed");
     assert!(result.is_none());
 }
@@ -456,7 +425,7 @@ async fn test_update_nonexistent_session() {
     // Try to update a session that doesn't exist
     let mut data = HashMap::new();
     data.insert("test".to_string(), serde_json::json!("value"));
-    let result = manager.update_session("nonexistent_session_id", data).await;
+    let result = manager.update_session("nonexistent_session_id", data);
     assert!(matches!(
         result,
         Err(PrimalError::NotFoundError(msg)) if msg.contains("nonexistent_session_id")
@@ -469,7 +438,7 @@ async fn test_terminate_nonexistent_session() {
     let manager = SessionManagerImpl::new(config);
 
     // Try to terminate a session that doesn't exist
-    let result = manager.terminate_session("nonexistent_session_id").await;
+    let result = manager.terminate_session("nonexistent_session_id");
     assert!(matches!(
         result,
         Err(PrimalError::NotFoundError(msg)) if msg.contains("nonexistent_session_id")
@@ -483,12 +452,10 @@ async fn test_get_session_metadata() {
 
     let session_id = manager
         .create_session(Some("metadata_test".to_string()))
-        .await
         .expect("should succeed");
 
     let metadata = manager
         .get_session_metadata(&session_id)
-        .await
         .expect("should succeed");
     assert_eq!(metadata.session_id, session_id);
     assert_eq!(metadata.client_info, Some("metadata_test".to_string()));
@@ -500,7 +467,7 @@ async fn test_get_session_metadata_nonexistent() {
     let config = SessionConfig::default();
     let manager = SessionManagerImpl::new(config);
 
-    let result = manager.get_session_metadata("nonexistent").await;
+    let result = manager.get_session_metadata("nonexistent");
     assert!(result.is_err());
 }
 

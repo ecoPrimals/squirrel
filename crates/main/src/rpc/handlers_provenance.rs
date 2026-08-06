@@ -151,10 +151,12 @@ impl JsonRpcServer {
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
         let endpoint = TransportEndpoint::uds(socket_path.to_string_lossy());
-        let stream =
-            connect_transport_with_timeout(&endpoint, std::time::Duration::from_millis(500))
-                .await
-                .map_err(|_| ())?;
+        let stream = connect_transport_with_timeout(
+            &endpoint,
+            std::time::Duration::from_millis(universal_constants::timeouts::DEFAULT_PROBE_TIMEOUT_MS),
+        )
+        .await
+        .map_err(|_| ())?;
 
         let request = serde_json::json!({
             "jsonrpc": "2.0",
@@ -171,7 +173,7 @@ impl JsonRpcServer {
         let mut buf_reader = BufReader::new(reader);
         let mut resp_line = String::new();
         tokio::time::timeout(
-            std::time::Duration::from_millis(500),
+            std::time::Duration::from_millis(universal_constants::timeouts::DEFAULT_PROBE_TIMEOUT_MS),
             buf_reader.read_line(&mut resp_line),
         )
         .await

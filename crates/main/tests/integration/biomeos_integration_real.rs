@@ -34,7 +34,7 @@ async fn test_biomeos_registration() {
     let mut integration = SquirrelBiomeOSIntegration::new("test-biome".to_string());
 
     // Attempt registration
-    let result = integration.register_with_biomeos().await;
+    let result = integration.register_with_biomeos();
 
     // Valid outcomes:
     // - Ok(()) if biomeOS server is running
@@ -62,7 +62,7 @@ async fn test_ecosystem_services_lifecycle() {
     let mut integration = SquirrelBiomeOSIntegration::new("test-biome".to_string());
 
     // Test service startup
-    let start_result = integration.start_ecosystem_services().await;
+    let start_result = integration.start_ecosystem_services();
 
     // Valid outcomes:
     // - Ok(()) if services start successfully
@@ -262,7 +262,7 @@ async fn test_error_handling_patterns() {
     let mut integration = SquirrelBiomeOSIntegration::new("test-biome".to_string());
 
     // Test 1: Registration with no server
-    match integration.register_with_biomeos().await {
+    match integration.register_with_biomeos() {
         Ok(()) => println!("Registration succeeded (server available)"),
         Err(PrimalError::Network(msg) | PrimalError::NetworkError(msg)) => {
             println!("✅ Network error handled: {}", msg);
@@ -272,7 +272,7 @@ async fn test_error_handling_patterns() {
     }
 
     // Test 2: Service start with no dependencies
-    match integration.start_ecosystem_services().await {
+    match integration.start_ecosystem_services() {
         Ok(()) => println!("Services started (dependencies available)"),
         Err(e) => {
             println!("✅ Service start error handled: {:?}", e);
@@ -340,12 +340,12 @@ async fn test_complete_lifecycle() {
 
     // Phase 2: Registration attempt
     println!("Phase 2: Registration");
-    let _ = integration.register_with_biomeos().await;
+    let _ = integration.register_with_biomeos();
     // Result may vary based on server availability
 
     // Phase 3: Service startup attempt
     println!("Phase 3: Service Startup");
-    let _ = integration.start_ecosystem_services().await;
+    let _ = integration.start_ecosystem_services();
     // Result may vary based on dependencies
 
     // Phase 4: Agent management

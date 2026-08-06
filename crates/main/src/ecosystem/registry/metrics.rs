@@ -31,7 +31,6 @@ impl MetricsOps {
                 registry.len() as f64,
                 HashMap::new(),
             )
-            .await
             .unwrap_or_else(|e| {
                 error!("Failed to record metric: {}", e);
             });
@@ -48,7 +47,6 @@ impl MetricsOps {
                     healthy_count as f64,
                     HashMap::new(),
                 )
-                .await
                 .unwrap_or_else(|e| {
                     error!("Failed to record healthy services metric: {}", e);
                 });
@@ -63,7 +61,6 @@ impl MetricsOps {
                     1.0,
                     std::iter::once(("service_type".to_string(), service_type_string)).collect(),
                 )
-                .await
                 .unwrap_or_else(|e| {
                     error!("Failed to record service type metric: {}", e);
                 });
@@ -143,7 +140,6 @@ impl MetricsOps {
 
         metrics_collector
             .record_metric("ecosystem_service_registered", 1.0, labels)
-            .await
             .unwrap_or_else(|e| {
                 error!("Failed to record service registration metric: {}", e);
             });
@@ -167,7 +163,6 @@ impl MetricsOps {
 
         metrics_collector
             .record_metric("ecosystem_service_health_changed", 1.0, labels)
-            .await
             .unwrap_or_else(|e| {
                 error!("Failed to record health change metric: {}", e);
             });

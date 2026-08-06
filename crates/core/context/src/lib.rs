@@ -14,7 +14,6 @@
     clippy::use_self,
     clippy::must_use_candidate,
     clippy::missing_const_for_fn,
-    clippy::cast_precision_loss,
     clippy::cast_sign_loss,
     clippy::cast_possible_truncation,
     clippy::option_if_let_else,
@@ -26,11 +25,7 @@
     clippy::needless_pass_by_value,
     clippy::implicit_clone,
     clippy::single_match_else,
-    clippy::format_push_string,
-    clippy::too_many_lines,
-    clippy::default_trait_access,
-    clippy::significant_drop_in_scrutinee,
-    reason = "Large context crate; progressive lint tightening — 16 stale suppressions removed Wave 155g"
+    reason = "Large context crate; progressive lint tightening — 21 stale suppressions removed Wave 156t"
 )]
 
 //! Context Management Module

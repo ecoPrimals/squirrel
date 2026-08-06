@@ -239,7 +239,7 @@ impl PrimalSelfKnowledge {
         // Stage 3: Try mDNS (local network; falls back to socket registry)
         debug!("Stage 3: Trying mDNS discovery for '{}'", capability);
         let mdns = crate::discovery::mechanisms::MdnsDiscovery::default();
-        if let Ok(services) = mdns.discover_by_capability(capability).await
+        if let Ok(services) = mdns.discover_by_capability(capability)
             && let Some(service) = services.into_iter().next()
         {
             info!("Found '{}' via mDNS: {}", capability, service.endpoint);
@@ -250,7 +250,7 @@ impl PrimalSelfKnowledge {
         // Stage 4: Try DNS-SD (network-wide; falls back to socket registry)
         debug!("Stage 4: Trying DNS-SD discovery for '{}'", capability);
         let dnssd = crate::discovery::mechanisms::DnssdDiscovery::default();
-        if let Ok(services) = dnssd.discover_by_capability(capability).await
+        if let Ok(services) = dnssd.discover_by_capability(capability)
             && let Some(service) = services.into_iter().next()
         {
             info!("Found '{}' via DNS-SD: {}", capability, service.endpoint);
@@ -271,7 +271,7 @@ impl PrimalSelfKnowledge {
 
             let registry =
                 crate::discovery::mechanisms::RegistryDiscovery::new(registry_backend, registry_endpoint);
-            if let Ok(services) = registry.discover_by_capability(capability).await
+            if let Ok(services) = registry.discover_by_capability(capability)
                 && let Some(service) = services.into_iter().next()
             {
                 info!(
@@ -345,7 +345,6 @@ impl PrimalSelfKnowledge {
         let mdns = crate::discovery::mechanisms::MdnsDiscovery::default();
         if let Err(e) = mdns
             .announce_service(&service_name, port, capabilities.clone(), metadata.clone())
-            .await
         {
             warn!("Failed to announce via mDNS: {}", e);
         } else {
@@ -363,7 +362,6 @@ impl PrimalSelfKnowledge {
                 capabilities.clone(),
                 metadata.clone(),
             )
-            .await
         {
             warn!("Failed to register in DNS-SD: {}", e);
         } else {
@@ -395,7 +393,6 @@ impl PrimalSelfKnowledge {
                     health_endpoint,
                     metadata,
                 )
-                .await
             {
                 warn!("Failed to register in service registry: {}", e);
             } else {

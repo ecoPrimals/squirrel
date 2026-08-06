@@ -97,7 +97,7 @@ impl CapabilityResolver {
         // 3. Try external service registry (if configured)
         if let Some(registry) = &self.registry {
             debug!("Trying service registry discovery...");
-            if let Ok(services) = registry.discover_by_capability(&request.capability).await
+            if let Ok(services) = registry.discover_by_capability(&request.capability)
                 && let Some(service) = services.into_iter().next()
             {
                 info!("Found via service registry (priority 60)");
@@ -107,7 +107,7 @@ impl CapabilityResolver {
 
         // 4. Try mDNS for local network (falls back to socket registry)
         debug!("Trying mDNS discovery...");
-        if let Ok(services) = self.mdns.discover_by_capability(&request.capability).await
+        if let Ok(services) = self.mdns.discover_by_capability(&request.capability)
             && let Some(service) = services.into_iter().next()
         {
             info!("Found via mDNS (priority 80)");
@@ -116,7 +116,7 @@ impl CapabilityResolver {
 
         // 5. Try DNS-SD for network-wide discovery (falls back to socket registry)
         debug!("Trying DNS-SD discovery...");
-        if let Ok(services) = self.dnssd.discover_by_capability(&request.capability).await
+        if let Ok(services) = self.dnssd.discover_by_capability(&request.capability)
             && let Some(service) = services.into_iter().next()
         {
             info!("Found via DNS-SD (priority 70)");

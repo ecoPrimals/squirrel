@@ -152,7 +152,7 @@ impl JsonRpcServer {
             request_tracker: Arc::new(crate::monitoring::metrics::RequestTracker::new()),
             metrics_collector: None,
             security_orchestrator: None,
-            connection_timeout: std::time::Duration::from_secs(30),
+            connection_timeout: universal_constants::timeouts::DEFAULT_CONNECTION_TIMEOUT,
         }
     }
 
@@ -177,7 +177,7 @@ impl JsonRpcServer {
             request_tracker: Arc::new(crate::monitoring::metrics::RequestTracker::new()),
             metrics_collector: None,
             security_orchestrator: None,
-            connection_timeout: std::time::Duration::from_secs(30),
+            connection_timeout: universal_constants::timeouts::DEFAULT_CONNECTION_TIMEOUT,
         }
     }
 

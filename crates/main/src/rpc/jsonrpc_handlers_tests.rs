@@ -134,7 +134,7 @@ async fn test_handle_metrics() -> TestResult {
 #[tokio::test]
 async fn test_handle_ping() -> TestResult {
     let server = make_server();
-    let result = server.handle_ping().await?;
+    let result = server.handle_ping()?;
     assert_eq!(
         result.get("pong").and_then(serde_json::Value::as_bool),
         Some(true)

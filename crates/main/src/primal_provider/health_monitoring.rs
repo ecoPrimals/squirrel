@@ -106,7 +106,7 @@ impl HealthReporting {
 
 impl<S: SessionManager> SquirrelPrimalProvider<S> {
     /// Get active session count (internal helper for health monitoring)
-    async fn get_active_session_count(&self) -> Result<f64, crate::error::PrimalError> {
+    fn get_active_session_count(&self) -> Result<f64, crate::error::PrimalError> {
         // In a real implementation, this would query the session manager
         // For now, we estimate based on context and internal state
 
@@ -143,24 +143,21 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
         // Register health metrics with metrics collector
         let _ = self
             .metrics_collector
-            .record_metric("primal_health_score", health.score, HashMap::new())
-            .await;
+            .record_metric("primal_health_score", health.score, HashMap::new());
         let _ = self
             .metrics_collector
             .record_metric(
                 "primal_cpu_usage",
                 all_metrics.system_metrics.cpu_usage,
                 HashMap::new(),
-            )
-            .await;
+            );
         let _ = self
             .metrics_collector
             .record_metric(
                 "primal_memory_usage",
                 all_metrics.system_metrics.memory_percentage,
                 HashMap::new(),
-            )
-            .await;
+            );
 
         Ok(())
     }
@@ -250,7 +247,7 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
     }
 
     /// Update system capabilities
-    pub async fn update_capabilities(
+    pub fn update_capabilities(
         &self,
         _capabilities: Vec<crate::universal::PrimalCapability>,
     ) -> crate::universal::UniversalResult<()> {
@@ -336,7 +333,7 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
 
         // Session metrics from session_manager
         // Query actual session count from internal tracking or session manager
-        let session_count = self.get_active_session_count().await.unwrap_or(0.0); // Fallback to 0 if unavailable
+        let session_count = self.get_active_session_count().unwrap_or(0.0); // Fallback to 0 if unavailable
         metrics.insert("active_sessions".to_string(), session_count);
 
         // Ecosystem integration metrics
@@ -438,6 +435,6 @@ mod health_monitoring_tests {
     #[tokio::test]
     async fn update_capabilities_ok() {
         let p = test_provider().await;
-        p.update_capabilities(vec![]).await.expect("update caps");
+        p.update_capabilities(vec![]).expect("update caps");
     }
 }

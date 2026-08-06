@@ -285,7 +285,7 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
     }
 
     /// Handle ecosystem request
-    pub async fn handle_ecosystem_request(
+    pub fn handle_ecosystem_request(
         &self,
         request: crate::universal::EcosystemRequest,
     ) -> crate::universal::UniversalResult<crate::universal::EcosystemResponse> {
@@ -404,7 +404,7 @@ mod tests {
             security_context: crate::universal::UniversalSecurityContext::default(),
             timestamp: chrono::Utc::now(),
         };
-        let res = p.handle_ecosystem_request(req).await.expect("resp");
+        let res = p.handle_ecosystem_request(req).expect("resp");
         assert!(res.success);
         assert_eq!(res.request_id, rid);
         assert_eq!(res.status, crate::universal::ResponseStatus::Success);

@@ -11,6 +11,16 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 6, 2026 — Wave 156t: Timeout Consolidation + De-Async + Smart Refactoring)
+
+- **157 functions de-asynced**: Removed unnecessary `async` from functions with no `.await` — session (7), metrics collector (19), biomeos_integration (90), discovery/rpc/providers (41). Callers updated across 35+ files.
+- **Timeout literals consolidated**: 8 production timeout sites wired through `universal_constants::timeouts` constants. 3 new constants added (`DEFAULT_PROBE_TIMEOUT_MS`, `DEFAULT_DISCOVERY_QUERY_TIMEOUT`, `DEFAULT_SOCKET_REGISTRY_CACHE_TTL`).
+- **Capability config aligned**: `DiscoveryConfig::default()` now derives capabilities from `niche::CAPABILITIES` instead of stale hardcoded strings. Test added for drift detection.
+- **learning/engine.rs refactored** (773→504L): Extracted `NeuralNetwork` MLP into `neural_network.rs` (114L) and RL domain types into `types.rs` (171L).
+- **doctor.rs refactored** (765→directory module): Extracted 6 health checks into `doctor/checks.rs`, tests into `doctor/doctor_tests.rs`.
+- **5 stale lint suppressions removed** from `squirrel-context` (`cast_precision_loss`, `format_push_string`, `too_many_lines`, `default_trait_access`, `significant_drop_in_scrutinee`).
+- 0 errors, 6,302 tests passing.
+
 ### Summary (Aug 6, 2026 — Wave 156s: Fossil Cleanup + Dependency Pruning + E2 Prep)
 
 - **EcosystemPrimalType fossil deleted**: Deprecated enum + 6 impl blocks + 16 test functions removed from `types.rs`. Zero production callers — tests-only fossil from capability migration.

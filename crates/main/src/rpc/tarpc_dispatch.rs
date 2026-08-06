@@ -80,7 +80,7 @@ impl SquirrelRpc for TarpcRpcServer {
     }
 
     async fn system_ping(self, _ctx: context::Context) -> super::tarpc_service::PingResult {
-        match self.jsonrpc.handle_ping().await {
+        match self.jsonrpc.handle_ping() {
             Ok(v) => Self::json_to_ping_result(&v),
             Err(_) => super::tarpc_service::PingResult {
                 pong: true,

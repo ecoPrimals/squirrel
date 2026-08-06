@@ -25,7 +25,6 @@ async fn test_session_context_creation() {
             Some("user-123".to_string()),
             "test_context".to_string(),
         )
-        .await
         .expect("should succeed");
 
     assert!(context_state.active_sessions.contains_key(&session_id));
@@ -45,7 +44,6 @@ async fn test_context_state_request_handling() {
 
     let response = context_state
         .handle_state_request(request)
-        .await
         .expect("should succeed");
     assert_eq!(response.session_id, "test-session");
 }
@@ -55,7 +53,6 @@ async fn test_context_search() {
     let context_state = ContextState::new();
     let search_results = context_state
         .search_context_data("test")
-        .await
         .expect("should succeed");
     assert!(search_results.is_empty()); // No contexts to search initially
 }
@@ -70,15 +67,15 @@ fn context_state_default_matches_new() {
 #[tokio::test]
 async fn initialize_manage_shutdown_lifecycle() {
     let mut cs = ContextState::new();
-    cs.initialize().await.expect("should succeed");
-    cs.manage_ecosystem_context().await.expect("should succeed");
-    cs.shutdown().await.expect("should succeed");
+    cs.initialize().expect("should succeed");
+    cs.manage_ecosystem_context().expect("should succeed");
+    cs.shutdown().expect("should succeed");
 }
 
 #[tokio::test]
 async fn health_check_empty_errors() {
     let cs = ContextState::new();
-    let err = cs.health_check().await.unwrap_err();
+    let err = cs.health_check().unwrap_err();
     assert!(matches!(err, PrimalError::General(_)));
 }
 
@@ -86,38 +83,32 @@ async fn health_check_empty_errors() {
 async fn health_check_with_session_ok() {
     let mut cs = ContextState::new();
     cs.create_session_context("s1".to_string(), None, "t".to_string())
-        .await
         .expect("should succeed");
-    cs.health_check().await.expect("should succeed");
+    cs.health_check().expect("should succeed");
 }
 
 #[tokio::test]
 async fn update_session_and_search_analyze() {
     let mut cs = ContextState::new();
     cs.create_session_context("s2".to_string(), None, "workflow".to_string())
-        .await
         .expect("should succeed");
     let mut upd = HashMap::new();
     upd.insert("k".to_string(), serde_json::json!(1));
     cs.update_session_context("s2", upd)
-        .await
         .expect("should succeed");
 
     let hits = cs
         .search_context_data("workflow")
-        .await
         .expect("should succeed");
     assert!(!hits.is_empty());
 
     let combined = cs
         .search_and_analyze("workflow")
-        .await
         .expect("should succeed");
     assert_eq!(combined.len(), hits.len());
 
     let recs = cs
         .get_session_recommendations("s2")
-        .await
         .expect("should succeed");
     assert!(recs.iter().any(|r| r.contains("linking")));
 }
@@ -125,14 +116,14 @@ async fn update_session_and_search_analyze() {
 #[tokio::test]
 async fn analyze_session_not_found() {
     let cs = ContextState::new();
-    let err = cs.analyze_session("nope").await.unwrap_err();
+    let err = cs.analyze_session("nope").unwrap_err();
     assert!(matches!(err, PrimalError::Internal(_)));
 }
 
 #[tokio::test]
 async fn get_context_analytics_empty_map_when_no_sessions() {
     let cs = ContextState::new();
-    let m = cs.get_context_analytics().await.expect("should succeed");
+    let m = cs.get_context_analytics().expect("should succeed");
     assert!(m.is_empty());
 }
 

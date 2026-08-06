@@ -86,7 +86,7 @@ impl JsonRpcServer {
     /// Returns the minimal `{status, primal, version}` shape that overwatch /
     /// cellMembrane / NUCLEUS probes expect. This is intentionally simpler than
     /// `health.check` (which returns the full tiered health report).
-    pub(crate) async fn handle_health_bare(&self) -> Result<Value, JsonRpcError> {
+    pub(crate) fn handle_health_bare(&self) -> Result<Value, JsonRpcError> {
         debug!("bare health probe");
         Ok(serde_json::json!({
             "status": "healthy",
@@ -99,7 +99,7 @@ impl JsonRpcServer {
     ///
     /// Wire Standard audit checklist: `{status: "alive"}` or `{alive: true}`.
     /// We return both for maximum compatibility.
-    pub(crate) async fn handle_health_liveness(&self) -> Result<Value, JsonRpcError> {
+    pub(crate) fn handle_health_liveness(&self) -> Result<Value, JsonRpcError> {
         debug!("health.liveness probe");
         Ok(serde_json::json!({
             "status": "alive",
@@ -158,7 +158,7 @@ impl JsonRpcServer {
     }
 
     /// Handle `system.ping` method
-    pub(crate) async fn handle_ping(&self) -> Result<Value, JsonRpcError> {
+    pub(crate) fn handle_ping(&self) -> Result<Value, JsonRpcError> {
         debug!("ping");
 
         Ok(serde_json::json!({
@@ -334,7 +334,7 @@ mod direct_tests {
     #[tokio::test]
     async fn bare_health_returns_wave113_shape() {
         let server = JsonRpcServer::new("/tmp/sys-bare-health.sock".to_string());
-        let v = server.handle_health_bare().await.expect("should succeed");
+        let v = server.handle_health_bare().expect("should succeed");
         assert_eq!(
             v.get("status").and_then(serde_json::Value::as_str),
             Some("healthy"),
@@ -374,7 +374,6 @@ mod direct_tests {
         let server = JsonRpcServer::new("/tmp/sys-live.sock".to_string());
         let v = server
             .handle_health_liveness()
-            .await
             .expect("should succeed");
         assert_eq!(
             v.get("status").and_then(serde_json::Value::as_str),

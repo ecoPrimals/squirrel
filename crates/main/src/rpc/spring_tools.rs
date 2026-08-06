@@ -17,8 +17,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::{debug, warn};
 
-/// How long to cache discovered spring tools before re-querying.
-const SPRING_TOOL_CACHE_TTL: Duration = Duration::from_secs(60);
+use universal_constants::timeouts::DEFAULT_REQUEST_TIMEOUT;
 
 /// A tool definition discovered from a remote spring.
 ///
@@ -60,7 +59,7 @@ impl SpringToolDiscovery {
     pub fn new() -> Self {
         Self {
             cache: DashMap::new(),
-            cache_ttl: SPRING_TOOL_CACHE_TTL,
+            cache_ttl: DEFAULT_REQUEST_TIMEOUT,
         }
     }
 
@@ -246,7 +245,7 @@ mod tests {
     #[test]
     fn spring_tool_discovery_creation() {
         let discovery = SpringToolDiscovery::new();
-        assert_eq!(discovery.cache_ttl, SPRING_TOOL_CACHE_TTL);
+        assert_eq!(discovery.cache_ttl, DEFAULT_REQUEST_TIMEOUT);
     }
 
     #[tokio::test]

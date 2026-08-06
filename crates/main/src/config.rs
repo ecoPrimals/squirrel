@@ -190,12 +190,10 @@ impl Default for DiscoveryConfig {
     fn default() -> Self {
         Self {
             announce_capabilities: true,
-            capabilities: vec![
-                "ai.text_generation".to_string(),
-                "ai.image_generation".to_string(),
-                "ai.routing".to_string(),
-                "tool.orchestration".to_string(),
-            ],
+            capabilities: crate::niche::CAPABILITIES
+                .iter()
+                .map(|s| (*s).to_string())
+                .collect(),
             registry_socket: None,
         }
     }
@@ -368,21 +366,12 @@ mod tests {
     fn test_default_discovery_config() {
         let discovery = DiscoveryConfig::default();
         assert!(discovery.announce_capabilities);
-        assert!(
-            discovery
-                .capabilities
-                .contains(&"ai.text_generation".to_string())
-        );
-        assert!(
-            discovery
-                .capabilities
-                .contains(&"ai.image_generation".to_string())
-        );
-        assert!(discovery.capabilities.contains(&"ai.routing".to_string()));
-        assert!(
-            discovery
-                .capabilities
-                .contains(&"tool.orchestration".to_string())
+        assert_eq!(
+            discovery.capabilities,
+            crate::niche::CAPABILITIES
+                .iter()
+                .map(|s| (*s).to_string())
+                .collect::<Vec<_>>()
         );
         assert!(discovery.registry_socket.is_none());
     }

@@ -16,7 +16,6 @@ async fn test_session_manager_creation() {
     // Test that we can create sessions
     let session_id = manager
         .create_session(Some("test_client".to_string()))
-        .await
         .expect("should succeed");
     assert!(!session_id.is_empty());
 }
@@ -143,18 +142,17 @@ mod session_tests {
         let manager = SessionManagerImpl::new(config);
 
         // Test session creation
-        let session_id = manager.create_session(None).await.expect("should succeed");
+        let session_id = manager.create_session(None).expect("should succeed");
         assert!(!session_id.is_empty());
 
         // Test session retrieval
         let session = manager
             .get_session(&session_id)
-            .await
-            .expect("should succeed");
+        .expect("should succeed");
         assert!(session.is_some());
 
         // Test session count
-        assert_eq!(manager.get_active_session_count().await, 1);
+        assert_eq!(manager.get_active_session_count(), 1);
     }
 }
 

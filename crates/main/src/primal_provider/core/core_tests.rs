@@ -133,11 +133,9 @@ async fn leverage_capabilities() {
         .await
         .expect("should succeed");
     p.leverage_storage_capabilities("retrieve", "k", None)
-        .await
         .expect("should succeed");
     let e = p
         .leverage_storage_capabilities("store", "k", None)
-        .await
         .unwrap_err();
     assert!(matches!(e, crate::error::PrimalError::ValidationError(_)));
     p.leverage_orchestration_capabilities()
@@ -162,7 +160,6 @@ async fn ecosystem_status_and_registry_update() {
         "service_id": "a",
         "update_type": "register"
     })])
-    .await
     .expect("should succeed");
 }
 
@@ -214,7 +211,6 @@ async fn leverage_storage_store_with_data_and_unsupported_op() {
     let p = provider().await;
     let stored = p
         .leverage_storage_capabilities("store", "key1", Some(b"bytes"))
-        .await
         .expect("should succeed");
     assert_eq!(
         stored.get("status").and_then(|v| v.as_str()),
@@ -222,7 +218,6 @@ async fn leverage_storage_store_with_data_and_unsupported_op() {
     );
     let err = p
         .leverage_storage_capabilities("purge", "k", None)
-        .await
         .unwrap_err();
     assert!(matches!(
         err,

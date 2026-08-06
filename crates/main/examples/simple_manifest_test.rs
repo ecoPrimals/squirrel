@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 3. Parse the YAML back
     println!("\n🔍 Parsing YAML content...");
     let parser = BiomeManifestParser::new();
-    let parsed = parser.parse_content(&yaml_content).await?;
+    let parsed = parser.parse_content(&yaml_content)?;
     println!("✅ Successfully parsed manifest: {}", parsed.metadata.name);
     println!("   Parsed agents: {}", parsed.agents.len());
 
@@ -80,7 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     invalid_manifest.metadata.name = String::new();
 
     let invalid_yaml = serde_yaml_ng::to_string(&invalid_manifest)?;
-    match parser.parse_content(&invalid_yaml).await {
+    match parser.parse_content(&invalid_yaml) {
         Ok(_) => println!("   ❌ Validation should have failed"),
         Err(e) => println!("   ✅ Validation correctly failed: {e}"),
     }

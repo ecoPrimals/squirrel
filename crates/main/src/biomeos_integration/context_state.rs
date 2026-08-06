@@ -55,40 +55,40 @@ impl ContextState {
     }
 
     /// Initialize context state management
-    pub async fn initialize(&mut self) -> Result<(), PrimalError> {
+    pub fn initialize(&mut self) -> Result<(), PrimalError> {
         info!("Initializing context state management");
 
         // Initialize analytics
-        self.context_analytics.initialize().await?;
+        self.context_analytics.initialize()?;
 
         // Initialize versioning
-        self.state_versioning.initialize().await?;
+        self.state_versioning.initialize()?;
 
         // Initialize sharing
-        self.context_sharing.initialize().await?;
+        self.context_sharing.initialize()?;
 
         info!("Context state management initialized successfully");
         Ok(())
     }
 
     /// Manage ecosystem context
-    pub async fn manage_ecosystem_context(&self) -> Result<(), PrimalError> {
+    pub fn manage_ecosystem_context(&self) -> Result<(), PrimalError> {
         debug!("Managing ecosystem context");
 
         // Update analytics
-        self.context_analytics.update_analytics().await?;
+        self.context_analytics.update_analytics()?;
 
         // Process version cleanup
-        self.state_versioning.cleanup_old_versions().await?;
+        self.state_versioning.cleanup_old_versions()?;
 
         // Manage sharing agreements
-        self.context_sharing.update_sharing_status().await?;
+        self.context_sharing.update_sharing_status()?;
 
         Ok(())
     }
 
     /// Handle state request
-    pub async fn handle_state_request(
+    pub fn handle_state_request(
         &self,
         request: ContextStateRequest,
     ) -> Result<ContextStateResponse, PrimalError> {
@@ -118,7 +118,7 @@ impl ContextState {
     }
 
     /// Health check
-    pub async fn health_check(&self) -> Result<(), PrimalError> {
+    pub fn health_check(&self) -> Result<(), PrimalError> {
         debug!("Performing context state health check");
 
         if self.active_sessions.is_empty() && self.persistent_contexts.is_empty() {
@@ -136,7 +136,7 @@ impl ContextState {
     }
 
     /// Create new session context
-    pub async fn create_session_context(
+    pub fn create_session_context(
         &mut self,
         session_id: String,
         user_id: Option<String>,
@@ -160,7 +160,7 @@ impl ContextState {
     }
 
     /// Update session context
-    pub async fn update_session_context(
+    pub fn update_session_context(
         &mut self,
         session_id: &str,
         updates: HashMap<String, serde_json::Value>,
@@ -191,31 +191,31 @@ impl ContextState {
     }
 
     /// Search for contexts across active sessions and persistent storage
-    pub async fn search_context_data(&self, query: &str) -> Result<Vec<SearchResult>, PrimalError> {
-        self.search_contexts(query).await
+    pub fn search_context_data(&self, query: &str) -> Result<Vec<SearchResult>, PrimalError> {
+        self.search_contexts(query)
     }
 
     /// Analyze a specific session context for insights and metrics
-    pub async fn analyze_session(&self, session_id: &str) -> Result<ContextAnalysis, PrimalError> {
-        self.analyze_session_context(session_id).await
+    pub fn analyze_session(&self, session_id: &str) -> Result<ContextAnalysis, PrimalError> {
+        self.analyze_session_context(session_id)
     }
 
     /// Generate optimization recommendations for a session
-    pub async fn get_session_recommendations(
+    pub fn get_session_recommendations(
         &self,
         session_id: &str,
     ) -> Result<Vec<String>, PrimalError> {
-        self.generate_context_recommendations(session_id).await
+        self.generate_context_recommendations(session_id)
     }
 
     /// Get analytics data for all sessions
-    pub async fn get_context_analytics(
+    pub fn get_context_analytics(
         &self,
     ) -> Result<HashMap<String, ContextAnalysis>, PrimalError> {
         let mut analytics = HashMap::new();
 
         for session_id in self.active_sessions.keys() {
-            if let Ok(analysis) = self.analyze_session_context(session_id).await {
+            if let Ok(analysis) = self.analyze_session_context(session_id) {
                 analytics.insert(session_id.clone(), analysis);
             }
         }
@@ -224,16 +224,16 @@ impl ContextState {
     }
 
     /// Search and analyze contexts with combined results
-    pub async fn search_and_analyze(
+    pub fn search_and_analyze(
         &self,
         query: &str,
     ) -> Result<Vec<(SearchResult, Option<ContextAnalysis>)>, PrimalError> {
-        let search_results = self.search_contexts(query).await?;
+        let search_results = self.search_contexts(query)?;
         let mut combined_results = Vec::new();
 
         for result in search_results {
             let analysis = if result.result_type == "active_session" {
-                self.analyze_session_context(&result.result_id).await.ok()
+                self.analyze_session_context(&result.result_id).ok()
             } else {
                 None
             };
@@ -244,14 +244,11 @@ impl ContextState {
     }
 
     /// Shutdown context state management
-    pub async fn shutdown(&mut self) -> Result<(), PrimalError> {
+    pub fn shutdown(&mut self) -> Result<(), PrimalError> {
         info!("Shutting down context state management");
 
         for (session_id, session_context) in &self.active_sessions {
-            if let Err(e) = self
-                .persist_session_context(session_id, session_context)
-                .await
-            {
+            if let Err(e) = self.persist_session_context(session_id, session_context) {
                 tracing::warn!("Could not persist session {session_id} during shutdown: {e}");
             }
         }
@@ -260,16 +257,16 @@ impl ContextState {
         self.active_sessions.clear();
 
         // Shutdown components
-        self.context_analytics.shutdown().await?;
-        self.state_versioning.shutdown().await?;
-        self.context_sharing.shutdown().await?;
+        self.context_analytics.shutdown()?;
+        self.state_versioning.shutdown()?;
+        self.context_sharing.shutdown()?;
 
         info!("Context state management shut down successfully");
         Ok(())
     }
 
     // Private helper methods
-    async fn search_contexts(&self, query: &str) -> Result<Vec<SearchResult>, PrimalError> {
+    fn search_contexts(&self, query: &str) -> Result<Vec<SearchResult>, PrimalError> {
         let mut results = Vec::new();
 
         // Search in active sessions
@@ -299,7 +296,7 @@ impl ContextState {
         Ok(results)
     }
 
-    async fn analyze_session_context(
+    fn analyze_session_context(
         &self,
         session_id: &str,
     ) -> Result<ContextAnalysis, PrimalError> {
@@ -318,7 +315,7 @@ impl ContextState {
         }
     }
 
-    async fn generate_context_recommendations(
+    fn generate_context_recommendations(
         &self,
         session_id: &str,
     ) -> Result<Vec<String>, PrimalError> {
@@ -343,7 +340,7 @@ impl ContextState {
         Ok(recommendations)
     }
 
-    async fn persist_session_context(
+    fn persist_session_context(
         &self,
         session_id: &str,
         _session: &SessionContext,
@@ -399,7 +396,7 @@ impl ContextAnalytics {
         }
     }
 
-    async fn initialize(&mut self) -> Result<(), PrimalError> {
+    fn initialize(&mut self) -> Result<(), PrimalError> {
         debug!("Initializing context analytics — resetting counters");
         self.access_analytics.total_accesses = 0;
         self.access_analytics.unique_sessions = 0;
@@ -407,7 +404,7 @@ impl ContextAnalytics {
         Ok(())
     }
 
-    async fn update_analytics(&self) -> Result<(), PrimalError> {
+    fn update_analytics(&self) -> Result<(), PrimalError> {
         debug!(
             total_accesses = self.access_analytics.total_accesses,
             unique_sessions = self.access_analytics.unique_sessions,
@@ -417,7 +414,7 @@ impl ContextAnalytics {
         Ok(())
     }
 
-    async fn shutdown(&mut self) -> Result<(), PrimalError> {
+    fn shutdown(&mut self) -> Result<(), PrimalError> {
         debug!(
             total_accesses = self.access_analytics.total_accesses,
             "Shutting down context analytics — final metrics"
@@ -444,7 +441,7 @@ impl StateVersioning {
         }
     }
 
-    async fn initialize(&mut self) -> Result<(), PrimalError> {
+    fn initialize(&mut self) -> Result<(), PrimalError> {
         debug!(
             policies = self.versioning_policies.len(),
             "Initializing state versioning"
@@ -453,7 +450,7 @@ impl StateVersioning {
         Ok(())
     }
 
-    async fn cleanup_old_versions(&self) -> Result<(), PrimalError> {
+    fn cleanup_old_versions(&self) -> Result<(), PrimalError> {
         let total_versions: usize = self.version_history.values().map(Vec::len).sum();
         debug!(
             total_versions,
@@ -463,7 +460,7 @@ impl StateVersioning {
         Ok(())
     }
 
-    async fn shutdown(&mut self) -> Result<(), PrimalError> {
+    fn shutdown(&mut self) -> Result<(), PrimalError> {
         debug!("Shutting down state versioning");
         Ok(())
     }
@@ -482,17 +479,17 @@ impl ContextSharing {
         }
     }
 
-    async fn initialize(&mut self) -> Result<(), PrimalError> {
+    fn initialize(&mut self) -> Result<(), PrimalError> {
         debug!("Initializing context sharing");
         Ok(())
     }
 
-    async fn update_sharing_status(&self) -> Result<(), PrimalError> {
+    fn update_sharing_status(&self) -> Result<(), PrimalError> {
         debug!("Updating sharing status");
         Ok(())
     }
 
-    async fn shutdown(&mut self) -> Result<(), PrimalError> {
+    fn shutdown(&mut self) -> Result<(), PrimalError> {
         debug!("Shutting down context sharing");
         Ok(())
     }

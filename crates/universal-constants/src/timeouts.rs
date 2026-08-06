@@ -110,6 +110,21 @@ pub const WARM_DATA_LIFETIME: Duration = Duration::from_secs(86400);
 /// Default capability discovery TTL in seconds (5 minutes)
 pub const DEFAULT_CAPABILITY_DISCOVERY_TTL_SECS: u64 = 300;
 
+/// Default socket registry cache TTL (30 seconds)
+///
+/// How long to cache entries read from the biomeOS socket registry file.
+pub const DEFAULT_SOCKET_REGISTRY_CACHE_TTL: Duration = Duration::from_secs(30);
+
+/// Default discovery mechanism query timeout (5 seconds)
+///
+/// Used for mDNS, DNS-SD, and remote registry discovery queries.
+pub const DEFAULT_DISCOVERY_QUERY_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Default capability probe timeout in milliseconds (500 ms)
+///
+/// Short timeout for probing a socket with `capability.discover`.
+pub const DEFAULT_PROBE_TIMEOUT_MS: u64 = 500;
+
 // ============================================================================
 // Size Limits
 // ============================================================================

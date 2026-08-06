@@ -8,6 +8,16 @@ primals = ["squirrel"]
 springs = []
 +++
 
+## Wave 156t — Timeout Consolidation + De-Async + Smart Refactoring (Aug 6, 2026)
+
+- 157 functions de-asynced (session, metrics, biomeos, discovery/rpc/providers)
+- 8 timeout literals consolidated to universal_constants::timeouts
+- DiscoveryConfig capabilities aligned with niche::CAPABILITIES
+- learning/engine.rs refactored (773→504L): NeuralNetwork + types extracted
+- doctor.rs refactored to directory module (checks + tests extracted)
+- 5 stale lint suppressions removed from squirrel-context
+- 0 errors, 6,302 tests passing
+
 ## Wave 156s — Fossil Cleanup + Dependency Pruning + E2 Prep (Aug 6, 2026)
 
 - EcosystemPrimalType fossil deleted (deprecated enum + 16 tests, zero prod callers)

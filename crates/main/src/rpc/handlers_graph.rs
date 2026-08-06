@@ -18,7 +18,7 @@ impl JsonRpcServer {
     ///
     /// Accepts `{ "graph_toml": "<toml string>" }` and returns the parsed
     /// graph structure as JSON, or an error if parsing fails.
-    pub(crate) async fn handle_graph_parse(
+    pub(crate) fn handle_graph_parse(
         &self,
         params: Option<Value>,
     ) -> Result<Value, JsonRpcError> {
@@ -51,7 +51,7 @@ impl JsonRpcServer {
     ///
     /// Returns `{ "valid": bool, "issues": [...], "node_count": N,
     /// "required_count": N, "includes_squirrel": bool }`.
-    pub(crate) async fn handle_graph_validate(
+    pub(crate) fn handle_graph_validate(
         &self,
         params: Option<Value>,
     ) -> Result<Value, JsonRpcError> {
@@ -115,7 +115,7 @@ health_method = "health.check"
     #[tokio::test]
     async fn graph_parse_missing_params_errors() {
         let server = JsonRpcServer::new("/tmp/sq-graph-no-params.sock".to_string());
-        let err = server.handle_graph_parse(None).await.unwrap_err();
+        let err = server.handle_graph_parse(None).unwrap_err();
         assert_eq!(err.code, error_codes::INVALID_PARAMS);
         assert!(err.message.contains("graph_toml"));
     }
@@ -125,7 +125,6 @@ health_method = "health.check"
         let server = JsonRpcServer::new("/tmp/sq-graph-bad-toml.sock".to_string());
         let err = server
             .handle_graph_parse(Some(serde_json::json!({ "graph_toml": "{{not toml" })))
-            .await
             .unwrap_err();
         assert_eq!(err.code, error_codes::INVALID_PARAMS);
         assert!(err.message.contains("parse error"));
@@ -136,7 +135,6 @@ health_method = "health.check"
         let server = JsonRpcServer::new("/tmp/sq-graph-ok.sock".to_string());
         let result = server
             .handle_graph_parse(Some(serde_json::json!({ "graph_toml": VALID_GRAPH_TOML })))
-            .await
             .expect("should parse");
         assert!(
             result.get("graph").is_some(),
@@ -147,7 +145,7 @@ health_method = "health.check"
     #[tokio::test]
     async fn graph_validate_missing_params_errors() {
         let server = JsonRpcServer::new("/tmp/sq-graph-val-no-params.sock".to_string());
-        let err = server.handle_graph_validate(None).await.unwrap_err();
+        let err = server.handle_graph_validate(None).unwrap_err();
         assert_eq!(err.code, error_codes::INVALID_PARAMS);
     }
 
@@ -156,7 +154,6 @@ health_method = "health.check"
         let server = JsonRpcServer::new("/tmp/sq-graph-val-ok.sock".to_string());
         let result = server
             .handle_graph_validate(Some(serde_json::json!({ "graph_toml": VALID_GRAPH_TOML })))
-            .await
             .expect("should validate");
         assert_eq!(result["valid"], true);
         assert_eq!(result["name"], "test_graph");
@@ -175,7 +172,6 @@ name = "empty"
 "#;
         let result = server
             .handle_graph_validate(Some(serde_json::json!({ "graph_toml": empty_graph })))
-            .await
             .expect("should validate even if empty");
         assert_eq!(result["valid"], false, "empty graph should have issues");
         assert!(

@@ -283,17 +283,17 @@ impl McpIntegration {
     }
 
     /// Initialize MCP integration
-    pub async fn initialize(&mut self) -> Result<(), PrimalError> {
+    pub fn initialize(&mut self) -> Result<(), PrimalError> {
         info!("Initializing MCP integration for ecosystem coordination");
 
         // Initialize message routing
-        self.message_routing.initialize().await?;
+        self.message_routing.initialize()?;
 
         // Initialize tool orchestration
-        self.tool_orchestration.initialize().await?;
+        self.tool_orchestration.initialize()?;
 
         // Initialize resource coordination
-        self.resource_coordination.initialize().await?;
+        self.resource_coordination.initialize()?;
 
         self.initialized = true;
         info!("MCP integration initialized successfully");
@@ -307,23 +307,23 @@ impl McpIntegration {
     }
 
     /// Coordinate MCP services across the ecosystem
-    pub async fn coordinate_mcp_services(&self) -> Result<(), PrimalError> {
+    pub fn coordinate_mcp_services(&self) -> Result<(), PrimalError> {
         debug!("Coordinating MCP services across ecosystem");
 
         // Process pending messages
-        self.message_routing.process_pending_messages().await?;
+        self.message_routing.process_pending_messages()?;
 
         // Update active orchestrations
-        self.tool_orchestration.update_orchestrations().await?;
+        self.tool_orchestration.update_orchestrations()?;
 
         // Manage resource allocations
-        self.resource_coordination.manage_allocations().await?;
+        self.resource_coordination.manage_allocations()?;
 
         Ok(())
     }
 
     /// Handle coordination request
-    pub async fn handle_coordination_request(
+    pub fn handle_coordination_request(
         &self,
         request: McpCoordinationRequest,
     ) -> Result<McpCoordinationResponse, PrimalError> {
@@ -332,8 +332,8 @@ impl McpIntegration {
             request.coordination_id
         );
 
-        let coordination_plan = self.create_coordination_plan(&request).await?;
-        let estimated_completion = self.estimate_completion_time(&coordination_plan).await?;
+        let coordination_plan = self.create_coordination_plan(&request)?;
+        let estimated_completion = self.estimate_completion_time(&coordination_plan)?;
 
         Ok(McpCoordinationResponse {
             coordination_id: request.coordination_id,
@@ -344,7 +344,7 @@ impl McpIntegration {
     }
 
     /// Create coordination session
-    pub async fn create_coordination_session(
+    pub fn create_coordination_session(
         &mut self,
         participants: Vec<String>,
         coordination_type: String,
@@ -369,7 +369,7 @@ impl McpIntegration {
     }
 
     /// Get coordination session
-    pub async fn get_coordination_session(
+    pub fn get_coordination_session(
         &self,
         session_id: &str,
     ) -> Result<Option<CoordinationSession>, PrimalError> {
@@ -377,7 +377,7 @@ impl McpIntegration {
     }
 
     /// Update coordination session
-    pub async fn update_coordination_session(
+    pub fn update_coordination_session(
         &mut self,
         session_id: &str,
         update_data: HashMap<String, serde_json::Value>,
@@ -392,16 +392,16 @@ impl McpIntegration {
     }
 
     /// Shutdown MCP integration
-    pub async fn shutdown(&mut self) -> Result<(), PrimalError> {
+    pub fn shutdown(&mut self) -> Result<(), PrimalError> {
         info!("Shutting down MCP integration");
 
         // Cleanup active sessions
         self.coordination_sessions.clear();
 
         // Shutdown components
-        self.message_routing.shutdown().await?;
-        self.tool_orchestration.shutdown().await?;
-        self.resource_coordination.shutdown().await?;
+        self.message_routing.shutdown()?;
+        self.tool_orchestration.shutdown()?;
+        self.resource_coordination.shutdown()?;
 
         self.initialized = false;
         info!("MCP integration shut down successfully");
@@ -409,23 +409,23 @@ impl McpIntegration {
     }
 
     /// Coordinate with ecosystem
-    pub async fn coordinate_with_ecosystem(&self) -> Result<(), PrimalError> {
+    pub fn coordinate_with_ecosystem(&self) -> Result<(), PrimalError> {
         debug!("Coordinating with ecosystem");
 
         // Coordinate MCP services across the ecosystem
-        self.coordinate_mcp_services().await?;
+        self.coordinate_mcp_services()?;
 
         // Update coordination sessions
-        self.update_coordination_sessions().await?;
+        self.update_coordination_sessions()?;
 
         // Handle message routing
-        self.handle_message_routing().await?;
+        self.handle_message_routing()?;
 
         Ok(())
     }
 
     /// Health check
-    pub async fn health_check(&self) -> Result<(), PrimalError> {
+    pub fn health_check(&self) -> Result<(), PrimalError> {
         debug!("Performing MCP integration health check");
 
         if !self.is_initialized() {
@@ -448,7 +448,7 @@ impl McpIntegration {
     }
 
     // Private helper methods
-    async fn create_coordination_plan(
+    fn create_coordination_plan(
         &self,
         request: &McpCoordinationRequest,
     ) -> Result<Vec<CoordinationStep>, PrimalError> {
@@ -503,7 +503,7 @@ impl McpIntegration {
         Ok(plan)
     }
 
-    async fn estimate_completion_time(
+    fn estimate_completion_time(
         &self,
         plan: &[CoordinationStep],
     ) -> Result<DateTime<Utc>, PrimalError> {
@@ -515,14 +515,14 @@ impl McpIntegration {
     }
 
     /// Update coordination sessions
-    async fn update_coordination_sessions(&self) -> Result<(), PrimalError> {
+    fn update_coordination_sessions(&self) -> Result<(), PrimalError> {
         debug!("Updating coordination sessions");
         // Implementation for updating coordination sessions
         Ok(())
     }
 
     /// Handle message routing
-    async fn handle_message_routing(&self) -> Result<(), PrimalError> {
+    fn handle_message_routing(&self) -> Result<(), PrimalError> {
         debug!("Handling message routing");
         // Implementation for message routing
         Ok(())
@@ -542,17 +542,17 @@ impl MessageRouting {
         }
     }
 
-    async fn initialize(&mut self) -> Result<(), PrimalError> {
+    fn initialize(&mut self) -> Result<(), PrimalError> {
         debug!("Initializing message routing");
         Ok(())
     }
 
-    async fn process_pending_messages(&self) -> Result<(), PrimalError> {
+    fn process_pending_messages(&self) -> Result<(), PrimalError> {
         debug!("Processing {} pending messages", self.message_queue.len());
         Ok(())
     }
 
-    async fn shutdown(&mut self) -> Result<(), PrimalError> {
+    fn shutdown(&mut self) -> Result<(), PrimalError> {
         debug!("Shutting down message routing");
         Ok(())
     }
@@ -571,12 +571,12 @@ impl ToolOrchestration {
         }
     }
 
-    async fn initialize(&mut self) -> Result<(), PrimalError> {
+    fn initialize(&mut self) -> Result<(), PrimalError> {
         debug!("Initializing tool orchestration");
         Ok(())
     }
 
-    async fn update_orchestrations(&self) -> Result<(), PrimalError> {
+    fn update_orchestrations(&self) -> Result<(), PrimalError> {
         debug!(
             "Updating {} active orchestrations",
             self.active_orchestrations.len()
@@ -584,7 +584,7 @@ impl ToolOrchestration {
         Ok(())
     }
 
-    async fn shutdown(&mut self) -> Result<(), PrimalError> {
+    fn shutdown(&mut self) -> Result<(), PrimalError> {
         debug!("Shutting down tool orchestration");
         Ok(())
     }
@@ -611,12 +611,12 @@ impl ResourceCoordination {
         }
     }
 
-    async fn initialize(&mut self) -> Result<(), PrimalError> {
+    fn initialize(&mut self) -> Result<(), PrimalError> {
         debug!("Initializing resource coordination");
         Ok(())
     }
 
-    async fn manage_allocations(&self) -> Result<(), PrimalError> {
+    fn manage_allocations(&self) -> Result<(), PrimalError> {
         debug!(
             "Managing {} resource allocations",
             self.resource_allocations.len()
@@ -624,7 +624,7 @@ impl ResourceCoordination {
         Ok(())
     }
 
-    async fn shutdown(&mut self) -> Result<(), PrimalError> {
+    fn shutdown(&mut self) -> Result<(), PrimalError> {
         debug!("Shutting down resource coordination");
         Ok(())
     }
@@ -658,13 +658,11 @@ mod tests {
 
         let session_id = integration
             .create_coordination_session(participants.clone(), "test_coordination".to_string())
-            .await
             .expect("should succeed");
         assert!(!session_id.is_empty());
 
         let session = integration
             .get_coordination_session(&session_id)
-            .await
             .expect("should succeed");
         assert!(session.is_some());
         assert_eq!(session.expect("should succeed").participants, participants);
@@ -682,7 +680,6 @@ mod tests {
 
         let response = integration
             .handle_coordination_request(request)
-            .await
             .expect("should succeed");
         assert_eq!(response.coordination_id, "test-coord-001");
         assert_eq!(response.status, "planned");

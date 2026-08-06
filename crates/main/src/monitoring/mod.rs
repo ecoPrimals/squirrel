@@ -304,7 +304,6 @@ impl MonitoringSystem {
     ) -> Result<HashMap<String, f64>, PrimalError> {
         self.metrics_collector
             .get_component_metrics(component)
-            .await
     }
 
     /// Get health information for all components
@@ -329,7 +328,6 @@ impl MonitoringSystem {
     ) -> Result<(), PrimalError> {
         self.metrics_collector
             .register_custom_metric(definition)
-            .await
     }
 
     /// Record a custom metric value
@@ -341,7 +339,6 @@ impl MonitoringSystem {
     ) -> Result<(), PrimalError> {
         self.metrics_collector
             .record_metric(name, value, labels)
-            .await
     }
 
     /// Export metrics in Prometheus format

@@ -232,7 +232,7 @@ impl MetricsCollector {
     }
 
     /// Register a custom metric
-    pub async fn register_custom_metric(
+    pub fn register_custom_metric(
         &self,
         definition: CustomMetricDefinition,
     ) -> Result<(), PrimalError> {
@@ -253,7 +253,7 @@ impl MetricsCollector {
     }
 
     /// Record a metric value
-    pub async fn record_metric(
+    pub fn record_metric(
         &self,
         name: &str,
         value: f64,
@@ -279,7 +279,7 @@ impl MetricsCollector {
     }
 
     /// Get metrics for a specific component
-    pub async fn get_component_metrics(
+    pub fn get_component_metrics(
         &self,
         component: &str,
     ) -> Result<HashMap<String, f64>, PrimalError> {
@@ -312,7 +312,7 @@ impl MetricsCollector {
     }
 
     /// Get metric definition and metadata
-    pub async fn get_metric_info(&self, metric_name: &str) -> Result<MetricInfo, PrimalError> {
+    pub fn get_metric_info(&self, metric_name: &str) -> Result<MetricInfo, PrimalError> {
         let Some(definition) = self.metrics.get(metric_name) else {
             return Err(PrimalError::NotFoundError(format!(
                 "Metric '{metric_name}' not found"
@@ -322,7 +322,7 @@ impl MetricsCollector {
     }
 
     /// List all registered metrics with their metadata
-    pub async fn list_metric_definitions(&self) -> Result<Vec<MetricInfo>, PrimalError> {
+    pub fn list_metric_definitions(&self) -> Result<Vec<MetricInfo>, PrimalError> {
         Ok(self
             .metrics
             .iter()
@@ -331,7 +331,7 @@ impl MetricsCollector {
     }
 
     /// Search metrics by source
-    pub async fn get_metrics_by_source(
+    pub fn get_metrics_by_source(
         &self,
         source: &str,
     ) -> Result<Vec<MetricInfo>, PrimalError> {
@@ -344,7 +344,7 @@ impl MetricsCollector {
     }
 
     /// Get metrics by unit type (e.g., "bytes", "seconds", "count")
-    pub async fn get_metrics_by_unit(&self, unit: &str) -> Result<Vec<MetricInfo>, PrimalError> {
+    pub fn get_metrics_by_unit(&self, unit: &str) -> Result<Vec<MetricInfo>, PrimalError> {
         Ok(self
             .metrics
             .iter()
@@ -376,19 +376,19 @@ impl MetricsCollector {
 
         #[cfg(feature = "system-metrics")]
         {
-            system_metrics.cpu_usage = self.get_cpu_usage().await?;
-            system_metrics.memory_usage = self.get_memory_usage().await?;
-            system_metrics.memory_percentage = self.get_memory_percentage().await?;
+            system_metrics.cpu_usage = self.get_cpu_usage()?;
+            system_metrics.memory_usage = self.get_memory_usage()?;
+            system_metrics.memory_percentage = self.get_memory_percentage()?;
         }
 
-        system_metrics.disk_usage = self.get_disk_usage().await?;
-        system_metrics.network_bytes_sent = self.get_network_bytes_sent().await?;
-        system_metrics.network_bytes_received = self.get_network_bytes_received().await?;
-        system_metrics.active_connections = self.get_active_connections().await?;
-        system_metrics.request_rate = self.get_request_rate().await?;
-        system_metrics.error_rate = self.get_error_rate().await?;
-        system_metrics.avg_response_time = self.get_avg_response_time().await?;
-        system_metrics.uptime = self.get_uptime().await?;
+        system_metrics.disk_usage = self.get_disk_usage()?;
+        system_metrics.network_bytes_sent = self.get_network_bytes_sent()?;
+        system_metrics.network_bytes_received = self.get_network_bytes_received()?;
+        system_metrics.active_connections = self.get_active_connections()?;
+        system_metrics.request_rate = self.get_request_rate()?;
+        system_metrics.error_rate = self.get_error_rate()?;
+        system_metrics.avg_response_time = self.get_avg_response_time()?;
+        system_metrics.uptime = self.get_uptime()?;
 
         Ok(())
     }
@@ -405,7 +405,7 @@ impl MetricsCollector {
         ];
 
         for component in internal_components {
-            let metrics = self.collect_component_specific_metrics(component).await?;
+            let metrics = self.collect_component_specific_metrics(component)?;
             self.component_metrics
                 .insert(component.to_string(), metrics);
         }
@@ -432,7 +432,7 @@ impl MetricsCollector {
                         "Discovered {} capability provider, collecting metrics",
                         domain
                     );
-                    let metrics = self.collect_component_specific_metrics(domain).await?;
+                    let metrics = self.collect_component_specific_metrics(domain)?;
                     self.component_metrics
                         .insert(format!("capability.{domain}"), metrics);
                 } else {
@@ -447,7 +447,7 @@ impl MetricsCollector {
     }
 
     /// Collect metrics for a specific component
-    async fn collect_component_specific_metrics(
+    fn collect_component_specific_metrics(
         &self,
         component: &str,
     ) -> Result<HashMap<String, f64>, PrimalError> {
@@ -546,14 +546,14 @@ impl MetricsCollector {
     }
 
     #[cfg(feature = "system-metrics")]
-    async fn get_cpu_usage(&self) -> Result<f64, PrimalError> {
+    fn get_cpu_usage(&self) -> Result<f64, PrimalError> {
         let cpu_usage = universal_constants::sys_info::system_cpu_usage_percent().unwrap_or(0.0);
         debug!("Current CPU usage: {:.2}%", cpu_usage);
         Ok(cpu_usage)
     }
 
     #[cfg(feature = "system-metrics")]
-    async fn get_memory_usage(&self) -> Result<u64, PrimalError> {
+    fn get_memory_usage(&self) -> Result<u64, PrimalError> {
         let used_memory = universal_constants::sys_info::memory_info()
             .map(|m| m.used)
             .unwrap_or(0);
@@ -562,7 +562,7 @@ impl MetricsCollector {
     }
 
     #[cfg(feature = "system-metrics")]
-    async fn get_memory_percentage(&self) -> Result<f64, PrimalError> {
+    fn get_memory_percentage(&self) -> Result<f64, PrimalError> {
         let mem = universal_constants::sys_info::memory_info().unwrap_or_default();
         if mem.total == 0 {
             return Ok(0.0);
@@ -572,26 +572,26 @@ impl MetricsCollector {
         Ok(percentage)
     }
 
-    async fn get_disk_usage(&self) -> Result<f64, PrimalError> {
+    fn get_disk_usage(&self) -> Result<f64, PrimalError> {
         universal_constants::sys_info::disk_usage_percent("/")
             .map_err(|e| PrimalError::Internal(format!("disk_usage: {e}")))
     }
 
-    async fn get_network_bytes_sent(&self) -> Result<f64, PrimalError> {
+    fn get_network_bytes_sent(&self) -> Result<f64, PrimalError> {
         let net = universal_constants::sys_info::network_bytes()
             .map_err(|e| PrimalError::Internal(format!("network_bytes: {e}")))?;
         #[expect(clippy::cast_precision_loss, reason = "byte counter display")]
         Ok(net.tx_bytes as f64)
     }
 
-    async fn get_network_bytes_received(&self) -> Result<f64, PrimalError> {
+    fn get_network_bytes_received(&self) -> Result<f64, PrimalError> {
         let net = universal_constants::sys_info::network_bytes()
             .map_err(|e| PrimalError::Internal(format!("network_bytes: {e}")))?;
         #[expect(clippy::cast_precision_loss, reason = "byte counter display")]
         Ok(net.rx_bytes as f64)
     }
 
-    async fn get_active_connections(&self) -> Result<u32, PrimalError> {
+    fn get_active_connections(&self) -> Result<u32, PrimalError> {
         // Count established TCP connections from /proc/net/tcp
         let content = std::fs::read_to_string("/proc/net/tcp").unwrap_or_default();
         // State 01 = ESTABLISHED in /proc/net/tcp
@@ -611,20 +611,20 @@ impl MetricsCollector {
         Ok(count as u32)
     }
 
-    async fn get_request_rate(&self) -> Result<f64, PrimalError> {
+    fn get_request_rate(&self) -> Result<f64, PrimalError> {
         Ok(self.request_tracker.request_rate())
     }
 
-    async fn get_error_rate(&self) -> Result<f64, PrimalError> {
+    fn get_error_rate(&self) -> Result<f64, PrimalError> {
         Ok(self.request_tracker.error_rate())
     }
 
-    async fn get_avg_response_time(&self) -> Result<f64, PrimalError> {
+    fn get_avg_response_time(&self) -> Result<f64, PrimalError> {
         Ok(self.request_tracker.avg_response_time_ms())
     }
 
     /// Host uptime in seconds from [`universal_constants::sys_info::uptime_seconds`] (`/proc/uptime` on Linux).
-    async fn get_uptime(&self) -> Result<u64, PrimalError> {
+    fn get_uptime(&self) -> Result<u64, PrimalError> {
         Ok(universal_constants::sys_info::uptime_seconds().unwrap_or(0))
     }
 }

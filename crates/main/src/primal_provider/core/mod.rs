@@ -430,7 +430,7 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
     }
 
     /// Leverage ecosystem services for storage operations using capability discovery
-    pub async fn leverage_storage_capabilities(
+    pub fn leverage_storage_capabilities(
         &self,
         operation: &str,
         key: &str,
@@ -526,7 +526,7 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
     }
 
     /// Update ecosystem service registry using `universal_adapter`
-    pub async fn update_ecosystem_registry(
+    pub fn update_ecosystem_registry(
         &self,
         service_updates: Vec<serde_json::Value>,
     ) -> Result<(), PrimalError> {

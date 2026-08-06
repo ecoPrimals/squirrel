@@ -362,49 +362,49 @@ impl AiIntelligence {
     }
 
     /// Initialize AI intelligence
-    pub async fn initialize(&mut self) -> Result<(), PrimalError> {
+    pub fn initialize(&mut self) -> Result<(), PrimalError> {
         info!("Initializing AI intelligence for ecosystem");
 
         // Initialize intelligence engine
-        self.intelligence_engine.initialize().await?;
+        self.intelligence_engine.initialize()?;
 
         // Initialize optimization engine
-        self.optimization_engine.initialize().await?;
+        self.optimization_engine.initialize()?;
 
         // Initialize prediction engine
-        self.prediction_engine.initialize().await?;
+        self.prediction_engine.initialize()?;
 
         // Initialize automation engine
-        self.automation_engine.initialize().await?;
+        self.automation_engine.initialize()?;
 
         // Initialize federation intelligence
-        self.federation_intelligence.initialize().await?;
+        self.federation_intelligence.initialize()?;
 
         info!("AI intelligence initialized successfully");
         Ok(())
     }
 
     /// Provide ecosystem intelligence
-    pub async fn provide_ecosystem_intelligence(&self) -> Result<(), PrimalError> {
+    pub fn provide_ecosystem_intelligence(&self) -> Result<(), PrimalError> {
         debug!("Providing ecosystem intelligence");
 
         // Analyze current ecosystem state
-        let _analysis = self.analyze_ecosystem_state().await?;
+        let _analysis = self.analyze_ecosystem_state()?;
 
         // Generate optimization recommendations
-        let _optimizations = self.generate_optimizations().await?;
+        let _optimizations = self.generate_optimizations()?;
 
         // Update predictions
-        self.update_predictions().await?;
+        self.update_predictions()?;
 
         // Execute automation tasks
-        self.execute_automation_tasks().await?;
+        self.execute_automation_tasks()?;
 
         Ok(())
     }
 
     /// Analyze ecosystem state using actual engine metrics.
-    async fn analyze_ecosystem_state(&self) -> Result<EcosystemAnalysis, PrimalError> {
+    fn analyze_ecosystem_state(&self) -> Result<EcosystemAnalysis, PrimalError> {
         debug!("Analyzing ecosystem state from engine telemetry");
 
         let active_predictions = self.prediction_engine.active_predictions.len() as u32;
@@ -443,7 +443,7 @@ impl AiIntelligence {
     }
 
     /// Generate optimization recommendations derived from engine state.
-    async fn generate_optimizations(&self) -> Result<Vec<Optimization>, PrimalError> {
+    fn generate_optimizations(&self) -> Result<Vec<Optimization>, PrimalError> {
         debug!("Generating optimization recommendations from engine state");
 
         let mut optimizations = Vec::new();
@@ -474,32 +474,32 @@ impl AiIntelligence {
     }
 
     /// Update predictions
-    async fn update_predictions(&self) -> Result<(), PrimalError> {
+    fn update_predictions(&self) -> Result<(), PrimalError> {
         debug!("Updating predictions");
         // Implementation for prediction updates
         Ok(())
     }
 
     /// Execute automation tasks
-    async fn execute_automation_tasks(&self) -> Result<(), PrimalError> {
+    fn execute_automation_tasks(&self) -> Result<(), PrimalError> {
         debug!("Executing automation tasks");
         // Implementation for automation task execution
         Ok(())
     }
 
     /// Analyze ecosystem
-    pub async fn analyze_ecosystem(&self) -> Result<(), PrimalError> {
+    pub fn analyze_ecosystem(&self) -> Result<(), PrimalError> {
         debug!("Analyzing ecosystem");
-        let _analysis = self.analyze_ecosystem_state().await?;
+        let _analysis = self.analyze_ecosystem_state()?;
         Ok(())
     }
 
     /// Generate ecosystem report from current engine telemetry.
-    pub async fn generate_ecosystem_report(&self) -> Result<EcosystemReport, PrimalError> {
+    pub fn generate_ecosystem_report(&self) -> Result<EcosystemReport, PrimalError> {
         debug!("Generating ecosystem report from engine telemetry");
 
-        let analysis = self.analyze_ecosystem_state().await?;
-        let optimizations = self.generate_optimizations().await?;
+        let analysis = self.analyze_ecosystem_state()?;
+        let optimizations = self.generate_optimizations()?;
 
         let recommendations: Vec<String> = optimizations
             .into_iter()
@@ -522,7 +522,7 @@ impl AiIntelligence {
     }
 
     /// Process intelligence request
-    pub async fn process_intelligence_request(
+    pub fn process_intelligence_request(
         &self,
         request: IntelligenceRequest,
     ) -> Result<IntelligenceResponse, PrimalError> {
@@ -548,7 +548,7 @@ impl AiIntelligence {
     }
 
     /// Health check
-    pub async fn health_check(&self) -> Result<(), PrimalError> {
+    pub fn health_check(&self) -> Result<(), PrimalError> {
         debug!("Performing AI intelligence health check");
 
         // Check intelligence engine health
@@ -663,7 +663,7 @@ impl Default for PredictionEngine {
 }
 
 impl IntelligenceEngine {
-    async fn initialize(&mut self) -> Result<(), PrimalError> {
+    fn initialize(&mut self) -> Result<(), PrimalError> {
         info!(
             models = self.analysis_models.len(),
             learning_rate = self.learning_rate,
@@ -679,7 +679,7 @@ impl IntelligenceEngine {
 }
 
 impl OptimizationEngine {
-    async fn initialize(&mut self) -> Result<(), PrimalError> {
+    fn initialize(&mut self) -> Result<(), PrimalError> {
         info!(
             strategies = self.optimization_strategies.len(),
             "Optimization engine initialized"
@@ -694,7 +694,7 @@ impl OptimizationEngine {
 }
 
 impl PredictionEngine {
-    async fn initialize(&mut self) -> Result<(), PrimalError> {
+    fn initialize(&mut self) -> Result<(), PrimalError> {
         info!(
             models = self.prediction_models.len(),
             accuracy = self.prediction_accuracy,
@@ -710,7 +710,7 @@ impl PredictionEngine {
 }
 
 impl AutomationEngine {
-    async fn initialize(&mut self) -> Result<(), PrimalError> {
+    fn initialize(&mut self) -> Result<(), PrimalError> {
         info!(
             rules = self.automation_rules.len(),
             "Automation engine initialized"
@@ -722,7 +722,7 @@ impl AutomationEngine {
 }
 
 impl FederationIntelligence {
-    async fn initialize(&mut self) -> Result<(), PrimalError> {
+    fn initialize(&mut self) -> Result<(), PrimalError> {
         info!(
             biomes = self.connected_biomes.len(),
             protocols = self.coordination_protocols.len(),

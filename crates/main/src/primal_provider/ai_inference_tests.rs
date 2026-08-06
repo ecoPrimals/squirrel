@@ -228,7 +228,7 @@ mod tests {
             "model": null,
             "parameters": {}
         });
-        let out = p.handle_ai_inference_request(v).await.expect("inference");
+        let out = p.handle_ai_inference_request(v).expect("inference");
         assert_eq!(
             out.get("content").and_then(|x| x.as_str()),
             Some("Response to: hello world")
@@ -240,7 +240,6 @@ mod tests {
         let p = test_provider().await;
         let err = p
             .handle_ai_inference_request(serde_json::json!("not-object"))
-            .await
             .expect_err("bad payload");
         assert!(matches!(err, PrimalError::ValidationError(_)));
     }
@@ -254,7 +253,7 @@ mod tests {
             "model": null,
             "parameters": {}
         });
-        let out = p.handle_ai_inference_request(v).await.expect("ok");
+        let out = p.handle_ai_inference_request(v).expect("ok");
         assert!(
             out.get("content")
                 .and_then(|x| x.as_str())

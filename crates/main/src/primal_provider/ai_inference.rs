@@ -70,7 +70,7 @@ impl AIProviderSelection {
 
 impl<S: SessionManager> SquirrelPrimalProvider<S> {
     /// Handle AI inference request with intelligent provider selection
-    pub async fn handle_ai_inference_request(
+    pub fn handle_ai_inference_request(
         &self,
         request: serde_json::Value,
     ) -> Result<serde_json::Value, PrimalError> {
@@ -83,19 +83,17 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
 
         // Use universal adapter for provider selection (simplified)
         info!("Universal adapter involved in provider selection process");
-        let provider = self.select_ai_provider(&inference_request).await?;
+        let provider = self.select_ai_provider(&inference_request)?;
 
         // Execute the request with universal adapter coordination
-        let response = self
-            .execute_ai_request(&provider, inference_request)
-            .await?;
+        let response = self.execute_ai_request(&provider, inference_request)?;
 
         info!("AI inference request processed through universal adapter");
         Ok(response)
     }
 
     /// Select appropriate AI provider for the request using universal adapter
-    async fn select_ai_provider(
+    fn select_ai_provider(
         &self,
         request: &AIInferenceRequest,
     ) -> Result<String, PrimalError> {
@@ -120,7 +118,7 @@ impl<S: SessionManager> SquirrelPrimalProvider<S> {
     /// TRUE PRIMAL: Provider is an opaque identifier from capability discovery.
     /// This method delegates to the universal AI infrastructure, which routes
     /// to whichever provider was discovered at runtime (cloud, local, custom).
-    async fn execute_ai_request(
+    fn execute_ai_request(
         &self,
         provider: &str,
         request: AIInferenceRequest,

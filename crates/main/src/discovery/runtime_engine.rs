@@ -29,7 +29,7 @@ impl RuntimeDiscoveryEngine {
     pub fn new() -> Self {
         Self {
             cache: Arc::new(DashMap::new()),
-            cache_ttl: Duration::from_secs(300), // 5 minutes
+            cache_ttl: Duration::from_secs(universal_constants::timeouts::DEFAULT_CAPABILITY_DISCOVERY_TTL_SECS),
         }
     }
 
@@ -100,7 +100,7 @@ impl RuntimeDiscoveryEngine {
         // Stage 3: Try mDNS (local network; falls back to socket registry)
         debug!("Stage 3: Trying mDNS for '{}'", capability);
         let mdns = crate::discovery::mechanisms::MdnsDiscovery::default();
-        if let Ok(services) = mdns.discover_by_capability(capability).await
+        if let Ok(services) = mdns.discover_by_capability(capability)
             && let Some(service) = services.into_iter().next()
         {
             info!("Found via mDNS: {}", service.endpoint);
@@ -110,7 +110,7 @@ impl RuntimeDiscoveryEngine {
         // Stage 4: Try DNS-SD (network-wide; falls back to socket registry)
         debug!("Stage 4: Trying DNS-SD for '{}'", capability);
         let dnssd = crate::discovery::mechanisms::DnssdDiscovery::default();
-        if let Ok(services) = dnssd.discover_by_capability(capability).await
+        if let Ok(services) = dnssd.discover_by_capability(capability)
             && let Some(service) = services.into_iter().next()
         {
             info!("Found via DNS-SD: {}", service.endpoint);
@@ -129,7 +129,7 @@ impl RuntimeDiscoveryEngine {
 
             let registry =
                 crate::discovery::mechanisms::RegistryDiscovery::new(registry_backend, registry_endpoint);
-            if let Ok(services) = registry.discover_by_capability(capability).await
+            if let Ok(services) = registry.discover_by_capability(capability)
                 && let Some(service) = services.into_iter().next()
             {
                 info!("Found via service registry: {}", service.endpoint);

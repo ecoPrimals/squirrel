@@ -201,11 +201,11 @@ impl BiomeManifestParser {
             .await
             .map_err(|e| PrimalError::ConfigError(format!("Failed to read manifest file: {e}")))?;
 
-        self.parse_content(&content).await
+        self.parse_content(&content)
     }
 
     /// Parses manifest content from a string.
-    pub async fn parse_content(&self, content: &str) -> Result<BiomeManifest, PrimalError> {
+    pub fn parse_content(&self, content: &str) -> Result<BiomeManifest, PrimalError> {
         debug!("Parsing biome.yaml manifest content");
 
         let mut manifest: BiomeManifest = serde_yaml_ng::from_str(content)
@@ -320,7 +320,7 @@ mod tests {
         let template = BiomeManifestParser::generate_template();
         let yaml = serde_yaml_ng::to_string(&template).expect("serialize template");
         let parser = BiomeManifestParser::new();
-        let parsed = parser.parse_content(&yaml).await.expect("parse roundtrip");
+        let parsed = parser.parse_content(&yaml).expect("parse roundtrip");
         assert_eq!(parsed.metadata.name, template.metadata.name);
         assert_eq!(parsed.agents.len(), template.agents.len());
     }
@@ -331,7 +331,7 @@ mod tests {
         template.metadata.name = String::new();
         let yaml = serde_yaml_ng::to_string(&template).expect("should succeed");
         let parser = BiomeManifestParser::new();
-        let err = parser.parse_content(&yaml).await.unwrap_err();
+        let err = parser.parse_content(&yaml).unwrap_err();
         let msg = err.to_string();
         assert!(
             msg.contains("Biome name cannot be empty") || msg.contains("empty"),

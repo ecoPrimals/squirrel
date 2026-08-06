@@ -42,7 +42,7 @@ async fn test_agent_validation() {
     let manifest = BiomeManifestParser::generate_template();
     let agent_spec = &manifest.agents[0];
 
-    let result = manager.validate_agent_spec(agent_spec).await;
+    let result = manager.validate_agent_spec(agent_spec);
     assert!(result.is_ok());
 }
 

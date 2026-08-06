@@ -17,8 +17,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 use tracing::{debug, info};
 
-/// Default cache TTL for socket registry entries
-const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(30);
+use universal_constants::timeouts::DEFAULT_SOCKET_REGISTRY_CACHE_TTL;
 
 /// Cached registry entry with TTL
 struct CachedRegistry {
@@ -48,7 +47,7 @@ impl SocketRegistryDiscovery {
         Self {
             path_override: None,
             cache: Arc::new(DashMap::new()),
-            cache_ttl: DEFAULT_CACHE_TTL,
+            cache_ttl: DEFAULT_SOCKET_REGISTRY_CACHE_TTL,
         }
     }
 
@@ -58,7 +57,7 @@ impl SocketRegistryDiscovery {
         Self {
             path_override: Some(path),
             cache: Arc::new(DashMap::new()),
-            cache_ttl: DEFAULT_CACHE_TTL,
+            cache_ttl: DEFAULT_SOCKET_REGISTRY_CACHE_TTL,
         }
     }
 

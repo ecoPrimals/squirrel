@@ -165,7 +165,7 @@ impl UniversalComputeClient {
         // Removed AI metadata enhancement - was over-engineered early implementation
 
         // Select best provider using AI-based routing
-        let provider = self.select_best_provider(&request).await?;
+        let provider = self.select_best_provider(&request)?;
 
         // Create primal request
         let primal_request = PrimalRequest::new(
@@ -185,18 +185,17 @@ impl UniversalComputeClient {
             .await?;
 
         // Process response and generate AI insights
-        let compute_response = self.process_response(response, &provider, &request).await?;
+        let compute_response = self.process_response(response, &provider, &request)?;
 
         // Update provider health based on operation
-        self.update_provider_health(&provider.provider_id, &compute_response)
-            .await;
+        self.update_provider_health(&provider.provider_id, &compute_response);
 
         info!("Universal compute operation completed successfully");
         Ok(compute_response)
     }
 
     /// Select best provider using AI-based routing
-    async fn select_best_provider(
+    fn select_best_provider(
         &self,
         request: &UniversalComputeRequest,
     ) -> UniversalResult<ComputeProvider> {
@@ -212,7 +211,7 @@ impl UniversalComputeClient {
 
         for entry in self.providers.iter() {
             let provider = entry.value();
-            let score = self.calculate_provider_score(provider, request).await;
+            let score = self.calculate_provider_score(provider, request);
             if score > best_score {
                 best_score = score;
                 best_provider = Some(provider.clone());
@@ -225,7 +224,7 @@ impl UniversalComputeClient {
     }
 
     /// Calculate provider score for specific request
-    async fn calculate_provider_score(
+    fn calculate_provider_score(
         &self,
         provider: &ComputeProvider,
         request: &UniversalComputeRequest,
@@ -255,7 +254,7 @@ impl UniversalComputeClient {
     }
 
     /// Process response and generate AI insights
-    async fn process_response(
+    fn process_response(
         &self,
         response: PrimalResponse,
         provider: &ComputeProvider,
@@ -356,7 +355,7 @@ impl UniversalComputeClient {
     }
 
     /// Update provider health based on operation results
-    async fn update_provider_health(&self, provider_id: &str, response: &UniversalComputeResponse) {
+    fn update_provider_health(&self, provider_id: &str, response: &UniversalComputeResponse) {
         if let Some(mut provider) = self.providers.get_mut(provider_id) {
             provider.health.avg_execution_time_ms =
                 response.performance.execution_time.as_millis() as f64;

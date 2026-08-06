@@ -107,7 +107,7 @@ impl SquirrelBiomeOSIntegration {
     }
 
     /// Migrate to optimized implementation
-    pub async fn migrate_to_optimized(self) -> Result<Self, PrimalError> {
+    pub fn migrate_to_optimized(self) -> Result<Self, PrimalError> {
         let optimized = Self::new("migration-squirrel".to_string());
 
         // Migration logic would go here to transfer state
@@ -117,7 +117,7 @@ impl SquirrelBiomeOSIntegration {
     }
 
     /// Register squirrel AI with biomeOS ecosystem
-    pub async fn register_with_biomeos(&mut self) -> Result<(), PrimalError> {
+    pub fn register_with_biomeos(&mut self) -> Result<(), PrimalError> {
         let registration = EcosystemServiceRegistration {
             service_id: self.service_id.clone(),
             primal_type: PRIMAL_TYPE.to_string(),
@@ -226,26 +226,26 @@ impl SquirrelBiomeOSIntegration {
     }
 
     /// Start AI intelligence and MCP services
-    pub async fn start_ecosystem_services(&mut self) -> Result<(), PrimalError> {
+    pub fn start_ecosystem_services(&mut self) -> Result<(), PrimalError> {
         // Initialize AI intelligence
-        self.ai_intelligence.initialize().await?;
+        self.ai_intelligence.initialize()?;
         self.health_status.ai_engine_status = STATUS_RUNNING.to_string();
 
         // Initialize MCP integration
-        self.mcp_integration.initialize().await?;
+        self.mcp_integration.initialize()?;
         self.health_status.mcp_server_status = STATUS_RUNNING.to_string();
 
         // Initialize context state management
-        self.context_state.initialize().await?;
+        self.context_state.initialize()?;
         self.health_status.context_manager_status = STATUS_RUNNING.to_string();
 
         // Agent deployment is initialized by default
         self.health_status.agent_deployment_status = STATUS_RUNNING.to_string();
 
         // Start ecosystem AI services
-        self.start_ecosystem_intelligence().await?;
-        self.start_mcp_coordination().await?;
-        self.start_context_management().await?;
+        self.start_ecosystem_intelligence()?;
+        self.start_mcp_coordination()?;
+        self.start_context_management()?;
 
         self.health_status.status = STATUS_RUNNING.to_string();
         self.health_status.timestamp = Utc::now();
@@ -305,15 +305,15 @@ impl SquirrelBiomeOSIntegration {
     }
 
     /// Parse a biome.yaml manifest from content
-    pub async fn parse_manifest_content(
+    pub fn parse_manifest_content(
         &self,
         content: &str,
     ) -> Result<BiomeManifest, PrimalError> {
-        self.manifest_parser.parse_content(content).await
+        self.manifest_parser.parse_content(content)
     }
 
     /// Start ecosystem intelligence services
-    async fn start_ecosystem_intelligence(&mut self) -> Result<(), PrimalError> {
+    fn start_ecosystem_intelligence(&mut self) -> Result<(), PrimalError> {
         // Start AI intelligence background task
         let ai_intelligence = self.ai_intelligence.clone();
         tokio::spawn(async move {
@@ -329,7 +329,7 @@ impl SquirrelBiomeOSIntegration {
             loop {
                 ticker.tick().await;
 
-                if let Err(e) = ai_intelligence.provide_ecosystem_intelligence().await {
+                if let Err(e) = ai_intelligence.provide_ecosystem_intelligence() {
                     warn!("AI intelligence error: {}", e);
                 }
             }
@@ -339,7 +339,7 @@ impl SquirrelBiomeOSIntegration {
     }
 
     /// Start MCP coordination services
-    async fn start_mcp_coordination(&mut self) -> Result<(), PrimalError> {
+    fn start_mcp_coordination(&mut self) -> Result<(), PrimalError> {
         // Start MCP coordination background task
         let mcp_integration = self.mcp_integration.clone();
         tokio::spawn(async move {
@@ -355,7 +355,7 @@ impl SquirrelBiomeOSIntegration {
             loop {
                 ticker.tick().await;
 
-                if let Err(e) = mcp_integration.coordinate_with_ecosystem().await {
+                if let Err(e) = mcp_integration.coordinate_with_ecosystem() {
                     warn!("MCP coordination error: {}", e);
                 }
             }
@@ -365,7 +365,7 @@ impl SquirrelBiomeOSIntegration {
     }
 
     /// Start context management services
-    async fn start_context_management(&mut self) -> Result<(), PrimalError> {
+    fn start_context_management(&mut self) -> Result<(), PrimalError> {
         // Start context management background task
         let context_state = self.context_state.clone();
         tokio::spawn(async move {
@@ -382,7 +382,7 @@ impl SquirrelBiomeOSIntegration {
             loop {
                 ticker.tick().await;
 
-                if let Err(e) = context_state.manage_ecosystem_context().await {
+                if let Err(e) = context_state.manage_ecosystem_context() {
                     warn!("Context management error: {}", e);
                 }
             }
@@ -392,31 +392,27 @@ impl SquirrelBiomeOSIntegration {
     }
 
     /// Provide AI intelligence for ecosystem optimization
-    pub async fn provide_ecosystem_intelligence(
+    pub fn provide_ecosystem_intelligence(
         &self,
         request: IntelligenceRequest,
     ) -> Result<IntelligenceResponse, PrimalError> {
-        self.ai_intelligence
-            .process_intelligence_request(request)
-            .await
+        self.ai_intelligence.process_intelligence_request(request)
     }
 
     /// Handle MCP protocol coordination
-    pub async fn handle_mcp_coordination(
+    pub fn handle_mcp_coordination(
         &self,
         request: McpCoordinationRequest,
     ) -> Result<McpCoordinationResponse, PrimalError> {
-        self.mcp_integration
-            .handle_coordination_request(request)
-            .await
+        self.mcp_integration.handle_coordination_request(request)
     }
 
     /// Manage context state for sessions
-    pub async fn manage_context_state(
+    pub fn manage_context_state(
         &self,
         request: ContextStateRequest,
     ) -> Result<ContextStateResponse, PrimalError> {
-        self.context_state.handle_state_request(request).await
+        self.context_state.handle_state_request(request)
     }
 
     /// Get current health status
@@ -434,21 +430,21 @@ impl SquirrelBiomeOSIntegration {
     /// Perform health check on all components
     pub async fn health_check(&mut self) -> Result<(), PrimalError> {
         // Check AI intelligence health
-        if let Err(e) = self.ai_intelligence.health_check().await {
+        if let Err(e) = self.ai_intelligence.health_check() {
             self.health_status.ai_engine_status = format!("unhealthy: {e}");
         } else {
             self.health_status.ai_engine_status = STATUS_RUNNING.to_string();
         }
 
         // Check MCP integration health
-        if let Err(e) = self.mcp_integration.health_check().await {
+        if let Err(e) = self.mcp_integration.health_check() {
             self.health_status.mcp_server_status = format!("unhealthy: {e}");
         } else {
             self.health_status.mcp_server_status = STATUS_RUNNING.to_string();
         }
 
         // Check context state health
-        if let Err(e) = self.context_state.health_check().await {
+        if let Err(e) = self.context_state.health_check() {
             self.health_status.context_manager_status = format!("unhealthy: {e}");
         } else {
             self.health_status.context_manager_status = STATUS_RUNNING.to_string();
@@ -522,7 +518,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_with_biomeos() {
         let mut integration = SquirrelBiomeOSIntegration::new("register-test".to_string());
-        let result = integration.register_with_biomeos().await;
+        let result = integration.register_with_biomeos();
         assert!(result.is_ok());
         assert_eq!(integration.health_status.status, "registered");
     }
@@ -578,7 +574,7 @@ networking:
   dns: { enabled: true, servers: ["8.8.8.8"], search_domains: [] }
 primals: {}
 "#;
-        let result = integration.parse_manifest_content(yaml).await;
+        let result = integration.parse_manifest_content(yaml);
         assert!(result.is_ok());
         let manifest = result.expect("parse manifest");
         assert_eq!(manifest.metadata.name, "parsed-biome");
@@ -612,7 +608,7 @@ primals: {}
     #[tokio::test]
     async fn test_migrate_to_optimized() {
         let integration = SquirrelBiomeOSIntegration::new("migrate-test".to_string());
-        let result = integration.migrate_to_optimized().await;
+        let result = integration.migrate_to_optimized();
         assert!(result.is_ok());
         let optimized = result.expect("migrate optimized");
         assert_eq!(optimized.biome_id, "migration-squirrel");

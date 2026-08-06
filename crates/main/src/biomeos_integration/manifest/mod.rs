@@ -206,7 +206,7 @@ networking:
 primals: {}
 "#;
 
-        let result = parser.parse_content(yaml_content).await;
+        let result = parser.parse_content(yaml_content);
         if let Err(ref e) = result {
             tracing::error!("Manifest parsing error: {:?}", e);
         }

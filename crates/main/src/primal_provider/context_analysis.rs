@@ -247,7 +247,7 @@ pub struct TopicResult {
 
 impl<S: SessionManager> SquirrelPrimalProvider<S> {
     /// Handles a context analysis request (sentiment, intent, topic, or full analysis).
-    pub async fn handle_context_analysis_request(
+    pub fn handle_context_analysis_request(
         &self,
         request: serde_json::Value,
     ) -> Result<serde_json::Value, PrimalError> {
@@ -388,7 +388,6 @@ mod context_analysis_tests {
                 "text": "what is the good data science",
                 "analysis_type": "full"
             }))
-            .await
             .expect("should succeed");
         assert_eq!(
             full.get("analysis_type").and_then(|v| v.as_str()),
@@ -397,7 +396,6 @@ mod context_analysis_tests {
 
         let err = p
             .handle_context_analysis_request(serde_json::json!({}))
-            .await
             .unwrap_err();
         assert!(matches!(err, crate::error::PrimalError::ValidationError(_)));
 
@@ -406,7 +404,6 @@ mod context_analysis_tests {
                 "text": "x",
                 "analysis_type": "unknown"
             }))
-            .await
             .unwrap_err();
         assert!(matches!(bad, crate::error::PrimalError::ValidationError(_)));
     }

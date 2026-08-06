@@ -122,10 +122,9 @@ impl<S: SessionManager> UniversalPrimalProvider for SquirrelPrimalProvider<S> {
         info!("Handling primal request: {}", request.operation);
 
         let response_payload = match request.operation.as_str() {
-            "ai_inference" => self.handle_ai_inference_request(request.payload).await?,
+            "ai_inference" => self.handle_ai_inference_request(request.payload)?,
             "context_analysis" => {
-                self.handle_context_analysis_request(request.payload)
-                    .await?
+                self.handle_context_analysis_request(request.payload)?
             }
             "session_create" => self.create_session(request.payload).await?,
             "session_get" => self.get_session(request.payload).await?,

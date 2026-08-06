@@ -35,6 +35,7 @@ use crate::discovery::mechanisms::socket_registry::discover_from_socket_registry
 use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult};
 use std::collections::HashMap;
 use std::time::Duration;
+use universal_constants::timeouts::DEFAULT_DISCOVERY_QUERY_TIMEOUT;
 use tracing::{debug, info, warn};
 
 /// DNS-SD discovery client
@@ -61,7 +62,7 @@ impl Default for DnssdDiscovery {
             domain: "local.".to_string(),
             service_type: "_biomeos._tcp".to_string(),
             dns_server: None,
-            _timeout: Duration::from_secs(5),
+            _timeout: DEFAULT_DISCOVERY_QUERY_TIMEOUT,
             enabled: true,
         }
     }
@@ -75,7 +76,7 @@ impl DnssdDiscovery {
             domain,
             service_type,
             dns_server: None,
-            _timeout: Duration::from_secs(5),
+            _timeout: DEFAULT_DISCOVERY_QUERY_TIMEOUT,
             enabled: true,
         }
     }
@@ -92,7 +93,7 @@ impl DnssdDiscovery {
     /// Queries DNS for `_biomeos._tcp` services. Since ecoBin requires pure Rust
     /// and we don't have trust-dns-resolver/hickory-dns in dependencies, this
     /// falls back to the socket registry (biomeOS file-based discovery).
-    pub async fn discover_by_capability(
+    pub fn discover_by_capability(
         &self,
         capability: &str,
     ) -> DiscoveryResult<Vec<DiscoveredService>> {
@@ -118,7 +119,7 @@ impl DnssdDiscovery {
     ///
     /// Performs a PTR query to enumerate all available services.
     /// Falls back to socket registry when DNS-SD is unavailable.
-    pub async fn discover_all(&self) -> DiscoveryResult<Vec<DiscoveredService>> {
+    pub fn discover_all(&self) -> DiscoveryResult<Vec<DiscoveredService>> {
         if !self.enabled {
             return Ok(Vec::new());
         }
@@ -149,7 +150,7 @@ impl DnssdDiscovery {
     /// - RFC 2136 Dynamic DNS Updates
     /// - REST API to DNS management service (Consul, Etcd)
     /// - Kubernetes DNS integration
-    pub async fn register_service(
+    pub fn register_service(
         &self,
         instance_name: &str,
         _hostname: &str,
@@ -172,7 +173,7 @@ impl DnssdDiscovery {
     /// Unregister service from DNS
     ///
     /// Removes DNS records for this service.
-    pub async fn unregister_service(&self, instance_name: &str) -> DiscoveryResult<()> {
+    pub fn unregister_service(&self, instance_name: &str) -> DiscoveryResult<()> {
         if !self.enabled {
             return Ok(());
         }
@@ -237,7 +238,7 @@ mod tests {
     #[tokio::test]
     async fn test_dnssd_discover_by_capability() {
         let dnssd = DnssdDiscovery::default();
-        let result = dnssd.discover_by_capability("ai").await;
+        let result = dnssd.discover_by_capability("ai");
         assert!(result.is_ok());
         // Graceful fallback returns empty vec
         assert_eq!(result.expect("should succeed").len(), 0);
@@ -246,7 +247,7 @@ mod tests {
     #[tokio::test]
     async fn test_dnssd_discover_all() {
         let dnssd = DnssdDiscovery::default();
-        let result = dnssd.discover_all().await;
+        let result = dnssd.discover_all();
         assert!(result.is_ok());
     }
 
@@ -263,8 +264,7 @@ mod tests {
                 9200,
                 capabilities,
                 metadata,
-            )
-            .await;
+            );
         assert!(result.is_err(), "DNS-SD register should report unavailable");
         assert!(result.unwrap_err().to_string().contains("unavailable"));
     }
@@ -272,7 +272,7 @@ mod tests {
     #[tokio::test]
     async fn test_dnssd_unregister_returns_unavailable() {
         let dnssd = DnssdDiscovery::default();
-        let result = dnssd.unregister_service("test-instance").await;
+        let result = dnssd.unregister_service("test-instance");
         assert!(
             result.is_err(),
             "DNS-SD unregister should report unavailable"
@@ -287,7 +287,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = dnssd.discover_by_capability("ai").await;
+        let result = dnssd.discover_by_capability("ai");
         assert!(result.is_ok());
         assert_eq!(result.expect("should succeed").len(), 0);
     }
@@ -295,7 +295,7 @@ mod tests {
     #[tokio::test]
     async fn fallback_discover_by_capability_returns_ok() {
         let dnssd = DnssdDiscovery::new("example.com.".to_string(), "_test._tcp".to_string());
-        let result = dnssd.discover_by_capability("nonexistent").await;
+        let result = dnssd.discover_by_capability("nonexistent");
         assert!(
             result.is_ok(),
             "fallback must never error even for unknown capabilities"
@@ -306,7 +306,7 @@ mod tests {
     async fn discover_all_returns_ok_regardless_of_config() {
         let dnssd = DnssdDiscovery::new("custom.domain.".to_string(), "_custom._tcp".to_string())
             .with_dns_server("192.0.2.1:53".to_string());
-        let result = dnssd.discover_all().await;
+        let result = dnssd.discover_all();
         assert!(
             result.is_ok(),
             "discover_all must fall back gracefully even with custom DNS server"
@@ -319,10 +319,9 @@ mod tests {
         assert!(
             dnssd
                 .register_service("x", "h", 1, vec![], HashMap::new())
-                .await
                 .is_err()
         );
-        assert!(dnssd.unregister_service("x").await.is_err());
+        assert!(dnssd.unregister_service("x").is_err());
     }
 
     #[test]

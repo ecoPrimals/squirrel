@@ -27,7 +27,7 @@ async fn test_custom_metric_registration() {
         source: "test".to_string(),
     };
 
-    let result = collector.register_custom_metric(metric_def).await;
+    let result = collector.register_custom_metric(metric_def);
     assert!(result.is_ok());
 
     assert!(collector.metrics.contains_key("test_counter"));
@@ -49,14 +49,13 @@ async fn test_metric_recording() {
 
     collector
         .register_custom_metric(metric_def)
-        .await
         .expect("Test: metric registration should succeed");
 
     // Now record a value
     let mut labels = HashMap::new();
     labels.insert("component".to_string(), "test_component".to_string());
 
-    let result = collector.record_metric("test_gauge", 42.0, labels).await;
+    let result = collector.record_metric("test_gauge", 42.0, labels);
     assert!(result.is_ok());
 
     assert!(collector.values.contains_key("test_gauge"));
@@ -102,7 +101,6 @@ async fn test_component_metrics_retrieval() {
 
     let ai_metrics = collector
         .get_component_metrics("ai_intelligence")
-        .await
         .expect("Test: component metrics should exist");
     assert!(!ai_metrics.is_empty());
     assert!(ai_metrics.contains_key("requests_processed"));
@@ -117,8 +115,7 @@ async fn test_record_metric_error_unregistered() {
     labels.insert("test".to_string(), "value".to_string());
 
     let result = collector
-        .record_metric("nonexistent_metric", 10.0, labels)
-        .await;
+        .record_metric("nonexistent_metric", 10.0, labels);
     assert!(result.is_err());
     assert!(matches!(result.unwrap_err(), PrimalError::NotFoundError(_)));
 }
@@ -138,12 +135,10 @@ async fn test_get_metric_info_success() {
 
     collector
         .register_custom_metric(metric_def)
-        .await
         .expect("Test: metric registration should succeed");
 
     let info = collector
         .get_metric_info("info_test_metric")
-        .await
         .expect("Test: metric info should exist");
     assert_eq!(info.name, "info_test_metric");
     assert_eq!(info.description, "Test metric for info retrieval");
@@ -156,7 +151,7 @@ async fn test_get_metric_info_success() {
 async fn test_get_metric_info_not_found() {
     let collector = MetricsCollector::new();
 
-    let result = collector.get_metric_info("missing_metric").await;
+    let result = collector.get_metric_info("missing_metric");
     assert!(result.is_err());
     assert!(matches!(result.unwrap_err(), PrimalError::NotFoundError(_)));
 }
@@ -177,13 +172,11 @@ async fn test_list_metric_definitions() {
         };
         collector
             .register_custom_metric(metric_def)
-            .await
             .expect("should succeed");
     }
 
     let definitions = collector
         .list_metric_definitions()
-        .await
         .expect("should succeed");
     assert_eq!(definitions.len(), 3);
 }
@@ -222,26 +215,21 @@ async fn test_get_metrics_by_source() {
 
     collector
         .register_custom_metric(metric1)
-        .await
         .expect("should succeed");
     collector
         .register_custom_metric(metric2)
-        .await
         .expect("should succeed");
     collector
         .register_custom_metric(metric3)
-        .await
         .expect("should succeed");
 
     let source_a_metrics = collector
         .get_metrics_by_source("source_a")
-        .await
         .expect("should succeed");
     assert_eq!(source_a_metrics.len(), 2);
 
     let source_b_metrics = collector
         .get_metrics_by_source("source_b")
-        .await
         .expect("should succeed");
     assert_eq!(source_b_metrics.len(), 1);
 }
@@ -280,26 +268,21 @@ async fn test_get_metrics_by_unit() {
 
     collector
         .register_custom_metric(metric1)
-        .await
         .expect("should succeed");
     collector
         .register_custom_metric(metric2)
-        .await
         .expect("should succeed");
     collector
         .register_custom_metric(metric3)
-        .await
         .expect("should succeed");
 
     let bytes_metrics = collector
         .get_metrics_by_unit("bytes")
-        .await
         .expect("should succeed");
     assert_eq!(bytes_metrics.len(), 2);
 
     let count_metrics = collector
         .get_metrics_by_unit("count")
-        .await
         .expect("should succeed");
     assert_eq!(count_metrics.len(), 1);
 }
@@ -320,14 +303,12 @@ async fn test_get_all_metrics() {
 
     collector
         .register_custom_metric(metric_def)
-        .await
         .expect("should succeed");
 
     let mut labels = HashMap::new();
     labels.insert("key".to_string(), "value".to_string());
     collector
         .record_metric("all_test_metric", 99.0, labels)
-        .await
         .expect("should succeed");
 
     // Collect system metrics
@@ -403,7 +384,6 @@ async fn test_component_specific_metrics_all_components() {
     for component in internal_components {
         let metrics = collector
             .get_component_metrics(component)
-            .await
             .expect("should succeed");
         assert!(
             !metrics.is_empty(),
@@ -414,7 +394,6 @@ async fn test_component_specific_metrics_all_components() {
     // agent_deployment returns empty until the subsystem is wired
     let agent_metrics = collector
         .get_component_metrics("agent_deployment")
-        .await
         .expect("should succeed");
     assert!(
         agent_metrics.is_empty(),
@@ -431,7 +410,7 @@ async fn test_component_specific_metrics_all_components() {
     ];
     for domain in capability_domains {
         // These may or may not exist depending on runtime discovery
-        let _result = collector.get_component_metrics(domain).await;
+        let _result = collector.get_component_metrics(domain);
     }
 }
 
@@ -458,7 +437,6 @@ async fn test_multiple_metric_recordings() {
 
     collector
         .register_custom_metric(metric_def)
-        .await
         .expect("should succeed");
 
     // Record multiple values (each overwrites the previous)
@@ -466,7 +444,6 @@ async fn test_multiple_metric_recordings() {
         let labels = HashMap::new();
         collector
             .record_metric("multi_record_metric", f64::from(i) * 10.0, labels)
-            .await
             .expect("should succeed");
     }
 
@@ -483,7 +460,6 @@ async fn test_get_component_metrics_nonexistent() {
 
     let result = collector
         .get_component_metrics("nonexistent_component")
-        .await
         .expect("should succeed");
     assert!(result.is_empty());
 }
@@ -503,14 +479,12 @@ async fn test_metric_value_timestamp() {
 
     collector
         .register_custom_metric(metric_def)
-        .await
         .expect("should succeed");
 
     let before_time = Utc::now();
     let labels = HashMap::new();
     collector
         .record_metric("timestamp_metric", 1.0, labels)
-        .await
         .expect("should succeed");
     let after_time = Utc::now();
 
@@ -545,13 +519,11 @@ async fn test_metric_type_preservation() {
 
         collector
             .register_custom_metric(metric_def)
-            .await
             .expect("should succeed");
 
         let labels = HashMap::new();
         collector
             .record_metric(&format!("type_test_{i}"), 1.0, labels)
-            .await
             .expect("should succeed");
     }
 
@@ -604,7 +576,6 @@ async fn shared_tracker_flows_to_component_metrics() {
 
     let ai_metrics = collector
         .get_component_metrics("ai_intelligence")
-        .await
         .expect("should succeed");
     let total = ai_metrics
         .get(crate::monitoring::metric_names::ai_intelligence::REQUESTS_PROCESSED)
@@ -617,7 +588,6 @@ async fn shared_tracker_flows_to_component_metrics() {
 
     let mcp_metrics = collector
         .get_component_metrics("mcp_integration")
-        .await
         .expect("should succeed");
     let errors = mcp_metrics
         .get(crate::monitoring::metric_names::mcp_integration::PROTOCOL_ERRORS)
@@ -638,7 +608,6 @@ async fn context_session_count_flows_to_context_state_metrics() {
 
     let ctx_metrics = collector
         .get_component_metrics("context_state")
-        .await
         .expect("should succeed");
     let sessions = ctx_metrics
         .get(crate::monitoring::metric_names::context_state::ACTIVE_SESSIONS)

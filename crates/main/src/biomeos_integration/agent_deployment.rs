@@ -73,7 +73,7 @@ impl AgentDeploymentManager {
         let mut deployed_agent_ids = Vec::new();
 
         // Validate manifest
-        self.validate_manifest(manifest).await?;
+        self.validate_manifest(manifest)?;
 
         // Deploy each agent
         for agent_spec in &manifest.agents {
@@ -107,16 +107,16 @@ impl AgentDeploymentManager {
         let agent_id = format!("agent-{}-{}", spec.name, uuid::Uuid::new_v4());
 
         // Validate agent specification
-        self.validate_agent_spec(spec).await?;
+        self.validate_agent_spec(spec)?;
 
         // Create deployed agent
-        let deployed_agent = self.create_deployed_agent(&agent_id, spec).await?;
+        let deployed_agent = self.create_deployed_agent(&agent_id, spec)?;
 
         // Register agent with MCP integration
-        self.register_agent_with_mcp(&deployed_agent).await?;
+        self.register_agent_with_mcp(&deployed_agent)?;
 
         // Start agent
-        self.start_agent(&deployed_agent).await?;
+        self.start_agent(&deployed_agent)?;
 
         // Store deployed agent
         self.deployed_agents
@@ -132,7 +132,7 @@ impl AgentDeploymentManager {
     }
 
     /// Validate the manifest
-    async fn validate_manifest(&self, manifest: &BiomeManifest) -> Result<(), PrimalError> {
+    fn validate_manifest(&self, manifest: &BiomeManifest) -> Result<(), PrimalError> {
         // Check if we can deploy all agents
         if manifest.agents.len() > self.config.max_concurrent_agents as usize {
             return Err(PrimalError::ResourceError(format!(
@@ -145,7 +145,7 @@ impl AgentDeploymentManager {
         // Validate security requirements
         if self.config.security.enabled {
             for agent in &manifest.agents {
-                self.validate_agent_security(agent).await?;
+                self.validate_agent_security(agent)?;
             }
         }
 
@@ -153,7 +153,7 @@ impl AgentDeploymentManager {
     }
 
     /// Validate agent specification
-    async fn validate_agent_spec(&self, spec: &AgentSpec) -> Result<(), PrimalError> {
+    fn validate_agent_spec(&self, spec: &AgentSpec) -> Result<(), PrimalError> {
         // Validate AI provider
         if self.config.security.enabled
             && !self.config.security.allowed_ai_providers.is_empty()
@@ -200,7 +200,7 @@ impl AgentDeploymentManager {
     }
 
     /// Validate agent security
-    async fn validate_agent_security(&self, spec: &AgentSpec) -> Result<(), PrimalError> {
+    fn validate_agent_security(&self, spec: &AgentSpec) -> Result<(), PrimalError> {
         if self.config.security.validate_security_context
             && spec.security.security_context.is_empty()
         {
@@ -221,12 +221,12 @@ impl AgentDeploymentManager {
     }
 
     /// Create a deployed agent instance
-    async fn create_deployed_agent(
+    fn create_deployed_agent(
         &self,
         agent_id: &str,
         spec: &AgentSpec,
     ) -> Result<DeployedAgent, PrimalError> {
-        let endpoints = self.generate_agent_endpoints(agent_id, spec).await?;
+        let endpoints = self.generate_agent_endpoints(agent_id, spec)?;
 
         Ok(DeployedAgent {
             agent_id: agent_id.to_string(),
@@ -242,7 +242,7 @@ impl AgentDeploymentManager {
     }
 
     /// Generate agent endpoints
-    async fn generate_agent_endpoints(
+    fn generate_agent_endpoints(
         &self,
         agent_id: &str,
         spec: &AgentSpec,
@@ -286,7 +286,7 @@ impl AgentDeploymentManager {
     }
 
     /// Register agent with MCP integration
-    async fn register_agent_with_mcp(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
+    fn register_agent_with_mcp(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
         debug!("Registering agent {} with MCP integration", agent.agent_id);
 
         // Register agent capabilities with MCP
@@ -296,22 +296,22 @@ impl AgentDeploymentManager {
     }
 
     /// Start the agent
-    async fn start_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
+    fn start_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
         debug!("Starting agent: {}", agent.agent_id);
 
         // Start agent based on execution environment
         match agent.spec.execution_environment {
             ExecutionEnvironment::Native => {
-                self.start_native_agent(agent).await?;
+                self.start_native_agent(agent)?;
             }
             ExecutionEnvironment::Wasm => {
-                self.start_wasm_agent(agent).await?;
+                self.start_wasm_agent(agent)?;
             }
             ExecutionEnvironment::Container => {
-                self.start_container_agent(agent).await?;
+                self.start_container_agent(agent)?;
             }
             ExecutionEnvironment::VirtualMachine => {
-                self.start_vm_agent(agent).await?;
+                self.start_vm_agent(agent)?;
             }
         }
 
@@ -319,28 +319,28 @@ impl AgentDeploymentManager {
     }
 
     /// Start native agent
-    async fn start_native_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
+    fn start_native_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
         debug!("Starting native agent: {}", agent.agent_id);
         // Implementation for native agent startup
         Ok(())
     }
 
     /// Start WASM agent
-    async fn start_wasm_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
+    fn start_wasm_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
         debug!("Starting WASM agent: {}", agent.agent_id);
         // Implementation for WASM agent startup
         Ok(())
     }
 
     /// Start container agent
-    async fn start_container_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
+    fn start_container_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
         debug!("Starting container agent: {}", agent.agent_id);
         // Implementation for container agent startup
         Ok(())
     }
 
     /// Start VM agent
-    async fn start_vm_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
+    fn start_vm_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
         debug!("Starting VM agent: {}", agent.agent_id);
         // Implementation for VM agent startup
         Ok(())
@@ -357,16 +357,16 @@ impl AgentDeploymentManager {
             // Stop agent based on execution environment
             match agent.spec.execution_environment {
                 ExecutionEnvironment::Native => {
-                    self.stop_native_agent(agent).await?;
+                    self.stop_native_agent(agent)?;
                 }
                 ExecutionEnvironment::Wasm => {
-                    self.stop_wasm_agent(agent).await?;
+                    self.stop_wasm_agent(agent)?;
                 }
                 ExecutionEnvironment::Container => {
-                    self.stop_container_agent(agent).await?;
+                    self.stop_container_agent(agent)?;
                 }
                 ExecutionEnvironment::VirtualMachine => {
-                    self.stop_vm_agent(agent).await?;
+                    self.stop_vm_agent(agent)?;
                 }
             }
 
@@ -383,28 +383,28 @@ impl AgentDeploymentManager {
     }
 
     /// Stop native agent
-    async fn stop_native_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
+    fn stop_native_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
         debug!("Stopping native agent: {}", agent.agent_id);
         // Implementation for native agent shutdown
         Ok(())
     }
 
     /// Stop WASM agent
-    async fn stop_wasm_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
+    fn stop_wasm_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
         debug!("Stopping WASM agent: {}", agent.agent_id);
         // Implementation for WASM agent shutdown
         Ok(())
     }
 
     /// Stop container agent
-    async fn stop_container_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
+    fn stop_container_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
         debug!("Stopping container agent: {}", agent.agent_id);
         // Implementation for container agent shutdown
         Ok(())
     }
 
     /// Stop VM agent
-    async fn stop_vm_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
+    fn stop_vm_agent(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
         debug!("Stopping VM agent: {}", agent.agent_id);
         // Implementation for VM agent shutdown
         Ok(())
@@ -474,7 +474,7 @@ impl AgentDeploymentManager {
         let mut agents = self.deployed_agents.write().await;
 
         for agent in agents.values_mut() {
-            match self.check_agent_health(agent).await {
+            match self.check_agent_health(agent) {
                 Ok(()) => {
                     agent.last_health_check = Utc::now();
                     if matches!(agent.status, AgentStatus::Failed(_)) {
@@ -492,7 +492,7 @@ impl AgentDeploymentManager {
     }
 
     /// Check health of a single agent
-    async fn check_agent_health(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
+    fn check_agent_health(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
         // Enhanced health check with AI monitoring
         tracing::debug!(
             agent_id = %agent.agent_id,

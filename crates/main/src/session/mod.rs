@@ -218,7 +218,7 @@ impl SessionManagerImpl {
     }
 
     /// Creates a new session with optional client information.
-    pub async fn create_session(
+    pub fn create_session(
         &self,
         client_info: Option<String>,
     ) -> Result<SessionId, PrimalError> {
@@ -243,7 +243,7 @@ impl SessionManagerImpl {
     }
 
     /// Retrieves a session by ID if it exists.
-    pub async fn get_session(&self, session_id: &str) -> Result<Option<Arc<Session>>, PrimalError> {
+    pub fn get_session(&self, session_id: &str) -> Result<Option<Arc<Session>>, PrimalError> {
         Ok(self
             .sessions
             .get(session_id)
@@ -251,7 +251,7 @@ impl SessionManagerImpl {
     }
 
     /// Retrieves metadata for a session without loading full session data.
-    pub async fn get_session_metadata(
+    pub fn get_session_metadata(
         &self,
         session_id: &str,
     ) -> Result<SessionMetadata, PrimalError> {
@@ -262,7 +262,7 @@ impl SessionManagerImpl {
     }
 
     /// Updates session data, merging with existing data and refreshing last activity.
-    pub async fn update_session(
+    pub fn update_session(
         &self,
         session_id: &str,
         data: HashMap<String, serde_json::Value>,
@@ -291,7 +291,7 @@ impl SessionManagerImpl {
     }
 
     /// Terminates a session, transitioning it to the Terminated state.
-    pub async fn terminate_session(&self, session_id: &str) -> Result<(), PrimalError> {
+    pub fn terminate_session(&self, session_id: &str) -> Result<(), PrimalError> {
         let Some(mut session_entry) = self.sessions.get_mut(session_id) else {
             return Err(PrimalError::NotFoundError(format!(
                 "Cannot terminate session: {session_id} not found"
@@ -310,7 +310,7 @@ impl SessionManagerImpl {
     }
 
     /// Removes expired sessions and returns the count of removed sessions.
-    pub async fn cleanup_expired_sessions(&self) -> Result<u32, PrimalError> {
+    pub fn cleanup_expired_sessions(&self) -> Result<u32, PrimalError> {
         let now = Utc::now();
         let timeout = chrono::Duration::from_std(self.config.timeout)
             .map_err(|e| PrimalError::Internal(format!("Invalid timeout duration: {e}")))?;
@@ -330,7 +330,7 @@ impl SessionManagerImpl {
     }
 
     /// Returns the number of sessions currently in the manager.
-    pub async fn get_active_session_count(&self) -> u32 {
+    pub fn get_active_session_count(&self) -> u32 {
         self.sessions.len() as u32
     }
 }
@@ -360,11 +360,11 @@ pub trait SessionManager: Send + Sync {
 
 impl SessionManager for SessionManagerImpl {
     async fn create_session(&self, client_info: Option<String>) -> Result<String, PrimalError> {
-        Self::create_session(self, client_info).await
+        Self::create_session(self, client_info)
     }
 
     async fn get_session_metadata(&self, session_id: &str) -> Result<SessionMetadata, PrimalError> {
-        Self::get_session_metadata(self, session_id).await
+        Self::get_session_metadata(self, session_id)
     }
 
     async fn update_session_data(
@@ -372,11 +372,11 @@ impl SessionManager for SessionManagerImpl {
         session_id: &str,
         data: HashMap<String, serde_json::Value>,
     ) -> Result<(), PrimalError> {
-        Self::update_session(self, session_id, data).await
+        Self::update_session(self, session_id, data)
     }
 
     async fn terminate_session(&self, session_id: &str) -> Result<(), PrimalError> {
-        Self::terminate_session(self, session_id).await
+        Self::terminate_session(self, session_id)
     }
 }
 

@@ -426,7 +426,7 @@ pub fn register_with_ecosystem(
 }
 
 /// Processes an intelligence request asynchronously.
-pub async fn process_intelligence_request(
+pub fn process_intelligence_request(
     request_id: &str,
     intelligence_type: &str,
     _payload: serde_json::Value, // Mark as unused
@@ -528,18 +528,15 @@ mod optimized_impl_tests {
         assert_eq!(r.primal_type, crate::niche::DOMAIN);
     }
 
-    #[tokio::test]
-    async fn process_intelligence_request_async_variants() {
+    #[test]
+    fn process_intelligence_request_async_variants() {
         let v = process_intelligence_request("id", "pattern_recognition", serde_json::json!({}))
-            .await
             .expect("should succeed");
         assert!(v.result.get("patterns").is_some());
         let v2 = process_intelligence_request("id2", "unknown", serde_json::json!({}))
-            .await
             .expect("should succeed");
         assert!(v2.result.get("error").is_some());
         let err = process_intelligence_request("id3", "anomaly_detection", serde_json::json!({}))
-            .await
             .unwrap_err();
         assert!(matches!(err, crate::error::PrimalError::NotImplemented(_)));
     }

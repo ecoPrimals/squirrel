@@ -16,6 +16,7 @@ use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use universal_constants::timeouts::DEFAULT_DISCOVERY_QUERY_TIMEOUT;
 use tracing::{debug, info};
 
 fn registry_kind_label(backend: &str) -> &str {
@@ -73,7 +74,7 @@ impl RegistryDiscovery {
             registry_backend: backend.into(),
             endpoint: endpoint.into(),
             auth_token: None,
-            timeout: Duration::from_secs(5),
+            timeout: DEFAULT_DISCOVERY_QUERY_TIMEOUT,
             enabled: true,
         }
     }
@@ -112,7 +113,7 @@ impl RegistryDiscovery {
     /// For Biomeos type: reads from $XDG_RUNTIME_DIR/biomeos/socket-registry.json.
     /// For remote HTTP registries: returns [`DiscoveryError::RemoteRegistryUnavailable`] with discovery hints
     /// (vendor integrations are provided via [`ServiceRegistryProvider`](crate::discovery::mechanisms::registry_trait::ServiceRegistryProvider)).
-    pub async fn discover_by_capability(
+    pub fn discover_by_capability(
         &self,
         capability: &str,
     ) -> DiscoveryResult<Vec<DiscoveredService>> {
@@ -147,7 +148,7 @@ impl RegistryDiscovery {
     ///
     /// Only the `"biomeos"` backend is implemented here; other backends return
     /// [`DiscoveryError::RemoteRegistryUnavailable`].
-    pub async fn discover_all(&self) -> DiscoveryResult<Vec<DiscoveredService>> {
+    pub fn discover_all(&self) -> DiscoveryResult<Vec<DiscoveredService>> {
         if !self.enabled {
             return Ok(Vec::new());
         }
@@ -189,7 +190,7 @@ impl RegistryDiscovery {
         clippy::too_many_arguments,
         reason = "Registry builder; refactor to builder pattern planned"
     )]
-    pub async fn register_service(
+    pub fn register_service(
         &self,
         service_id: &str,
         service_name: &str,
@@ -222,7 +223,7 @@ impl RegistryDiscovery {
     }
 
     /// Deregister this service from the registry
-    pub async fn deregister_service(&self, service_id: &str) -> DiscoveryResult<()> {
+    pub fn deregister_service(&self, service_id: &str) -> DiscoveryResult<()> {
         if !self.enabled {
             return Ok(());
         }
@@ -239,7 +240,7 @@ impl RegistryDiscovery {
     /// Update service health status
     ///
     /// Sends a heartbeat to the registry to maintain registration.
-    pub async fn heartbeat(&self, service_id: &str) -> DiscoveryResult<()> {
+    pub fn heartbeat(&self, service_id: &str) -> DiscoveryResult<()> {
         if !self.enabled {
             return Ok(());
         }
@@ -256,7 +257,7 @@ impl RegistryDiscovery {
     /// real-time updates when services change.
     ///
     /// Returns a channel that emits service updates.
-    pub async fn watch_services(
+    pub fn watch_services(
         &self,
         capability: &str,
     ) -> DiscoveryResult<tokio::sync::mpsc::Receiver<Vec<DiscoveredService>>> {
@@ -336,7 +337,7 @@ mod tests {
     async fn test_registry_discover_by_capability() {
         let registry = RegistryDiscovery::new("consul", "http://consul:8500");
 
-        let result = registry.discover_by_capability("ai").await;
+        let result = registry.discover_by_capability("ai");
         assert!(matches!(
             result,
             Err(DiscoveryError::RemoteRegistryUnavailable { .. })
@@ -347,7 +348,7 @@ mod tests {
     async fn test_registry_discover_all() {
         let registry = RegistryDiscovery::new("etcd", "http://etcd:2379");
 
-        let result = registry.discover_all().await;
+        let result = registry.discover_all();
         assert!(matches!(
             result,
             Err(DiscoveryError::RemoteRegistryUnavailable { .. })
@@ -361,7 +362,7 @@ mod tests {
         let capabilities = vec!["ai".to_string()];
         let metadata = HashMap::new();
 
-        let result = registry
+        registry
             .register_service(
                 "squirrel-1",
                 "squirrel",
@@ -371,16 +372,14 @@ mod tests {
                 Some("/health".to_string()),
                 metadata,
             )
-            .await;
-
-        assert!(result.is_ok());
+            .expect("register should succeed");
     }
 
     #[tokio::test]
     async fn test_registry_deregister_service() {
         let registry = RegistryDiscovery::new("consul", "http://consul:8500");
 
-        let result = registry.deregister_service("squirrel-1").await;
+        let result = registry.deregister_service("squirrel-1");
         assert!(result.is_ok());
     }
 
@@ -388,7 +387,7 @@ mod tests {
     async fn test_registry_heartbeat() {
         let registry = RegistryDiscovery::new("consul", "http://consul:8500");
 
-        let result = registry.heartbeat("squirrel-1").await;
+        let result = registry.heartbeat("squirrel-1");
         assert!(result.is_ok());
     }
 
@@ -396,7 +395,7 @@ mod tests {
     async fn test_registry_watch() {
         let registry = RegistryDiscovery::new("consul", "http://consul:8500");
 
-        let result = registry.watch_services("ai").await;
+        let result = registry.watch_services("ai");
         assert!(result.is_ok());
     }
 
@@ -405,7 +404,7 @@ mod tests {
         let mut registry = RegistryDiscovery::new("kubernetes", "https://kubernetes:6443");
         registry.enabled = false;
 
-        let result = registry.discover_by_capability("ai").await;
+        let result = registry.discover_by_capability("ai");
         assert!(result.is_ok());
         assert_eq!(result.expect("should succeed").len(), 0);
     }
@@ -442,7 +441,7 @@ mod tests {
         file.flush().expect("should succeed");
 
         let registry = RegistryDiscovery::socket_registry_with_path(file.path());
-        let result = registry.discover_by_capability("ai").await;
+        let result = registry.discover_by_capability("ai");
         assert!(result.is_ok());
         let services = result.expect("should succeed");
         assert_eq!(services.len(), 1);

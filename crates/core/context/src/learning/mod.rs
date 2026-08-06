@@ -34,6 +34,8 @@
 mod adaptive;
 mod engine;
 mod experience;
+mod neural_network;
+mod types;
 mod experience_types;
 mod integration;
 mod integration_data;
@@ -82,7 +84,10 @@ use crate::error::Result;
 
 // Re-export public types
 pub use adaptive::{AdaptiveRule, AdaptiveRuleSystem, RuleAdaptation};
-pub use engine::{LearningEngine, LearningEngineConfig};
+pub use engine::{EngineMetrics, LearningEngine};
+pub use types::{
+    LearningAlgorithm, LearningEngineConfig, QValue, RLAction, RLExperience, RLState,
+};
 pub use experience::{Experience, ExperienceBuffer, ExperienceReplay};
 pub use integration::{LearningIntegration, LearningIntegrationConfig};
 pub use manager::{ContextLearningManager, ContextLearningManagerConfig};

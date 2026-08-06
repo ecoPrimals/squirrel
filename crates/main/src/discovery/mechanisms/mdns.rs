@@ -35,6 +35,7 @@ use std::collections::HashMap;
 #[cfg(test)]
 use std::net::IpAddr;
 use std::time::Duration;
+use universal_constants::timeouts::DEFAULT_DISCOVERY_QUERY_TIMEOUT;
 use tracing::{debug, info, warn};
 
 /// mDNS discovery client
@@ -51,7 +52,7 @@ impl Default for MdnsDiscovery {
     fn default() -> Self {
         Self {
             service_type: "_biomeos._tcp.local.".to_string(),
-            timeout: Duration::from_secs(5),
+            timeout: DEFAULT_DISCOVERY_QUERY_TIMEOUT,
             enabled: true,
         }
     }
@@ -73,7 +74,7 @@ impl MdnsDiscovery {
     /// Queries the local network for services advertising the given capability.
     /// Since mDNS requires multicast (often with C deps like Avahi), and we need
     /// pure Rust for ecoBin, this falls back to the socket registry.
-    pub async fn discover_by_capability(
+    pub fn discover_by_capability(
         &self,
         capability: &str,
     ) -> DiscoveryResult<Vec<DiscoveredService>> {
@@ -99,7 +100,7 @@ impl MdnsDiscovery {
     ///
     /// Performs a wildcard query to find all primal services.
     /// Falls back to socket registry when mDNS is unavailable.
-    pub async fn discover_all(&self) -> DiscoveryResult<Vec<DiscoveredService>> {
+    pub fn discover_all(&self) -> DiscoveryResult<Vec<DiscoveredService>> {
         if !self.enabled {
             return Ok(Vec::new());
         }
@@ -121,7 +122,7 @@ impl MdnsDiscovery {
     /// * `port` - Service port
     /// * `capabilities` - List of capabilities to advertise
     /// * `metadata` - Additional TXT record data
-    pub async fn announce_service(
+    pub fn announce_service(
         &self,
         service_name: &str,
         _port: u16,
@@ -185,7 +186,7 @@ mod tests {
     #[tokio::test]
     async fn test_mdns_discover_by_capability() {
         let mdns = MdnsDiscovery::default();
-        let result = mdns.discover_by_capability("ai").await;
+        let result = mdns.discover_by_capability("ai");
         assert!(result.is_ok());
         // Graceful fallback returns empty vec
         assert_eq!(result.expect("should succeed").len(), 0);
@@ -194,7 +195,7 @@ mod tests {
     #[tokio::test]
     async fn test_mdns_discover_all() {
         let mdns = MdnsDiscovery::default();
-        let result = mdns.discover_all().await;
+        let result = mdns.discover_all();
         assert!(result.is_ok());
     }
 
@@ -205,8 +206,7 @@ mod tests {
         let metadata = HashMap::new();
 
         let result = mdns
-            .announce_service("test-service", 9200, capabilities, metadata)
-            .await;
+            .announce_service("test-service", 9200, capabilities, metadata);
         assert!(result.is_err(), "mDNS announce should report unavailable");
         let err_msg = result.unwrap_err().to_string();
         assert!(err_msg.contains("unavailable"), "{err_msg}");
@@ -219,7 +219,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = mdns.discover_by_capability("ai").await;
+        let result = mdns.discover_by_capability("ai");
         assert!(result.is_ok());
         assert_eq!(result.expect("should succeed").len(), 0);
     }

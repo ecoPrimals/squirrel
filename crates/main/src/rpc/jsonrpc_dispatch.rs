@@ -51,15 +51,15 @@ impl JsonRpcServer {
 
             // Health domain — PRIMAL_IPC_PROTOCOL v3.0 (canonical)
             "health.check" | "system.health" | "system.status" => self.handle_health().await,
-            "health.liveness" => self.handle_health_liveness().await,
+            "health.liveness" => self.handle_health_liveness(),
             "health.readiness" => self.handle_health_readiness().await,
 
             // Bare "health" — Wave 113 mandatory probe method.
-            "health" => self.handle_health_bare().await,
+            "health" => self.handle_health_bare(),
 
             // System domain — backward-compat
             "system.metrics" => self.handle_metrics().await,
-            "system.ping" => self.handle_ping().await,
+            "system.ping" => self.handle_ping(),
 
             // Discovery domain
             "discovery.peers" | "discovery.list" => self.handle_discover_peers(params).await,
@@ -86,8 +86,8 @@ impl JsonRpcServer {
             "lifecycle.status" => self.handle_lifecycle_status().await,
 
             // Graph domain — primalSpring BYOB coordination
-            "graph.parse" => self.handle_graph_parse(params).await,
-            "graph.validate" => self.handle_graph_validate(params).await,
+            "graph.parse" => self.handle_graph_parse(params),
+            "graph.validate" => self.handle_graph_validate(params),
 
             // Provenance proxy — routes to discovered DAG/anchoring/attribution primals
             m if m.starts_with("provenance.")
