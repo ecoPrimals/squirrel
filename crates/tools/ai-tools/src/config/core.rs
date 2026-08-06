@@ -56,7 +56,9 @@ impl Default for AIToolsConfig {
         Self {
             default_provider: "openai".to_string(),
             providers: HashMap::new(),
-            request_timeout: 30,
+            request_timeout: universal_constants::timeouts::duration_to_secs(
+                universal_constants::timeouts::DEFAULT_CONNECTION_TIMEOUT,
+            ),
             max_retries: 3,
             enable_logging: true,
             routing_strategy: "round_robin".to_string(),

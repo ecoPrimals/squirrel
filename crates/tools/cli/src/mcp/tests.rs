@@ -396,7 +396,7 @@ fn run_mock_test() {
 }
 
 // Common test logic shared between network and mock tests
-#[expect(clippy::too_many_lines)]
+#[expect(clippy::too_many_lines, reason = "shared MCP command test harness")]
 async fn run_command_tests(client: MCPClient) -> Result<(), String> {
     // Execute the test command through MCP
     println!("Sending command 'test_command' with args...");

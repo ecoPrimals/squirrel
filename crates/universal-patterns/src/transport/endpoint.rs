@@ -22,7 +22,7 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const DEFAULT_CONNECT_TIMEOUT: Duration = universal_constants::timeouts::DEFAULT_DISCOVERY_QUERY_TIMEOUT;
 
 /// Structured transport endpoint — wire-compatible with sourDough `TransportEndpoint`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]

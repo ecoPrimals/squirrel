@@ -8,8 +8,6 @@ members = [
     "crates/core/interfaces",
     "crates/core/context",
     "crates/core/mcp",
-    "crates/core/core",
-    "crates/core/plugins",
     "crates/core/auth",
 
     # Service components
@@ -18,9 +16,6 @@ members = [
     # Tool components
     "crates/tools/ai-tools",
     "crates/tools/cli",
-
-    # SDK components
-    "crates/sdk",
 
     # Configuration
     "crates/config",
@@ -137,8 +132,6 @@ squirrel-context = { path = "crates/core/context", version = "0.1.0" }
 universal-patterns = { path = "crates/universal-patterns", version = "0.1.0" }
 universal-constants = { path = "crates/universal-constants", version = "0.1.0" }
 universal-error = { path = "crates/universal-error", version = "0.1.0" }
-squirrel-sdk = { path = "crates/sdk", version = "1.0.0" }
-squirrel-plugins = { path = "crates/core/plugins", version = "0.1.0" }
 squirrel-mcp = { path = "crates/core/mcp", version = "0.1.0" }
 squirrel-mcp-auth = { path = "crates/core/auth", version = "0.1.0" }
 

@@ -1,12 +1,28 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,293 tests (default features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 5,753 tests (default features), 44 IPC methods."
 date = 2026-08-06
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 156z — Orphan Crate Excise + Debt Cleanup (Aug 6, 2026)
+
+- squirrel-core (13,907L) removed — Songbird mesh/federation/swarm code, 0 reverse deps
+- squirrel-sdk (11,912L) removed — ToadStool WASM plugin SDK, 0 reverse deps
+- 12 timeout literals centralized to universal-constants (5 new constants)
+- DignityViolation → thiserror, test file split (1293→759+280+254), lint hygiene
+- Workspace: 13 crates, net ~-26K lines, 0 warnings, 5,753 tests passing
+
+## Wave 156y — squirrel-plugins Crate Excise (Aug 6, 2026)
+
+- Fully orphaned squirrel-plugins crate removed (15,573 lines, 0 reverse deps, never linked into production binary)
+- Plugin hosting (sandbox, marketplace, dynamic loading, web dashboard) belongs to ToadStool
+- Context plugin functionality already in squirrel-interfaces + squirrel-context
+- Archived to tarball for ToadStool future use
+- Net -14,246 lines, 0 warnings, 6,104 tests passing (15 workspace crates)
 
 ## Wave 156x — Plugin Dead Code Elimination (Aug 6, 2026)
 

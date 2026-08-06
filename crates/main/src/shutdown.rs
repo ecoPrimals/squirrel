@@ -67,7 +67,7 @@ pub trait ShutdownHandler: Send + Sync {
 
     /// Get estimated shutdown time for planning
     fn estimated_shutdown_time(&self) -> Duration {
-        Duration::from_secs(10) // Default 10 seconds
+        universal_constants::timeouts::DEFAULT_SHUTDOWN_ESTIMATE
     }
 }
 

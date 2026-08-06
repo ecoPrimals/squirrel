@@ -16,8 +16,8 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 | Item | Value |
 |------|--------|
 | Language | Rust, **edition 2024** |
-| Workspace | **16** crates (see `Cargo.toml` `members`) |
-| Scale | ~**306k** lines across **986** `.rs` files |
+| Workspace | **13** crates (see `Cargo.toml` `members`) |
+| Scale | ~**257k** lines across **838** `.rs` files |
 | Native deps | **Pure Rust** default build — no C dependencies in the standard ecoBin path |
 | Code license | **AGPL-3.0-or-later** (workspace `license`; see License section for full public framing) |
 | Version | **v0.1.0** (root `Cargo.toml` workspace package version); older docs may cite **0.1.0-alpha.*** tags — status **pre-alpha** |
@@ -28,7 +28,7 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 - AI routing and provider abstraction (cloud APIs, local OpenAI-compatible servers, hubs).
 - Context management (`context.create` / `context.update` / `context.summarize` and related flows).
 - MCP protocol implementation and coordination.
-- Plugin system (unified plugin manager under `crates/core/plugins`).
+- Plugin interfaces and context plugin registry (via `squirrel-interfaces` and `squirrel-context`).
 - CLI and developer tools (`squirrel-cli`, `squirrel-ai-tools`).
 - Ecosystem integration (capability discovery, `ecosystem-api` client/types).
 
@@ -38,14 +38,14 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 |--------------|------|
 | `squirrel` | Main binary and library (`crates/main`) |
 | `squirrel-mcp` | MCP protocol and AI coordinator |
-| `squirrel-core` | Core types and shared infrastructure |
+
 | `squirrel-ai-tools` | AI tooling and routing-related tooling |
 | `squirrel-cli` | Command-line interface |
 | `universal-patterns` | Transport, security, federation-style traits |
 | `universal-constants` | Shared constants, identity, sys_info |
 | `ecosystem-api` | Ecosystem API types and client |
 
-Other workspace crates include auth, context, interfaces, plugins, config, commands, SDK, `universal-error`.
+Other workspace crates include auth, context, interfaces, config, commands, `universal-error`.
 
 ## IPC and discovery (summary)
 
@@ -73,7 +73,7 @@ Other workspace crates include auth, context, interfaces, plugins, config, comma
 
 ## Test suite
 
-- **6,366** tests passing (default features), 0 failures. Full suite ~75s. See `CURRENT_STATUS.md` for authoritative counts.
+- **5,753** tests passing (default features), 0 failures. Full suite ~100s. See `CURRENT_STATUS.md` for authoritative counts.
 - **Zero `.unwrap()`** and **zero `panic!()`** in production code — all error handling is typed.
 - **Property-based** tests (e.g. `proptest` for serialization invariants).
 - Coverage target: 90% (see `CURRENT_STATUS.md` for latest figures).

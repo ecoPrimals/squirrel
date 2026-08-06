@@ -648,8 +648,8 @@ impl Default for PerformanceConfig {
     fn default() -> Self {
         Self {
             max_history_size: 1000,
-            sampling_window: Duration::from_secs(60),
-            trend_window: Duration::from_secs(300),
+            sampling_window: universal_constants::timeouts::DEFAULT_PERFORMANCE_SAMPLING_WINDOW,
+            trend_window: universal_constants::timeouts::DEFAULT_PERFORMANCE_TREND_WINDOW,
             thresholds: HashMap::new(),
         }
     }

@@ -390,3 +390,11 @@ impl JsonRpcServer {
 #[cfg(test)]
 #[path = "jsonrpc_server_unit_tests.rs"]
 mod unit_tests;
+
+#[cfg(test)]
+#[path = "jsonrpc_transport_tests.rs"]
+mod transport_tests;
+
+#[cfg(test)]
+#[path = "jsonrpc_security_tests.rs"]
+mod security_tests;

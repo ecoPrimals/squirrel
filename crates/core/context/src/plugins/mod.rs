@@ -131,14 +131,6 @@ impl Default for ContextPluginManager {
     }
 }
 
-/// Create a default plugin manager with built-in plugins
-#[cfg(feature = "with-plugins")]
-pub async fn create_default_plugin_manager() -> Result<Arc<ContextPluginManager>, ContextError> {
-    let manager = Arc::new(ContextPluginManager::new());
-
-    Ok(manager)
-}
-
 #[cfg(test)]
 mod tests {
     use super::ContextPluginManager;

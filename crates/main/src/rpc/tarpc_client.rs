@@ -113,7 +113,7 @@ impl SquirrelClient {
         Ok(Self {
             client,
             service_name: service_name.to_string(),
-            default_timeout: Duration::from_secs(30),
+            default_timeout: universal_constants::timeouts::DEFAULT_CONNECTION_TIMEOUT,
         })
     }
 
@@ -269,7 +269,7 @@ impl SquirrelClientBuilder {
     pub fn new(service_name: impl Into<String>) -> Self {
         Self {
             service_name: service_name.into(),
-            timeout: Duration::from_secs(30),
+            timeout: universal_constants::timeouts::DEFAULT_CONNECTION_TIMEOUT,
         }
     }
 

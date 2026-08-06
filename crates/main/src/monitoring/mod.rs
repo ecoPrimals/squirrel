@@ -430,7 +430,7 @@ impl MonitoringSystem {
         let alert_manager = self.alert_manager.clone();
 
         tokio::spawn(async move {
-            let mut interval = interval(Duration::from_secs(10));
+            let mut interval = interval(universal_constants::timeouts::DEFAULT_STATUS_UPDATE_INTERVAL);
             let start_time = Instant::now();
 
             loop {
@@ -496,10 +496,10 @@ impl MonitoringSystem {
 impl Default for MonitoringConfig {
     fn default() -> Self {
         Self {
-            collection_interval: Duration::from_secs(30),
-            health_check_interval: Duration::from_secs(60),
+            collection_interval: universal_constants::timeouts::DEFAULT_HEALTH_CHECK_INTERVAL,
+            health_check_interval: universal_constants::timeouts::DEFAULT_MONITORING_INTERVAL,
             performance_interval: Duration::from_secs(15),
-            alert_evaluation_interval: Duration::from_secs(30),
+            alert_evaluation_interval: universal_constants::timeouts::DEFAULT_HEALTH_CHECK_INTERVAL,
             max_metrics_history: 1000,
             enable_prometheus: true,
             prometheus_endpoint: "/metrics".to_string(),

@@ -117,7 +117,7 @@ pub async fn create_default_client() -> Result<UniversalSecurityClient, Security
         fallback: SecurityFallback {
             enable_local_fallback: true,
             local_auth_method: AuthMethod::None,
-            fallback_timeout: 5,
+            fallback_timeout: universal_constants::timeouts::DEFAULT_SECURITY_FALLBACK_TIMEOUT_SECS,
         },
     };
 
@@ -152,7 +152,7 @@ pub async fn create_security_provider_client(
         fallback: SecurityFallback {
             enable_local_fallback: enable_fallback,
             local_auth_method: AuthMethod::None,
-            fallback_timeout: 5,
+            fallback_timeout: universal_constants::timeouts::DEFAULT_SECURITY_FALLBACK_TIMEOUT_SECS,
         },
     };
 

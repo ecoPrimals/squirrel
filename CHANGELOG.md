@@ -11,6 +11,25 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 6, 2026 — Wave 156z: Orphan Crate Excise + Debt Cleanup)
+
+- **`squirrel-core` crate removed**: Fully orphaned 13,907-line crate with 0 reverse dependencies. Contains Songbird mesh/federation/swarm/service-discovery code absorbed into squirrel during early development. Archived for upstream Songbird primal.
+- **`squirrel-sdk` crate removed**: Fully orphaned 11,912-line WASM plugin SDK with 0 reverse dependencies. Plugin authoring belongs to ToadStool compute platform. Archived for upstream ToadStool.
+- **Timeout consolidation**: 12 production timeout/duration literals replaced with `universal-constants` (monitoring intervals, RPC timeouts, security fallback, shutdown estimate, transport connect, learning engine). 5 new constants added.
+- **DignityViolation → thiserror**: Manual `impl Display` + `impl Error` replaced with `#[derive(thiserror::Error)]`.
+- **Test file split**: `jsonrpc_server_unit_tests.rs` (1,293 lines) split into 3 focused files: core (759L), transport (280L), security (254L).
+- **Lint hygiene**: Missing `reason` added to `#[expect]` in cli/mcp/tests.rs. Dead `with-plugins` feature gate removed from squirrel-context.
+- Workspace reduced to **13 crates** (was 15).
+- **Net ~-26,000 lines**, 0 errors, 0 warnings, 5,753 tests passing.
+
+### Summary (Aug 6, 2026 — Wave 156y: squirrel-plugins Crate Excise)
+
+- **`squirrel-plugins` crate removed**: Fully orphaned 15,573-line crate with 0 reverse dependencies, never compiled into the production binary. Plugin hosting (sandbox, marketplace, dynamic loading, web dashboard, distribution) belongs to ToadStool, not Squirrel. Context plugin functionality already lives in `squirrel-interfaces` and `squirrel-context`.
+- Workspace member and dependency alias removed from root `Cargo.toml`.
+- Crate archived to tarball for ToadStool future use.
+- **Net -14,246 lines** of Rust + 291 lines of docs across 65 files.
+- 0 errors, 0 warnings, 6,104 tests passing (189 self-tests removed with crate).
+
 ### Summary (Aug 6, 2026 — Wave 156x: Plugin Dead Code Elimination)
 
 - **PluginV2 deleted**: Entire `plugin_v2.rs` removed — `PluginV2` trait, `WebPluginExtV2`, `PluginWrapper<T>`, `PluginCallbacks`, `ExamplePluginV2`. Zero production adoption; intermediate experiment superseded by `interfaces::Plugin`.

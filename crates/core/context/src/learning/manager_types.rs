@@ -50,9 +50,9 @@ pub struct ContextLearningManagerConfig {
 impl Default for ContextLearningManagerConfig {
     fn default() -> Self {
         Self {
-            episode_timeout: 3600,
+            episode_timeout: universal_constants::timeouts::DEFAULT_CONTEXT_TTL_SECS,
             max_episodes_per_session: 1000,
-            learning_update_interval: Duration::from_secs(10),
+            learning_update_interval: universal_constants::timeouts::DEFAULT_OPERATION_TIMEOUT,
             context_observation_interval: Duration::from_secs(1),
             auto_episode_detection: true,
             enable_preprocessing: true,

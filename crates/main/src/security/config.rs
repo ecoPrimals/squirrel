@@ -185,7 +185,9 @@ impl Default for SecurityServiceConfig {
         Self {
             security_service_endpoint,
             enabled: true,
-            timeout_seconds: 30,
+            timeout_seconds: universal_constants::timeouts::duration_to_secs(
+                universal_constants::timeouts::DEFAULT_CONNECTION_TIMEOUT,
+            ),
         }
     }
 }

@@ -126,6 +126,32 @@ pub const DEFAULT_DISCOVERY_QUERY_TIMEOUT: Duration = Duration::from_secs(5);
 pub const DEFAULT_PROBE_TIMEOUT_MS: u64 = 500;
 
 // ============================================================================
+// Monitoring & Performance Intervals
+// ============================================================================
+
+/// Default status collection interval (10 seconds)
+///
+/// How often to refresh system status (health, performance, alerts).
+pub const DEFAULT_STATUS_UPDATE_INTERVAL: Duration = Duration::from_secs(10);
+
+/// Default performance sampling window (60 seconds)
+pub const DEFAULT_PERFORMANCE_SAMPLING_WINDOW: Duration = Duration::from_secs(60);
+
+/// Default performance trend window (5 minutes)
+pub const DEFAULT_PERFORMANCE_TREND_WINDOW: Duration = Duration::from_secs(300);
+
+/// Default security fallback timeout in seconds (5 seconds)
+///
+/// How long to wait for the primary security provider before falling back
+/// to the local provider.
+pub const DEFAULT_SECURITY_FALLBACK_TIMEOUT_SECS: u64 = 5;
+
+/// Default shutdown estimate (10 seconds)
+///
+/// Default estimated time for a component to complete graceful shutdown.
+pub const DEFAULT_SHUTDOWN_ESTIMATE: Duration = Duration::from_secs(10);
+
+// ============================================================================
 // Size Limits
 // ============================================================================
 

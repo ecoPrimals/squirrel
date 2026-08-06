@@ -40,6 +40,6 @@ tempfile.workspace = true
 
 [features]
 default = []
-with-plugins = []
+
 context-visualization = []
 context-learning = ["context-visualization"]

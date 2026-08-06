@@ -6,7 +6,6 @@
 //! Per wateringHole standards, AI operations include dignity checks: discrimination
 //! prevention, human oversight, manipulation prevention, and right to explanation.
 
-use std::fmt;
 use tracing::{info, warn};
 
 /// Environment variable controlling dignity check enforcement (`warn` | `enforce` | `audit`).
@@ -79,19 +78,12 @@ pub enum DignityFlag {
 }
 
 /// Error returned when a dignity check fails.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("{}", result.explanation)]
 pub struct DignityViolation {
     /// The evaluation result that triggered the violation.
     pub result: DignityCheckResult,
 }
-
-impl fmt::Display for DignityViolation {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.result.explanation)
-    }
-}
-
-impl std::error::Error for DignityViolation {}
 
 /// Evaluates AI requests for dignity violations using deterministic pattern matching.
 #[derive(Debug, Clone, Default)]

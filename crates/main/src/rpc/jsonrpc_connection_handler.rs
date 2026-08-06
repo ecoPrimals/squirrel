@@ -89,7 +89,7 @@ impl JsonRpcServer {
             NUCLEAR_SIGNAL => {
                 let mut proto = [0u8; 1];
                 let proto_byte = match tokio::time::timeout(
-                    std::time::Duration::from_secs(5),
+                    universal_constants::timeouts::DEFAULT_DISCOVERY_QUERY_TIMEOUT,
                     transport.read_exact(&mut proto),
                 )
                 .await
