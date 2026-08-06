@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![allow(deprecated)]
-
 //! Service discovery operations for the ecosystem registry
 
 use super::types::{DiscoveredService, ServiceHealthStatus, intern_registry_string};

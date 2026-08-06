@@ -171,26 +171,6 @@ impl std::fmt::Display for CapabilityDomain {
     }
 }
 
-/// Infer deprecated [`EcosystemPrimalType`] from a capability domain (serde backward compat only).
-#[deprecated(
-    since = "0.2.0",
-    note = "Use CapabilityDomain for routing; do not infer primal types"
-)]
-#[expect(deprecated, reason = "backward-compat shim for serde deserialization")]
-#[must_use]
-pub fn infer_primal_type_from_capability(capability: &str) -> EcosystemPrimalType {
-    use universal_constants::capabilities as caps;
-    match capability {
-        c if c == caps::COMPUTE_CAPABILITY => EcosystemPrimalType::ToadStool,
-        c if c == caps::SERVICE_MESH_CAPABILITY => EcosystemPrimalType::Songbird,
-        c if c == caps::SECURITY_CAPABILITY => EcosystemPrimalType::BearDog,
-        c if c == caps::STORAGE_CAPABILITY => EcosystemPrimalType::NestGate,
-        c if c == caps::SELF_PRIMAL_NAME => EcosystemPrimalType::Squirrel,
-        c if c == caps::ECOSYSTEM_CAPABILITY => EcosystemPrimalType::BiomeOS,
-        _ => EcosystemPrimalType::BiomeOS,
-    }
-}
-
 /// Pick the primary capability domain from a provider's advertised capabilities.
 #[must_use]
 pub fn primary_capability_from_iter<'a>(

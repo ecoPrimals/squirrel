@@ -203,10 +203,19 @@ pub const DEFAULT_METRICS_LISTEN_PORT: u16 = 9090;
 /// Default TCP port for Consul-style service discovery listens (`discovery` service fallback).
 pub const DEFAULT_DISCOVERY_LISTEN_PORT: u16 = 8500;
 
+/// Fallback TCP port for HTTP service endpoints (`get_service_port("http")` alignment).
+pub const DEFAULT_HTTP_SERVICE_PORT: u16 = 8081;
+
+/// Fallback TCP port for admin / orchestration endpoints (`get_service_port("admin")` alignment).
+pub const DEFAULT_ADMIN_PORT: u16 = 8082;
+
 /// Legacy security port constant — prefer [`crate::deployment::ports::security_service`].
 ///
-/// Squirrel must not treat this as another primal’s fixed port; capability discovery applies.
+/// Squirrel must not treat this as another primal's fixed port; capability discovery applies.
 pub const DEFAULT_SECURITY_PORT: u16 = 8443;
+
+/// Fallback TCP port for MCP/JSON-RPC TCP transport (`get_service_port("mcp_tcp")` alignment).
+pub const DEFAULT_MCP_TCP_PORT: u16 = 9000;
 
 /// Default TCP listen port for CLI MCP server (`MCP_PORT` fallback in `squirrel-cli`).
 ///
@@ -514,6 +523,9 @@ mod tests {
         assert_eq!(super::DEFAULT_METRICS_LISTEN_PORT, 9090);
         assert_eq!(super::DEFAULT_DISCOVERY_LISTEN_PORT, 8500);
         assert_eq!(super::DEFAULT_DISCOVERY_PORT, 8001);
+        assert_eq!(super::DEFAULT_HTTP_SERVICE_PORT, 8081);
+        assert_eq!(super::DEFAULT_ADMIN_PORT, 8082);
+        assert_eq!(super::DEFAULT_MCP_TCP_PORT, 9000);
     }
 
     #[test]

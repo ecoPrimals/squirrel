@@ -3,7 +3,7 @@
 
 //! Service discovery query and result types used by [`super::ServiceMeshClient`].
 
-#![allow(deprecated)]
+#![expect(deprecated, reason = "module uses deprecated PrimalType during migration")]
 
 use crate::types::{HealthStatus, PrimalType};
 use serde::{Deserialize, Serialize};

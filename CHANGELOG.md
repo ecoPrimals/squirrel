@@ -11,6 +11,13 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 6, 2026 — Wave 156q: Port Constants + Lint Hygiene + Dead Code)
+
+- **Port literals → constants**: 6 inline port numbers across 4 crates (`federation/types.rs`, `auth/lib.rs`, `builder_presets.rs`, `cli/config_types.rs`) wired to `universal_constants::network` named constants. 3 new constants added: `DEFAULT_HTTP_SERVICE_PORT`, `DEFAULT_ADMIN_PORT`, `DEFAULT_MCP_TCP_PORT`.
+- **Lint hygiene**: 5 `#[allow]`/`#[expect]` attributes converted to include `reason = "..."` across `universal-patterns`, `ecosystem-api`, `ai-tools`. 1 unfulfilled `#![allow(deprecated)]` removed from `discovery.rs` (no deprecated items in module).
+- **Dead code eliminated**: `infer_primal_type_from_capability()` removed (defined + re-exported, zero callers). Re-export cleaned from `ecosystem/mod.rs`.
+- 0 errors, 0 warnings, 6,371 tests passing.
+
 ### Summary (Aug 6, 2026 — Wave 156p: PluginError → SDKError Migration)
 
 - **SDK error system migration**: Completed full migration of `crates/sdk` from deprecated `PluginError` (44-variant flat enum, ~580 refs) to `universal_error::sdk::SDKError` hierarchical error system.

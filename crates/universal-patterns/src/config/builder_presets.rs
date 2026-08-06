@@ -18,7 +18,7 @@ impl ConfigBuilder {
             .name(universal_constants::identity::PRIMAL_ID)
             .primal_type(PrimalType::Coordinator)
             .description("AI coordination and MCP protocol management")
-            .port(8080)
+            .port(universal_constants::network::DEFAULT_JSON_RPC_PORT)
     }
 
     /// Create a configuration builder for a security primal.
@@ -29,7 +29,7 @@ impl ConfigBuilder {
         Self::new()
             .primal_type(PrimalType::Security)
             .description("Security and authentication management")
-            .port(8081)
+            .port(universal_constants::network::DEFAULT_HTTP_SERVICE_PORT)
     }
 
     /// Create a configuration builder for an orchestration service.
@@ -38,7 +38,7 @@ impl ConfigBuilder {
             .name("orchestration")
             .primal_type(PrimalType::Orchestration)
             .description("Orchestration and task management")
-            .port(8082)
+            .port(universal_constants::network::DEFAULT_ADMIN_PORT)
     }
 
     /// Create a configuration builder for development environment

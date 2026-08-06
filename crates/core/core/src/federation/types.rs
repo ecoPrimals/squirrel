@@ -127,7 +127,7 @@ impl Default for FederationConfig {
     fn default() -> Self {
         Self {
             node_id: format!("node-{}", uuid::Uuid::new_v4()),
-            port: 8080,
+            port: universal_constants::network::DEFAULT_JSON_RPC_PORT,
             federation_discovery_urls: Vec::new(),
             auto_scaling_enabled: true,
             min_instances: 1,

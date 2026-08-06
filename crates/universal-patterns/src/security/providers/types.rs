@@ -174,9 +174,7 @@ pub trait UniversalSecurityService: Send + Sync {
     async fn health_check(&self) -> Result<SecurityHealth, SecurityError>;
 
     /// Initialize the security service
-    // NOTE: `#[allow]` not `#[expect]` — Rust 1.94 edge case: trait method dead_code
-    // detection is inconsistent between `cargo check` (unfulfilled) and test compilation.
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "Rust 1.94: trait method dead_code lint inconsistent between cargo check and test")]
     async fn initialize(&mut self, config: SecurityServiceConfig) -> Result<(), SecurityError>;
 }
 

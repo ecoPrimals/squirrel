@@ -91,7 +91,7 @@ fn default_mcp_port() -> u16 {
     std::env::var(universal_constants::env_vars::mcp::cli::PORT)
         .ok()
         .and_then(|s| s.parse::<u16>().ok())
-        .unwrap_or(9000)
+        .unwrap_or(universal_constants::network::DEFAULT_MCP_TCP_PORT)
 }
 
 impl Default for CliConfig {

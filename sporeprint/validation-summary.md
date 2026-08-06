@@ -1,12 +1,21 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,077 tests (default features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,371 tests (default features), 44 IPC methods."
 date = 2026-08-06
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 156q — Port Constants + Lint Hygiene + Dead Code (Aug 6, 2026)
+
+- 6 inline port literals wired to `universal_constants::network` named constants across 4 crates
+- 3 new constants: `DEFAULT_HTTP_SERVICE_PORT` (8081), `DEFAULT_ADMIN_PORT` (8082), `DEFAULT_MCP_TCP_PORT` (9000)
+- 5 `#[allow]`/`#[expect]` attributes converted to include `reason = "..."`
+- 1 unfulfilled `#![allow(deprecated)]` removed (no deprecated items in module)
+- Dead `infer_primal_type_from_capability()` removed (zero callers)
+- 0 warnings, 6,371 tests passing
 
 ## Wave 156p — PluginError → SDKError Migration (Aug 6, 2026)
 

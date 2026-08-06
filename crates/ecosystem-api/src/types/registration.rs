@@ -3,7 +3,7 @@
 
 //! Service registration and resource specification types.
 
-#![allow(deprecated)]
+#![expect(deprecated, reason = "module uses deprecated PrimalType during migration")]
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

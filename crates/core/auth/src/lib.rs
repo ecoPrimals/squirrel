@@ -113,7 +113,7 @@ pub fn initialize() -> AuthResult<()> {
         "SECURITY_SERVICE_HOST",
         "SECURITY_AUTHENTICATION_PORT",
         universal_constants::network::DEFAULT_LOCALHOST,
-        8443,
+        universal_constants::network::DEFAULT_SECURITY_PORT,
     );
 
     // Multi-tier MCP endpoint resolution

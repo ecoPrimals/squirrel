@@ -190,7 +190,7 @@ pub type Result<T> = std::result::Result<T, universal_error::tools::AIToolsError
 pub type Error = universal_error::tools::AIToolsError;
 
 #[cfg(test)]
-#[expect(deprecated)] // Tests deprecated path for backward compatibility
+#[expect(deprecated, reason = "tests verify backward-compatible deprecated AIError path")]
 mod tests {
     use super::*;
 
