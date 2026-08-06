@@ -18,10 +18,149 @@
 )]
 
 use super::*;
-use config::{Config, Environment, File, FileFormat};
 use dirs::config_dir;
+use serde_json::Value;
 use std::env;
 use std::path::Path;
+
+/// Supported configuration file formats
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileFormat {
+    /// YAML configuration format
+    Yaml,
+    /// JSON configuration format
+    Json,
+    /// TOML configuration format
+    Toml,
+}
+
+impl FileFormat {
+    fn from_path(path: &Path) -> Result<Self, ConfigError> {
+        match path.extension().and_then(|ext| ext.to_str()) {
+            Some("yaml" | "yml") => Ok(Self::Yaml),
+            Some("json") => Ok(Self::Json),
+            Some("toml") => Ok(Self::Toml),
+            _ => Err(ConfigError::Invalid(format!(
+                "Unsupported file format: {}",
+                path.display()
+            ))),
+        }
+    }
+
+    fn parse_str(&self, content: &str) -> Result<PrimalConfig, ConfigError> {
+        match self {
+            Self::Yaml => Ok(serde_yaml_ng::from_str(content)?),
+            Self::Json => Ok(serde_json::from_str(content)?),
+            Self::Toml => Ok(toml::from_str(content)?),
+        }
+    }
+}
+
+fn deep_merge(base: &mut Value, overlay: Value) {
+    let (Value::Object(base_map), Value::Object(overlay_map)) = (base, overlay) else {
+        return;
+    };
+
+    for (key, overlay_val) in overlay_map {
+        match base_map.get_mut(&key) {
+            Some(base_val) if base_val.is_object() && overlay_val.is_object() => {
+                deep_merge(base_val, overlay_val);
+            }
+            _ => {
+                base_map.insert(key, overlay_val);
+            }
+        }
+    }
+}
+
+fn merge_config(base: &mut PrimalConfig, overlay: PrimalConfig) -> Result<(), ConfigError> {
+    let mut base_val = serde_json::to_value(&*base)?;
+    let overlay_val = serde_json::to_value(overlay)?;
+    deep_merge(&mut base_val, overlay_val);
+    *base = serde_json::from_value(base_val)?;
+    Ok(())
+}
+
+fn parse_env_value(raw: &str) -> Value {
+    if let Ok(value) = serde_json::from_str(raw) {
+        return value;
+    }
+    if let Ok(value) = raw.parse::<i64>() {
+        return Value::Number(value.into());
+    }
+    if let Ok(value) = raw.parse::<f64>() {
+        if let Some(number) = serde_json::Number::from_f64(value) {
+            return Value::Number(number);
+        }
+    }
+    match raw.to_ascii_lowercase().as_str() {
+        "true" => Value::Bool(true),
+        "false" => Value::Bool(false),
+        _ => Value::String(raw.to_string()),
+    }
+}
+
+fn insert_env_path(map: &mut serde_json::Map<String, Value>, parts: &[&str], raw: &str) {
+    if parts.is_empty() {
+        return;
+    }
+
+    let key = parts[0].to_ascii_lowercase();
+    if parts.len() == 1 {
+        map.insert(key, parse_env_value(raw));
+        return;
+    }
+
+    let entry = map
+        .entry(key)
+        .or_insert_with(|| Value::Object(serde_json::Map::new()));
+    if let Value::Object(nested) = entry {
+        insert_env_path(nested, &parts[1..], raw);
+    }
+}
+
+fn env_vars_to_json(prefix: &str) -> Value {
+    let prefix_upper = format!("{}_", prefix.to_ascii_uppercase());
+    let mut root = serde_json::Map::new();
+
+    for (key, value) in env::vars() {
+        let key_upper = key.to_ascii_uppercase();
+        if !key_upper.starts_with(&prefix_upper) {
+            continue;
+        }
+
+        let remainder = &key[prefix_upper.len()..];
+        let parts: Vec<&str> = remainder.split("__").collect();
+        insert_env_path(&mut root, &parts, &value);
+    }
+
+    Value::Object(root)
+}
+
+fn apply_env_prefix(config: &mut PrimalConfig, prefix: &str) -> Result<(), ConfigError> {
+    let env_value = env_vars_to_json(prefix);
+    if env_value.as_object().is_some_and(|map| map.is_empty()) {
+        return Ok(());
+    }
+
+    let env_config: PrimalConfig = serde_json::from_value(env_value)?;
+    merge_config(config, env_config)
+}
+
+fn parse_file(path: &Path) -> Result<PrimalConfig, ConfigError> {
+    let format = FileFormat::from_path(path)?;
+    let content = std::fs::read_to_string(path)?;
+    format.parse_str(&content)
+}
+
+fn merge_file_if_exists(config: &mut PrimalConfig, path: &Path) -> Result<(), ConfigError> {
+    if !path.exists() {
+        return Ok(());
+    }
+
+    let file_config = parse_file(path)?;
+    merge_config(config, file_config)
+}
 
 /// Configuration loader for PrimalConfig
 pub struct ConfigLoader;
@@ -29,48 +168,18 @@ pub struct ConfigLoader;
 impl ConfigLoader {
     /// Load configuration from a file
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<PrimalConfig, ConfigError> {
-        let path = path.as_ref();
-
-        // Determine file format from extension
-        let format = match path.extension().and_then(|ext| ext.to_str()) {
-            Some("yaml" | "yml") => FileFormat::Yaml,
-            Some("json") => FileFormat::Json,
-            Some("toml") => FileFormat::Toml,
-            _ => {
-                return Err(ConfigError::Invalid(format!(
-                    "Unsupported file format: {}",
-                    path.display()
-                )));
-            }
-        };
-
-        // Load and parse the file
-        let config = Config::builder()
-            .add_source(File::from(path).format(format))
-            .build()?;
-
-        let primal_config: PrimalConfig = config.try_deserialize()?;
-        Ok(primal_config)
+        parse_file(path.as_ref())
     }
 
     /// Load configuration from environment variables
     pub fn from_env() -> Result<PrimalConfig, ConfigError> {
-        let config = Config::builder()
-            .add_source(Environment::with_prefix("PRIMAL").separator("__"))
-            .build()?;
-
-        let primal_config: PrimalConfig = config.try_deserialize()?;
-        Ok(primal_config)
+        Self::from_env_with_prefix("PRIMAL")
     }
 
     /// Load configuration from environment variables with custom prefix
     pub fn from_env_with_prefix(prefix: &str) -> Result<PrimalConfig, ConfigError> {
-        let config = Config::builder()
-            .add_source(Environment::with_prefix(prefix).separator("__"))
-            .build()?;
-
-        let primal_config: PrimalConfig = config.try_deserialize()?;
-        Ok(primal_config)
+        let env_value = env_vars_to_json(prefix);
+        Ok(serde_json::from_value(env_value)?)
     }
 
     /// Load configuration with multiple sources and precedence
@@ -82,104 +191,65 @@ impl ConfigLoader {
     /// 4. System config file (/etc/primal/config.yaml)
     /// 5. Default configuration
     pub fn load() -> Result<PrimalConfig, ConfigError> {
-        let mut builder = Config::builder();
+        let mut config = PrimalConfig::default();
 
-        // Start with defaults
-        builder = builder.add_source(config::Config::try_from(&PrimalConfig::default())?);
+        merge_file_if_exists(&mut config, Path::new("/etc/primal/config.yaml"))?;
 
-        // System config
-        let system_config = Path::new("/etc/primal/config.yaml");
-        if system_config.exists() {
-            builder = builder.add_source(File::from(system_config));
-        }
-
-        // User config
         if let Some(config_dir) = config_dir() {
             let user_config = config_dir.join("primal").join("config.yaml");
-            if user_config.exists() {
-                builder = builder.add_source(File::from(user_config));
-            }
+            merge_file_if_exists(&mut config, &user_config)?;
         }
 
-        // Local config
-        let local_config = Path::new("./config.yaml");
-        if local_config.exists() {
-            builder = builder.add_source(File::from(local_config));
-        }
+        merge_file_if_exists(&mut config, Path::new("./config.yaml"))?;
+        apply_env_prefix(&mut config, "PRIMAL")?;
 
-        // Environment variables
-        builder = builder.add_source(Environment::with_prefix("PRIMAL").separator("__"));
-
-        let config = builder.build()?;
-        let primal_config: PrimalConfig = config.try_deserialize()?;
-        Ok(primal_config)
+        Ok(config)
     }
 
     /// Load configuration for a specific primal
     pub fn load_for_primal(primal_name: &str) -> Result<PrimalConfig, ConfigError> {
-        let mut builder = Config::builder();
+        let mut config = PrimalConfig::default();
 
-        // Start with defaults
-        builder = builder.add_source(config::Config::try_from(&PrimalConfig::default())?);
-
-        // System config
         let system_config = Path::new("/etc/primal").join(format!("{primal_name}.yaml"));
-        if system_config.exists() {
-            builder = builder.add_source(File::from(system_config));
-        }
+        merge_file_if_exists(&mut config, &system_config)?;
 
-        // User config
         if let Some(config_dir) = config_dir() {
             let user_config = config_dir
                 .join("primal")
                 .join(format!("{primal_name}.yaml"));
-            if user_config.exists() {
-                builder = builder.add_source(File::from(user_config));
-            }
+            merge_file_if_exists(&mut config, &user_config)?;
         }
 
-        // Local config
         let local_config = Path::new("./").join(format!("{primal_name}.yaml"));
-        if local_config.exists() {
-            builder = builder.add_source(File::from(local_config));
-        }
+        merge_file_if_exists(&mut config, &local_config)?;
 
-        // Environment variables with primal-specific prefix
-        let env_prefix = format!("PRIMAL_{}", primal_name.to_uppercase());
-        builder = builder.add_source(Environment::with_prefix(&env_prefix).separator("__"));
+        let env_prefix = format!("PRIMAL_{}", primal_name.to_ascii_uppercase());
+        apply_env_prefix(&mut config, &env_prefix)?;
 
-        let config = builder.build()?;
-        let primal_config: PrimalConfig = config.try_deserialize()?;
-        Ok(primal_config)
+        Ok(config)
     }
 
     /// Load configuration with custom sources
     pub fn load_with_sources(sources: Vec<ConfigSource>) -> Result<PrimalConfig, ConfigError> {
-        let mut builder = Config::builder();
+        let mut config = PrimalConfig::default();
 
-        // Start with defaults
-        builder = builder.add_source(config::Config::try_from(&PrimalConfig::default())?);
-
-        // Add custom sources
         for source in sources {
-            builder = match source {
+            match source {
                 ConfigSource::File { path, format } => {
                     if path.exists() {
-                        builder.add_source(File::from(path.clone()).format(format))
-                    } else {
-                        builder
+                        let content = std::fs::read_to_string(&path)?;
+                        let file_config = format.parse_str(&content)?;
+                        merge_config(&mut config, file_config)?;
                     }
                 }
                 ConfigSource::Environment { prefix } => {
-                    builder.add_source(Environment::with_prefix(&prefix).separator("__"))
+                    apply_env_prefix(&mut config, &prefix)?;
                 }
-                ConfigSource::Defaults => builder,
-            };
+                ConfigSource::Defaults => {}
+            }
         }
 
-        let config = builder.build()?;
-        let primal_config: PrimalConfig = config.try_deserialize()?;
-        Ok(primal_config)
+        Ok(config)
     }
 
     /// Auto-detect and load configuration
@@ -205,7 +275,6 @@ impl ConfigLoader {
     pub fn validate_file<P: AsRef<Path>>(path: P) -> Result<(), ConfigError> {
         let path = path.as_ref();
 
-        // Check if file exists
         if !path.exists() {
             return Err(ConfigError::Invalid(format!(
                 "File not found: {}",
@@ -213,25 +282,7 @@ impl ConfigLoader {
             )));
         }
 
-        // Try to parse the file
-        let format = match path.extension().and_then(|ext| ext.to_str()) {
-            Some("yaml" | "yml") => FileFormat::Yaml,
-            Some("json") => FileFormat::Json,
-            Some("toml") => FileFormat::Toml,
-            _ => {
-                return Err(ConfigError::Invalid(format!(
-                    "Unsupported file format: {}",
-                    path.display()
-                )));
-            }
-        };
-
-        let config = Config::builder()
-            .add_source(File::from(path).format(format))
-            .build()?;
-
-        // Try to deserialize to check structure
-        let _: PrimalConfig = config.try_deserialize()?;
+        let _: PrimalConfig = parse_file(path)?;
         Ok(())
     }
 

@@ -5,7 +5,6 @@
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use universal_constants::primal_names;
 
 /// Runtime capability identifier — primary routing key for ecosystem discovery.
 ///
@@ -120,61 +119,6 @@ impl std::fmt::Display for CapabilityDomain {
 impl std::fmt::Display for CapabilityIdentifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
-    }
-}
-
-/// Standardized primal types
-#[deprecated(
-    since = "0.2.0",
-    note = "Use CapabilityDomain for capability-based discovery instead of hardcoded primal types"
-)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum PrimalType {
-    /// `ToadStool` compute platform
-    ToadStool,
-    /// Songbird service mesh
-    Songbird,
-    /// `BearDog` security framework
-    BearDog,
-    /// `NestGate` storage system
-    NestGate,
-    /// Squirrel AI platform
-    Squirrel,
-    /// biomeOS orchestration platform
-    BiomeOS,
-    /// Any primal that provides the required capabilities (for capability-based discovery)
-    Any,
-}
-
-#[expect(deprecated, reason = "impl block for deprecated enum (serde backward compat)")]
-impl PrimalType {
-    /// Get string representation (for serialization/backward compatibility)
-    #[must_use]
-    #[deprecated(since = "0.2.0", note = "Use CapabilityDomain for discovery")]
-    pub const fn as_str(&self) -> &'static str {
-        match self {
-            Self::ToadStool => primal_names::TOADSTOOL,
-            Self::Songbird => primal_names::SONGBIRD,
-            Self::BearDog => primal_names::BEARDOG,
-            Self::NestGate => primal_names::NESTGATE,
-            Self::Squirrel => primal_names::SQUIRREL,
-            Self::BiomeOS => primal_names::BIOMEOS,
-            Self::Any => "any",
-        }
-    }
-
-    /// Get capability domain for discovery (use when discovering primals by capability)
-    #[must_use]
-    pub const fn capability(&self) -> &'static str {
-        match self {
-            Self::ToadStool => "compute",
-            Self::Songbird => "service-mesh",
-            Self::BearDog => "security",
-            Self::NestGate => "storage",
-            Self::Squirrel => "inference",
-            Self::BiomeOS => "ecosystem",
-            Self::Any => "any",
-        }
     }
 }
 
@@ -341,23 +285,6 @@ pub struct PrimalDependency {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[expect(deprecated, reason = "tests deprecated enum backward compat")]
-    #[test]
-    fn capability_domain_is_primary_routing_key() {
-        let cases = [
-            (PrimalType::ToadStool, "compute"),
-            (PrimalType::Songbird, "service-mesh"),
-            (PrimalType::BearDog, "security"),
-            (PrimalType::NestGate, "storage"),
-            (PrimalType::Squirrel, "inference"),
-            (PrimalType::BiomeOS, "ecosystem"),
-            (PrimalType::Any, "any"),
-        ];
-        for (t, domain) in cases {
-            assert_eq!(t.capability(), domain);
-        }
-    }
 
     #[test]
     fn primal_capability_serde_roundtrip_samples() {

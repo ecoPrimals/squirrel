@@ -11,6 +11,13 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 6, 2026 — Wave 156w: Config Excise + PrimalType Fossil + Bincode Cleanup)
+
+- **External `config` 0.14 crate excised**: Replaced with hand-rolled TOML/YAML/env loader in `universal-patterns`. Removed `config`, `encoding_rs`, `yaml-rust2`, `ron`, `json5`, `rust-ini` from dependency tree (-234 lockfile lines). `async-trait` no longer pulled via `config` (only remains as transitive dev-dep from `wasm-bindgen-test`).
+- **Deprecated `PrimalType` fossil deleted**: Removed deprecated enum from `ecosystem-api` (7 variants, impl block, 5 tests). Migrated 3 struct fields (`EcosystemServiceRegistration`, `ServiceInfo`, `ServiceQuery`) to `String`. Zero production callers — fossil from pre-capability-based era.
+- **bincode cleaned up**: Direct `bincode` dependency moved to dev-only; production gets it transitively via `tokio-serde` codec. Documented tarpc upstream constraint (bincode 2.x blocked by tokio-serde 0.8/0.9). RUSTSEC-2025-0141 tracked.
+- 0 errors, 0 warnings, 6,294 tests passing.
+
 ### Summary (Aug 6, 2026 — Wave 156v: Deduplication + thiserror + Default Derives)
 
 - **ModelRegistry deduplicated**: `config/model_registry.rs` (760L) → 11-line re-export shim; canonical implementation in `common/capability/registry.rs`. ~749 net lines removed.

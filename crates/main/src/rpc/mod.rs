@@ -28,7 +28,8 @@
 //! tarpc implementation based on working patterns from ecosystem primals:
 //! - Uses tarpc 0.37 with tokio-serde 0.8.0
 //! - LengthDelimitedCodec for framing
-//! - Bincode for serialization
+//! - bincode 1.x via tokio-serde — upgrade to 2.x blocked by tokio-serde/tarpc upstream
+//! - RUSTSEC-2025-0141 tracked; no active CVE, codec swap to JSON available as fallback
 //! - Feature-gated behind `tarpc-rpc` feature flag
 
 // Core modules (Pure Rust!)

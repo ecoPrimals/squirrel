@@ -2,38 +2,9 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #[cfg(test)]
-#[expect(deprecated, reason = "tests exercise deprecated PrimalType for backward compat")]
 mod tests {
     use super::super::*;
     use std::collections::HashMap;
-
-    #[test]
-    fn test_primal_type_as_str() {
-        assert_eq!(PrimalType::ToadStool.as_str(), "toadstool");
-        assert_eq!(PrimalType::Songbird.as_str(), "songbird");
-        assert_eq!(PrimalType::BearDog.as_str(), "beardog");
-        assert_eq!(PrimalType::NestGate.as_str(), "nestgate");
-        assert_eq!(PrimalType::Squirrel.as_str(), "squirrel");
-        assert_eq!(PrimalType::BiomeOS.as_str(), "biomeos");
-        assert_eq!(PrimalType::Any.as_str(), "any");
-    }
-
-    #[test]
-    fn test_primal_type_serde_roundtrip() {
-        for pt in &[
-            PrimalType::ToadStool,
-            PrimalType::Songbird,
-            PrimalType::BearDog,
-            PrimalType::NestGate,
-            PrimalType::Squirrel,
-            PrimalType::BiomeOS,
-            PrimalType::Any,
-        ] {
-            let json = serde_json::to_string(pt).expect("should succeed");
-            let deser: PrimalType = serde_json::from_str(&json).expect("should succeed");
-            assert_eq!(*pt, deser);
-        }
-    }
 
     #[test]
     fn test_security_level_serde_roundtrip() {
@@ -269,17 +240,5 @@ mod tests {
             let deser: PrimalCapability = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(*cap, deser, "Failed roundtrip for: {cap:?}");
         }
-    }
-
-    #[test]
-    fn test_primal_type_hash_works_in_collections() {
-        use std::collections::HashSet;
-        let mut set = HashSet::new();
-        set.insert(PrimalType::Squirrel);
-        set.insert(PrimalType::Songbird);
-        set.insert(PrimalType::Squirrel);
-        assert_eq!(set.len(), 2);
-        assert!(set.contains(&PrimalType::Squirrel));
-        assert!(set.contains(&PrimalType::Songbird));
     }
 }

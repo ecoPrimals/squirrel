@@ -112,9 +112,9 @@ pub enum ConfigError {
     /// Environment variable error
     #[error("Environment variable error: {0}")]
     EnvVar(#[from] std::env::VarError),
-    /// Configuration loading error
-    #[error("Config loading error: {0}")]
-    Loading(#[from] config::ConfigError),
+    /// TOML serialization/deserialization error
+    #[error("TOML error: {0}")]
+    Toml(#[from] toml::de::Error),
 }
 
 /// Result type for configuration operations

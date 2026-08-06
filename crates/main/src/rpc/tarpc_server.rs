@@ -55,7 +55,8 @@ impl TarpcRpcServer {
         use super::tarpc_transport::TarpcTransportAdapter;
         let transport_adapter = TarpcTransportAdapter::new(transport);
 
-        // Create tarpc transport using tokio-serde for serialization
+        // bincode 1.x via tokio-serde — upgrade to 2.x blocked by tokio-serde/tarpc upstream
+        // RUSTSEC-2025-0141 tracked; no active CVE, codec swap to JSON available as fallback
         use tokio_serde::formats::Bincode;
         let transport = tokio_serde::Framed::new(transport_adapter, Bincode::default());
 

@@ -34,8 +34,8 @@ url = { version = "2.5", features = ["serde"] }
 tracing.workspace = true
 
 # Configuration management
-config = "0.14"
 serde_yaml_ng = "0.10"
+toml.workspace = true
 dirs.workspace = true
 
 # CRITICAL FIX: Add missing config dependency
@@ -58,7 +58,6 @@ assert_matches = "1.5"
 proptest.workspace = true
 serial_test = "3.0"
 temp-env = "0.3"
-toml = "0.8"
 
 [features]
 # Production default: Pure Rust patterns

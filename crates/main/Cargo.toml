@@ -48,7 +48,6 @@ regex.workspace = true
 # tarpc for high-performance RPC (Phase 2) - Fixed with correct versions from Songbird/BearDog
 tarpc = { workspace = true, optional = true }
 tokio-serde = { workspace = true, optional = true }
-bincode = { workspace = true, optional = true }
 
 # NOTE: Service mesh dependencies discovered at runtime via capability registry.
 # No compile-time primal dependencies needed (TRUE PRIMAL architecture).
@@ -104,7 +103,7 @@ criterion = { workspace = true, optional = true }
 default = ["tarpc-rpc"]
 
 # Core features (TRUE PRIMAL architecture)
-tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]  # High-performance binary RPC (core!)
+tarpc-rpc = ["tarpc", "tokio-serde"]  # High-performance binary RPC (bincode via tokio-serde)
 
 # Optional features
 system-metrics = []  # Uses universal_constants::sys_info (pure Rust, /proc on Linux)
@@ -116,6 +115,7 @@ benchmarking = ["criterion"]             # Benchmarking tools
 gpu-detection = []
 
 [dev-dependencies]
+bincode.workspace = true  # test-only serialize/deserialize roundtrips (production uses tokio-serde)
 tokio-test = "0.4"
 tempfile = "3.8"
 temp-env = "0.3"  # Env var isolation for tests (avoids cross-test interference)

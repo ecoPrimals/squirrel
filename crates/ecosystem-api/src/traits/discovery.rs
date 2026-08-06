@@ -3,9 +3,7 @@
 
 //! Service discovery query and result types used by [`super::ServiceMeshClient`].
 
-#![expect(deprecated, reason = "module uses deprecated PrimalType during migration")]
-
-use crate::types::{HealthStatus, PrimalType};
+use crate::types::HealthStatus;
 use serde::{Deserialize, Serialize};
 
 /// Service query for service discovery
@@ -15,7 +13,7 @@ pub struct ServiceQuery {
     pub service_type: Option<String>,
 
     /// Primal type filter
-    pub primal_type: Option<PrimalType>,
+    pub primal_type: Option<String>,
 
     /// Required capabilities
     pub capabilities: Vec<String>,
@@ -40,7 +38,7 @@ pub struct ServiceInfo {
     pub service_type: String,
 
     /// Primal type
-    pub primal_type: PrimalType,
+    pub primal_type: String,
 
     /// Service endpoint
     pub endpoint: String,

@@ -103,6 +103,8 @@ impl SquirrelClient {
     ) -> Result<Self> {
         let adapter = TarpcTransportAdapter::new(transport);
 
+        // bincode 1.x via tokio-serde — upgrade to 2.x blocked by tokio-serde/tarpc upstream
+        // RUSTSEC-2025-0141 tracked; no active CVE, codec swap to JSON available as fallback
         use tokio_serde::formats::Bincode;
         let transport = tokio_serde::Framed::new(adapter, Bincode::default());
 

@@ -1,12 +1,19 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,298 tests (default features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,294 tests (default features), 44 IPC methods."
 date = 2026-08-06
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 156w — Config Excise + PrimalType Fossil + Bincode Cleanup (Aug 6, 2026)
+
+- External `config` 0.14 crate replaced with hand-rolled loader (-234 lockfile lines)
+- Deprecated ecosystem-api PrimalType enum deleted (3 struct fields → String)
+- bincode direct dep moved to dev-only, documented tarpc upstream constraint
+- 0 warnings, 6,294 tests passing
 
 ## Wave 156v — Deduplication + thiserror + Default Derives (Aug 6, 2026)
 

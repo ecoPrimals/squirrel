@@ -3,15 +3,12 @@
 
 //! Service registration and resource specification types.
 
-#![expect(deprecated, reason = "module uses deprecated PrimalType during migration")]
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::health::HealthCheckConfig;
-use super::primal::PrimalType;
 use super::security::SecurityConfig;
 
 /// Ecosystem service registration
@@ -20,8 +17,8 @@ pub struct EcosystemServiceRegistration {
     /// Service identifier (`Arc<str>` for O(1) clone when shared)
     pub service_id: Arc<str>,
 
-    /// Primal type
-    pub primal_type: PrimalType,
+    /// Capability domain or primal identifier (e.g. `"inference"`, `"squirrel"`)
+    pub primal_type: String,
 
     /// Associated biome identifier (if applicable)
     pub biome_id: Option<Arc<str>>,

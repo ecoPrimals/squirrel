@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(deprecated)]
-
 use super::*;
-use crate::PrimalType;
 
 // --- RetryConfig tests ---
 #[test]
@@ -53,13 +50,13 @@ fn test_service_query_default() {
 fn test_service_query_with_filters() {
     let query = ServiceQuery {
         service_type: Some("ai".to_string()),
-        primal_type: Some(PrimalType::Squirrel),
+        primal_type: Some("squirrel".to_string()),
         capabilities: vec!["inference".to_string()],
         health_status: None,
         metadata: std::collections::HashMap::new(),
     };
     assert_eq!(query.service_type.as_deref(), Some("ai"));
-    assert!(matches!(query.primal_type, Some(PrimalType::Squirrel)));
+    assert_eq!(query.primal_type.as_deref(), Some("squirrel"));
     assert_eq!(query.capabilities.len(), 1);
 }
 
@@ -70,7 +67,7 @@ fn test_service_info_serde() {
         id: "svc-1".to_string(),
         name: "test-service".to_string(),
         service_type: "ai".to_string(),
-        primal_type: PrimalType::Squirrel,
+        primal_type: "squirrel".to_string(),
         endpoint: "http://localhost:8080".to_string(),
         capabilities: vec!["inference".to_string()],
         health_status: "healthy".to_string(),
@@ -90,7 +87,7 @@ fn test_service_info_clone() {
         id: "svc-2".to_string(),
         name: "cloned-service".to_string(),
         service_type: "compute".to_string(),
-        primal_type: PrimalType::ToadStool,
+        primal_type: "toadstool".to_string(),
         endpoint: "http://localhost:9090".to_string(),
         capabilities: vec![],
         health_status: "degraded".to_string(),
