@@ -118,7 +118,7 @@ pub struct EncryptionConfig {
 }
 
 /// Encryption algorithms
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum EncryptionAlgorithm {
     /// AES-256-GCM
     Aes256Gcm,

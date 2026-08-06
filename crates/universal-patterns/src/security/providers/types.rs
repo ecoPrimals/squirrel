@@ -12,7 +12,7 @@ use super::super::errors::SecurityError;
 use crate::config::AuthMethod;
 
 /// Health status enumeration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum HealthStatus {
     Healthy,
     Degraded,
@@ -58,7 +58,7 @@ impl Default for SecurityServiceConfig {
 }
 
 /// Security level enumeration
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub enum SecurityLevel {
     Low,
     #[default]
@@ -68,7 +68,7 @@ pub enum SecurityLevel {
 }
 
 /// Trust level for security services
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum TrustLevel {
     Low,
     Medium,
@@ -77,7 +77,7 @@ pub enum TrustLevel {
 }
 
 /// Priority level for security requests
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub enum Priority {
     Low,
     #[default]

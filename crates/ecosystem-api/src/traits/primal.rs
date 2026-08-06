@@ -3,8 +3,6 @@
 
 //! Core primal and ecosystem integration traits.
 
-#![allow(deprecated)]
-
 use std::future::Future;
 use std::pin::Pin;
 
@@ -12,7 +10,7 @@ use crate::error::{EcosystemError, UniversalResult};
 use crate::types::{
     DynamicPortInfo, EcosystemRequest, EcosystemResponse, HealthStatus, PrimalCapability,
     PrimalContext, PrimalDependency, PrimalEndpoints, PrimalHealth, PrimalRequest, PrimalResponse,
-    PrimalType, ServiceCapabilities, ServiceMeshStatus,
+    ServiceCapabilities, ServiceMeshStatus,
 };
 
 /// Universal primal provider trait - ALL PRIMALS MUST IMPLEMENT
@@ -30,8 +28,8 @@ pub trait UniversalPrimalProvider: Send + Sync {
     /// User/device context this primal instance serves
     fn context(&self) -> &PrimalContext;
 
-    /// Primal type category
-    fn primal_type(&self) -> PrimalType;
+    /// Capability domain (e.g. `"ai-coordination"`, `"security"`)
+    fn primal_type(&self) -> &str;
 
     /// Capabilities this primal provides
     fn capabilities(&self) -> Vec<PrimalCapability>;

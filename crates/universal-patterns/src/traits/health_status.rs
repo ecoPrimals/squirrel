@@ -25,7 +25,7 @@ pub struct HealthStatus {
 }
 
 /// Health state enumeration
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum HealthState {
     /// Primal is healthy
     Healthy,

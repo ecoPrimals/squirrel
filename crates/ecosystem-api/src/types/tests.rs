@@ -183,7 +183,7 @@ mod tests {
     #[test]
     fn test_primal_dependency_serde() {
         let dep = PrimalDependency {
-            primal_type: PrimalType::Any,
+            primal_type: "any".to_string(),
             name: "security-provider".to_string(),
             capabilities: vec!["authentication".to_string(), "encryption".to_string()],
             required: true,

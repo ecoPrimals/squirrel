@@ -38,7 +38,7 @@ pub struct NetworkLocation {
 }
 
 /// Security level requirements
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum SecurityLevel {
     /// Basic security

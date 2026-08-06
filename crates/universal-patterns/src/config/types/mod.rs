@@ -91,7 +91,7 @@ pub struct OrchestrationConfig {
 }
 
 /// Orchestration modes
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum OrchestrationMode {
     /// Standalone mode (no orchestration)
     Standalone,
@@ -167,7 +167,7 @@ pub struct LoggingConfig {
 }
 
 /// Log levels
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LogLevel {
     /// Trace level logging
     Trace,
@@ -182,7 +182,7 @@ pub enum LogLevel {
 }
 
 /// Log formats
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LogFormat {
     /// Human-readable format
     Human,

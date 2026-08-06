@@ -106,7 +106,7 @@ pub struct Principal {
 }
 
 /// Type of principal
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum PrincipalType {
     /// Human user
     User,

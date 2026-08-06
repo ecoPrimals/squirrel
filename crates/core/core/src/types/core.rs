@@ -51,7 +51,7 @@ pub struct Task {
 }
 
 /// Type of coordinated task.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TaskType {
     /// MCP protocol coordination.
     McpCoordination,
@@ -125,7 +125,7 @@ pub struct TaskResult {
 }
 
 /// Status of a task in the coordination pipeline.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TaskStatus {
     /// Waiting in queue.
     Queued,

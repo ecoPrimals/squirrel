@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 5, 2026 — Wave 156l: PrimalDependency Migration, Copy Derives, Unwrap Elimination)
+
+- **`ecosystem_api::PrimalDependency.primal_type` migrated to `String`**: Deprecated `PrimalType` enum field replaced with capability-domain `String` (e.g. `"any"`, `"security"`). `ecosystem_api::UniversalPrimalProvider::primal_type()` trait method evolved from `PrimalType` enum return to `&str`. `#[allow(deprecated)]` and `#![allow(deprecated)]` removed from `PrimalDependency` struct and `traits/primal.rs`. Re-export in `types/mod.rs` refined: `PrimalDependency` no longer wrapped in deprecated guard.
+- **`persist_session_context` evolved to graceful degradation**: Changed from returning `NotImplemented` error to `Ok(())` with a debug-level log. Session persistence is best-effort when no storage provider is discovered.
+- **4 production `unwrap()` eliminated in `TaskManager`**: `assign_task`, `update_progress`, `fail_task`, `cancel_task` no longer do redundant HashMap lookups — they clone directly from the mutable `Arc` reference after `Arc::make_mut`, removing all production `unwrap()` calls.
+- **25 enums across 14 files derive `Copy`**: Trait-level types (`SecurityLevel`, `PortStatus`, `HealthState`, `PrincipalType`), core types (`TaskType`, `TaskStatus`, `ServiceStatus`, `EcosystemMode`), API types (`HealthStatus`, `SecurityLevel`), config types (`OrchestrationMode`, `LogLevel`, `LogFormat`, `EncryptionAlgorithm`), security types (`Environment`, `RiskLevel`, `TrustLevel`, `Priority`), and main crate types (`HealthStatus`, `ResponseStatus`, `PrimalType`, `SessionState`). Enables bitwise copies, eliminates heap-clone overhead.
+- **Zero `unwrap()` in production code** (all remaining are in test files).
+- **6,455 tests passing**, zero warnings across workspace.
+
 ### Summary (Aug 5, 2026 — Wave 156k: Lint Hygiene — allow→expect Migration + Dead Attribute Cleanup)
 
 - **15 `#[allow(deprecated)]` → `#[expect(deprecated, reason)]`**: All PrimalType/EcosystemPrimalType shim sites migrated across `ecosystem/types.rs` (8), `ecosystem-api/types/primal.rs` (4), `ecosystem-api/types/mod.rs` (1), `ecosystem-api/types/tests.rs` (1). Two exceptions documented: `PrimalDependency` struct (derive-generated serde code escapes `#[expect]` scope) and `SecurityServiceProvider::initialize` trait method (Rust 1.94 inconsistent dead_code detection between `check` and test compilation).

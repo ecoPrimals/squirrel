@@ -16,7 +16,7 @@ pub const fn metric_u64_as_f64(x: u64) -> f64 {
 }
 
 /// Lifecycle and coordination mode of the ecosystem service.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum ServiceStatus {
     /// Service is initializing and not yet steady-state.
     Starting,

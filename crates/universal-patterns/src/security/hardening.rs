@@ -62,7 +62,7 @@ impl Default for SecurityHardeningConfig {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 /// Runtime environment classification for security behavior
 ///
 /// Determines security hardening levels and incident response behavior.
@@ -145,7 +145,7 @@ pub enum SecurityIncident {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 /// Security risk level classification
 ///
 /// Used for threat assessment and incident prioritization.

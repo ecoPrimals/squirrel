@@ -113,7 +113,7 @@ pub struct SessionMetadata {
 ///     SessionState::Terminated => println!("Session is terminated"),
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum SessionState {
     /// Session is currently active and processing requests
     Active,

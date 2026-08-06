@@ -193,18 +193,17 @@ impl TaskManager {
             )));
         }
 
-        let task = Arc::make_mut(task_arc);
-        task.mark_running(agent_id);
-        let task_id_arc = Arc::clone(&task.id);
+        Arc::make_mut(task_arc).mark_running(agent_id);
+        let result = Arc::clone(task_arc);
 
         self.agent_tasks
             .write()
             .await
             .entry(agent_id.to_string())
             .or_default()
-            .insert(Arc::clone(&task_id_arc));
+            .insert(Arc::clone(&result.id));
 
-        Ok(Arc::clone(tasks.get(task_id).unwrap()))
+        Ok(result)
     }
 
     /// Update the progress of a task.
@@ -229,7 +228,7 @@ impl TaskManager {
 
         Arc::make_mut(task_arc).update_progress(progress, status_message);
 
-        Ok(Arc::clone(tasks.get(task_id).unwrap()))
+        Ok(Arc::clone(task_arc))
     }
 
     /// Mark a task as completed.
@@ -276,7 +275,7 @@ impl TaskManager {
 
         Arc::make_mut(task_arc).mark_failed(error_message);
 
-        Ok(Arc::clone(tasks.get(task_id).unwrap()))
+        Ok(Arc::clone(task_arc))
     }
 
     /// Cancel a task.
@@ -296,7 +295,7 @@ impl TaskManager {
 
         Arc::make_mut(task_arc).mark_cancelled(reason);
 
-        Ok(Arc::clone(tasks.get(task_id).unwrap()))
+        Ok(Arc::clone(task_arc))
     }
 
     /// Get all tasks assigned to a specific agent.

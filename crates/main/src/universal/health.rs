@@ -48,7 +48,7 @@ pub struct PrimalHealth {
 }
 
 /// Health status enumeration
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HealthStatus {
     /// Fully operational
     Healthy,

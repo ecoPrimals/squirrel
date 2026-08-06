@@ -1,12 +1,21 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 7,140 tests (--all-features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 6,455 tests (default features), 44 IPC methods."
 date = 2026-08-05
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 156l — PrimalDependency Migration, Copy Derives, Unwrap Elimination (Aug 5, 2026)
+
+- `ecosystem_api::PrimalDependency.primal_type` migrated from deprecated `PrimalType` enum to `String`
+- `ecosystem_api::UniversalPrimalProvider::primal_type()` evolved from `PrimalType` return to `&str`
+- `persist_session_context` evolved from `NotImplemented` error to graceful degradation (`Ok(())`)
+- 4 production `unwrap()` eliminated in `TaskManager` via direct `Arc` reference cloning
+- 25 unit-variant enums across 14 files derive `Copy` — trait, core, API, config, security types
+- 0 warnings, 6,455 tests passing
 
 ## Wave 156j — EcosystemPrimalType → String Migration + Context Quality (Aug 5, 2026)
 

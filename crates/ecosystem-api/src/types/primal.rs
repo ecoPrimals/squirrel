@@ -313,12 +313,9 @@ pub enum PrimalCapability {
 
 /// Dependency on another primal's capabilities
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-// NOTE: `#[allow]` not `#[expect]` — derive-generated serde code for PrimalType field
-// escapes `#[expect]` scope, causing unfulfilled-expectation warnings.
-#[allow(deprecated)]
 pub struct PrimalDependency {
-    /// Type of primal (or Any for capability-based discovery)
-    pub primal_type: PrimalType,
+    /// Capability domain (e.g. `"security"`, `"compute"`, `"any"`)
+    pub primal_type: String,
     /// Human-readable name for the dependency
     pub name: String,
     /// Required capabilities (used when `primal_type` is Any)
@@ -442,11 +439,10 @@ mod tests {
         assert_eq!(id_from_domain.as_str(), "storage");
     }
 
-    #[expect(deprecated, reason = "tests deprecated PrimalDependency struct")]
     #[test]
     fn primal_dependency_serde() {
         let d = PrimalDependency {
-            primal_type: PrimalType::Any,
+            primal_type: "any".to_string(),
             name: "dep".into(),
             capabilities: vec!["a".into()],
             required: true,

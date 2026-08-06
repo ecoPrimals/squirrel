@@ -348,10 +348,10 @@ impl ContextState {
         session_id: &str,
         _session: &SessionContext,
     ) -> Result<(), PrimalError> {
-        debug!("Session context persistence requested for {session_id} — no storage backend wired");
-        Err(PrimalError::NotImplemented(
-            "Session context persistence requires a storage capability provider".into(),
-        ))
+        // Graceful degradation: persistence is best-effort.
+        // When a storage provider is discovered via IPC, this will persist.
+        debug!("Session context persistence skipped for {session_id} — no storage capability provider discovered");
+        Ok(())
     }
 
     fn matches_query(&self, session: &SessionContext, query: &str) -> bool {

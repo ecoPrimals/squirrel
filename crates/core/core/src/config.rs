@@ -17,7 +17,7 @@ pub struct EcosystemConfig {
 }
 
 /// Ecosystem operation mode.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum EcosystemMode {
     /// Single-node standalone.
     Standalone,

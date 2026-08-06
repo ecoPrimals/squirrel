@@ -33,10 +33,9 @@ mod tests;
 // Re-export all types for backward compatibility
 pub use context::{NetworkLocation, PrimalContext};
 pub use health::{HealthCheckConfig, HealthStatus, PrimalEndpoints, PrimalHealth, ResourceUsage};
+pub use primal::{CapabilityDomain, CapabilityIdentifier, PrimalCapability, PrimalDependency};
 #[expect(deprecated, reason = "re-exports deprecated PrimalType for downstream compat")]
-pub use primal::{
-    CapabilityDomain, CapabilityIdentifier, PrimalCapability, PrimalDependency, PrimalType,
-};
+pub use primal::PrimalType;
 pub use registration::{
     DynamicPortInfo, EcosystemServiceRegistration, ResourceSpec, ServiceCapabilities,
     ServiceEndpoints,

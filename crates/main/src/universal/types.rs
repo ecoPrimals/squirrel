@@ -34,7 +34,7 @@ pub struct PrimalInfo {
 }
 
 /// Types of primals in the ecosystem
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Display)]
 pub enum PrimalType {
     /// AI/ML inference and model serving primal
     AI,
