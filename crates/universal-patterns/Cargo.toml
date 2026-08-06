@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license = "AGPL-3.0-or-later"
-description = "Universal patterns for ecosystem integration"
+description = "Universal transport, IPC, and operational patterns for ecoPrimals"
 repository = "https://github.com/ecoPrimals/squirrel"
 keywords = ["ecoprimals", "ai", "mcp", "json-rpc"]
 categories = ["development-tools"]
@@ -13,59 +13,19 @@ categories = ["development-tools"]
 workspace = true
 
 [dependencies]
-# Core async and serialization
 tokio.workspace = true
-
-# Internal dependencies
 universal-constants = { path = "../universal-constants", version = "0.1.0" }
 serde.workspace = true
 serde_json.workspace = true
-uuid.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
-futures.workspace = true
-
-# HTTP and networking (OPTIONAL - for HTTP patterns)
-# Production uses Unix sockets!
-url = { version = "2.5", features = ["serde"] }
-
-# Logging and tracing
 tracing.workspace = true
-
-# Configuration management
-serde_yaml_ng = "0.10"
-toml.workspace = true
-dirs.workspace = true
-
-# CRITICAL FIX: Add missing config dependency
-squirrel-mcp-config = { path = "../config", version = "0.1.0" }
-
-# Security: zeroize for sensitive data
-zeroize.workspace = true
-
-# Cryptography: blake3 hashing, rand for key generation
-blake3.workspace = true
-rand.workspace = true
-
-# Zero-copy bytes at IPC/transport boundaries (wateringHole)
 bytes = { version = "1.5", features = ["serde"] }
+dirs.workspace = true
 
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = "3.0"
-assert_matches = "1.5"
 proptest.workspace = true
-serial_test = "3.0"
 temp-env = "0.3"
-
-[features]
-# Production default: Pure Rust patterns
-default = ["config-management", "security", "orchestration"]
-config-management = []
-security = []
-orchestration = []
-## http-patterns removed (stadial gate: reqwest lockfile ghost eliminated)
-testing = []
-
- 

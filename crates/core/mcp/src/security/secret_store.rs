@@ -26,6 +26,25 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+/// Credential storage backend selector.
+///
+/// Moved from `universal-patterns::config` during C8 excision.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum CredentialStorage {
+    /// In-memory storage (not persistent)
+    Memory,
+    /// File-based storage at an explicit path
+    File {
+        /// Path to the credential storage file
+        path: PathBuf,
+    },
+    /// Security-provider-managed storage.
+    #[serde(rename = "security_provider", alias = "Beardog", alias = "beardog")]
+    SecurityProvider,
+    /// Platform credential cache — file-based fallback for offline/bootstrap.
+    Platform,
+}
+
 /// Platform-agnostic secret storage trait.
 ///
 /// Backends persist secrets keyed by an opaque string name (e.g.
@@ -286,9 +305,8 @@ impl SecretStoreBackend {
     /// - `File { path }`: persistent JSON at the given path.
     /// - `Platform`: auto-detects OS-native path (XDG, AppData, etc.).
     pub async fn from_config(
-        storage: &universal_patterns::config::CredentialStorage,
+        storage: &CredentialStorage,
     ) -> Result<Self> {
-        use universal_patterns::config::CredentialStorage;
         match storage {
             CredentialStorage::Memory => Ok(Self::Memory(InMemorySecretStore::new())),
             CredentialStorage::SecurityProvider => Ok(Self::SecurityProvider(
@@ -444,7 +462,6 @@ mod tests {
 
     #[tokio::test]
     async fn backend_memory_variant() {
-        use universal_patterns::config::CredentialStorage;
         let backend = SecretStoreBackend::from_config(&CredentialStorage::Memory)
             .await
             .unwrap();
@@ -454,7 +471,6 @@ mod tests {
 
     #[tokio::test]
     async fn backend_file_variant() {
-        use universal_patterns::config::CredentialStorage;
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("backend-test.json");
         let backend =
@@ -471,7 +487,6 @@ mod tests {
 
     #[tokio::test]
     async fn backend_security_provider_variant() {
-        use universal_patterns::config::CredentialStorage;
         let backend = SecretStoreBackend::from_config(&CredentialStorage::SecurityProvider)
             .await
             .unwrap();
@@ -482,7 +497,6 @@ mod tests {
 
     #[tokio::test]
     async fn backend_platform_variant() {
-        use universal_patterns::config::CredentialStorage;
         let backend = SecretStoreBackend::from_config(&CredentialStorage::Platform)
             .await
             .unwrap();

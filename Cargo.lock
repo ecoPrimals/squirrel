@@ -138,12 +138,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "assert_matches"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
-
-[[package]]
 name = "async-trait"
 version = "0.1.91"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -751,24 +745,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.3",
-]
-
-[[package]]
-name = "ecosystem-api"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "futures",
- "serde",
- "serde_json",
- "temp-env",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "universal-constants",
- "url",
- "uuid",
 ]
 
 [[package]]
@@ -2497,7 +2473,6 @@ dependencies = [
  "criterion",
  "dashmap",
  "dirs",
- "ecosystem-api",
  "futures",
  "hkdf",
  "metrics",
@@ -3301,30 +3276,19 @@ name = "universal-patterns"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "assert_matches",
- "blake3",
  "bytes",
  "chrono",
  "dirs",
- "futures",
  "proptest",
- "rand 0.9.5",
  "serde",
  "serde_json",
- "serde_yaml_ng",
- "serial_test",
- "squirrel-mcp-config",
  "temp-env",
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
  "tokio-test",
- "toml",
  "tracing",
  "universal-constants",
- "url",
- "uuid",
- "zeroize",
 ]
 
 [[package]]
@@ -3343,7 +3307,6 @@ dependencies = [
  "idna",
  "percent-encoding",
  "serde",
- "serde_derive",
 ]
 
 [[package]]

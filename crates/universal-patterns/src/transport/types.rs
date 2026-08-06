@@ -425,3 +425,43 @@ mod tests {
         assert_eq!(config.unix_permissions, Some(0o600));
     }
 }
+
+/// Platform-aware runtime directory for socket paths.
+///
+/// Relocated from `federation::cross_platform` during C8 excision — the only
+/// transport-relevant piece of that module.
+pub(crate) fn get_runtime_dir(app_name: &str) -> PathBuf {
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(xdg_runtime) =
+            std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR)
+        {
+            return PathBuf::from(xdg_runtime).join(app_name);
+        }
+        PathBuf::from("/tmp").join(app_name)
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(temp) = std::env::var(universal_constants::env_vars::sys::TEMP) {
+            return PathBuf::from(temp).join(app_name);
+        }
+        PathBuf::from("C:\\Temp").join(app_name)
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(home) = dirs::home_dir() {
+            return home
+                .join("Library")
+                .join("Application Support")
+                .join(app_name);
+        }
+        PathBuf::from("/tmp").join(app_name)
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+    {
+        PathBuf::from("./runtime").join(app_name)
+    }
+}

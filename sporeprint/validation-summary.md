@@ -1,12 +1,21 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 5,668 tests (default features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 4,090 tests (default features), 44 IPC methods."
 date = 2026-08-06
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 157b — C8 Upstream Absorption Excision (Aug 6, 2026)
+
+- **C8 complete**: ~67K lines, 216 files excised (Songbird/BearDog/ToadStool scaffolding)
+- P1: ecosystem/, biomeos_integration/, compute_client/, storage_client/, security_client/, primal_provider/, universal/, universal_primal_ecosystem/, universal_adapter_v2.rs, error_handling/ (30,224L)
+- P2: ecosystem-api crate dropped (4,722L); universal-patterns stripped to transport/IPC core (~19,500L removed)
+- CredentialStorage inlined into squirrel-mcp; CrossPlatform::get_runtime_dir relocated to transport
+- main.rs dead EcosystemManager init removed; SquirrelSystem API removed
+- Workspace: 12 crates, 622 files, 190K lines, 4,090 tests passing, 0 failures
 
 ## Wave 157a — Dep Cleanup + Lint Hygiene + Retry Modernization (Aug 6, 2026)
 

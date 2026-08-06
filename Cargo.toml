@@ -25,8 +25,6 @@ members = [
     "crates/universal-constants",
     "crates/universal-error",
 
-    # Ecosystem API
-    "crates/ecosystem-api",
 ]
 
 [workspace.package]
@@ -122,7 +120,6 @@ futures-util = "0.3"
 # Internal crate dependencies
 squirrel-ai-tools = { path = "crates/tools/ai-tools", version = "0.1.0" }
 squirrel-mcp-config = { path = "crates/config", version = "0.1.0" }
-ecosystem-api = { path = "crates/ecosystem-api", version = "0.1.0" }
 squirrel-interfaces = { path = "crates/core/interfaces", version = "0.1.0" }
 squirrel-context = { path = "crates/core/context", version = "0.1.0" }
 universal-patterns = { path = "crates/universal-patterns", version = "0.1.0" }

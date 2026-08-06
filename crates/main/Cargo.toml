@@ -64,7 +64,7 @@ squirrel-mcp-auth.workspace = true
 # Universal patterns
 universal-patterns.workspace = true
 universal-constants.workspace = true
-ecosystem-api.workspace = true
+# ecosystem-api: EXCISED (C8 — upstream absorption)
 zeroize.workspace = true
 chacha20poly1305.workspace = true
 hkdf.workspace = true

@@ -28,7 +28,6 @@ use anyhow::{Context, Result};
 use clap::Parser;
 #[cfg(feature = "monitoring")]
 use squirrel::MetricsCollector;
-use squirrel::ecosystem::{EcosystemConfig, EcosystemManager};
 use squirrel::shutdown::ShutdownManager;
 use std::process;
 use std::sync::Arc;
@@ -198,20 +197,13 @@ async fn run_server(
     info!("UniBin Architecture v1.0.0");
     info!("Zero-HTTP Production Mode (v1.1.0)");
 
-    // Initialize ecosystem components
     #[cfg(feature = "monitoring")]
     let metrics_collector = Arc::new(MetricsCollector::new());
     #[cfg(not(feature = "monitoring"))]
     let metrics_collector = Arc::new(squirrel::monitoring::metrics::MetricsCollector::new());
 
-    let ecosystem_config = EcosystemConfig::default();
-    let _ecosystem_manager = Arc::new(EcosystemManager::new(
-        ecosystem_config,
-        metrics_collector.clone(),
-    ));
     let shutdown_manager = Arc::new(ShutdownManager::new());
 
-    info!("Ecosystem Manager initialized");
     info!("Metrics Collector initialized");
     info!("Shutdown Manager initialized");
 

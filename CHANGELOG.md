@@ -11,6 +11,17 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 6, 2026 — Wave 157b: C8 Upstream Absorption Excision)
+
+- **C8 excision complete** (~67K lines, 216 files removed):
+  - **P1 — crates/main/src** (30,224L): `ecosystem/`, `biomeos_integration/`, `compute_client/`, `storage_client/`, `security_client/`, `primal_provider/`, `universal/`, `universal_primal_ecosystem/`, `universal_adapter_v2.rs`, `error_handling/` — all Songbird/BearDog/ToadStool scaffolding not on the `JsonRpcServer`→`AiRouter` production path.
+  - **P2 — ecosystem-api crate** (4,722L): Zero production imports after P1 excision. Entire crate dropped from workspace.
+  - **P2 — universal-patterns** (~19,500L): `federation/`, `registry/`, `security/`, `config/`, `traits/`, `builder`, `circuit_breaker`, `compute_dispatch`, `dispatch_outcome`, `streaming`, `validation_harness`, dead `capabilities.rs` + `testing/` — all orphaned from external consumers. `CredentialStorage` inlined into `squirrel-mcp`. `CrossPlatform::get_runtime_dir` relocated to `transport::types`.
+  - `SquirrelSystem`, `initialize_squirrel_system`, `create_default_squirrel_system` removed from `lib.rs` (dead ecosystem integration API).
+  - `main.rs` dead `EcosystemManager` init block removed.
+  - 13 integration test files + 1 example excised (3,943 lines of test code for excised modules).
+- Workspace: **12** crates, **190K** lines, **622** files. **4,090** tests passing, 0 failures.
+
 ### Summary (Aug 6, 2026 — Wave 157a: Dep Cleanup + Lint Hygiene + Retry Modernization)
 
 - **Stale dependency excise**: Removed 5 unused workspace dependencies (`tower`, `tower-http`, `async-recursion`, `semver`, `test-case`).
