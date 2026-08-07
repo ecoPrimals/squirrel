@@ -203,7 +203,7 @@ impl UniversalListener {
     async fn try_bind(
         service_name: &str,
         transport_type: TransportType,
-        #[cfg_attr(not(unix), allow(unused_variables))]
+        #[cfg_attr(not(unix), allow(unused_variables, reason = "config only used in unix transport paths"))]
         config: &ListenerConfig,
     ) -> IoResult<Self> {
         match transport_type {
