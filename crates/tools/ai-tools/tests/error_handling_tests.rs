@@ -40,7 +40,7 @@
     unused_variables,
     dead_code,
     deprecated,
-    reason = "test module — pedantic lints relaxed for test clarity"
+    reason = "test module — pedantic lints relaxed for test ergonomics"
 )]
 //! Error handling tests for AI tools
 //!

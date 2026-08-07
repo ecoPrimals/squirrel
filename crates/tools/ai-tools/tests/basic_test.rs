@@ -5,7 +5,7 @@
     missing_docs,
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test module needs direct assertions"
+    reason = "test module — pedantic lints relaxed for test ergonomics"
 )]
 
 use squirrel_ai_tools::{

@@ -51,16 +51,18 @@ pub fn discover_ipc_endpoint(service_name: &str) -> IoResult<IpcEndpoint> {
         }
     }
 
-    // 2. Try Named Pipe (Windows)
+    // 2. Named pipe on Windows, TCP fallback everywhere else
     #[cfg(windows)]
     {
         let pipe_name = format!(r"\\.\pipe\{}", service_name);
         tracing::debug!("Trying Named Pipe: {}", pipe_name);
-        return Ok(IpcEndpoint::NamedPipe(pipe_name));
+        Ok(IpcEndpoint::NamedPipe(pipe_name))
     }
 
-    // 3. Try TCP discovery file
-    discover_tcp_endpoint(service_name)
+    #[cfg(not(windows))]
+    {
+        discover_tcp_endpoint(service_name)
+    }
 }
 
 /// Discover TCP endpoint from discovery file

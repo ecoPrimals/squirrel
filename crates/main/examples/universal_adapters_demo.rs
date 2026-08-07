@@ -40,7 +40,7 @@
     unused_variables,
     dead_code,
     deprecated,
-    reason = "example/bench — pedantic lints relaxed"
+    reason = "demo example — pedantic lints relaxed for readability"
 )]
 
 //! Universal Adapters Demonstration

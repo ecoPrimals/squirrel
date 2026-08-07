@@ -3,6 +3,7 @@
 
 use super::*;
 use std::io;
+use std::path::PathBuf;
 
 #[test]
 fn test_transport_config_default() {
@@ -163,36 +164,41 @@ fn test_is_platform_constraint_timed_out() {
     assert!(!UniversalTransport::is_platform_constraint(&error));
 }
 
-#[test]
-fn test_socket_path_generation_default() {
-    let config = TransportConfig::default();
-    let path = UniversalTransport::get_socket_path("test_service", &config);
+#[cfg(unix)]
+mod socket_path_tests {
+    use super::*;
 
-    assert!(path.to_string_lossy().contains("test_service.sock"));
-    assert!(path.to_string_lossy().ends_with(".sock"));
-}
+    #[test]
+    fn test_socket_path_generation_default() {
+        let config = TransportConfig::default();
+        let path = UniversalTransport::get_socket_path("test_service", &config);
 
-#[test]
-fn test_socket_path_generation_custom_dir() {
-    let config = TransportConfig {
-        socket_base_dir: Some(PathBuf::from("/tmp/custom_sockets")),
-        ..Default::default()
-    };
+        assert!(path.to_string_lossy().contains("test_service.sock"));
+        assert!(path.to_string_lossy().ends_with(".sock"));
+    }
 
-    let path = UniversalTransport::get_socket_path("my_service", &config);
+    #[test]
+    fn test_socket_path_generation_custom_dir() {
+        let config = TransportConfig {
+            socket_base_dir: Some(PathBuf::from("/tmp/custom_sockets")),
+            ..Default::default()
+        };
 
-    assert_eq!(path, PathBuf::from("/tmp/custom_sockets/my_service.sock"));
-}
+        let path = UniversalTransport::get_socket_path("my_service", &config);
 
-#[test]
-fn test_socket_path_generation_different_services() {
-    let config = TransportConfig::default();
-    let path1 = UniversalTransport::get_socket_path("service1", &config);
-    let path2 = UniversalTransport::get_socket_path("service2", &config);
+        assert_eq!(path, PathBuf::from("/tmp/custom_sockets/my_service.sock"));
+    }
 
-    assert_ne!(path1, path2);
-    assert!(path1.to_string_lossy().contains("service1"));
-    assert!(path2.to_string_lossy().contains("service2"));
+    #[test]
+    fn test_socket_path_generation_different_services() {
+        let config = TransportConfig::default();
+        let path1 = UniversalTransport::get_socket_path("service1", &config);
+        let path2 = UniversalTransport::get_socket_path("service2", &config);
+
+        assert_ne!(path1, path2);
+        assert!(path1.to_string_lossy().contains("service1"));
+        assert!(path2.to_string_lossy().contains("service2"));
+    }
 }
 
 #[tokio::test]

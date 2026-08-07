@@ -11,6 +11,26 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 7, 2026 — Wave 157d: Cross-Arch Compliance + Debt Cleanup)
+
+- **Cross-arch compliance**: `cargo check --target x86_64-pc-windows-gnu --workspace --tests --examples` now passes with **0 errors**. Squirrel is cross-arch clean per the new ecosystem standard.
+  - `get_socket_path()` functions in `transport/client.rs` and `transport/listener.rs` gated with `#[cfg(unix)]`.
+  - `PathBuf` imports gated with `#[cfg(unix)]` where only used in socket-path code.
+  - Socket-path tests wrapped in `#[cfg(unix)]` modules.
+  - `discover_ipc_endpoint()` refactored from `return`+unreachable to `#[cfg(windows)]`/`#[cfg(not(windows))]` blocks.
+  - `socket_path` field annotated `#[cfg_attr(not(target_os = "linux"), allow(dead_code))]`.
+  - `AsyncReadExt` import moved from top-level to `#[cfg(unix)]` UDS test module.
+  - CLI `perform_security_checks()` restructured: `metadata`/`PermissionsExt` usage moved inside `#[cfg(unix)]` block.
+- **Lint hygiene**: Added `reason = "..."` to all 12 remaining `#![allow(...)]` blocks missing reasons (test modules, fixtures, benchmarks, examples).
+- 4,090 tests passing, 0 failures.
+
+### Summary (Aug 6, 2026 — Wave 157c: G66 Transport Abstraction — Eliminate Silicon Deism)
+
+- **Silicon deism eliminated**: All `tokio::net::UnixStream`, `tokio::net::UnixListener`, and `std::os::unix` imports in test code wrapped with `#[cfg(unix)]` gates across 17 files.
+- Production code confirmed properly gated: secondary filesystem socket bind in `jsonrpc_server.rs` already `#[cfg(target_os = "linux")]`.
+- `capability_jwt_integration_tests.rs` gated with `#[cfg(all(feature = "integration-tests", unix))]`.
+- 4,090 tests passing, 0 failures.
+
 ### Summary (Aug 6, 2026 — Wave 157b: C8 Upstream Absorption Excision)
 
 - **C8 excision complete** (~67K lines, 216 files removed):

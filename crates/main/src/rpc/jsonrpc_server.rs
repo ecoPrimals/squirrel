@@ -62,6 +62,7 @@ pub struct JsonRpcServer {
     /// Service name for Universal Transport discovery
     pub(crate) service_name: String,
 
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code, reason = "filesystem socket bind is Linux-only (SQ-01)"))]
     pub(crate) socket_path: String,
 
     /// Server metrics

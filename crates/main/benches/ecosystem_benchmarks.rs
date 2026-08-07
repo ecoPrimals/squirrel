@@ -40,7 +40,7 @@
     unused_variables,
     dead_code,
     deprecated,
-    reason = "example/bench — pedantic lints relaxed"
+    reason = "benchmark harness — pedantic lints relaxed"
 )]
 
 //! Comprehensive Ecosystem Benchmarks

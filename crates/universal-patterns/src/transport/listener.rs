@@ -4,6 +4,7 @@
 //! Universal listener implementation for server-side transport
 
 use std::io::{self, Result as IoResult};
+#[cfg(unix)]
 use std::path::PathBuf;
 use tokio::net::TcpListener;
 #[cfg(unix)]
@@ -202,6 +203,7 @@ impl UniversalListener {
     async fn try_bind(
         service_name: &str,
         transport_type: TransportType,
+        #[cfg_attr(not(unix), allow(unused_variables))]
         config: &ListenerConfig,
     ) -> IoResult<Self> {
         match transport_type {
@@ -358,6 +360,7 @@ impl UniversalListener {
     }
 
     /// Get filesystem socket path for a service
+    #[cfg(unix)]
     pub(crate) fn get_socket_path(service_name: &str, config: &ListenerConfig) -> PathBuf {
         let base_dir = config.socket_base_dir.clone().unwrap_or_else(|| {
             super::types::get_runtime_dir(universal_constants::identity::PRIMAL_ID)
@@ -397,7 +400,6 @@ impl UniversalListener {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
 
     #[test]
     fn test_listener_config_default() {
@@ -458,6 +460,7 @@ mod tests {
         assert_eq!(hierarchy[0], TransportType::UnixFilesystem);
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_listener_socket_path() {
         let config = ListenerConfig::default();
@@ -466,6 +469,7 @@ mod tests {
         assert!(path.to_string_lossy().contains("test_service.sock"));
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_listener_socket_path_with_custom_base_dir() {
         let config = ListenerConfig {
@@ -652,6 +656,7 @@ mod tests {
         assert!(!addr.is_empty());
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_listener_socket_path_different_services() {
         let config = ListenerConfig::default();

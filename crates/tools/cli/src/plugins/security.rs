@@ -268,17 +268,17 @@ impl SecurePluginLoader {
     /// Perform additional security checks
     fn perform_security_checks(
         &self,
+        #[cfg_attr(not(unix), allow(unused_variables))]
         plugin_path: &Path,
     ) -> Result<Vec<String>, PluginSecurityError> {
-        let mut warnings = Vec::new();
-
-        // Check file permissions
-        let metadata = std::fs::metadata(plugin_path).map_err(|e| {
-            PluginSecurityError::ValidationFailed(format!("Cannot read file metadata: {}", e))
-        })?;
+        let warnings = Vec::new();
 
         #[cfg(unix)]
-        {
+        let warnings = {
+            let mut warnings = warnings;
+            let metadata = std::fs::metadata(plugin_path).map_err(|e| {
+                PluginSecurityError::ValidationFailed(format!("Cannot read file metadata: {}", e))
+            })?;
             use std::os::unix::fs::PermissionsExt;
             let mode = metadata.permissions().mode();
 
@@ -286,7 +286,8 @@ impl SecurePluginLoader {
             if mode & 0o002 != 0 {
                 warnings.push("Plugin file is world-writable".to_string());
             }
-        }
+            warnings
+        };
 
         Ok(warnings)
     }

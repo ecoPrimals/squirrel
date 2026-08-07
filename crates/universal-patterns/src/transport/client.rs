@@ -4,6 +4,7 @@
 //! Universal transport client implementation
 
 use std::io::{self, Result as IoResult};
+#[cfg(unix)]
 use std::path::PathBuf;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
@@ -340,6 +341,7 @@ impl UniversalTransport {
     ///
     /// Returns platform-appropriate socket path using universal directory
     /// resolution from the CrossPlatform module.
+    #[cfg(unix)]
     pub(crate) fn get_socket_path(service_name: &str, config: &TransportConfig) -> PathBuf {
         let base_dir = config.socket_base_dir.clone().unwrap_or_else(|| {
             super::types::get_runtime_dir(universal_constants::identity::PRIMAL_ID)

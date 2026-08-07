@@ -1,12 +1,27 @@
 +++
 title = "squirrel Validation Summary"
 description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 4,090 tests (default features), 44 IPC methods."
-date = 2026-08-06
+date = 2026-08-07
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 157d — Cross-Arch Compliance + Debt Cleanup (Aug 7, 2026)
+
+- **Cross-arch compliant**: `cargo check --target x86_64-pc-windows-gnu --workspace --tests --examples` = **0 errors**
+- `get_socket_path()` + `PathBuf` imports gated `#[cfg(unix)]`; socket-path tests in `#[cfg(unix)]` modules
+- `discover_ipc_endpoint()` refactored: `#[cfg(windows)]`/`#[cfg(not(windows))]` blocks replace return+unreachable
+- CLI `perform_security_checks()` restructured: metadata/PermissionsExt moved inside `#[cfg(unix)]`
+- 12 `#![allow(...)]` blocks fixed: `reason = "..."` added
+- 4,090 tests passing, 0 failures
+
+## Wave 157c — G66 Transport Abstraction — Eliminate Silicon Deism (Aug 7, 2026)
+
+- All Unix-specific test imports (`UnixStream`, `UnixListener`, `std::os::unix`) wrapped with `#[cfg(unix)]` across 17 files
+- Production code confirmed properly gated (secondary filesystem socket bind already `#[cfg(target_os = "linux")]`)
+- 4,090 tests passing, 0 failures
 
 ## Wave 157b — C8 Upstream Absorption Excision (Aug 6, 2026)
 

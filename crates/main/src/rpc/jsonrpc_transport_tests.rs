@@ -8,7 +8,7 @@ use super::*;
 use anyhow::Context;
 use serde_json::Value;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use universal_patterns::transport::UniversalTransport;
 
 /// TCP loopback pair: server uses [`UniversalTransport::Tcp`], client uses raw [`tokio::net::TcpStream`].
@@ -129,6 +129,7 @@ async fn universal_connection_invalid_protocol_request_falls_back_to_jsonrpc() {
 #[cfg(unix)]
 mod uds_transport_tests {
     use super::*;
+    use tokio::io::AsyncReadExt;
 
 /// UDS loopback pair routed through `handle_uds_connection` (riboCipher + BTSP auto-detect).
 async fn uds_server_transport() -> (
