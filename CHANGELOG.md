@@ -11,6 +11,18 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 7, 2026 — Wave 157e: G68 Platform Substrate Abstraction)
+
+- **G68 L1 — Platform Links**: Created `universal_patterns::platform::create_capability_alias()` and `cleanup_capability_alias()`. Unix: filesystem symlink (`ai.sock → squirrel.sock`). Windows: discovery file (`ai.pipe` containing named pipe path). Migrated `unix_socket.rs` from raw `std::os::unix::fs::symlink` to the abstraction. Removed `#[cfg(unix)]`/`#[cfg(not(unix))]` dual implementations — single cross-platform function.
+- **G68 L2 — Platform Access**: Created `universal_patterns::platform::set_access()` / `set_access_async()` with `AccessLevel` enum (`OwnerExclusive`, `OwnerReadWrite`, `GroupReadable`, `Mode(u32)`). Unix: POSIX mode bits via `PermissionsExt`. Windows: `readonly` attribute (full DACL deferred to G68-L2-DACL / `windows-sys`). Migrated 4 call sites:
+  - `unix_socket.rs`: directory permissions → `AccessLevel::OwnerExclusive`
+  - `secret_store.rs`: file permissions → `AccessLevel::OwnerReadWrite` (async)
+  - `listener.rs`: socket permissions → `AccessLevel::Mode(perms)`
+  - `cli/security.rs`: world-writable check → `check_world_accessible()`
+- **G68 L3 — System Info**: Improved `sys_info.rs` Windows support. `hostname()` now reads `COMPUTERNAME` env var on Windows (always set by OS). Documented G68-L3-SYSINFO deferred items (`GlobalMemoryStatusEx`, `GetDiskFreeSpaceEx`) for `windows-sys` adoption.
+- All `PermissionsExt` imports removed from production code — confined to `universal_patterns::platform::access` module.
+- 4,100 tests passing (+10 new platform module tests), 0 failures.
+
 ### Summary (Aug 7, 2026 — Wave 157d: Cross-Arch Compliance + Debt Cleanup)
 
 - **Cross-arch compliance**: `cargo check --target x86_64-pc-windows-gnu --workspace --tests --examples` now passes with **0 errors**. Squirrel is cross-arch clean per the new ecosystem standard.

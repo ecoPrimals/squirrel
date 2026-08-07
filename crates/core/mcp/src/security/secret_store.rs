@@ -228,19 +228,14 @@ impl FileSecretStore {
             ))
         })?;
 
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let perms = std::fs::Permissions::from_mode(0o600);
-            tokio::fs::set_permissions(&self.path, perms)
-                .await
-                .map_err(|e| {
-                    MCPError::Internal(format!(
-                        "Failed to set permissions on {}: {e}",
-                        self.path.display()
-                    ))
-                })?;
-        }
+        universal_patterns::platform::set_access_async(&self.path, universal_patterns::platform::AccessLevel::OwnerReadWrite)
+            .await
+            .map_err(|e| {
+                MCPError::Internal(format!(
+                    "Failed to set access on {}: {e}",
+                    self.path.display()
+                ))
+            })?;
 
         Ok(())
     }

@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 //!
-//! Pure Rust system info. Uses `/proc` on Linux; elsewhere uses [`rustix`] (no `nix`).
+//! G68 Platform Substrate: Pure Rust system info.
+//!
+//! | Platform | Strategy |
+//! |----------|----------|
+//! | Linux | `/proc` parsing (zero deps) |
+//! | Other Unix | `rustix` (pure Rust syscalls) |
+//! | Windows | Env vars + `std` primitives (zero C deps; full impl deferred to `windows-sys` adoption) |
+//!
 //! ecoBin v3.0: no infrastructure C (e.g. `/proc` + rustix instead of sysinfo).
 
 use std::io;
@@ -51,6 +58,9 @@ pub fn memory_info() -> Result<MemoryInfo, io::Error> {
 }
 
 /// Non-Linux: return defaults (zeros).
+///
+/// G68-L3: Windows impl requires `GlobalMemoryStatusEx` via `windows-sys`.
+/// Deferred to G68-L3-SYSINFO. Callers treat zero as "unavailable".
 ///
 /// # Errors
 ///
@@ -138,9 +148,13 @@ pub fn uptime_seconds() -> Result<u64, io::Error> {
     Ok(0)
 }
 
-/// Hostname: `HOSTNAME` env var → `/proc/sys/kernel/hostname` (Linux) → `uname().nodename`.
+/// Hostname via platform-appropriate mechanism.
 ///
-/// Pure-Rust on Linux (`/proc`). On other Unix platforms, uses [`rustix::system::uname`].
+/// | Platform | Chain |
+/// |----------|-------|
+/// | Linux | `HOSTNAME` env → `/proc/sys/kernel/hostname` |
+/// | Other Unix | `HOSTNAME` env → `rustix::system::uname().nodename` |
+/// | Windows | `HOSTNAME` env → `COMPUTERNAME` env |
 ///
 /// # Errors
 ///
@@ -151,6 +165,7 @@ pub fn hostname() -> Result<String, io::Error> {
     {
         return Ok(h);
     }
+
     #[cfg(target_os = "linux")]
     {
         if let Ok(h) = std::fs::read_to_string("/proc/sys/kernel/hostname") {
@@ -160,6 +175,7 @@ pub fn hostname() -> Result<String, io::Error> {
             }
         }
     }
+
     #[cfg(all(unix, not(target_os = "linux")))]
     {
         let s = rustix::system::uname()
@@ -170,6 +186,17 @@ pub fn hostname() -> Result<String, io::Error> {
             return Ok(s);
         }
     }
+
+    // G68: Windows uses COMPUTERNAME (set by the OS, always available)
+    #[cfg(windows)]
+    {
+        if let Ok(h) = std::env::var("COMPUTERNAME")
+            && !h.is_empty()
+        {
+            return Ok(h);
+        }
+    }
+
     Err(io::Error::new(
         io::ErrorKind::NotFound,
         "hostname not available",

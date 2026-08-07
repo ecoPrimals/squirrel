@@ -244,11 +244,8 @@ impl UniversalListener {
                 let listener = UnixListener::bind(&socket_path)?;
 
                 // Set permissions if specified
-                #[cfg(unix)]
                 if let Some(perms) = config.unix_permissions {
-                    use std::os::unix::fs::PermissionsExt;
-                    let permissions = std::fs::Permissions::from_mode(perms);
-                    std::fs::set_permissions(&socket_path, permissions)?;
+                    crate::platform::set_access(&socket_path, crate::platform::AccessLevel::Mode(perms))?;
                 }
 
                 Ok(UniversalListener::UnixSocket(listener))

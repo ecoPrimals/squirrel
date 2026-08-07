@@ -1,12 +1,21 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 4,090 tests (default features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 4,100 tests (default features), 44 IPC methods."
 date = 2026-08-07
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 157e — G68 Platform Substrate Abstraction (Aug 7, 2026)
+
+- **G68 L1**: `create_capability_alias()` + `cleanup_capability_alias()` — symlink (unix) / discovery file (windows)
+- **G68 L2**: `set_access()` / `set_access_async()` + `check_world_accessible()` — mode bits (unix) / readonly (windows)
+- Migrated 4 prod call sites, removed all raw `PermissionsExt` from business code
+- `sys_info::hostname()` now resolves on Windows via `COMPUTERNAME` env var
+- 4,100 tests passing (+10 platform tests), 0 failures
+- `cargo check --target x86_64-pc-windows-gnu` = 0 errors
 
 ## Wave 157d — Cross-Arch Compliance + Debt Cleanup (Aug 7, 2026)
 

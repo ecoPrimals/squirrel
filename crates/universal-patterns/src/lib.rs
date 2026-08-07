@@ -46,6 +46,7 @@
 pub mod ipc_client;
 pub mod manifest_discovery;
 pub mod or_exit;
+pub mod platform;
 pub mod provenance;
 pub mod transport;
 
