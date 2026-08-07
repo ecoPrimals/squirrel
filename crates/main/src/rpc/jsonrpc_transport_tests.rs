@@ -124,7 +124,11 @@ async fn universal_connection_invalid_protocol_request_falls_back_to_jsonrpc() {
 
 // -----------------------------------------------------------------------
 // riboCipher signal acceptance (UDS) — Eukaryotic genetics model
+// G66: UDS tests gated to unix — TCP tests above are platform-neutral.
 // -----------------------------------------------------------------------
+#[cfg(unix)]
+mod uds_transport_tests {
+    use super::*;
 
 /// UDS loopback pair routed through `handle_uds_connection` (riboCipher + BTSP auto-detect).
 async fn uds_server_transport() -> (
@@ -264,3 +268,4 @@ async fn uds_raw_json_still_works_without_prefix() {
     );
     let _ = jh.await;
 }
+} // mod uds_transport_tests

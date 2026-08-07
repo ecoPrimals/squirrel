@@ -7,7 +7,9 @@
 //! Uses a real `squirrel::rpc::JsonRpcServer` and the same newline-framed line
 //! protocol as production Unix JSON-RPC (`handle_jsonrpc_loop`).
 
-use serde_json::{Value, json};
+#[cfg(unix)]
+mod unix_tests {
+    use serde_json::{Value, json};
 use squirrel::api::AiRouter;
 use squirrel::rpc::JsonRpcServer;
 use squirrel::rpc::jsonrpc_types::error_codes;
@@ -748,4 +750,5 @@ async fn wire_inference_embed_no_provider_returns_error() {
     assert_eq!(code, Some(i64::from(error_codes::METHOD_NOT_FOUND)));
 
     bg.abort();
+}
 }

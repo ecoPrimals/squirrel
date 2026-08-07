@@ -6,39 +6,6 @@ use crate::task::json_rpc_types::{
     AssignTaskRequest, CancelTaskRequest, CompleteTaskRequest, CreateTaskRequest, GetTaskRequest,
     JsonTask, ListTasksRequest, ReportProgressRequest, UpdateTaskRequest,
 };
-use std::path::Path;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::UnixListener;
-
-fn test_client(socket_path: &Path) -> MCPTaskClient {
-    MCPTaskClient::with_config(TaskClientConfig {
-        server_address: socket_path.to_string_lossy().into_owned(),
-        max_retries: 1,
-        connect_timeout_ms: 5000,
-        request_timeout_ms: 10000,
-        initial_backoff_ms: 10,
-        max_backoff_ms: 100,
-    })
-}
-
-/// Single-shot JSON-RPC server: reads one request, writes one response, then closes.
-fn run_mock_rpc_server(
-    socket_path: &Path,
-    response: serde_json::Value,
-) -> tokio::task::JoinHandle<()> {
-    let path = socket_path.to_path_buf();
-    let _ = std::fs::remove_file(&path);
-    let listener = UnixListener::bind(&path).expect("bind unix socket");
-    tokio::spawn(async move {
-        let (mut stream, _) = listener.accept().await.expect("accept");
-        let mut buf = Vec::new();
-        stream.read_to_end(&mut buf).await.expect("read request");
-        assert!(!buf.is_empty(), "expected JSON-RPC request bytes");
-        let body = serde_json::to_vec(&response).expect("serialize response");
-        stream.write_all(&body).await.expect("write response");
-    })
-}
-
 #[test]
 fn default_config_and_with_config_accessors() {
     let cfg = TaskClientConfig {
@@ -318,7 +285,43 @@ fn json_task_to_task_invalid_json_bytes_yield_none() {
     assert_eq!(task.error_message.as_deref(), Some("err"));
 }
 
-#[tokio::test]
+#[cfg(unix)]
+mod unix_tests {
+    use super::*;
+    use std::path::Path;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::UnixListener;
+
+    fn test_client(socket_path: &Path) -> MCPTaskClient {
+        MCPTaskClient::with_config(TaskClientConfig {
+            server_address: socket_path.to_string_lossy().into_owned(),
+            max_retries: 1,
+            connect_timeout_ms: 5000,
+            request_timeout_ms: 10000,
+            initial_backoff_ms: 10,
+            max_backoff_ms: 100,
+        })
+    }
+
+    /// Single-shot JSON-RPC server: reads one request, writes one response, then closes.
+    fn run_mock_rpc_server(
+        socket_path: &Path,
+        response: serde_json::Value,
+    ) -> tokio::task::JoinHandle<()> {
+        let path = socket_path.to_path_buf();
+        let _ = std::fs::remove_file(&path);
+        let listener = UnixListener::bind(&path).expect("bind unix socket");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.expect("accept");
+            let mut buf = Vec::new();
+            stream.read_to_end(&mut buf).await.expect("read request");
+            assert!(!buf.is_empty(), "expected JSON-RPC request bytes");
+            let body = serde_json::to_vec(&response).expect("serialize response");
+            stream.write_all(&body).await.expect("write response");
+        })
+    }
+
+    #[tokio::test]
 async fn json_rpc_create_task_success_and_rpc_error() {
     let dir = std::env::temp_dir();
     let path = dir.join(format!(
@@ -556,4 +559,5 @@ async fn list_tasks_request_builds_filters_and_limits() {
         .await
         .expect("list");
     h.await.expect("should succeed");
+}
 }

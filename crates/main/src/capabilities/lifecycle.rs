@@ -434,123 +434,165 @@ mod tests {
         let _ = tx.send(true);
     }
 
-    #[tokio::test]
-    async fn register_with_biomeos_success() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let sock_path = dir.path().join("biome.sock");
-        let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
+    #[cfg(unix)]
+    mod unix_tests {
+        use super::*;
 
-        let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.expect("accept");
-            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-            stream
-                .read_exact(&mut [0u8; 2])
-                .await
-                .expect("riboCipher preamble");
-            let mut reader = BufReader::new(&mut stream);
-            let mut line = String::new();
-            reader.read_line(&mut line).await.expect("read");
-            let resp = serde_json::json!({"jsonrpc":"2.0","result":{},"id":1});
-            let mut body = serde_json::to_string(&resp).expect("should succeed");
-            body.push('\n');
-            stream.write_all(body.as_bytes()).await.expect("write");
-        });
+        #[tokio::test]
+        async fn register_with_biomeos_success() {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let sock_path = dir.path().join("biome.sock");
+            let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
 
-        let ok = register_with_biomeos(&sock_path, "/tmp/own.sock", &["cap.a", "cap.b"]).await;
-        server.await.expect("join server task");
-        assert!(ok);
-    }
-
-    #[tokio::test]
-    async fn register_with_biomeos_jsonrpc_error_returns_false() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let sock_path = dir.path().join("biome2.sock");
-        let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
-
-        let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.expect("accept");
-            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-            stream
-                .read_exact(&mut [0u8; 2])
-                .await
-                .expect("riboCipher preamble");
-            let mut reader = BufReader::new(&mut stream);
-            let mut line = String::new();
-            reader.read_line(&mut line).await.expect("read");
-            let resp = serde_json::json!({
-                "jsonrpc": "2.0",
-                "error": {"code": -32000, "message": "rejected"},
-                "id": 1
-            });
-            let mut body = serde_json::to_string(&resp).expect("should succeed");
-            body.push('\n');
-            stream.write_all(body.as_bytes()).await.expect("write");
-        });
-
-        let ok = register_with_biomeos(&sock_path, "/x", &[]).await;
-        server.await.expect("server");
-        assert!(!ok);
-    }
-
-    #[test]
-    fn announce_to_neural_api_success() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let sock_path = dir.path().join("neural-api.sock");
-
-        let rt = tokio::runtime::Runtime::new().expect("rt");
-        let _enter = rt.enter();
-        let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
-
-        let server = rt.spawn(async move {
-            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-            loop {
-                let Ok((mut stream, _)) = listener.accept().await else {
-                    break;
-                };
-                if stream.read_exact(&mut [0u8; 2]).await.is_err() {
-                    continue;
-                }
+            let server = tokio::spawn(async move {
+                let (mut stream, _) = listener.accept().await.expect("accept");
+                use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+                stream
+                    .read_exact(&mut [0u8; 2])
+                    .await
+                    .expect("riboCipher preamble");
                 let mut reader = BufReader::new(&mut stream);
                 let mut line = String::new();
-                if reader.read_line(&mut line).await.is_err() || line.is_empty() {
-                    continue;
-                }
-                let req: serde_json::Value = serde_json::from_str(line.trim()).expect("parse");
-                assert_eq!(req["method"], "primal.announce");
-                assert_eq!(req["params"]["primal"], "squirrel");
-                assert_eq!(
-                    req["params"]["capabilities"],
-                    serde_json::json!(["inference", "mcp", "coordination"])
-                );
-                assert_eq!(req["params"]["signal_tiers"], serde_json::json!(["meta"]));
-                assert!(req["params"]["cost_hints"]["inference"].as_f64().is_some());
-                assert!(
-                    req["params"]["latency_estimates"]["inference"]
-                        .as_u64()
-                        .is_some()
-                );
-                assert_eq!(req["params"]["socket"], "/tmp/squirrel.sock");
-
-                let resp =
-                    serde_json::json!({"jsonrpc":"2.0","result":{"status":"accepted"},"id":2});
-                let mut body = serde_json::to_string(&resp).expect("json");
+                reader.read_line(&mut line).await.expect("read");
+                let resp = serde_json::json!({"jsonrpc":"2.0","result":{},"id":1});
+                let mut body = serde_json::to_string(&resp).expect("should succeed");
                 body.push('\n');
                 stream.write_all(body.as_bytes()).await.expect("write");
-                break;
-            }
-        });
+            });
 
-        temp_env::with_var(
-            "NEURAL_API_SOCKET",
-            Some(sock_path.to_str().expect("utf8")),
-            || {
-                rt.block_on(async {
-                    let ok = announce_to_neural_api("/tmp/squirrel.sock").await;
-                    assert!(ok);
+            let ok = register_with_biomeos(&sock_path, "/tmp/own.sock", &["cap.a", "cap.b"]).await;
+            server.await.expect("join server task");
+            assert!(ok);
+        }
+
+        #[tokio::test]
+        async fn register_with_biomeos_jsonrpc_error_returns_false() {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let sock_path = dir.path().join("biome2.sock");
+            let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
+
+            let server = tokio::spawn(async move {
+                let (mut stream, _) = listener.accept().await.expect("accept");
+                use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+                stream
+                    .read_exact(&mut [0u8; 2])
+                    .await
+                    .expect("riboCipher preamble");
+                let mut reader = BufReader::new(&mut stream);
+                let mut line = String::new();
+                reader.read_line(&mut line).await.expect("read");
+                let resp = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "error": {"code": -32000, "message": "rejected"},
+                    "id": 1
                 });
-            },
-        );
-        rt.block_on(server).expect("server task");
+                let mut body = serde_json::to_string(&resp).expect("should succeed");
+                body.push('\n');
+                stream.write_all(body.as_bytes()).await.expect("write");
+            });
+
+            let ok = register_with_biomeos(&sock_path, "/x", &[]).await;
+            server.await.expect("server");
+            assert!(!ok);
+        }
+
+        #[test]
+        fn announce_to_neural_api_success() {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let sock_path = dir.path().join("neural-api.sock");
+
+            let rt = tokio::runtime::Runtime::new().expect("rt");
+            let _enter = rt.enter();
+            let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
+
+            let server = rt.spawn(async move {
+                use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+                loop {
+                    let Ok((mut stream, _)) = listener.accept().await else {
+                        break;
+                    };
+                    if stream.read_exact(&mut [0u8; 2]).await.is_err() {
+                        continue;
+                    }
+                    let mut reader = BufReader::new(&mut stream);
+                    let mut line = String::new();
+                    if reader.read_line(&mut line).await.is_err() || line.is_empty() {
+                        continue;
+                    }
+                    let req: serde_json::Value = serde_json::from_str(line.trim()).expect("parse");
+                    assert_eq!(req["method"], "primal.announce");
+                    assert_eq!(req["params"]["primal"], "squirrel");
+                    assert_eq!(
+                        req["params"]["capabilities"],
+                        serde_json::json!(["inference", "mcp", "coordination"])
+                    );
+                    assert_eq!(req["params"]["signal_tiers"], serde_json::json!(["meta"]));
+                    assert!(req["params"]["cost_hints"]["inference"].as_f64().is_some());
+                    assert!(
+                        req["params"]["latency_estimates"]["inference"]
+                            .as_u64()
+                            .is_some()
+                    );
+                    assert_eq!(req["params"]["socket"], "/tmp/squirrel.sock");
+
+                    let resp =
+                        serde_json::json!({"jsonrpc":"2.0","result":{"status":"accepted"},"id":2});
+                    let mut body = serde_json::to_string(&resp).expect("json");
+                    body.push('\n');
+                    stream.write_all(body.as_bytes()).await.expect("write");
+                    break;
+                }
+            });
+
+            temp_env::with_var(
+                "NEURAL_API_SOCKET",
+                Some(sock_path.to_str().expect("utf8")),
+                || {
+                    rt.block_on(async {
+                        let ok = announce_to_neural_api("/tmp/squirrel.sock").await;
+                        assert!(ok);
+                    });
+                },
+            );
+            rt.block_on(server).expect("server task");
+        }
+
+        #[test]
+        fn resolve_neural_api_socket_env_override() {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let sock_path = dir.path().join("neural-api-test.sock");
+            let _listener = std::os::unix::net::UnixListener::bind(&sock_path).expect("bind");
+
+            temp_env::with_var(
+                "NEURAL_API_SOCKET",
+                Some(sock_path.to_str().expect("utf8")),
+                || {
+                    let resolved = resolve_neural_api_socket();
+                    assert_eq!(resolved, Some(sock_path.clone()));
+                },
+            );
+        }
+
+        #[tokio::test]
+        async fn heartbeat_stops_after_shutdown_signal() {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let sock = dir.path().join("hb_bio.sock");
+            let _listener = tokio::net::UnixListener::bind(&sock).expect("bind");
+
+            let (tx, rx) = watch::channel(false);
+            let handle = spawn_heartbeat(
+                sock,
+                "/ignored.sock".to_string(),
+                std::time::Duration::from_millis(40),
+                rx,
+            );
+
+            tx.send(true).expect("shutdown");
+            tokio::time::timeout(std::time::Duration::from_secs(3), handle)
+                .await
+                .expect("timeout")
+                .expect("join");
+        }
     }
 
     #[test]
@@ -562,22 +604,6 @@ mod tests {
                 assert!(!ok);
             });
         });
-    }
-
-    #[test]
-    fn resolve_neural_api_socket_env_override() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let sock_path = dir.path().join("neural-api-test.sock");
-        let _listener = std::os::unix::net::UnixListener::bind(&sock_path).expect("bind");
-
-        temp_env::with_var(
-            "NEURAL_API_SOCKET",
-            Some(sock_path.to_str().expect("utf8")),
-            || {
-                let resolved = resolve_neural_api_socket();
-                assert_eq!(resolved, Some(sock_path.clone()));
-            },
-        );
     }
 
     #[test]
@@ -596,26 +622,5 @@ mod tests {
         let req = serde_json::json!({"jsonrpc":"2.0","method":"ping","id":1});
         let err = send_jsonrpc_public(p, &req).await;
         assert!(err.is_err());
-    }
-
-    #[tokio::test]
-    async fn heartbeat_stops_after_shutdown_signal() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let sock = dir.path().join("hb_bio.sock");
-        let _listener = tokio::net::UnixListener::bind(&sock).expect("bind");
-
-        let (tx, rx) = watch::channel(false);
-        let handle = spawn_heartbeat(
-            sock,
-            "/ignored.sock".to_string(),
-            std::time::Duration::from_millis(40),
-            rx,
-        );
-
-        tx.send(true).expect("shutdown");
-        tokio::time::timeout(std::time::Duration::from_secs(3), handle)
-            .await
-            .expect("timeout")
-            .expect("join");
     }
 }

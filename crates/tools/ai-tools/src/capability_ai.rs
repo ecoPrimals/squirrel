@@ -495,9 +495,13 @@ mod tests {
         });
     }
 
-    /// JSON-RPC envelope the client expects: inner `result` wraps a `result` object for chat.
-    #[tokio::test]
-    async fn chat_completion_happy_path_over_unix_socket() {
+    #[cfg(unix)]
+    mod unix_socket_tests {
+        use super::*;
+
+        /// JSON-RPC envelope the client expects: inner `result` wraps a `result` object for chat.
+        #[tokio::test]
+        async fn chat_completion_happy_path_over_unix_socket() {
         let dir = tempfile::tempdir().expect("should succeed");
         let sock = dir.path().join("ai.sock");
         let sock_clone = sock.clone();
@@ -675,6 +679,7 @@ mod tests {
         let err = client.text_generation("m", "p", None).await.unwrap_err();
         assert!(err.to_string().contains("capability down"));
         server.await.expect("should succeed");
+    }
     }
 
     // Integration tests (require AI capability provider running) are in integration tests

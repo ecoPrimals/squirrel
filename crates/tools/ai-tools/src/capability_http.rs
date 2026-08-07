@@ -438,8 +438,12 @@ mod tests {
         assert!(c.is_ok());
     }
 
-    #[tokio::test]
-    async fn post_json_adds_content_type_and_round_trips() {
+    #[cfg(unix)]
+    mod unix_socket_tests {
+        use super::*;
+
+        #[tokio::test]
+        async fn post_json_adds_content_type_and_round_trips() {
         let dir = tempfile::tempdir().expect("should succeed");
         let sock = dir.path().join("http.sock");
         let sock_clone = sock.clone();
@@ -495,5 +499,6 @@ mod tests {
         assert_eq!(resp.status, 200);
         assert_eq!(resp.body, "done");
         server.await.expect("should succeed");
+    }
     }
 }

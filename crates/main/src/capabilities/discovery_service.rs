@@ -199,6 +199,7 @@ pub fn start_heartbeat_loop(
 mod tests {
     use super::*;
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn register_returns_true_on_jsonrpc_success() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -220,6 +221,7 @@ mod tests {
         assert!(ok);
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn register_returns_false_on_jsonrpc_error_field() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -245,6 +247,7 @@ mod tests {
         assert!(!ok);
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn heartbeat_loop_stops_on_shutdown() {
         let dir = tempfile::tempdir().expect("tempdir");

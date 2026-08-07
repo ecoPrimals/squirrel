@@ -2,14 +2,17 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![expect(missing_docs, reason = "Test code: local lint noise")]
-#![allow(clippy::expect_used, reason = "integration test needs direct assertions")]
+#![allow(
+    clippy::expect_used,
+    reason = "integration test needs direct assertions"
+)]
 // Integration tests gated behind `integration-tests` feature — API migration
 // (CryptoClient → CapabilityCryptoConfig endpoint) tracked in CURRENT_STATUS.md known issues.
 #[cfg(not(feature = "integration-tests"))]
 #[tokio::test]
 async fn placeholder_capability_jwt_tests_disabled() {}
 
-#[cfg(feature = "integration-tests")]
+#[cfg(all(feature = "integration-tests", unix))]
 mod integration_tests {
     // Integration tests for capability-based JWT
     //

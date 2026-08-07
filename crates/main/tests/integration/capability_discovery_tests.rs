@@ -4,29 +4,34 @@
 //! Tests for capability discovery - env var, error paths, `DiscoveryError`
 
 use squirrel::capabilities::discovery::{CapabilityProvider, DiscoveryError, discover_capability};
-use tempfile::tempdir;
 
-#[test]
-fn test_discover_capability_via_env_var() {
-    let dir = tempdir().expect("should succeed");
-    let socket_path = dir.path().join("test_cap.sock");
+#[cfg(unix)]
+mod unix_tests {
+    use super::*;
+    use tempfile::tempdir;
 
-    let rt = tokio::runtime::Runtime::new().expect("should succeed");
-    let _enter = rt.enter();
-    let _listener = tokio::net::UnixListener::bind(&socket_path).expect("bind test socket");
+    #[test]
+    fn test_discover_capability_via_env_var() {
+        let dir = tempdir().expect("should succeed");
+        let socket_path = dir.path().join("test_cap.sock");
 
-    let env_var = "TEST_CAPABILITY_PROVIDER_SOCKET";
-    let path_str = socket_path.to_str().expect("should succeed").to_string();
-    temp_env::with_var(env_var, Some(path_str.as_str()), || {
-        let result = rt.block_on(discover_capability("test.capability"));
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
+        let _enter = rt.enter();
+        let _listener = tokio::net::UnixListener::bind(&socket_path).expect("bind test socket");
 
-        assert!(result.is_ok());
-        let provider = result.expect("should succeed");
-        assert_eq!(provider.id, "test.capability-provider");
-        assert_eq!(provider.capabilities, vec!["test.capability"]);
-        assert_eq!(provider.socket, socket_path);
-        assert!(provider.discovered_via.starts_with("env:"));
-    });
+        let env_var = "TEST_CAPABILITY_PROVIDER_SOCKET";
+        let path_str = socket_path.to_str().expect("should succeed").to_string();
+        temp_env::with_var(env_var, Some(path_str.as_str()), || {
+            let result = rt.block_on(discover_capability("test.capability"));
+
+            assert!(result.is_ok());
+            let provider = result.expect("should succeed");
+            assert_eq!(provider.id, "test.capability-provider");
+            assert_eq!(provider.capabilities, vec!["test.capability"]);
+            assert_eq!(provider.socket, socket_path);
+            assert!(provider.discovered_via.starts_with("env:"));
+        });
+    }
 }
 
 #[test]

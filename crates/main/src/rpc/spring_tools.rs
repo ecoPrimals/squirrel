@@ -209,7 +209,6 @@ impl Default for SpringToolDiscovery {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
 
     #[test]
     fn spring_tool_def_serialization() {
@@ -286,99 +285,105 @@ mod tests {
         assert!(after.is_empty());
     }
 
-    #[tokio::test]
-    async fn query_spring_tools_parses_mcp_tools_list_response() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let sock_path = dir.path().join("spring.sock");
-        let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind unix");
+    #[cfg(unix)]
+    mod unix_tests {
+        use super::*;
+        use std::time::Duration;
 
-        let path_str = sock_path.to_str().expect("utf8").to_string();
-        tokio::spawn(async move {
-            let (stream, _) = listener.accept().await.expect("accept");
-            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-            let mut stream = stream;
-            stream
-                .read_exact(&mut [0u8; 2])
+        #[tokio::test]
+        async fn query_spring_tools_parses_mcp_tools_list_response() {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let sock_path = dir.path().join("spring.sock");
+            let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind unix");
+
+            let path_str = sock_path.to_str().expect("utf8").to_string();
+            tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.expect("accept");
+                use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+                let mut stream = stream;
+                stream
+                    .read_exact(&mut [0u8; 2])
+                    .await
+                    .expect("riboCipher preamble");
+                let mut line = String::new();
+                let mut reader = BufReader::new(&mut stream);
+                reader.read_line(&mut line).await.expect("read req");
+                let resp = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "result": {
+                        "tools": [
+                            {
+                                "name": "mcp.probe.tool",
+                                "description": "probe",
+                                "domain": "probe",
+                                "input_schema": {"type": "object"}
+                            }
+                        ]
+                    }
+                });
+                let mut out = serde_json::to_string(&resp).expect("should succeed");
+                out.push('\n');
+                stream.write_all(out.as_bytes()).await.expect("write");
+                stream.flush().await.expect("flush");
+            });
+
+            tokio::time::sleep(Duration::from_millis(20)).await;
+
+            let discovery = SpringToolDiscovery::new();
+            let tools = discovery
+                .query_spring_tools(&path_str)
                 .await
-                .expect("riboCipher preamble");
-            let mut line = String::new();
-            let mut reader = BufReader::new(&mut stream);
-            reader.read_line(&mut line).await.expect("read req");
-            let resp = serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": 1,
-                "result": {
-                    "tools": [
+                .expect("query");
+            assert_eq!(tools.len(), 1);
+            assert_eq!(tools[0].name, "mcp.probe.tool");
+            assert_eq!(tools[0].domain, "probe");
+        }
+
+        #[tokio::test]
+        async fn query_spring_tools_accepts_result_without_tools_key() {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let sock_path = dir.path().join("spring2.sock");
+            let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
+
+            let path_str = sock_path.to_str().expect("utf8").to_string();
+            tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.expect("accept");
+                use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+                let mut stream = stream;
+                stream
+                    .read_exact(&mut [0u8; 2])
+                    .await
+                    .expect("riboCipher preamble");
+                let mut line = String::new();
+                let mut reader = BufReader::new(&mut stream);
+                reader.read_line(&mut line).await.expect("read");
+                let resp = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "result": [
                         {
-                            "name": "mcp.probe.tool",
-                            "description": "probe",
-                            "domain": "probe",
-                            "input_schema": {"type": "object"}
+                            "name": "flat.tool",
+                            "description": "d",
+                            "domain": "flat"
                         }
                     ]
-                }
+                });
+                let mut out = serde_json::to_string(&resp).expect("should succeed");
+                out.push('\n');
+                stream.write_all(out.as_bytes()).await.expect("write");
+                stream.flush().await.expect("flush");
             });
-            let mut out = serde_json::to_string(&resp).expect("should succeed");
-            out.push('\n');
-            stream.write_all(out.as_bytes()).await.expect("write");
-            stream.flush().await.expect("flush");
-        });
 
-        tokio::time::sleep(Duration::from_millis(20)).await;
+            tokio::time::sleep(Duration::from_millis(20)).await;
 
-        let discovery = SpringToolDiscovery::new();
-        let tools = discovery
-            .query_spring_tools(&path_str)
-            .await
-            .expect("query");
-        assert_eq!(tools.len(), 1);
-        assert_eq!(tools[0].name, "mcp.probe.tool");
-        assert_eq!(tools[0].domain, "probe");
-    }
-
-    #[tokio::test]
-    async fn query_spring_tools_accepts_result_without_tools_key() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let sock_path = dir.path().join("spring2.sock");
-        let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
-
-        let path_str = sock_path.to_str().expect("utf8").to_string();
-        tokio::spawn(async move {
-            let (stream, _) = listener.accept().await.expect("accept");
-            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-            let mut stream = stream;
-            stream
-                .read_exact(&mut [0u8; 2])
+            let discovery = SpringToolDiscovery::new();
+            let tools = discovery
+                .query_spring_tools(&path_str)
                 .await
-                .expect("riboCipher preamble");
-            let mut line = String::new();
-            let mut reader = BufReader::new(&mut stream);
-            reader.read_line(&mut line).await.expect("read");
-            let resp = serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": 1,
-                "result": [
-                    {
-                        "name": "flat.tool",
-                        "description": "d",
-                        "domain": "flat"
-                    }
-                ]
-            });
-            let mut out = serde_json::to_string(&resp).expect("should succeed");
-            out.push('\n');
-            stream.write_all(out.as_bytes()).await.expect("write");
-            stream.flush().await.expect("flush");
-        });
-
-        tokio::time::sleep(Duration::from_millis(20)).await;
-
-        let discovery = SpringToolDiscovery::new();
-        let tools = discovery
-            .query_spring_tools(&path_str)
-            .await
-            .expect("query");
-        assert_eq!(tools.len(), 1);
-        assert_eq!(tools[0].name, "flat.tool");
+                .expect("query");
+            assert_eq!(tools.len(), 1);
+            assert_eq!(tools[0].name, "flat.tool");
+        }
     }
 }
