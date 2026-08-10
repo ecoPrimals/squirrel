@@ -434,7 +434,7 @@ async fn test_handle_invalid_jsonrpc_version() -> TestResult {
             .get("error")
             .and_then(|e| e.get("message"))
             .and_then(|m| m.as_str())
-            .unwrap_or("")
+            .unwrap_or_default()
             .contains("2.0")
     );
     Ok(())

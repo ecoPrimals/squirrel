@@ -549,7 +549,7 @@ impl Command for HistoryCommand {
             let now = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .map(|d| d.as_secs())
-                .unwrap_or(0);
+                .unwrap_or_default();
 
             let days_in_secs = days * 24 * 60 * 60;
             let cutoff = now.saturating_sub(days_in_secs);

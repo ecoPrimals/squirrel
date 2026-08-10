@@ -22,7 +22,6 @@
 //! literals. Squirrel only knows itself — it discovers other primals at
 //! runtime via capability-based discovery.
 
-use universal_constants::primal_names;
 
 /// Primal identity — used in all JSON-RPC, IPC, and biomeOS interactions.
 pub const PRIMAL_ID: &str = "squirrel";
@@ -223,39 +222,43 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "ipc.register",
 ];
 
-/// Primal dependencies for deployment.
+/// Capability-domain dependencies for deployment.
 ///
-/// Each entry: `(primal_id, required, description)`.
+/// Each entry: `(capability_domain, required, description)`.
 /// `required = true` means Squirrel cannot function without it.
 /// `required = false` means graceful degradation is supported.
+///
+/// Squirrel discovers providers for each capability domain at runtime via
+/// `capabilities.discover` — it does not encode which primal fulfills each
+/// domain. The same domain may be served by different primals per gate.
 pub const DEPENDENCIES: &[(&str, bool, &str)] = &[
     (
-        primal_names::BEARDOG,
+        "crypto",
         true,
         "cryptographic identity and trust",
     ),
     (
-        primal_names::SONGBIRD,
+        "discovery",
         true,
         "service discovery and IPC mesh",
     ),
     (
-        primal_names::TOADSTOOL,
+        "compute",
         false,
         "GPU compute dispatch (graceful fallback to CPU-only inference)",
     ),
     (
-        primal_names::NESTGATE,
+        "storage",
         false,
         "persistent storage (graceful fallback to in-memory cache)",
     ),
     (
-        primal_names::PRIMALSPRING,
+        "coordination",
         false,
         "coordination validation and BYOB graph execution",
     ),
     (
-        primal_names::PETALTONGUE,
+        "visualization",
         false,
         "visualization and user interface rendering",
     ),
@@ -611,10 +614,10 @@ mod tests {
     }
 
     #[test]
-    fn dependencies_name_beardog_and_songbird_required() {
-        let beardog = DEPENDENCIES.iter().find(|(id, _, _)| *id == "beardog");
-        let songbird = DEPENDENCIES.iter().find(|(id, _, _)| *id == "songbird");
-        assert_eq!(beardog.map(|(_, r, _)| *r), Some(true));
-        assert_eq!(songbird.map(|(_, r, _)| *r), Some(true));
+    fn dependencies_crypto_and_discovery_required() {
+        let crypto = DEPENDENCIES.iter().find(|(id, _, _)| *id == "crypto");
+        let discovery = DEPENDENCIES.iter().find(|(id, _, _)| *id == "discovery");
+        assert_eq!(crypto.map(|(_, r, _)| *r), Some(true));
+        assert_eq!(discovery.map(|(_, r, _)| *r), Some(true));
     }
 }

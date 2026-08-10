@@ -219,7 +219,7 @@ async fn test_condition_evaluator_with_params() {
             params: &Value,
             _context: &Value,
         ) -> Pin<Box<dyn Future<Output = Result<bool>> + Send + '_>> {
-            let enabled = params["enabled"].as_bool().unwrap_or(false);
+            let enabled = params["enabled"].as_bool().unwrap_or_default();
             Box::pin(async move { Ok(enabled) })
         }
     }

@@ -661,7 +661,7 @@ impl ShutdownManager {
         self.shutdown_requested
             .try_read()
             .map(|guard| *guard)
-            .unwrap_or(false)
+            .unwrap_or_default()
     }
 
     /// Wait for shutdown completion

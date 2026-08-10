@@ -217,11 +217,11 @@ impl<D: IpcHttpDelegate> IpcRoutedVendorClient<D> {
                 }
                 MessageRole::User => messages.push(json!({
                     "role": "user",
-                    "content": m.content.as_deref().unwrap_or("")
+                    "content": m.content.as_deref().unwrap_or_default()
                 })),
                 MessageRole::Assistant => messages.push(json!({
                     "role": "assistant",
-                    "content": m.content.as_deref().unwrap_or("")
+                    "content": m.content.as_deref().unwrap_or_default()
                 })),
                 ref other => {
                     tracing::debug!(role = ?other, "skipping unsupported message role for Anthropic API");

@@ -17,8 +17,8 @@ mod mock_verification_tests {
                 if path.is_dir() {
                     visit_dirs(&path, violations);
                 } else if path.extension().is_some_and(|ext| ext == "rs") {
-                    let path_str = path.to_str().unwrap_or("");
-                    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    let path_str = path.to_str().unwrap_or_default();
+                    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
                     if path_str.contains("_test")
                         || path_str.contains("/tests/")
                         || path_str.contains("testing")

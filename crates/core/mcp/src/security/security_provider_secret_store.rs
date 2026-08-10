@@ -169,7 +169,7 @@ impl SecretStore for SecurityProviderSecretStore {
         Ok(result
             .get("deleted")
             .and_then(serde_json::Value::as_bool)
-            .unwrap_or(false))
+            .unwrap_or_default())
     }
 
     async fn list_keys(&self) -> Result<Vec<String>> {

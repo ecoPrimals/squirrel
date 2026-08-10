@@ -54,7 +54,7 @@ fn parse_provider_capabilities(caps: &Value) -> ParsedCapabilities {
         supports_streaming: caps
             .get("supports_streaming")
             .and_then(Value::as_bool)
-            .unwrap_or(false),
+            .unwrap_or_default(),
         max_context_size: caps
             .get("max_context_size")
             .and_then(Value::as_u64)

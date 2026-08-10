@@ -194,7 +194,7 @@ impl DignityEvaluator {
     }
 
     fn lacks_explainability(model: Option<&str>, context: Option<&str>) -> bool {
-        let ctx = context.unwrap_or("");
+        let ctx = context.unwrap_or_default();
         if ctx.contains("explainable") || ctx.contains("provenance") {
             return false;
         }

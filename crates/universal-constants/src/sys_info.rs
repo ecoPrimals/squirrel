@@ -40,13 +40,13 @@ pub fn memory_info() -> Result<MemoryInfo, io::Error> {
                 .split_whitespace()
                 .next()
                 .and_then(|v| v.parse().ok())
-                .unwrap_or(0);
+                .unwrap_or_default();
         } else if let Some(val) = line.strip_prefix("MemAvailable:") {
             available = val
                 .split_whitespace()
                 .next()
                 .and_then(|v| v.parse().ok())
-                .unwrap_or(0);
+                .unwrap_or_default();
         }
     }
     let used = total.saturating_sub(available);
@@ -79,7 +79,7 @@ pub fn memory_info() -> Result<MemoryInfo, io::Error> {
 pub fn process_rss_mb() -> Result<f64, io::Error> {
     let statm = std::fs::read_to_string("/proc/self/statm")?;
     let parts: Vec<&str> = statm.split_whitespace().collect();
-    let rss_pages: u64 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let rss_pages: u64 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or_default();
     let page_size = 4096u64;
     #[expect(clippy::cast_precision_loss, reason = "CPU percentage calculation")]
     Ok((rss_pages * page_size) as f64 / (1024.0 * 1024.0))

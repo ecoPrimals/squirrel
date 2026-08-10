@@ -23,11 +23,11 @@ pub fn parse_openai_chat_response(body: &str) -> Result<ChatResponse> {
     let usage = v["usage"]
         .as_object()
         .map(|u: &Map<String, Value>| UsageInfo {
-            prompt_tokens: json_u64_as_u32_saturating(u["prompt_tokens"].as_u64().unwrap_or(0)),
+            prompt_tokens: json_u64_as_u32_saturating(u["prompt_tokens"].as_u64().unwrap_or_default()),
             completion_tokens: json_u64_as_u32_saturating(
-                u["completion_tokens"].as_u64().unwrap_or(0),
+                u["completion_tokens"].as_u64().unwrap_or_default(),
             ),
-            total_tokens: json_u64_as_u32_saturating(u["total_tokens"].as_u64().unwrap_or(0)),
+            total_tokens: json_u64_as_u32_saturating(u["total_tokens"].as_u64().unwrap_or_default()),
         });
     Ok(ChatResponse {
         id,
@@ -57,8 +57,8 @@ pub fn parse_anthropic_chat_response(body: &str) -> Result<ChatResponse> {
         }
     }
     let usage = v["usage"].as_object().map(|u: &Map<String, Value>| {
-        let input = json_u64_as_u32_saturating(u["input_tokens"].as_u64().unwrap_or(0));
-        let output = json_u64_as_u32_saturating(u["output_tokens"].as_u64().unwrap_or(0));
+        let input = json_u64_as_u32_saturating(u["input_tokens"].as_u64().unwrap_or_default());
+        let output = json_u64_as_u32_saturating(u["output_tokens"].as_u64().unwrap_or_default());
         UsageInfo {
             prompt_tokens: input,
             completion_tokens: output,

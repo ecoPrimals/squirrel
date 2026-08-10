@@ -112,7 +112,7 @@ impl RuleParser {
         let description = frontmatter
             .get("description")
             .and_then(|v| v.as_str())
-            .unwrap_or("")
+            .unwrap_or_default()
             .to_string();
 
         let version = frontmatter
@@ -130,7 +130,7 @@ impl RuleParser {
         let priority = frontmatter
             .get("priority")
             .and_then(|v| v.as_i64())
-            .unwrap_or(0) as i32;
+            .unwrap_or_default() as i32;
 
         // Parse patterns from frontmatter
         let patterns = frontmatter

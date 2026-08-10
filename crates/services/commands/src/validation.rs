@@ -220,7 +220,7 @@ impl CommandValidator {
 
     /// Returns the number of rules in the validator
     pub fn rules(&self) -> usize {
-        self.rules.read().map(|rules| rules.len()).unwrap_or(0)
+        self.rules.read().map(|rules| rules.len()).unwrap_or_default()
     }
 }
 
@@ -596,7 +596,7 @@ impl ResourceValidationRule {
         {
             let used_memory = universal_constants::sys_info::memory_info()
                 .map(|m| m.used)
-                .unwrap_or(0);
+                .unwrap_or_default();
             let memory_usage_mb = (used_memory / 1024 / 1024) as usize;
 
             if memory_usage_mb > self.max_memory_mb {

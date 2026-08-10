@@ -288,7 +288,7 @@ fn test_discover_service_metadata() {
                 let service = result.expect("should succeed");
                 assert_eq!(service.name, "metadata.test-provider");
                 assert_eq!(service.discovery_method, "environment_variable");
-                assert!(service.healthy.unwrap_or(false));
+                assert!(service.healthy.unwrap_or_default());
             });
         },
     );

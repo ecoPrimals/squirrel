@@ -6,6 +6,7 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader};
 use std::net::TcpStream;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tracing::{debug, error};
 use uuid::Uuid;
@@ -18,17 +19,11 @@ pub fn run_notification_listener(
     stream: TcpStream,
     subscriptions: Arc<Mutex<HashMap<String, HashSet<Uuid>>>>,
     notification_handlers: Arc<Mutex<HashMap<Uuid, NotificationCallback>>>,
-    running: Arc<Mutex<bool>>,
+    running: Arc<AtomicBool>,
 ) {
     let mut reader = BufReader::new(stream);
 
-    while match running.lock() {
-        Ok(guard) => *guard,
-        Err(_) => {
-            error!("Running flag mutex poisoned, exiting listener thread");
-            false
-        }
-    } {
+    while running.load(Ordering::Acquire) {
         let mut line = String::new();
 
         // Read a line from the server

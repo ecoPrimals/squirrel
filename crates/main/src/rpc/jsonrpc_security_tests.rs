@@ -213,7 +213,7 @@ async fn rpc_handles_unknown_method_gracefully() {
         .expect("response");
     let v: Value = serde_json::from_str(&raw).expect("json");
     let err = v.get("error").expect("should be error");
-    let code = err.get("code").and_then(Value::as_i64).unwrap_or(0);
+    let code = err.get("code").and_then(Value::as_i64).unwrap_or_default();
     assert_eq!(code, -32601, "unknown method → METHOD_NOT_FOUND");
 }
 
@@ -283,6 +283,6 @@ async fn rpc_handles_malformed_json() {
     let code = v
         .pointer("/error/code")
         .and_then(Value::as_i64)
-        .unwrap_or(0);
+        .unwrap_or_default();
     assert_eq!(code, -32700, "malformed JSON → PARSE_ERROR");
 }

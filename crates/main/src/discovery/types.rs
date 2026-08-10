@@ -104,7 +104,7 @@ impl DiscoveredService {
         SystemTime::now()
             .duration_since(self.discovered_at)
             .map(|age| age < ttl)
-            .unwrap_or(false)
+            .unwrap_or_default()
     }
 
     /// Check if service provides a specific capability

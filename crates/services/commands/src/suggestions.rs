@@ -331,7 +331,7 @@ impl CommandSuggestions {
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs())
-            .unwrap_or(0);
+            .unwrap_or_default();
 
         // Generate suggestions
         let mut suggestions = Vec::new();
@@ -356,7 +356,7 @@ impl CommandSuggestions {
         // Process each command in the history
         for command in command_set {
             // Calculate recency score (higher for more recent commands)
-            let last_used = last_used_map.get(&command).cloned().unwrap_or(0);
+            let last_used = last_used_map.get(&command).cloned().unwrap_or_default();
             let age_seconds = current_time.saturating_sub(last_used);
             let recency_score = if age_seconds > MAX_AGE_SECONDS {
                 0.0

@@ -166,7 +166,7 @@ fn test_input_sanitization() {
 fn test_resource_validation_rule() {
     let current_memory_mb = universal_constants::sys_info::memory_info()
         .map(|m| (m.used / 1024 / 1024) as usize)
-        .unwrap_or(0);
+        .unwrap_or_default();
     let current_threads = universal_constants::sys_info::cpu_count().unwrap_or(1) as usize;
 
     // Set limits higher than current usage

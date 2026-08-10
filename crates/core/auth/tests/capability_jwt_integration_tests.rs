@@ -74,13 +74,13 @@ mod integration_tests {
                 Err(_) => return,
             };
 
-            let method = request["method"].as_str().unwrap_or("");
-            let id = request["id"].as_u64().unwrap_or(0);
+            let method = request["method"].as_str().unwrap_or_default();
+            let id = request["id"].as_u64().unwrap_or_default();
 
             let response = match method {
                 "crypto.sign" | "crypto.ed25519.sign" => {
                     // Mock signature (64 bytes of deterministic data)
-                    let _data = request["params"]["data"].as_str().unwrap_or("");
+                    let _data = request["params"]["data"].as_str().unwrap_or_default();
                     let signature = BASE64.encode(vec![42u8; 64]); // Mock signature
 
                     json!({

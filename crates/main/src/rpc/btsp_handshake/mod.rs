@@ -82,7 +82,7 @@ pub fn is_btsp_required() -> bool {
         .family_id
         .as_deref()
         .is_some_and(|v| !v.is_empty() && v != "default")
-        && !config.biomeos_insecure.unwrap_or(false)
+        && !config.biomeos_insecure.unwrap_or_default()
 }
 
 // ── Provider discovery ──────────────────────────────────────────────────
@@ -316,7 +316,7 @@ where
         .await
         .map_err(|e| BtspError::ProviderUnavailable(format!("btsp.session.verify failed: {e}")))?;
 
-    if !verify_result["verified"].as_bool().unwrap_or(false) {
+    if !verify_result["verified"].as_bool().unwrap_or_default() {
         let err = HandshakeErrorMsg {
             error: "handshake_failed".into(),
             reason: "family_verification".into(),

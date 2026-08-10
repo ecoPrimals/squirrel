@@ -65,7 +65,7 @@ impl HistoryEntry {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs())
-            .unwrap_or(0);
+            .unwrap_or_default();
 
         Self {
             id: Uuid::new_v4().to_string(),

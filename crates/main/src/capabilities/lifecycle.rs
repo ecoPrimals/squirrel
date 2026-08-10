@@ -412,7 +412,7 @@ mod tests {
                 // we only verify the env path wasn't returned.
                 if let Some(ref p) = result {
                     assert_ne!(
-                        p.to_str().unwrap_or(""),
+                        p.to_str().unwrap_or_default(),
                         "/tmp/nonexistent_biomeos_test_999.sock",
                         "should not return non-existent env override path"
                     );

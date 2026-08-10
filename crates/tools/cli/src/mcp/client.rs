@@ -10,6 +10,7 @@ use serde_json::json;
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::net::TcpStream;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -43,7 +44,7 @@ pub struct MCPClient {
     listener_thread: Arc<Mutex<Option<thread::JoinHandle<()>>>>,
 
     /// Running flag for notification listener
-    running: Arc<Mutex<bool>>,
+    running: Arc<AtomicBool>,
 }
 
 impl MCPClient {
@@ -66,7 +67,7 @@ impl MCPClient {
             subscriptions: Arc::new(Mutex::new(HashMap::new())),
             notification_handlers: Arc::new(Mutex::new(HashMap::new())),
             listener_thread: Arc::new(Mutex::new(None)),
-            running: Arc::new(Mutex::new(false)),
+            running: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -135,15 +136,8 @@ impl MCPClient {
     ///
     /// A Result indicating success or an error
     fn start_notification_listener(&self, stream: TcpStream) -> MCPResult<()> {
-        // Set running flag
-        {
-            let mut running = self.running.lock().map_err(|_| {
-                MCPError::ConnectionError("Running flag mutex poisoned".to_string())
-            })?;
-            *running = true;
-        }
+        self.running.store(true, Ordering::Release);
 
-        // Clone needed references for the thread
         let subscriptions = Arc::clone(&self.subscriptions);
         let notification_handlers = Arc::clone(&self.notification_handlers);
         let running = Arc::clone(&self.running);
@@ -174,20 +168,7 @@ impl MCPClient {
     ///
     /// A Result indicating success or an error
     pub fn disconnect(&self) -> MCPResult<()> {
-        // Stop notification listener
-        {
-            match self.running.lock() {
-                Ok(mut running) => {
-                    *running = false;
-                }
-                Err(_) => {
-                    error!("Running flag mutex poisoned during disconnect");
-                    return Err(MCPError::ConnectionError(
-                        "Running flag mutex poisoned".to_string(),
-                    ));
-                }
-            }
-        }
+        self.running.store(false, Ordering::Release);
 
         // Wait for listener thread to exit
         {

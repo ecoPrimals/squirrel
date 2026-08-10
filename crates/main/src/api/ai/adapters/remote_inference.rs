@@ -197,7 +197,7 @@ impl RemoteInferenceAdapter {
         let text = response
             .get("response")
             .and_then(|v| v.as_str())
-            .unwrap_or("")
+            .unwrap_or_default()
             .to_string();
         let resp_model = response
             .get("model")
@@ -349,7 +349,7 @@ impl AiProviderAdapter for RemoteInferenceAdapter {
         let text = result
             .get("text")
             .and_then(|v| v.as_str())
-            .unwrap_or("")
+            .unwrap_or_default()
             .to_string();
         let model = result
             .get("model")

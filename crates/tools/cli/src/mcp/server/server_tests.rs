@@ -87,7 +87,7 @@ fn handle_command_uses_registry_execute() {
     let bad = MCPMessage::new_request("r2".to_string(), "missing".to_string(), None);
     let resp = server.handle_command(bad).expect("error response");
     assert_eq!(resp.message_type, MCPMessageType::Error);
-    assert!(resp.error.as_deref().unwrap_or("").contains("not found"));
+    assert!(resp.error.as_deref().unwrap_or_default().contains("not found"));
 }
 
 #[test]

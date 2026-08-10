@@ -473,7 +473,7 @@ impl ContextLearningManager {
         let version = context_state
             .get("version")
             .and_then(|v| v.as_u64())
-            .unwrap_or(0) as f64;
+            .unwrap_or_default() as f64;
         let data_fields = context_state
             .get("data")
             .and_then(|d| d.as_object())

@@ -59,7 +59,7 @@ fn spawn_line_framed_jsonrpc_server(
                 let mut line = String::new();
                 loop {
                     line.clear();
-                    if reader.read_line(&mut line).await.unwrap_or(0) == 0 {
+                    if reader.read_line(&mut line).await.unwrap_or_default() == 0 {
                         break;
                     }
                     let trimmed = line.trim();
@@ -101,14 +101,14 @@ fn spawn_mock_neural_spring(
                 let _ = stream.read_exact(&mut [0u8; 2]).await;
                 let mut reader = BufReader::new(&mut stream);
                 let mut line = String::new();
-                if reader.read_line(&mut line).await.unwrap_or(0) == 0 {
+                if reader.read_line(&mut line).await.unwrap_or_default() == 0 {
                     return;
                 }
                 let request: Value = match serde_json::from_str(line.trim()) {
                     Ok(v) => v,
                     Err(_) => return,
                 };
-                let method = request.get("method").and_then(Value::as_str).unwrap_or("");
+                let method = request.get("method").and_then(Value::as_str).unwrap_or_default();
                 if method == "inference.complete" {
                     flag.store(true, Ordering::SeqCst);
                 }
@@ -255,7 +255,7 @@ async fn wire_register_provider_missing_provider_id_invalid_params() {
         err.get("code").and_then(Value::as_i64),
         Some(i64::from(error_codes::INVALID_PARAMS))
     );
-    let msg = err.get("message").and_then(Value::as_str).unwrap_or("");
+    let msg = err.get("message").and_then(Value::as_str).unwrap_or_default();
     assert!(msg.contains("provider_id"), "unexpected message: {msg}");
 
     bg.abort();

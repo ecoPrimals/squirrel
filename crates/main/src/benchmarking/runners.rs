@@ -241,7 +241,7 @@ impl BenchmarkSuite {
                 .collect();
             let mut total = 0u64;
             for h in handles {
-                total += h.await.unwrap_or(0);
+                total += h.await.unwrap_or_default();
             }
             let _ = total;
             Ok(())

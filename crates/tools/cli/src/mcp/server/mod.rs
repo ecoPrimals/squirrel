@@ -12,6 +12,7 @@ use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -88,7 +89,7 @@ pub struct MCPServer {
     topic_subscribers: Arc<Mutex<HashMap<String, HashSet<String>>>>,
 
     /// Server running flag
-    running: Arc<Mutex<bool>>,
+    running: Arc<AtomicBool>,
 }
 
 impl MCPServer {
@@ -111,7 +112,7 @@ impl MCPServer {
             clients: Arc::new(Mutex::new(HashMap::new())),
             client_subscriptions: Arc::new(Mutex::new(HashMap::new())),
             topic_subscribers: Arc::new(Mutex::new(HashMap::new())),
-            running: Arc::new(Mutex::new(false)),
+            running: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -176,25 +177,17 @@ impl MCPServer {
     ///
     /// A result indicating success or failure
     pub fn start(&self) -> MCPResult<()> {
-        let mut running = safe_lock(&self.running, "server start")?;
-        if *running {
+        if self.running.swap(true, Ordering::AcqRel) {
             return Err(MCPError::ProtocolError(
                 "Server already running".to_string(),
             ));
         }
 
-        *running = true;
-        drop(running);
-
         let server = self.clone();
         thread::spawn(move || {
             if let Err(e) = server.run_server() {
                 error!("MCP server error: {}", e);
-                if let Ok(mut running) = safe_lock(&server.running, "server error cleanup") {
-                    *running = false;
-                } else {
-                    error!("Failed to set running state to false after error");
-                }
+                server.running.store(false, Ordering::Release);
             }
         });
 
@@ -208,15 +201,9 @@ impl MCPServer {
     ///
     /// A result indicating success or failure
     pub fn stop(&self) -> MCPResult<()> {
-        let mut running = self
-            .running
-            .lock()
-            .map_err(|_| MCPError::ProtocolError("Failed to acquire running lock".to_string()))?;
-        if !*running {
+        if !self.running.swap(false, Ordering::AcqRel) {
             return Err(MCPError::ProtocolError("Server not running".to_string()));
         }
-
-        *running = false;
 
         // Disconnect all clients
         let mut clients = self
@@ -252,12 +239,7 @@ impl MCPServer {
     ///
     /// `true` if the server is running, `false` otherwise
     pub fn is_running(&self) -> bool {
-        safe_lock(&self.running, "is_running check")
-            .map(|guard| *guard)
-            .unwrap_or_else(|e| {
-                warn!("Failed to check server running state: {}", e);
-                false
-            })
+        self.running.load(Ordering::Acquire)
     }
 
     /// Send notification to all connected clients

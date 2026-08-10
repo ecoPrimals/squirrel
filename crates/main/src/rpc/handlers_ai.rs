@@ -374,7 +374,7 @@ impl JsonRpcServer {
             let description = tool
                 .get("description")
                 .and_then(|d| d.as_str())
-                .unwrap_or("")
+                .unwrap_or_default()
                 .to_string();
             let parameters = tool
                 .get("parameters")

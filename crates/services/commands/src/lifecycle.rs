@@ -144,7 +144,7 @@ impl CommandLifecycle {
     /// Returns the number of hooks registered
     #[must_use]
     pub fn hooks(&self) -> usize {
-        self.hooks.read().map(|h| h.len()).unwrap_or(0)
+        self.hooks.read().map(|h| h.len()).unwrap_or_default()
     }
 }
 

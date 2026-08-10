@@ -698,7 +698,7 @@ mod tests {
     #[test]
     fn safe_operation_execute_and_combinators() {
         let ok = SafeOperation::execute(|| Ok::<i32, ProductionError>(7));
-        assert_eq!(ok.unwrap_or(0), 7);
+        assert_eq!(ok.unwrap_or_default(), 7);
         let ok2 = SafeOperation::execute(|| Ok::<i32, ProductionError>(7));
         assert!(matches!(ok2.result(), Ok(7)));
 

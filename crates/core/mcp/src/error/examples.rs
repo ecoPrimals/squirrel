@@ -208,7 +208,7 @@ impl ErrorStats {
             .errors_by_severity
             .get(&format!("{:?}", ErrorSeverity::Critical))
             .copied()
-            .unwrap_or(0);
+            .unwrap_or_default();
 
         (critical as f64 / self.total_errors as f64) * 100.0
     }

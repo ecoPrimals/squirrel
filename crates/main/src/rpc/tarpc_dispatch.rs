@@ -209,16 +209,16 @@ impl SquirrelRpc for TarpcRpcServer {
                 id: v
                     .get("id")
                     .and_then(|x| x.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_default()
                     .to_string(),
                 version: v
                     .get("version")
                     .and_then(serde_json::Value::as_u64)
-                    .unwrap_or(0),
+                    .unwrap_or_default(),
                 created_at: v
                     .get("created_at")
                     .and_then(|x| x.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_default()
                     .to_string(),
                 metadata: v
                     .get("metadata")
@@ -248,16 +248,16 @@ impl SquirrelRpc for TarpcRpcServer {
                 id: v
                     .get("id")
                     .and_then(|x| x.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_default()
                     .to_string(),
                 version: v
                     .get("version")
                     .and_then(serde_json::Value::as_u64)
-                    .unwrap_or(0),
+                    .unwrap_or_default(),
                 updated_at: v
                     .get("updated_at")
                     .and_then(|x| x.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_default()
                     .to_string(),
             },
             Err(_) => ContextUpdateResult {
@@ -283,16 +283,16 @@ impl SquirrelRpc for TarpcRpcServer {
                 id: v
                     .get("id")
                     .and_then(|x| x.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_default()
                     .to_string(),
                 version: v
                     .get("version")
                     .and_then(serde_json::Value::as_u64)
-                    .unwrap_or(0),
+                    .unwrap_or_default(),
                 summary: v
                     .get("summary")
                     .and_then(|x| x.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_default()
                     .to_string(),
                 data: v
                     .get("data")
@@ -301,7 +301,7 @@ impl SquirrelRpc for TarpcRpcServer {
                 synchronized: v
                     .get("synchronized")
                     .and_then(serde_json::Value::as_bool)
-                    .unwrap_or(false),
+                    .unwrap_or_default(),
             },
             Err(_) => ContextSummarizeResult {
                 id: params.id,
@@ -334,11 +334,11 @@ impl SquirrelRpc for TarpcRpcServer {
                 success: v
                     .get("success")
                     .and_then(serde_json::Value::as_bool)
-                    .unwrap_or(false),
+                    .unwrap_or_default(),
                 message: v
                     .get("message")
                     .and_then(|x| x.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_default()
                     .to_string(),
             },
             Err(e) => ProviderRegisterResult {
@@ -381,11 +381,11 @@ impl SquirrelRpc for TarpcRpcServer {
                 success: v
                     .get("success")
                     .and_then(serde_json::Value::as_bool)
-                    .unwrap_or(false),
+                    .unwrap_or_default(),
                 message: v
                     .get("message")
                     .and_then(|x| x.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_default()
                     .to_string(),
             },
             Err(e) => ProviderDeregisterResult {
@@ -416,12 +416,12 @@ impl SquirrelRpc for TarpcRpcServer {
                 server_nonce: v
                     .get("server_nonce")
                     .and_then(|x| x.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_default()
                     .to_string(),
                 allowed: v
                     .get("allowed")
                     .and_then(serde_json::Value::as_bool)
-                    .unwrap_or(false),
+                    .unwrap_or_default(),
             },
             Err(_) => BtspNegotiateResult {
                 cipher: "null".to_string(),
@@ -441,7 +441,7 @@ impl SquirrelRpc for TarpcRpcServer {
                 message: v
                     .get("message")
                     .and_then(|x| x.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_default()
                     .to_string(),
             },
             Err(_) => LifecycleRegisterResult {
@@ -462,12 +462,12 @@ impl SquirrelRpc for TarpcRpcServer {
                 version: v
                     .get("version")
                     .and_then(|x| x.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_default()
                     .to_string(),
                 uptime_seconds: v
                     .get("uptime_seconds")
                     .and_then(serde_json::Value::as_u64)
-                    .unwrap_or(0),
+                    .unwrap_or_default(),
             },
             Err(_) => LifecycleStatusResult {
                 status: "error".to_string(),

@@ -380,7 +380,7 @@ pub fn validate_insecure_guard() -> Result<(), String> {
         .family_id
         .as_deref()
         .is_some_and(|v| !v.is_empty() && v != "default");
-    validate_insecure_guard_with(has_family, config.biomeos_insecure.unwrap_or(false))
+    validate_insecure_guard_with(has_family, config.biomeos_insecure.unwrap_or_default())
 }
 
 /// Injectable variant for testing without env var side effects.

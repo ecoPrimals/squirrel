@@ -291,7 +291,7 @@ impl CoordinationGraph {
         }
 
         // Depth is the maximum distance + 1 (counting nodes, not edges)
-        dist.values().copied().max().unwrap_or(0) + 1
+        dist.values().copied().max().unwrap_or_default() + 1
     }
 
     /// Calculate graph width (max parallel branches)
@@ -386,7 +386,7 @@ impl CoordinationGraph {
 
         // Also account for parallel branches: nodes without sequential edges
         // still contribute their own latency
-        let critical_path = earliest_finish.values().copied().max().unwrap_or(0);
+        let critical_path = earliest_finish.values().copied().max().unwrap_or_default();
 
         // If everything is parallel (no sequential edges), latency = max single node
         if self.edges.iter().all(|e| e.edge_type == EdgeType::Parallel) {
@@ -395,7 +395,7 @@ impl CoordinationGraph {
                 .iter()
                 .map(|n| n.estimated_latency_ms)
                 .max()
-                .unwrap_or(0);
+                .unwrap_or_default();
         }
 
         critical_path
@@ -647,7 +647,7 @@ impl GraphAnalyzer {
             let in_deg = in_degree
                 .get(node.primal_name.as_str())
                 .copied()
-                .unwrap_or(0);
+                .unwrap_or_default();
             if in_deg > 2 && node.reliability < 0.99 {
                 inefficiencies.push(Inefficiency {
                     inefficiency_type: InefficiencyType::SinglePointOfFailure,

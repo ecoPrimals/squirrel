@@ -453,7 +453,7 @@ mod tests {
                         let (reader, mut writer) = stream.into_split();
                         let mut buf_reader = BufReader::new(reader);
                         let mut line = String::new();
-                        if buf_reader.read_line(&mut line).await.unwrap_or(0) == 0 {
+                        if buf_reader.read_line(&mut line).await.unwrap_or_default() == 0 {
                             return;
                         }
                         let request: serde_json::Value =
@@ -465,7 +465,7 @@ mod tests {
                         let method = request
                             .get("method")
                             .and_then(serde_json::Value::as_str)
-                            .unwrap_or("");
+                            .unwrap_or_default();
 
                         let result = match method {
                             "dag.session.create" => serde_json::json!({

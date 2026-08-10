@@ -511,7 +511,7 @@ impl MetricsCollector {
                 use crate::monitoring::metric_names::default::{STATUS, UPTIME};
                 metrics.insert(STATUS.to_string(), 1.0);
                 #[expect(clippy::cast_precision_loss, reason = "uptime seconds fits f64")]
-                let uptime = universal_constants::sys_info::uptime_seconds().unwrap_or(0) as f64;
+                let uptime = universal_constants::sys_info::uptime_seconds().unwrap_or_default() as f64;
                 metrics.insert(UPTIME.to_string(), uptime);
             }
         }
@@ -556,7 +556,7 @@ impl MetricsCollector {
     fn get_memory_usage(&self) -> Result<u64, PrimalError> {
         let used_memory = universal_constants::sys_info::memory_info()
             .map(|m| m.used)
-            .unwrap_or(0);
+            .unwrap_or_default();
         debug!("Current memory usage: {} bytes", used_memory);
         Ok(used_memory)
     }
@@ -625,7 +625,7 @@ impl MetricsCollector {
 
     /// Host uptime in seconds from [`universal_constants::sys_info::uptime_seconds`] (`/proc/uptime` on Linux).
     fn get_uptime(&self) -> Result<u64, PrimalError> {
-        Ok(universal_constants::sys_info::uptime_seconds().unwrap_or(0))
+        Ok(universal_constants::sys_info::uptime_seconds().unwrap_or_default())
     }
 }
 

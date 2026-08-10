@@ -517,7 +517,7 @@ impl PolicyNetwork {
         self.training_state
             .try_read()
             .map(|s| s.epoch as u64)
-            .unwrap_or(0)
+            .unwrap_or_default()
     }
 
     fn get_last_loss(&self) -> f64 {

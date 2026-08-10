@@ -302,7 +302,7 @@ impl MCPTaskClient {
             agent_type: params.agent_type.map_or(-1, |a| a as i32),
             context_id: params.context_id.unwrap_or_default(),
             limit: params.limit.unwrap_or(100).min(i32::MAX as u32) as i32,
-            offset: params.offset.unwrap_or(0).min(i32::MAX as u32) as i32,
+            offset: params.offset.unwrap_or_default().min(i32::MAX as u32) as i32,
         };
 
         let params = serde_json::to_value(&request)?;
@@ -350,7 +350,7 @@ impl MCPTaskClient {
         let request = ReportProgressRequest {
             task_id: task_id.to_string(),
             progress_percent,
-            progress_message: message.unwrap_or("").to_string(),
+            progress_message: message.unwrap_or_default().to_string(),
             interim_results: Vec::new(),
         };
 

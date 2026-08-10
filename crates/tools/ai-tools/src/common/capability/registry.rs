@@ -636,7 +636,7 @@ impl ModelCapabilities {
         }
 
         // Set other capabilities
-        capabilities.with_max_context_size(self.max_context_size.unwrap_or(0));
+        capabilities.with_max_context_size(self.max_context_size.unwrap_or_default());
         capabilities.with_streaming(self.supports_streaming);
         capabilities.with_function_calling(self.supports_function_calling);
         capabilities.with_tool_use(self.supports_tool_use);
