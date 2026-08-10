@@ -1,12 +1,22 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 4,100 tests (default features), 44 IPC methods."
-date = 2026-08-07
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 4,159 tests (default features), 44 IPC methods."
+date = 2026-08-10
 
 [taxonomies]
 primals = ["squirrel"]
 springs = []
 +++
+
+## Wave 157g — G72 Dependency Pandemic Tier 1 (Aug 10, 2026)
+
+- **Feature trimming**: `tokio["full"]` → 9 explicit features; `tokio-util["full"]` → `["codec"]`; `tarpc["full"]` → `["serde-transport"]`
+- **Dead dep excision**: 18 dead dependencies removed across 6 crates (dashmap, futures-util, tokio-stream, toml, metrics, prometheus, strum, glob, tracing-subscriber, blake3, rand, zeroize, axum, chrono, squirrel-mcp-config, metrics-exporter-prometheus)
+- **Workspace cleanup**: 6 workspace deps removed (glob, metrics, prometheus, metrics-exporter-prometheus, tokio-stream, futures-util, axum)
+- **Version alignment**: 20+ dev-deps migrated to workspace inheritance; auth crate switched from local `tokio["full"]` to workspace
+- **Cargo.lock**: 384 → 333 unique packages (-51, 13% reduction), +11/-584 lines
+- 4,159 tests passing, 0 failures
+- `cargo check --target x86_64-pc-windows-gnu` = 0 errors
 
 ## Wave 157e — G68 Platform Substrate Abstraction (Aug 7, 2026)
 

@@ -16,25 +16,22 @@ delegated-jwt = []
 integration-tests = []
 
 [dependencies]
-squirrel-mcp-config = { path = "../../config", version = "0.1.0" }
 universal-constants = { path = "../../universal-constants", version = "0.1.0" }
 universal-patterns = { path = "../../universal-patterns", version = "0.1.0" }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tokio = { version = "1.0", features = ["full"] }
-anyhow = "1.0"
-thiserror = "1.0"
-tracing = "0.1"
-uuid = { version = "1.0", features = ["v4", "serde"] }
-chrono = { version = "0.4", features = ["serde"] }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+chrono.workspace = true
 
-base64 = "0.22"
-blake3.workspace = true
-rand.workspace = true
-zeroize = { version = "1.7", features = ["zeroize_derive"] }
+base64.workspace = true
+zeroize.workspace = true
 [dev-dependencies]
-tokio-test = "0.4"
-temp-env = "0.3"
-tempfile = "3.8"
+tokio-test.workspace = true
+temp-env.workspace = true
+tempfile.workspace = true
 [lints]
 workspace = true

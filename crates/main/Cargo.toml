@@ -69,7 +69,6 @@ zeroize.workspace = true
 chacha20poly1305.workspace = true
 hkdf.workspace = true
 sha2.workspace = true
-strum.workspace = true
 
 # Context management
 squirrel-context.workspace = true
@@ -80,13 +79,6 @@ squirrel-mcp.workspace = true
 # OpenAI SDK - OPTIONAL in v1.1.0+ (dev-direct-http feature only!)
 # openai REMOVED - Use capability_ai (delegates to Songbird via Unix sockets) instead!
 
-# Observability
-# SECURITY FIX: Updated from 0.13 to fix RUSTSEC-2024-0437 (protobuf uncontrolled recursion)
-# Updated to 0.14 to fix protobuf vulnerability (RUSTSEC-2024-0437)
-prometheus = { workspace = true, optional = true }
-# Metrics export — prometheus optional, monitoring via capability.call preferred
-metrics = { workspace = true, optional = true }
-metrics-exporter-prometheus = { workspace = true, optional = true }
 
 # Benchmarking (optional)
 criterion = { workspace = true, optional = true }
@@ -107,7 +99,7 @@ tarpc-rpc = ["tarpc", "tokio-serde"]  # High-performance binary RPC (bincode via
 
 # Optional features
 system-metrics = []  # Uses universal_constants::sys_info (pure Rust, /proc on Linux)
-monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]  # Metrics (optional)
+monitoring = []  # Self-contained Prometheus exposition format in exporters.rs
 benchmarking = ["criterion"]             # Benchmarking tools
 ## enhanced_error_handling / optimizations removed — no cfg(feature) references;
 ## error handling and optimizations are always-on via workspace lint policy.
@@ -116,11 +108,11 @@ gpu-detection = []
 
 [dev-dependencies]
 bincode.workspace = true  # test-only serialize/deserialize roundtrips (production uses tokio-serde)
-tokio-test = "0.4"
-tempfile = "3.8"
-temp-env = "0.3"  # Env var isolation for tests (avoids cross-test interference)
-pretty_assertions = "1.4"
-serial_test = "3.0"  # For serializing tests that modify global state (env vars)
+tokio-test.workspace = true
+tempfile.workspace = true
+temp-env.workspace = true
+pretty_assertions.workspace = true
+serial_test.workspace = true
 proptest.workspace = true  # Property-based testing (groundSpring/wetSpring pattern)
 
 [[bin]]

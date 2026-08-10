@@ -16,14 +16,12 @@ workspace = true
 [dependencies]
 # Core async runtime
 tokio.workspace = true
-tokio-stream.workspace = true
 futures.workspace = true
 
 # Serialization
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
-chrono.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 
@@ -46,9 +44,6 @@ universal-error.workspace = true
 # Universal constants (socket paths, SLOs, ports)
 universal-constants.workspace = true
 
-# Web framework for API (OPTIONAL - for HTTP API routes only)
-axum = { workspace = true, optional = true }
-
 # Configuration (TOML is ecosystem standard format)
 toml.workspace = true
 
@@ -67,8 +62,8 @@ clap.workspace = true
 rand.workspace = true
 
 [dev-dependencies]
-tokio-test = "0.4"
-temp-env = "0.3"
+tokio-test.workspace = true
+temp-env.workspace = true
 tempfile.workspace = true
 
 [features]

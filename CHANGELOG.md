@@ -11,6 +11,21 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 10, 2026 — Wave 157g: G72 Dependency Pandemic Tier 1)
+
+- **G72 Tier 1 — Feature trimming**: Replaced `tokio = { features = ["full"] }` with explicit 9 features (`rt-multi-thread`, `macros`, `sync`, `time`, `io-util`, `net`, `fs`, `signal`, `process`). `io-std` confirmed unused. Trimmed `tokio-util["full"]` → `["codec"]`. Trimmed `tarpc["full"]` → `["serde-transport"]` (squirrel uses own transport adapter, not tarpc's `tcp`/`unix`).
+- **G72 Tier 1 — Dead dependency removal**: Audited all 12 workspace crates with `cargo-machete`, verified each finding manually. Excised 18 dead dependencies across 6 crates:
+  - **squirrel** (main): `strum`, `prometheus`, `metrics`, `metrics-exporter-prometheus` (monitoring feature emptied — squirrel has its own exposition format in `exporters.rs`)
+  - **squirrel-mcp**: `dashmap`, `futures-util`, `tokio-stream`, `toml`, `metrics` (all confirmed zero `use` in source)
+  - **squirrel-context**: `futures`, `glob`, `tracing-subscriber`
+  - **squirrel-mcp-auth**: `blake3`, `rand`, `squirrel-mcp-config` (switched from local `tokio["full"]` to `tokio.workspace = true`)
+  - **squirrel-mcp-config**: `zeroize`
+  - **squirrel-ai-tools**: `axum`, `chrono`, `tokio-stream`
+- **G72 Tier 1 — Workspace dep removal**: Removed 6 workspace-level dependencies no longer referenced by any crate: `glob`, `metrics`, `prometheus`, `metrics-exporter-prometheus`, `tokio-stream`, `futures-util`, `axum`.
+- **Version alignment**: Migrated 20+ dev-dependency declarations from local versions to `workspace = true` (`tokio-test`, `tempfile`, `temp-env`, `serial_test`, `insta`). Added `temp-env`, `serial_test`, `insta` to workspace `[dependencies]`.
+- **Cargo.lock reduction**: 384 → 333 unique packages (51 transitive crates removed, 13% reduction). Cargo.lock: +11 / -584 lines.
+- 4,159 tests passing (+59 from Wave 157f), 1 pre-existing flaky test (`coordinate_storage_fails_without_provider` — depends on local storage state, not dep-related).
+
 ### Summary (Aug 7, 2026 — Wave 157e: G68 Platform Substrate Abstraction)
 
 - **G68 L1 — Platform Links**: Created `universal_patterns::platform::create_capability_alias()` and `cleanup_capability_alias()`. Unix: filesystem symlink (`ai.sock → squirrel.sock`). Windows: discovery file (`ai.pipe` containing named pipe path). Migrated `unix_socket.rs` from raw `std::os::unix::fs::symlink` to the abstraction. Removed `#[cfg(unix)]`/`#[cfg(not(unix))]` dual implementations — single cross-platform function.
