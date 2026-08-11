@@ -1,10 +1,13 @@
 # biomeOS Cross-Compilation Configuration
 # TRUE ecoBin v3.0 — Pure Rust, zero C deps, static-pie musl
 # Created: January 30, 2026
-
-[build]
-# Default to x86_64 musl for maximum portability
-target = "x86_64-unknown-linux-musl"
+# Updated: Aug 11, 2026 (Wave 157i — darwin fix)
+#
+# No [build] target default — cargo uses the host triple.
+# ecoBin builds specify --target explicitly (see justfile).
+# This enables `cargo build/check/test` on any platform without
+# requiring --target overrides (eastGate x86_64, graftGate aarch64-apple-darwin,
+# piGate aarch64-linux-gnu, riscGate riscv64gc-linux-gnu).
 
 # ARM64 Linux (musl for static linking)
 [target.aarch64-unknown-linux-musl]

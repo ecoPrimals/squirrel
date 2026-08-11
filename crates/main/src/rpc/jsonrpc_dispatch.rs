@@ -43,23 +43,23 @@ impl JsonRpcServer {
                 self.handle_discover_capabilities().await
             }
             "capabilities.list" | "capability.list" | "primal.capabilities" => {
-                self.handle_capability_list()
+                Ok(self.handle_capability_list())
             }
 
             // Identity domain — CAPABILITY_BASED_DISCOVERY_STANDARD v1.0
-            "identity.get" => self.handle_identity_get(),
+            "identity.get" => Ok(self.handle_identity_get()),
 
             // Health domain — PRIMAL_IPC_PROTOCOL v3.0 (canonical)
             "health.check" | "system.health" | "system.status" => self.handle_health().await,
-            "health.liveness" => self.handle_health_liveness(),
+            "health.liveness" => Ok(self.handle_health_liveness()),
             "health.readiness" => self.handle_health_readiness().await,
 
             // Bare "health" — Wave 113 mandatory probe method.
-            "health" => self.handle_health_bare(),
+            "health" => Ok(self.handle_health_bare()),
 
             // System domain — backward-compat
             "system.metrics" => self.handle_metrics().await,
-            "system.ping" => self.handle_ping(),
+            "system.ping" => Ok(self.handle_ping()),
 
             // Discovery domain
             "discovery.peers" | "discovery.list" => self.handle_discover_peers(params).await,
@@ -82,12 +82,12 @@ impl JsonRpcServer {
             "btsp.negotiate" => self.handle_btsp_negotiate(params),
 
             // Lifecycle domain — biomeOS registration
-            "lifecycle.register" => self.handle_lifecycle_register(),
+            "lifecycle.register" => Ok(self.handle_lifecycle_register()),
             "lifecycle.status" => self.handle_lifecycle_status().await,
 
             // Graph domain — primalSpring BYOB coordination
-            "graph.parse" => self.handle_graph_parse(params),
-            "graph.validate" => self.handle_graph_validate(params),
+            "graph.parse" => self.handle_graph_parse(params.as_ref()),
+            "graph.validate" => self.handle_graph_validate(params.as_ref()),
 
             // Provenance proxy — routes to discovered DAG/anchoring/attribution primals
             m if m.starts_with("provenance.")

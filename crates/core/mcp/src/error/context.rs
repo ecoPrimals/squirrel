@@ -417,6 +417,7 @@ impl ErrorHandler {
     /// # Returns
     ///
     /// An optional recovery strategy if one exists for the error type
+    #[expect(clippy::unused_self, reason = "will use self when recovery strategies are wired")]
     #[instrument(skip(self))]
     fn get_recovery_strategy(&self, error_type: &str) -> Option<RecoveryStrategy> {
         // Implementation of get_recovery_strategy method
@@ -433,6 +434,7 @@ impl ErrorHandler {
     /// # Returns
     ///
     /// Result indicating success or an error
+    #[expect(clippy::unused_self, reason = "will use self when recovery strategies are wired")]
     #[instrument(skip(self, _context, _strategy))]
     fn attempt_recovery(
         &self,

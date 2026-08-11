@@ -20,7 +20,7 @@ impl JsonRpcServer {
     /// graph structure as JSON, or an error if parsing fails.
     pub(crate) fn handle_graph_parse(
         &self,
-        params: Option<Value>,
+        params: Option<&Value>,
     ) -> Result<Value, JsonRpcError> {
         debug!("graph.parse request");
 
@@ -53,7 +53,7 @@ impl JsonRpcServer {
     /// "required_count": N, "includes_squirrel": bool }`.
     pub(crate) fn handle_graph_validate(
         &self,
-        params: Option<Value>,
+        params: Option<&Value>,
     ) -> Result<Value, JsonRpcError> {
         debug!("graph.validate request");
 
@@ -124,7 +124,7 @@ health_method = "health.check"
     async fn graph_parse_invalid_toml_errors() {
         let server = JsonRpcServer::new("/tmp/sq-graph-bad-toml.sock".to_string());
         let err = server
-            .handle_graph_parse(Some(serde_json::json!({ "graph_toml": "{{not toml" })))
+            .handle_graph_parse(Some(&serde_json::json!({ "graph_toml": "{{not toml" })))
             .unwrap_err();
         assert_eq!(err.code, error_codes::INVALID_PARAMS);
         assert!(err.message.contains("parse error"));
@@ -134,7 +134,7 @@ health_method = "health.check"
     async fn graph_parse_valid_returns_json() {
         let server = JsonRpcServer::new("/tmp/sq-graph-ok.sock".to_string());
         let result = server
-            .handle_graph_parse(Some(serde_json::json!({ "graph_toml": VALID_GRAPH_TOML })))
+            .handle_graph_parse(Some(&serde_json::json!({ "graph_toml": VALID_GRAPH_TOML })))
             .expect("should parse");
         assert!(
             result.get("graph").is_some(),
@@ -153,7 +153,7 @@ health_method = "health.check"
     async fn graph_validate_returns_structure() {
         let server = JsonRpcServer::new("/tmp/sq-graph-val-ok.sock".to_string());
         let result = server
-            .handle_graph_validate(Some(serde_json::json!({ "graph_toml": VALID_GRAPH_TOML })))
+            .handle_graph_validate(Some(&serde_json::json!({ "graph_toml": VALID_GRAPH_TOML })))
             .expect("should validate");
         assert_eq!(result["valid"], true);
         assert_eq!(result["name"], "test_graph");
@@ -171,7 +171,7 @@ health_method = "health.check"
 name = "empty"
 "#;
         let result = server
-            .handle_graph_validate(Some(serde_json::json!({ "graph_toml": empty_graph })))
+            .handle_graph_validate(Some(&serde_json::json!({ "graph_toml": empty_graph })))
             .expect("should validate even if empty");
         assert_eq!(result["valid"], false, "empty graph should have issues");
         assert!(

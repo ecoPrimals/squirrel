@@ -53,7 +53,7 @@ pub async fn set_access_async(path: &Path, level: AccessLevel) -> io::Result<()>
     let path = path.to_path_buf();
     tokio::task::spawn_blocking(move || set_access_inner(&path, level))
         .await
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+        .map_err(io::Error::other)?
 }
 
 /// Check whether a file is world-accessible (security risk).

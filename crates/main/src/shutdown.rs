@@ -660,8 +660,7 @@ impl ShutdownManager {
     pub fn is_shutdown_requested(&self) -> bool {
         self.shutdown_requested
             .try_read()
-            .map(|guard| *guard)
-            .unwrap_or_default()
+            .is_ok_and(|guard| *guard)
     }
 
     /// Wait for shutdown completion

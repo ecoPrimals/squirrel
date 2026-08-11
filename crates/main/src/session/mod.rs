@@ -330,6 +330,7 @@ impl SessionManagerImpl {
     }
 
     /// Returns the number of sessions currently in the manager.
+    #[must_use]
     pub fn get_active_session_count(&self) -> u32 {
         self.sessions.len() as u32
     }

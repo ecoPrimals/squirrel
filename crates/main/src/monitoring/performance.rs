@@ -169,7 +169,7 @@ impl PerformanceTracker {
         // Collect current performance data
         let summary = self.collect_performance_summary().await?;
         let component_metrics = self.collect_component_performance().await?;
-        let resource_utilization = self.collect_resource_utilization()?;
+        let resource_utilization = self.collect_resource_utilization();
 
         // Update metrics
         self.update_metrics(&summary, &component_metrics).await?;
@@ -431,8 +431,7 @@ impl PerformanceTracker {
         ];
 
         for component in components {
-            let metrics = self
-                .collect_component_specific_performance(component)?;
+            let metrics = self.collect_component_specific_performance(component);
             component_metrics.insert(component.to_string(), metrics);
         }
 
@@ -443,7 +442,7 @@ impl PerformanceTracker {
     fn collect_component_specific_performance(
         &self,
         component: &str,
-    ) -> Result<HashMap<String, f64>, PrimalError> {
+    ) -> HashMap<String, f64> {
         let mut metrics = HashMap::new();
         let time_factor = (Utc::now().timestamp_millis() % 5000) as f64 / 5000.0;
 
@@ -505,14 +504,14 @@ impl PerformanceTracker {
             }
         }
 
-        Ok(metrics)
+        metrics
     }
 
     /// Collect resource utilization metrics
-    fn collect_resource_utilization(&self) -> Result<ResourceUtilization, PrimalError> {
+    fn collect_resource_utilization(&self) -> ResourceUtilization {
         let time_factor = (Utc::now().timestamp_millis() % 8000) as f64 / 8000.0;
 
-        Ok(ResourceUtilization {
+        ResourceUtilization {
             cpu_percent: 35.0 + time_factor * 20.0,
             memory_percent: 45.0 + time_factor * 15.0,
             disk_io_percent: 25.0 + time_factor * 10.0,
@@ -520,7 +519,7 @@ impl PerformanceTracker {
             active_threads: (150.0 + time_factor * 50.0) as u32,
             file_descriptors: (800.0 + time_factor * 200.0) as u32,
             active_connections: (25.0 + time_factor * 10.0) as u32,
-        })
+        }
     }
 
     /// Update performance metrics

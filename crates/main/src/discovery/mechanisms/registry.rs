@@ -196,7 +196,7 @@ impl RegistryDiscovery {
         service_name: &str,
         address: &str,
         port: u16,
-        capabilities: Vec<String>,
+        capabilities: &[String],
         _health_endpoint: Option<String>,
         _metadata: HashMap<String, String>,
     ) -> DiscoveryResult<()> {
@@ -368,7 +368,7 @@ mod tests {
                 "squirrel",
                 "192.168.1.100",
                 9200,
-                capabilities,
+                &capabilities,
                 Some("/health".to_string()),
                 metadata,
             )

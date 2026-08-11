@@ -223,6 +223,7 @@ impl ModelRegistry {
     }
 
     /// Get the global model registry instance as a shared lock handle
+    #[must_use]
     pub fn instance() -> Arc<RwLock<Self>> {
         Arc::clone(&GLOBAL_REGISTRY)
     }
@@ -734,7 +735,6 @@ impl ModelCapabilities {
         match self.cost_tier.to_lowercase().as_str() {
             "free" => CostTier::Free,
             "low" => CostTier::Low,
-            "medium" => CostTier::Medium,
             "high" => CostTier::High,
             _ => CostTier::Medium,
         }

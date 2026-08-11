@@ -108,14 +108,14 @@ impl CommandsService {
         match command {
             "ping" => Ok("pong".to_string()),
             "version" => Ok(env!("CARGO_PKG_VERSION").to_string()),
-            "status" => self.get_status(),
+            "status" => Ok(self.get_status()),
             _ => Err(anyhow::anyhow!("Unknown command: {}", command)),
         }
     }
 
     /// Get service status
-    fn get_status(&self) -> AnyhowResult<String> {
-        Ok("Commands service is running".to_string())
+    fn get_status(&self) -> String {
+        String::from("Commands service is running")
     }
 }
 

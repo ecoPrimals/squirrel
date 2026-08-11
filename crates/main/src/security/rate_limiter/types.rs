@@ -99,10 +99,10 @@ pub(crate) enum ViolationSeverity {
 #[derive(Debug, Clone)]
 pub(crate) struct ClientInfo {
     pub(crate) _ip_address: IpAddr,
-    pub(crate) _user_agent: Option<String>,
+    pub(crate) user_agent: Option<String>,
     pub(crate) _first_seen: Instant,
     pub(crate) last_activity: Instant,
-    pub(crate) _total_requests: u64,
+    pub(crate) total_requests: u64,
     pub(crate) violations: Vec<SecurityViolation>,
     pub(crate) is_banned: bool,
     pub(crate) ban_expires_at: Option<Instant>,

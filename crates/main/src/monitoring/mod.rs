@@ -275,7 +275,7 @@ impl MonitoringSystem {
         self.start_status_updates().await?;
 
         // Initialize exporters
-        self.initialize_exporters()?;
+        self.initialize_exporters();
 
         info!("Monitoring system started successfully");
         Ok(())
@@ -463,12 +463,11 @@ impl MonitoringSystem {
         Ok(())
     }
 
-    fn initialize_exporters(&self) -> Result<(), PrimalError> {
+    fn initialize_exporters(&self) {
         if self.config.enable_prometheus {
             info!("Initializing Prometheus metrics exporter");
             // Implementation would initialize Prometheus exporter
         }
-        Ok(())
     }
 
     fn calculate_overall_health(health_summary: &HashMap<String, HealthState>) -> HealthState {

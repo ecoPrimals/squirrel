@@ -115,8 +115,7 @@ pub fn create_provider_client(
     Err(crate::error::Error::Configuration(
         "Old HTTP-based providers removed. Use capability_ai::AiClient::from_env() instead."
             .to_string(),
-    )
-    .into())
+    ))
 }
 
 /// Create a chat request from messages

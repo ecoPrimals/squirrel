@@ -383,9 +383,9 @@ mod tests {
             }],
             endpoints: vec![ServiceEndpoint {
                 name: "primary".to_string(),
-                url: "https://storage.test".to_string(),
-                protocol: "https".to_string(),
-                port: Some(443),
+                url: "unix:///tmp/squirrel-test-nonexistent-storage.sock".to_string(),
+                protocol: "unix".to_string(),
+                port: None,
                 path: None,
             }],
             resources: ResourceSpec {

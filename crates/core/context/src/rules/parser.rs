@@ -415,24 +415,24 @@ pub fn rule_to_mdc(rule: &Rule) -> Result<String> {
     // Generate frontmatter
     output.push_str("---\n");
 
-    let _ = write!(output, "id: {}\n", rule.id);
-    let _ = write!(output, "name: {}\n", rule.name);
-    let _ = write!(output, "description: {}\n", rule.description);
-    let _ = write!(output, "category: {}\n", rule.category);
-    let _ = write!(output, "priority: {}\n", rule.priority);
-    let _ = write!(output, "version: {}\n", rule.version);
+    let _ = writeln!(output, "id: {}", rule.id);
+    let _ = writeln!(output, "name: {}", rule.name);
+    let _ = writeln!(output, "description: {}", rule.description);
+    let _ = writeln!(output, "category: {}", rule.category);
+    let _ = writeln!(output, "priority: {}", rule.priority);
+    let _ = writeln!(output, "version: {}", rule.version);
 
     if !rule.patterns.is_empty() {
         output.push_str("patterns:\n");
         for pattern in &rule.patterns {
-            let _ = write!(output, "  - \"{pattern}\"\n");
+            let _ = writeln!(output, "  - \"{pattern}\"");
         }
     }
 
     let metadata_json = serde_json::to_string_pretty(&rule.metadata)?;
     output.push_str("metadata: |\n");
     for line in metadata_json.lines() {
-        let _ = write!(output, "  {line}\n");
+        let _ = writeln!(output, "  {line}");
     }
 
     output.push_str("---\n\n");

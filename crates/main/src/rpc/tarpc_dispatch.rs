@@ -80,14 +80,7 @@ impl SquirrelRpc for TarpcRpcServer {
     }
 
     async fn system_ping(self, _ctx: context::Context) -> super::tarpc_service::PingResult {
-        match self.jsonrpc.handle_ping() {
-            Ok(v) => Self::json_to_ping_result(&v),
-            Err(_) => super::tarpc_service::PingResult {
-                pong: true,
-                timestamp: chrono::Utc::now().to_rfc3339(),
-                version: env!("CARGO_PKG_VERSION").to_string(),
-            },
-        }
+        Self::json_to_ping_result(&self.jsonrpc.handle_ping())
     }
 
     async fn system_metrics(self, _ctx: context::Context) -> SystemMetricsResult {
@@ -432,22 +425,17 @@ impl SquirrelRpc for TarpcRpcServer {
     }
 
     async fn lifecycle_register(self, _ctx: context::Context) -> LifecycleRegisterResult {
-        match self.jsonrpc.handle_lifecycle_register() {
-            Ok(v) => LifecycleRegisterResult {
-                success: v
-                    .get("success")
-                    .and_then(serde_json::Value::as_bool)
-                    .unwrap_or(true),
-                message: v
-                    .get("message")
-                    .and_then(|x| x.as_str())
-                    .unwrap_or_default()
-                    .to_string(),
-            },
-            Err(_) => LifecycleRegisterResult {
-                success: false,
-                message: "Registration failed".to_string(),
-            },
+        let v = self.jsonrpc.handle_lifecycle_register();
+        LifecycleRegisterResult {
+            success: v
+                .get("success")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true),
+            message: v
+                .get("message")
+                .and_then(|x| x.as_str())
+                .unwrap_or_default()
+                .to_string(),
         }
     }
 

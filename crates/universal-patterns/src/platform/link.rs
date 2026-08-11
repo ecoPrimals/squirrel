@@ -87,19 +87,18 @@ fn cleanup_alias_inner(dir: &Path, alias_name: &str, endpoint_path: &Path) {
     // Only remove if the symlink points to the same directory (ours, not another primal's)
     if let Ok(meta) = std::fs::symlink_metadata(&link_path)
         && meta.file_type().is_symlink()
+        && let Ok(target) = std::fs::read_link(&link_path)
     {
-        if let Ok(target) = std::fs::read_link(&link_path) {
-            let resolved = if target.is_relative() {
-                dir.join(&target)
-            } else {
-                target
-            };
-            if let (Some(a), Some(b)) = (resolved.parent(), endpoint_path.parent()) {
-                if a == b {
-                    let _ = std::fs::remove_file(&link_path);
-                    tracing::debug!("Cleaned up capability alias: {}", link_path.display());
-                }
-            }
+        let resolved = if target.is_relative() {
+            dir.join(&target)
+        } else {
+            target
+        };
+        if let (Some(a), Some(b)) = (resolved.parent(), endpoint_path.parent())
+            && a == b
+        {
+            let _ = std::fs::remove_file(&link_path);
+            tracing::debug!("Cleaned up capability alias: {}", link_path.display());
         }
     }
 }

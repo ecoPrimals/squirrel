@@ -389,7 +389,7 @@ impl PrimalSelfKnowledge {
                     &self.identity.primal_type,
                     &address,
                     port,
-                    capabilities,
+                    &capabilities,
                     health_endpoint,
                     metadata,
                 )

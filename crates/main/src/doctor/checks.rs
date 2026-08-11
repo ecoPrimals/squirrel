@@ -6,7 +6,7 @@ use std::time::Instant;
 use super::{HealthCheck, HealthStatus};
 
 /// Check binary and version
-pub(crate) fn check_binary() -> HealthCheck {
+pub fn check_binary() -> HealthCheck {
     let start = Instant::now();
     HealthCheck {
         name: "Binary",
@@ -21,7 +21,7 @@ pub(crate) fn check_binary() -> HealthCheck {
 }
 
 /// Check configuration
-pub(crate) fn check_configuration() -> HealthCheck {
+pub fn check_configuration() -> HealthCheck {
     use universal_constants::env_vars;
     let start = Instant::now();
 
@@ -55,7 +55,7 @@ pub(crate) fn check_configuration() -> HealthCheck {
 }
 
 /// Check AI providers
-pub(crate) fn check_ai_providers(comprehensive: bool) -> HealthCheck {
+pub fn check_ai_providers(comprehensive: bool) -> HealthCheck {
     use universal_constants::env_vars;
     let start = Instant::now();
 
@@ -104,7 +104,7 @@ pub(crate) fn check_ai_providers(comprehensive: bool) -> HealthCheck {
 }
 
 /// Check discovered services via capability registry
-pub(crate) fn check_discovered_services() -> HealthCheck {
+pub fn check_discovered_services() -> HealthCheck {
     let start = Instant::now();
 
     let runtime_dir = std::env::var(universal_constants::env_vars::sys::XDG_RUNTIME_DIR)
@@ -148,7 +148,7 @@ pub(crate) fn check_discovered_services() -> HealthCheck {
 }
 
 /// Check Unix socket health
-pub(crate) fn check_unix_socket() -> HealthCheck {
+pub fn check_unix_socket() -> HealthCheck {
     let start = Instant::now();
 
     let socket_path =
@@ -169,7 +169,7 @@ pub(crate) fn check_unix_socket() -> HealthCheck {
 }
 
 /// Check RPC server configuration
-pub(crate) fn check_rpc_server() -> HealthCheck {
+pub fn check_rpc_server() -> HealthCheck {
     let start = Instant::now();
 
     let socket_path =

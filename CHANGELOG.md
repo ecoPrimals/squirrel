@@ -11,6 +11,25 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 11, 2026 — Wave 157i: Darwin Fix + Clippy Sweep + Flaky Test Fix)
+
+- **Darwin build fix** (graftGate upstream merge): Removed hardcoded `[build] target = "x86_64-unknown-linux-musl"` from `.cargo/config.toml`. `cargo build/check/test` now uses the host triple on any platform. ecoBin builds use explicit `--target` in justfile. Darwin (`aarch64-apple-darwin`) and Windows (`x86_64-pc-windows-gnu`) cross-arch checks both pass clean.
+- **Flaky test fixed**: `coordinate_storage_fails_without_provider` — test endpoint changed from `https://storage.test` (which fell through to convention-based socket resolution, connecting to live NestGate on eastGate) to `unix:///tmp/squirrel-test-nonexistent-storage.sock` (deterministic IPC failure). 0 flaky tests remaining.
+- **Clippy sweep**: 40+ clippy warnings fixed across 4 crates:
+  - 14 unnecessary `Result` wrappings removed (functions that always returned `Ok(...)`) in monitoring, RPC handlers, security health.
+  - 8 `write!(..., "...\n")` → `writeln!(...)` in context rules parser.
+  - 5 unfulfilled `#[expect]` annotations removed (lints no longer triggered after Rust 1.94 evolution).
+  - 3 underscore-prefixed bindings that were actually used (rate limiter).
+  - 3 pass-by-value arguments changed to pass-by-reference.
+  - 2 `map().unwrap_or_default()` on `Result` → `is_ok_and()`.
+  - `io::Error::new(io::ErrorKind::Other, e)` → `io::Error::other(e)`.
+  - `pub(crate)` in private module → `pub`.
+  - Collapsible `if` statements collapsed (let-chain patterns).
+  - `#[must_use]` added where needed.
+  - Redundant clone removed.
+- Workspace clippy now passes `--workspace -- -D warnings` with 0 errors.
+- 4,127 tests passing, 0 failures, 0 flaky. Cross-arch clean (darwin + windows + musl).
+
 ### Summary (Aug 10, 2026 — Wave 157g: Absorbed Subsystem Excision + Fake-Async Cleanup)
 
 - **`self_healing/` excised** (878 LOC — 366 prod + 512 tests): Always-compiled dead code. `SelfHealingManager` was exported but never wired in any production path. Ecosystem health is handled via capability IPC (`health.liveness`, `health.readiness`). The `ShutdownManager` handles graceful shutdown.

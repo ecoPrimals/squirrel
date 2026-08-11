@@ -51,8 +51,6 @@
     clippy::unused_async,
     // ARCHITECTURAL: method design — 21 call-sites need API restructuring
     clippy::unused_self,
-    // ARCHITECTURAL: API surface — 24 call-sites, would break callers
-    clippy::needless_pass_by_ref_mut,
     // ARCHITECTURAL: builder pattern — 28 call-sites
     clippy::return_self_not_must_use,
     // Noisy in domain code — many intentional patterns

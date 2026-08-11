@@ -209,7 +209,7 @@ impl UniversalSecurityHealthChecker {
         let mut health = SecurityHealth::new();
 
         // Check local security components
-        self.check_local_components(&mut health)?;
+        self.check_local_components(&mut health);
 
         // Check discovered security endpoints (skip in test mode to avoid 10s+ timeouts)
         if !self.skip_discovery {
@@ -227,7 +227,7 @@ impl UniversalSecurityHealthChecker {
     }
 
     /// Check local security components
-    fn check_local_components(&self, health: &mut SecurityHealth) -> Result<(), PrimalError> {
+    fn check_local_components(&self, health: &mut SecurityHealth) {
         // Check authentication system
         let mut auth_health = ComponentHealth::default();
         auth_health
@@ -248,8 +248,6 @@ impl UniversalSecurityHealthChecker {
             .metrics
             .insert("blocked_requests_rate".to_string(), 0.01);
         health.add_component("rate_limiting".to_string(), rate_limit_health);
-
-        Ok(())
     }
 
     /// Check discovered security endpoints through capability discovery.

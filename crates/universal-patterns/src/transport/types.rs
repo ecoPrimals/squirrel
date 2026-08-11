@@ -430,7 +430,7 @@ mod tests {
 ///
 /// Relocated from `federation::cross_platform` during C8 excision — the only
 /// transport-relevant piece of that module.
-pub(crate) fn get_runtime_dir(app_name: &str) -> PathBuf {
+pub fn get_runtime_dir(app_name: &str) -> PathBuf {
     #[cfg(target_os = "linux")]
     {
         if let Ok(xdg_runtime) =

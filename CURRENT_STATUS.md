@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: Aug 10, 2026 (Wave 157g — Subsystem Excision + Deep Debt Sweep + G72)
+**Last Updated**: Aug 11, 2026 (Wave 157i — Darwin Fix + Clippy Sweep + Flaky Test Fix)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -11,8 +11,8 @@
 
 | Metric | Value |
 |--------|-------|
-| Build | GREEN — default features: 0 errors; `--all-features`: 0 errors, **0 warnings**; `cargo check --target x86_64-pc-windows-gnu`: **0 errors** (cross-arch compliant) |
-| Tests | **1,539** passing / 1 pre-existing env-dependent flaky (`coordinate_storage_fails_without_provider`) across 12 workspace crates (default features) |
+| Build | GREEN — default features: 0 errors, 0 warnings; `cargo check --target x86_64-pc-windows-gnu`: 0 errors; `cargo check --target aarch64-apple-darwin`: **0 errors** (darwin cross-arch clean) |
+| Tests | **4,127** passing / **0 failures** across 12 workspace crates (default features) |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn`; `async-trait` only remains as transitive dev-dep from `wasm-bindgen-test` |
 | Clippy | CLEAN — `pedantic + nursery + cargo`, `expect_used/unwrap_used = deny` workspace-wide; zero warnings under `-D warnings` |
@@ -20,7 +20,7 @@
 | Formatting | `cargo fmt --all -- --check` passes |
 | Unsafe Code | 0 in production — `unsafe_code = "forbid"` in workspace `[lints.rust]` (all 12 crates) |
 | Pure Rust | 100% default features **and** `--all-features` (zero C deps, zero non-Rust crypto); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed; `ed25519-dalek` feature-gated behind `local-crypto`; `blake3` → `features = ["pure"]` (no SIMD assembly); `pprof`, `openai`, `libloading`, `nvml-wrapper` removed; `nix` → `rustix` (pure Rust syscalls); `rand` upgraded 0.8→0.9.4 (RUSTSEC-2026-0097); `ring`/`reqwest`/`jsonwebtoken`/`rustls` **ELIMINATED** from Cargo.lock (stadial gate); `zstd`/`flate2`/`lz4_flex` **ELIMINATED** from Cargo.lock (compression feature emptied); **G72 Tier 1**: 18 dead deps excised, tokio/tarpc/tokio-util trimmed from `["full"]`, 384→333 unique packages in Cargo.lock (13% reduction) |
-| ecoBin | Compliant v3.0 — 4.4 MB static-pie musl binary, stripped, BLAKE3 checksummed, zero host paths (`--remap-path-prefix`), zero dynamic deps; `deny.toml` bans 14 C-dep crates + `tokio-tungstenite` (Tower Atomic) + `reqwest` (Tower Atomic); pure Rust `sys_info` via `/proc` parsing |
+| ecoBin | Compliant v3.0 — 4.4 MB static-pie musl binary, stripped, BLAKE3 checksummed, zero host paths (`--remap-path-prefix`), zero dynamic deps; `deny.toml` bans 14 C-dep crates + `tokio-tungstenite` (Tower Atomic) + `reqwest` (Tower Atomic); pure Rust `sys_info` via `/proc` parsing; `.cargo/config.toml` no longer hardcodes default target — ecoBin builds via explicit `--target` in justfile; `cargo build/check/test` uses host triple on any platform (darwin, linux, windows) |
 | Coverage | **90.1%** region coverage / 89.6% line coverage via `cargo-llvm-cov` (**target met**); remaining uncovered: binary entry points, demo bins, WASM-only SDK paths, live IPC server loops |
 | `.unwrap()` in code | 0 — workspace-wide elimination; all Results use `?` or `.expect("invariant")` |
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |

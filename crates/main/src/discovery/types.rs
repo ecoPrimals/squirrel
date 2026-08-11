@@ -103,8 +103,7 @@ impl DiscoveredService {
     pub fn is_fresh(&self, ttl: Duration) -> bool {
         SystemTime::now()
             .duration_since(self.discovered_at)
-            .map(|age| age < ttl)
-            .unwrap_or_default()
+            .is_ok_and(|age| age < ttl)
     }
 
     /// Check if service provides a specific capability

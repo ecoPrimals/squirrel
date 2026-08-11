@@ -171,20 +171,20 @@ impl ProductionRateLimiter {
 
         let client_info = clients.entry(client_ip).or_insert_with(|| ClientInfo {
             _ip_address: client_ip,
-            _user_agent: user_agent.clone(),
+            user_agent: user_agent.clone(),
             _first_seen: now,
             last_activity: now,
-            _total_requests: 0,
+            total_requests: 0,
             violations: Vec::new(),
             is_banned: false,
             ban_expires_at: None,
         });
 
         client_info.last_activity = now;
-        client_info._total_requests += 1;
+        client_info.total_requests += 1;
 
-        if client_info._user_agent.is_none() && user_agent.is_some() {
-            client_info._user_agent = user_agent;
+        if client_info.user_agent.is_none() && user_agent.is_some() {
+            client_info.user_agent = user_agent;
         }
     }
 

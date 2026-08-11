@@ -83,7 +83,7 @@ impl JsonRpcServer {
     /// - `provided_capabilities`: structured grouping with descriptions for L3 composability
     /// - `consumed_capabilities`: cross-primal dependencies for composition validation
     /// - `cost_estimates` / `operation_dependencies`: AI planner metadata
-    pub(crate) fn handle_capability_list(&self) -> Result<Value, JsonRpcError> {
+    pub(crate) fn handle_capability_list(&self) -> Value {
         debug!("capabilities.list request (Wire Standard L3)");
 
         let methods: Vec<&str> = niche::CAPABILITIES.to_vec();
@@ -116,7 +116,7 @@ impl JsonRpcServer {
             })
             .collect();
 
-        Ok(serde_json::json!({
+        serde_json::json!({
             "primal": niche::PRIMAL_ID,
             "version": niche::PRIMAL_VERSION,
             "capabilities": methods,
@@ -128,7 +128,7 @@ impl JsonRpcServer {
             "operation_dependencies": niche::operation_dependencies(),
             "protocol": "jsonrpc-2.0",
             "transport": ["uds", "tcp"],
-        }))
+        })
     }
 
     /// Handle `capability.discover` — return capabilities for socket scanning.
@@ -176,9 +176,7 @@ mod direct_tests {
     #[tokio::test]
     async fn capabilities_list_is_wire_standard_l3() {
         let server = JsonRpcServer::new("/tmp/cap-l3-test.sock".to_string());
-        let v = server
-            .handle_capability_list()
-            .expect("should succeed");
+        let v = server.handle_capability_list();
 
         assert!(v.get("primal").is_some(), "L2: primal field required");
         assert!(v.get("version").is_some(), "L2: version field required");

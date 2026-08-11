@@ -384,11 +384,11 @@ impl MetricsCollector {
         system_metrics.disk_usage = self.get_disk_usage()?;
         system_metrics.network_bytes_sent = self.get_network_bytes_sent()?;
         system_metrics.network_bytes_received = self.get_network_bytes_received()?;
-        system_metrics.active_connections = self.get_active_connections()?;
-        system_metrics.request_rate = self.get_request_rate()?;
-        system_metrics.error_rate = self.get_error_rate()?;
-        system_metrics.avg_response_time = self.get_avg_response_time()?;
-        system_metrics.uptime = self.get_uptime()?;
+        system_metrics.active_connections = self.get_active_connections();
+        system_metrics.request_rate = self.get_request_rate();
+        system_metrics.error_rate = self.get_error_rate();
+        system_metrics.avg_response_time = self.get_avg_response_time();
+        system_metrics.uptime = self.get_uptime();
 
         Ok(())
     }
@@ -405,7 +405,7 @@ impl MetricsCollector {
         ];
 
         for component in internal_components {
-            let metrics = self.collect_component_specific_metrics(component)?;
+            let metrics = self.collect_component_specific_metrics(component);
             self.component_metrics
                 .insert(component.to_string(), metrics);
         }
@@ -432,7 +432,7 @@ impl MetricsCollector {
                         "Discovered {} capability provider, collecting metrics",
                         domain
                     );
-                    let metrics = self.collect_component_specific_metrics(domain)?;
+                    let metrics = self.collect_component_specific_metrics(domain);
                     self.component_metrics
                         .insert(format!("capability.{domain}"), metrics);
                 } else {
@@ -450,7 +450,7 @@ impl MetricsCollector {
     fn collect_component_specific_metrics(
         &self,
         component: &str,
-    ) -> Result<HashMap<String, f64>, PrimalError> {
+    ) -> HashMap<String, f64> {
         let mut metrics = HashMap::new();
 
         match component {
@@ -516,7 +516,7 @@ impl MetricsCollector {
             }
         }
 
-        Ok(metrics)
+        metrics
     }
 
     /// Create a snapshot of current metrics
@@ -591,7 +591,7 @@ impl MetricsCollector {
         Ok(net.rx_bytes as f64)
     }
 
-    fn get_active_connections(&self) -> Result<u32, PrimalError> {
+    fn get_active_connections(&self) -> u32 {
         // Count established TCP connections from /proc/net/tcp
         let content = std::fs::read_to_string("/proc/net/tcp").unwrap_or_default();
         // State 01 = ESTABLISHED in /proc/net/tcp
@@ -608,24 +608,25 @@ impl MetricsCollector {
             clippy::cast_possible_truncation,
             reason = "TCP connections won't exceed u32"
         )]
-        Ok(count as u32)
+        let active_connections = count as u32;
+        active_connections
     }
 
-    fn get_request_rate(&self) -> Result<f64, PrimalError> {
-        Ok(self.request_tracker.request_rate())
+    fn get_request_rate(&self) -> f64 {
+        self.request_tracker.request_rate()
     }
 
-    fn get_error_rate(&self) -> Result<f64, PrimalError> {
-        Ok(self.request_tracker.error_rate())
+    fn get_error_rate(&self) -> f64 {
+        self.request_tracker.error_rate()
     }
 
-    fn get_avg_response_time(&self) -> Result<f64, PrimalError> {
-        Ok(self.request_tracker.avg_response_time_ms())
+    fn get_avg_response_time(&self) -> f64 {
+        self.request_tracker.avg_response_time_ms()
     }
 
     /// Host uptime in seconds from [`universal_constants::sys_info::uptime_seconds`] (`/proc/uptime` on Linux).
-    fn get_uptime(&self) -> Result<u64, PrimalError> {
-        Ok(universal_constants::sys_info::uptime_seconds().unwrap_or(0))
+    fn get_uptime(&self) -> u64 {
+        universal_constants::sys_info::uptime_seconds().unwrap_or(0)
     }
 }
 

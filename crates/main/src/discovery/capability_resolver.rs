@@ -131,7 +131,7 @@ impl CapabilityResolver {
             request.capability
         );
         Err(DiscoveryError::CapabilityNotFound {
-            capability: request.capability.clone(),
+            capability: request.capability,
         })
     }
 

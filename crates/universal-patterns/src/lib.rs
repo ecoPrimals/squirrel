@@ -3,7 +3,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![expect(
-    clippy::unused_async,
     clippy::missing_errors_doc,
     clippy::must_use_candidate,
     clippy::missing_const_for_fn,
@@ -11,14 +10,11 @@
     clippy::uninlined_format_args,
     clippy::use_self,
     clippy::redundant_closure_for_method_calls,
-    clippy::needless_pass_by_value,
     clippy::return_self_not_must_use,
     clippy::match_same_arms,
-    clippy::significant_drop_tightening,
     clippy::cast_possible_truncation,
     clippy::derive_partial_eq_without_eq,
     clippy::option_if_let_else,
-    clippy::cloned_instead_of_copied,
     reason = "Large pattern library; progressive lint and doc tightening"
 )]
 

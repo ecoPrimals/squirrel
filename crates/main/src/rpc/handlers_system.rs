@@ -86,27 +86,27 @@ impl JsonRpcServer {
     /// Returns the minimal `{status, primal, version}` shape that overwatch /
     /// cellMembrane / NUCLEUS probes expect. This is intentionally simpler than
     /// `health.check` (which returns the full tiered health report).
-    pub(crate) fn handle_health_bare(&self) -> Result<Value, JsonRpcError> {
+    pub(crate) fn handle_health_bare(&self) -> Value {
         debug!("bare health probe");
-        Ok(serde_json::json!({
+        serde_json::json!({
             "status": "healthy",
             "primal": crate::niche::PRIMAL_ID,
             "version": env!("CARGO_PKG_VERSION"),
-        }))
+        })
     }
 
     /// Handle `health.liveness` — Wire Standard L1 / PRIMAL_IPC_PROTOCOL v3.0.
     ///
     /// Wire Standard audit checklist: `{status: "alive"}` or `{alive: true}`.
     /// We return both for maximum compatibility.
-    pub(crate) fn handle_health_liveness(&self) -> Result<Value, JsonRpcError> {
+    pub(crate) fn handle_health_liveness(&self) -> Value {
         debug!("health.liveness probe");
-        Ok(serde_json::json!({
+        serde_json::json!({
             "status": "alive",
             "alive": true,
             "version": env!("CARGO_PKG_VERSION"),
             "timestamp": chrono::Utc::now().to_rfc3339(),
-        }))
+        })
     }
 
     /// Handle `health.readiness` — PRIMAL_IPC_PROTOCOL v3.0.
@@ -158,14 +158,14 @@ impl JsonRpcServer {
     }
 
     /// Handle `system.ping` method
-    pub(crate) fn handle_ping(&self) -> Result<Value, JsonRpcError> {
+    pub(crate) fn handle_ping(&self) -> Value {
         debug!("ping");
 
-        Ok(serde_json::json!({
+        serde_json::json!({
             "pong": true,
             "timestamp": chrono::Utc::now().to_rfc3339(),
             "version": env!("CARGO_PKG_VERSION")
-        }))
+        })
     }
 
     // -- Discovery domain ----------------------------------------------------
@@ -215,14 +215,14 @@ impl JsonRpcServer {
     // -- Lifecycle domain (biomeOS) ------------------------------------------
 
     /// Handle `lifecycle.register` — acknowledge registration requests.
-    pub(crate) fn handle_lifecycle_register(&self) -> Result<Value, JsonRpcError> {
+    pub(crate) fn handle_lifecycle_register(&self) -> Value {
         debug!("lifecycle.register request");
 
-        Ok(serde_json::json!({
+        serde_json::json!({
             "success": true,
             "message": format!("{} registered", self.service_name),
             "version": env!("CARGO_PKG_VERSION"),
-        }))
+        })
     }
 
     /// Handle `lifecycle.status` — heartbeat status report
@@ -334,7 +334,7 @@ mod direct_tests {
     #[tokio::test]
     async fn bare_health_returns_wave113_shape() {
         let server = JsonRpcServer::new("/tmp/sys-bare-health.sock".to_string());
-        let v = server.handle_health_bare().expect("should succeed");
+        let v = server.handle_health_bare();
         assert_eq!(
             v.get("status").and_then(serde_json::Value::as_str),
             Some("healthy"),
@@ -372,9 +372,7 @@ mod direct_tests {
     #[tokio::test]
     async fn health_liveness_json_shape() {
         let server = JsonRpcServer::new("/tmp/sys-live.sock".to_string());
-        let v = server
-            .handle_health_liveness()
-            .expect("should succeed");
+        let v = server.handle_health_liveness();
         assert_eq!(
             v.get("status").and_then(serde_json::Value::as_str),
             Some("alive"),
