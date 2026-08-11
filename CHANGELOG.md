@@ -2652,7 +2652,7 @@ managing context, and coordinating multiple model providers.
 | `delegated-jwt` | Capability-based JWT delegation | ON |
 | `system-metrics` | sysinfo C dependency | OFF |
 | `monitoring` | Prometheus metrics | OFF |
-| `gpu-detection` | ToadStool GPU detection | OFF |
+| `gpu-detection` | ~~ToadStool GPU detection~~ (excised Wave 157g — compute primal domain) | REMOVED |
 | `local-jwt` | Local JWT (brings ring C dep) | OFF |
 
 ### Spring Absorption & Primal Integration

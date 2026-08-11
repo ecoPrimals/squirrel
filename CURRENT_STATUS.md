@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: Aug 10, 2026 (Wave 157g — Deep Debt Sweep + G72 Dependency Pandemic)
+**Last Updated**: Aug 10, 2026 (Wave 157g — Subsystem Excision + Deep Debt Sweep + G72)
 **Version**: 0.1.0
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -12,7 +12,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors, **0 warnings**; `cargo check --target x86_64-pc-windows-gnu`: **0 errors** (cross-arch compliant) |
-| Tests | **4,100+** passing / 1 pre-existing env-dependent flaky (`coordinate_storage_fails_without_provider`) across 12 workspace crates (default features) |
+| Tests | **1,539** passing / 1 pre-existing env-dependent flaky (`coordinate_storage_fails_without_provider`) across 12 workspace crates (default features) |
 | Edition | 2024 (Rust 1.94+) |
 | async-trait | **0 usage** — all `#[async_trait]` annotations removed; dyn-safe traits use explicit `Pin<Box<dyn Future>>`, non-dyn traits use native `async fn`; `async-trait` only remains as transitive dev-dep from `wasm-bindgen-test` |
 | Clippy | CLEAN — `pedantic + nursery + cargo`, `expect_used/unwrap_used = deny` workspace-wide; zero warnings under `-D warnings` |

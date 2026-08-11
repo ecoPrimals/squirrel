@@ -1,6 +1,6 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 4,100+ tests (default features), 43 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 1,539 tests (default features), 43 IPC methods."
 date = 2026-08-10
 
 [taxonomies]
@@ -8,15 +8,15 @@ primals = ["squirrel"]
 springs = []
 +++
 
-## Wave 157g — G72 Dependency Pandemic Tier 1 (Aug 10, 2026)
+## Wave 157g — Subsystem Excision + Deep Debt Sweep + G72 (Aug 10, 2026)
 
-- **Feature trimming**: `tokio["full"]` → 9 explicit features; `tokio-util["full"]` → `["codec"]`; `tarpc["full"]` → `["serde-transport"]`
-- **Dead dep excision**: 18 dead dependencies removed across 6 crates (dashmap, futures-util, tokio-stream, toml, metrics, prometheus, strum, glob, tracing-subscriber, blake3, rand, zeroize, axum, chrono, squirrel-mcp-config, metrics-exporter-prometheus)
-- **Workspace cleanup**: 6 workspace deps removed (glob, metrics, prometheus, metrics-exporter-prometheus, tokio-stream, futures-util, axum)
-- **Version alignment**: 20+ dev-deps migrated to workspace inheritance; auth crate switched from local `tokio["full"]` to workspace
-- **Cargo.lock**: 384 → 333 unique packages (-51, 13% reduction), +11/-584 lines
-- 4,159 tests passing, 0 failures
-- `cargo check --target x86_64-pc-windows-gnu` = 0 errors
+- **Absorbed subsystem excision**: `self_healing/` (878 LOC) excised — always compiled, zero production callers; ecosystem health handled via capability IPC. `hardware/gpu.rs` (704 LOC) excised — GPU detection belongs to compute primals (ToadStool/barraCuda); `gpu-detection` feature removed.
+- **Fake-async cleanup**: 15 functions converted from `async fn` to `fn` (no `.await` in body): RPC handlers (btsp, capability, identity, lifecycle), monitoring, discovery, security health. Call sites updated.
+- **`context-learning` + `context-visualization` marked DEPRECATED**: ~16.8k LOC RL/neural scaffold, feature-gated OFF, zero production callers. Compute belongs to neuralSpring/ToadStool; context lifecycle stays in squirrel.
+- **`Arc<Mutex<CommandRegistry>>` double-lock excised**: All `CommandRegistry` methods are `&self` with interior mutability; outer `Mutex` was redundant. +466/-821 across factory/builtin/cli.
+- **G72 Tier 1**: 18 dead deps removed, tokio/tarpc/tokio-util trimmed from `["full"]`, Cargo.lock 384→333 packages.
+- **Idiom sweep**: `AtomicBool` run flags, capability-domain deps in niche.rs, 118x `unwrap_or_default()`, clone-on-copy fix, buffer-clone elimination, `match→if let`, `Vec<&String>→Vec<&str>`.
+- 1,539 tests passing (default features), 1 pre-existing env-dependent flaky, cross-arch (Windows) clean
 
 ## Wave 157e — G68 Platform Substrate Abstraction (Aug 7, 2026)
 
@@ -252,8 +252,8 @@ springs = []
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
 - **Workspace**: 12 crates
-- **Tests**: **4,100+** passing (default features), 1 env-dependent flaky; full suite ~21s
-- **Source**: ~620 `.rs` files, ~190k lines
+- **Tests**: **1,539** passing (default features), 1 env-dependent flaky; full suite ~21s
+- **Source**: 616 `.rs` files, ~188k lines
 - **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`)
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced
 - **Coverage**: 90.1% region / 89.6% line (cargo-llvm-cov)
