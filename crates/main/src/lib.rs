@@ -66,7 +66,8 @@ pub mod capabilities;
 pub mod config;
 pub mod discovery;
 pub mod error;
-pub mod hardware;
+// hardware: excised Wave 157g — GPU detection belongs to compute primals (ToadStool/barraCuda).
+// Squirrel consumes compute.hardware.observe via capability IPC.
 pub mod metrics;
 pub mod monitoring;
 /// Niche self-knowledge: identity, capabilities, costs, dependencies.
@@ -106,8 +107,8 @@ pub mod transport;
 #[cfg(feature = "benchmarking")]
 pub mod benchmarking;
 
-/// Graceful shutdown system
-pub mod self_healing;
+// self_healing: excised Wave 157g — ecosystem health handled via capability IPC
+// (health.liveness, health.readiness); SelfHealingManager was never wired in production.
 
 // Core error types
 pub use error::PrimalError;
@@ -118,7 +119,6 @@ pub type PrimalResult<T> = Result<T, PrimalError>;
 // Monitoring (used by main.rs binary)
 pub use monitoring::metrics::MetricsCollector;
 pub use monitoring::performance::PerformanceTracker as PerformanceMonitor;
-pub use self_healing::SelfHealingManager;
 pub use shutdown::ShutdownManager;
 
 // Version information

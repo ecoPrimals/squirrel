@@ -84,7 +84,7 @@ async fn test_handle_identity_get() -> TestResult {
     use universal_constants::identity;
 
     let server = make_server();
-    let result: Value = server.handle_identity_get().await?;
+    let result: Value = server.handle_identity_get()?;
     assert_eq!(
         result.get("primal").and_then(|v| v.as_str()),
         Some(identity::PRIMAL_ID),
@@ -180,7 +180,7 @@ async fn test_handle_discover_capabilities() -> TestResult {
 #[tokio::test]
 async fn test_handle_capability_list() -> TestResult {
     let server = make_server();
-    let result = server.handle_capability_list().await?;
+    let result = server.handle_capability_list()?;
     assert_eq!(
         result.get("primal").and_then(|v| v.as_str()),
         Some("squirrel"),
@@ -329,7 +329,7 @@ async fn test_handle_batch_multi() -> TestResult {
 #[tokio::test]
 async fn test_handle_lifecycle_register() -> TestResult {
     let server = make_server();
-    let result = server.handle_lifecycle_register().await?;
+    let result = server.handle_lifecycle_register()?;
     assert_eq!(
         result.get("success").and_then(serde_json::Value::as_bool),
         Some(true)
@@ -434,7 +434,7 @@ async fn test_handle_invalid_jsonrpc_version() -> TestResult {
             .get("error")
             .and_then(|e| e.get("message"))
             .and_then(|m| m.as_str())
-            .unwrap_or_default()
+            .unwrap_or("")
             .contains("2.0")
     );
     Ok(())

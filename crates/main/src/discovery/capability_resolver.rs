@@ -80,7 +80,7 @@ impl CapabilityResolver {
 
         // Multi-stage discovery with priority:
         // 1. Try environment variables (fastest, highest priority)
-        if let Ok(service) = self.discover_from_env(&request.capability).await {
+        if let Ok(service) = self.discover_from_env(&request.capability) {
             info!("Found via environment variable (priority 100)");
             return Ok(service);
         }
@@ -136,7 +136,7 @@ impl CapabilityResolver {
     }
 
     /// Discover service from environment variables
-    async fn discover_from_env(&self, capability: &str) -> DiscoveryResult<DiscoveredService> {
+    fn discover_from_env(&self, capability: &str) -> DiscoveryResult<DiscoveredService> {
         let env_key = format!("{}_ENDPOINT", capability.to_uppercase().replace('.', "_"));
 
         if let Ok(endpoint) = std::env::var(&env_key) {

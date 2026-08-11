@@ -13,7 +13,6 @@ use std::f64::consts::PI;
 async fn test_learning_metrics_new() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create learning metrics");
 
     let stats = metrics.get_stats().await;
@@ -24,7 +23,6 @@ async fn test_learning_metrics_new() {
 async fn test_learning_metrics_initialize() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config.clone()))
-        .await
         .expect("Should create metrics");
 
     metrics.initialize().await.expect("Should initialize");
@@ -38,7 +36,6 @@ async fn test_learning_metrics_initialize() {
 async fn test_learning_metrics_start() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     metrics.initialize().await.expect("Should initialize");
@@ -52,7 +49,6 @@ async fn test_learning_metrics_start() {
 async fn test_update_performance() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     let mut updates = HashMap::new();
@@ -73,7 +69,6 @@ async fn test_update_performance() {
 async fn test_update_stats() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     let mut updates = HashMap::new();
@@ -94,7 +89,6 @@ async fn test_update_stats() {
 async fn test_record_episode() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     metrics
@@ -112,7 +106,6 @@ async fn test_record_episode() {
 async fn test_record_episode_failure() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     metrics
@@ -129,7 +122,6 @@ async fn test_record_episode_failure() {
 async fn test_record_policy_update() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     metrics
@@ -145,7 +137,6 @@ async fn test_record_policy_update() {
 async fn test_record_rule_adaptation() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     metrics
@@ -161,7 +152,6 @@ async fn test_record_rule_adaptation() {
 async fn test_take_snapshot() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     metrics.take_snapshot().await.expect("Should take snapshot");
@@ -174,7 +164,6 @@ async fn test_take_snapshot() {
 async fn test_add_custom_metric() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     metrics
@@ -190,7 +179,6 @@ async fn test_add_custom_metric() {
 async fn test_get_custom_metric() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     metrics
@@ -206,7 +194,6 @@ async fn test_get_custom_metric() {
 async fn test_clear_history() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     metrics.take_snapshot().await.expect("Should take snapshot");
@@ -225,7 +212,6 @@ async fn test_clear_history() {
 async fn test_export_metrics() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     let export = metrics
@@ -326,7 +312,6 @@ fn test_metrics_snapshot_serialization() {
 async fn test_multiple_episode_records() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     // Record multiple episodes
@@ -349,7 +334,6 @@ async fn test_multiple_episode_records() {
 async fn test_average_reward_calculation() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     // Record episodes with known rewards
@@ -374,7 +358,6 @@ async fn test_average_reward_calculation() {
 async fn test_history_ordering() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     // Take multiple snapshots
@@ -396,7 +379,6 @@ async fn test_history_ordering() {
 async fn test_custom_metrics_update() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     metrics
@@ -418,7 +400,6 @@ async fn test_custom_metrics_update() {
 async fn test_performance_stability() {
     let config = test_helpers::create_test_learning_config();
     let metrics = LearningMetrics::new(Arc::new(config))
-        .await
         .expect("Should create metrics");
 
     let mut updates = HashMap::new();

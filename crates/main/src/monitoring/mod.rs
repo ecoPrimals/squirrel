@@ -275,7 +275,7 @@ impl MonitoringSystem {
         self.start_status_updates().await?;
 
         // Initialize exporters
-        self.initialize_exporters().await?;
+        self.initialize_exporters()?;
 
         info!("Monitoring system started successfully");
         Ok(())
@@ -463,7 +463,7 @@ impl MonitoringSystem {
         Ok(())
     }
 
-    async fn initialize_exporters(&self) -> Result<(), PrimalError> {
+    fn initialize_exporters(&self) -> Result<(), PrimalError> {
         if self.config.enable_prometheus {
             info!("Initializing Prometheus metrics exporter");
             // Implementation would initialize Prometheus exporter

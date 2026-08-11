@@ -80,7 +80,6 @@ fn test_learning_system_stats_serialization() {
 async fn test_adaptive_rule_system_new() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("create");
     let stats = system.get_stats().await;
     assert_eq!(stats.total_adaptations, 0);
@@ -90,7 +89,6 @@ async fn test_adaptive_rule_system_new() {
 async fn test_adaptive_rule_system_add_rule() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("create");
     let rule = test_helpers::create_test_rule();
     system.add_rule(rule.clone()).await.expect("add");
@@ -103,7 +101,6 @@ async fn test_adaptive_rule_system_add_rule() {
 async fn test_adaptive_rule_system_update_performance() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("create");
     let rule = test_helpers::create_test_rule();
     let id = rule.id().to_string();
@@ -121,7 +118,6 @@ async fn test_adaptive_rule_system_update_performance() {
 async fn test_adaptive_rule_system_remove_rule() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("create");
     let rule = test_helpers::create_test_rule();
     let id = rule.id().to_string();
@@ -190,7 +186,7 @@ fn make_rl_experience(id: &str, reward: f64) -> RLExperience {
 #[tokio::test]
 async fn test_learning_engine_new() {
     let config = Arc::new(test_helpers::create_test_learning_config());
-    let engine = LearningEngine::new(config).await.expect("create");
+    let engine = LearningEngine::new(config).expect("create");
     assert_eq!(engine.get_q_table_size().await, 0);
     assert_eq!(engine.get_experience_buffer_size().await, 0);
 }
@@ -198,7 +194,7 @@ async fn test_learning_engine_new() {
 #[tokio::test]
 async fn test_learning_engine_select_action() {
     let config = Arc::new(test_helpers::create_test_learning_config());
-    let engine = LearningEngine::new(config).await.expect("create");
+    let engine = LearningEngine::new(config).expect("create");
     engine.initialize().await.expect("init");
     let state = make_rl_state("s1");
     let action = engine.select_action(&state).await.expect("select");
@@ -209,7 +205,7 @@ async fn test_learning_engine_select_action() {
 #[tokio::test]
 async fn test_learning_engine_add_experience() {
     let config = Arc::new(test_helpers::create_test_learning_config());
-    let engine = LearningEngine::new(config).await.expect("create");
+    let engine = LearningEngine::new(config).expect("create");
     let exp = make_rl_experience("e1", 1.0);
     engine.add_experience(exp).await.expect("add");
     assert_eq!(engine.get_experience_buffer_size().await, 1);
@@ -218,7 +214,7 @@ async fn test_learning_engine_add_experience() {
 #[tokio::test]
 async fn test_learning_engine_update_q_values() {
     let config = Arc::new(test_helpers::create_test_learning_config());
-    let engine = LearningEngine::new(config).await.expect("create");
+    let engine = LearningEngine::new(config).expect("create");
     let exp = make_rl_experience("e1", 1.0);
     engine.update_q_values(&exp).await.expect("update");
     // DQN adds to experience buffer; Q-learning updates Q-table
@@ -228,7 +224,7 @@ async fn test_learning_engine_update_q_values() {
 #[tokio::test]
 async fn test_learning_engine_decay_exploration() {
     let config = Arc::new(test_helpers::create_test_learning_config());
-    let engine = LearningEngine::new(config).await.expect("create");
+    let engine = LearningEngine::new(config).expect("create");
     let before = engine.get_exploration_rate().await;
     engine.decay_exploration().await.expect("decay");
     let after = engine.get_exploration_rate().await;
@@ -327,7 +323,7 @@ fn test_experience_stats_default() {
 #[tokio::test]
 async fn test_learning_metrics_new() {
     let config = Arc::new(test_helpers::create_test_learning_config());
-    let metrics = LearningMetrics::new(config).await.expect("create");
+    let metrics = LearningMetrics::new(config).expect("create");
     let perf = metrics.get_performance().await;
     assert!((perf.learning_rate - 0.0).abs() < 1e-9);
 }
@@ -335,7 +331,7 @@ async fn test_learning_metrics_new() {
 #[tokio::test]
 async fn test_learning_metrics_update_performance() {
     let config = Arc::new(test_helpers::create_test_learning_config());
-    let metrics = LearningMetrics::new(config).await.expect("create");
+    let metrics = LearningMetrics::new(config).expect("create");
     metrics.initialize().await.expect("init");
     let mut updates = std::collections::HashMap::new();
     updates.insert("success_rate".to_string(), 0.9);
@@ -347,7 +343,7 @@ async fn test_learning_metrics_update_performance() {
 #[tokio::test]
 async fn test_learning_metrics_record_episode() {
     let config = Arc::new(test_helpers::create_test_learning_config());
-    let metrics = LearningMetrics::new(config).await.expect("create");
+    let metrics = LearningMetrics::new(config).expect("create");
     metrics
         .record_episode(true, 10.0, 5, 1.0)
         .await
@@ -360,7 +356,7 @@ async fn test_learning_metrics_record_episode() {
 #[tokio::test]
 async fn test_learning_metrics_take_snapshot() {
     let config = Arc::new(test_helpers::create_test_learning_config());
-    let metrics = LearningMetrics::new(config).await.expect("create");
+    let metrics = LearningMetrics::new(config).expect("create");
     let id = metrics.take_snapshot().await.expect("snapshot");
     assert!(!id.is_empty());
     let snap = metrics.get_snapshot(&id).await;
@@ -370,7 +366,7 @@ async fn test_learning_metrics_take_snapshot() {
 #[tokio::test]
 async fn test_learning_metrics_custom_metric() {
     let config = Arc::new(test_helpers::create_test_learning_config());
-    let metrics = LearningMetrics::new(config).await.expect("create");
+    let metrics = LearningMetrics::new(config).expect("create");
     metrics
         .set_custom_metric("custom".to_string(), 42.0)
         .await

@@ -11,6 +11,15 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 10, 2026 — Wave 157g: Absorbed Subsystem Excision + Fake-Async Cleanup)
+
+- **`self_healing/` excised** (878 LOC — 366 prod + 512 tests): Always-compiled dead code. `SelfHealingManager` was exported but never wired in any production path. Ecosystem health is handled via capability IPC (`health.liveness`, `health.readiness`). The `ShutdownManager` handles graceful shutdown.
+- **`hardware/gpu.rs` excised** (704 LOC): Feature-gated `gpu-detection` with zero production callers. GPU detection belongs to compute primals (ToadStool/barraCuda). Squirrel consumes `compute.hardware.observe` via capability IPC. Feature flag removed from `Cargo.toml`.
+- **15 fake-async functions converted to sync**: Removed `async` from functions with no `.await` in body and updated all call sites. Converted: `handle_btsp_negotiate`, `handle_capability_list`, `handle_identity_get`, `handle_lifecycle_register`, `discover_from_env`, `initialize_exporters`, `collect_component_specific_performance`, `collect_resource_utilization`, `update_metric`, `init_http_provider`, `detect_btsp_switch`, `check_local_components`, `get_recovery_strategy`, `attempt_recovery`, `get_status`.
+- **`context-learning` + `context-visualization` marked deprecated**: ~14.6k LOC RL/neural scaffold (feature-gated OFF, zero production callers). RL/policy/training belongs to compute primals; context lifecycle stays in squirrel.
+- **Remaining fake-async**: 53 trait-imposed (correct — real impls need async), 38 public interface contract (callers `.await`; churn > value), ~17 private in feature-gated `context-learning` (excluded from default build).
+- 1,539 tests passing, 0 new failures, cross-arch (Windows) clean.
+
 ### Summary (Aug 10, 2026 — Wave 157g: Deep Debt Sweep — Double-Lock + Idiom)
 
 - **`Arc<Mutex<CommandRegistry>>` double-lock excision**: `CommandRegistry` already provides interior mutability via `Arc<RwLock<...>>` and `Arc<Mutex<...>>` — all public methods are `&self`. Removed the redundant outer `Mutex` wrapping that blocked read concurrency and added poison risk. Changed `CommandRegistryFactory` trait, `create_command_registry()`, `RegistryWithPlugin` type alias, `CommandRegistryPluginAdapter`, and `HelpCommand::new`/`update` to use `Arc<CommandRegistry>` directly. Eliminated 12+ `.lock().map_err(...)` call sites in production code and simplified 8+ test functions. Files: `factory.rs`, `builtin.rs`, `builtin_tests.rs`, `cli/commands/mod.rs`.

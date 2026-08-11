@@ -215,7 +215,7 @@ impl JsonRpcServer {
     // -- Lifecycle domain (biomeOS) ------------------------------------------
 
     /// Handle `lifecycle.register` — acknowledge registration requests.
-    pub(crate) async fn handle_lifecycle_register(&self) -> Result<Value, JsonRpcError> {
+    pub(crate) fn handle_lifecycle_register(&self) -> Result<Value, JsonRpcError> {
         debug!("lifecycle.register request");
 
         Ok(serde_json::json!({

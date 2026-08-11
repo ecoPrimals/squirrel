@@ -406,7 +406,7 @@ impl SquirrelRpc for TarpcRpcServer {
             "client_nonce": params.client_nonce,
             "bond_type": params.bond_type,
         });
-        match self.jsonrpc.handle_btsp_negotiate(Some(json_params)).await {
+        match self.jsonrpc.handle_btsp_negotiate(Some(json_params)) {
             Ok(v) => BtspNegotiateResult {
                 cipher: v
                     .get("cipher")
@@ -432,7 +432,7 @@ impl SquirrelRpc for TarpcRpcServer {
     }
 
     async fn lifecycle_register(self, _ctx: context::Context) -> LifecycleRegisterResult {
-        match self.jsonrpc.handle_lifecycle_register().await {
+        match self.jsonrpc.handle_lifecycle_register() {
             Ok(v) => LifecycleRegisterResult {
                 success: v
                     .get("success")

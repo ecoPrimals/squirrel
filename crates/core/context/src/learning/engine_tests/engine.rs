@@ -14,7 +14,7 @@ use std::sync::Arc;
 #[tokio::test]
 async fn test_learning_engine_creation() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
-    let engine = LearningEngine::new(system_config).await;
+    let engine = LearningEngine::new(system_config);
 
     assert!(engine.is_ok(), "Engine creation should succeed");
 }
@@ -23,7 +23,6 @@ async fn test_learning_engine_creation() {
 async fn test_learning_engine_initialization() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
 
     let result = engine.initialize().await;
@@ -40,7 +39,6 @@ async fn test_learning_engine_initialization() {
 async fn test_learning_engine_start_stop() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
 
     // Start engine
@@ -58,7 +56,6 @@ async fn test_learning_engine_start_stop() {
 async fn test_select_action_returns_valid_action() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
     engine.initialize().await.expect("Failed to initialize");
 
@@ -83,7 +80,6 @@ async fn test_select_action_returns_valid_action() {
 async fn test_exploration_rate_decay() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
     engine.initialize().await.expect("Failed to initialize");
 
@@ -109,7 +105,6 @@ async fn test_exploration_rate_decay() {
 async fn test_exploration_rate_reaches_minimum() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
     engine.initialize().await.expect("Failed to initialize");
 
@@ -134,7 +129,6 @@ async fn test_exploration_rate_reaches_minimum() {
 async fn test_add_experience_increases_buffer_size() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
 
     let initial_size = engine.get_experience_buffer_size().await;
@@ -189,7 +183,6 @@ async fn test_experience_buffer_respects_max_size() {
 
     let system_config = Arc::new(config);
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
 
     // Add more experiences than buffer can hold
@@ -235,7 +228,6 @@ async fn test_experience_buffer_respects_max_size() {
 async fn test_update_q_values_with_experience() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
     engine.initialize().await.expect("Failed to initialize");
 
@@ -270,7 +262,6 @@ async fn test_update_q_values_with_experience() {
 async fn test_experience_buffer_grows_with_dqn_updates() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
     engine.initialize().await.expect("Failed to initialize");
 
@@ -320,7 +311,6 @@ async fn test_experience_buffer_grows_with_dqn_updates() {
 async fn test_engine_metrics_tracking() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
     engine.initialize().await.expect("Failed to initialize");
 
@@ -339,7 +329,6 @@ async fn test_engine_metrics_tracking() {
 async fn test_select_action_multiple_times_consistent() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
     engine.initialize().await.expect("Failed to initialize");
 
@@ -373,7 +362,6 @@ async fn test_select_action_multiple_times_consistent() {
 async fn test_engine_handles_empty_feature_state() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
     engine.initialize().await.expect("Failed to initialize");
 
@@ -394,7 +382,6 @@ async fn test_engine_handles_empty_feature_state() {
 async fn test_engine_handles_large_feature_state() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
     engine.initialize().await.expect("Failed to initialize");
 
@@ -417,7 +404,6 @@ async fn test_engine_config_from_system_config() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
 
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
     let exploration_rate = engine.get_exploration_rate().await;
 
@@ -441,10 +427,8 @@ async fn test_multiple_engines_independent() {
     let config2 = Arc::new(test_helpers::create_test_learning_config());
 
     let engine1 = LearningEngine::new(config1)
-        .await
         .expect("Failed to create engine 1");
     let engine2 = LearningEngine::new(config2)
-        .await
         .expect("Failed to create engine 2");
 
     engine1
@@ -473,7 +457,6 @@ async fn test_multiple_engines_independent() {
 async fn test_update_q_values_with_terminal_state() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
     engine.initialize().await.expect("Failed to initialize");
 
@@ -508,7 +491,6 @@ async fn test_update_q_values_with_terminal_state() {
 async fn test_update_q_values_with_next_state() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
     let engine = LearningEngine::new(system_config)
-        .await
         .expect("Failed to create engine");
     engine.initialize().await.expect("Failed to initialize");
 
@@ -552,7 +534,7 @@ async fn test_dqn_train_network_runs_after_batch_size_reached() {
     // Avoid target network update while `training_steps` write lock is held (would deadlock).
     config.target_update_frequency = 10_000;
     let system_config = Arc::new(config);
-    let engine = LearningEngine::new(system_config).await.expect("engine");
+    let engine = LearningEngine::new(system_config).expect("engine");
     engine.initialize().await.expect("init");
     let initial_steps = engine.get_metrics().await.total_steps;
     for i in 0..12 {
@@ -591,7 +573,7 @@ async fn test_dqn_train_network_runs_after_batch_size_reached() {
 #[tokio::test]
 async fn test_engine_reward_processing_accumulates_in_buffer() {
     let system_config = Arc::new(test_helpers::create_test_learning_config());
-    let engine = LearningEngine::new(system_config).await.expect("engine");
+    let engine = LearningEngine::new(system_config).expect("engine");
     engine.initialize().await.expect("init");
     let exp = RLExperience {
         id: "r1".to_string(),

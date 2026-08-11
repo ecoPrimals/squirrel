@@ -81,7 +81,7 @@ impl TarpcRpcServer {
             response: v
                 .get("response")
                 .and_then(|x| x.as_str())
-                .unwrap_or_default()
+                .unwrap_or("")
                 .to_string(),
             provider: Arc::from(v.get("provider").and_then(|x| x.as_str()).unwrap_or("none")),
             model: Arc::from(v.get("model").and_then(|x| x.as_str()).unwrap_or("none")),
@@ -92,11 +92,11 @@ impl TarpcRpcServer {
             latency_ms: v
                 .get("latency_ms")
                 .and_then(serde_json::Value::as_u64)
-                .unwrap_or_default(),
+                .unwrap_or(0),
             success: v
                 .get("success")
                 .and_then(serde_json::Value::as_bool)
-                .unwrap_or_default(),
+                .unwrap_or(false),
         }
     }
 
@@ -132,7 +132,7 @@ impl TarpcRpcServer {
             total: v
                 .get("total")
                 .and_then(serde_json::Value::as_u64)
-                .unwrap_or_default() as usize,
+                .unwrap_or(0) as usize,
             providers,
         }
     }
@@ -142,21 +142,21 @@ impl TarpcRpcServer {
             success: v
                 .get("success")
                 .and_then(serde_json::Value::as_bool)
-                .unwrap_or_default(),
+                .unwrap_or(false),
             message: v
                 .get("message")
                 .and_then(|x| x.as_str())
-                .unwrap_or_default()
+                .unwrap_or("")
                 .to_string(),
             announced_at: v
                 .get("announced_at")
                 .and_then(|x| x.as_str())
-                .unwrap_or_default()
+                .unwrap_or("")
                 .to_string(),
             tools_registered: v
                 .get("tools_registered")
                 .and_then(serde_json::Value::as_u64)
-                .unwrap_or_default() as usize,
+                .unwrap_or(0) as usize,
         }
     }
 
@@ -170,15 +170,15 @@ impl TarpcRpcServer {
             alive: v
                 .get("alive")
                 .and_then(serde_json::Value::as_bool)
-                .unwrap_or_default(),
+                .unwrap_or(false),
             ready: v
                 .get("ready")
                 .and_then(serde_json::Value::as_bool)
-                .unwrap_or_default(),
+                .unwrap_or(false),
             healthy: v
                 .get("healthy")
                 .and_then(serde_json::Value::as_bool)
-                .unwrap_or_default(),
+                .unwrap_or(false),
             status: v
                 .get("status")
                 .and_then(|x| x.as_str())
@@ -187,20 +187,20 @@ impl TarpcRpcServer {
             version: v
                 .get("version")
                 .and_then(|x| x.as_str())
-                .unwrap_or_default()
+                .unwrap_or("")
                 .to_string(),
             uptime_seconds: v
                 .get("uptime_seconds")
                 .and_then(serde_json::Value::as_u64)
-                .unwrap_or_default(),
+                .unwrap_or(0),
             active_providers: v
                 .get("active_providers")
                 .and_then(serde_json::Value::as_u64)
-                .unwrap_or_default() as usize,
+                .unwrap_or(0) as usize,
             requests_processed: v
                 .get("requests_processed")
                 .and_then(serde_json::Value::as_u64)
-                .unwrap_or_default(),
+                .unwrap_or(0),
             avg_response_time_ms: v
                 .get("avg_response_time_ms")
                 .and_then(serde_json::Value::as_f64),
@@ -216,12 +216,12 @@ impl TarpcRpcServer {
             timestamp: v
                 .get("timestamp")
                 .and_then(|x| x.as_str())
-                .unwrap_or_default()
+                .unwrap_or("")
                 .to_string(),
             version: v
                 .get("version")
                 .and_then(|x| x.as_str())
-                .unwrap_or_default()
+                .unwrap_or("")
                 .to_string(),
         }
     }
@@ -242,7 +242,7 @@ impl TarpcRpcServer {
                         .iter()
                         .filter_map(|c| c.as_str().map(String::from))
                         .collect(),
-                    discovered_via: p.get("discovered_via")?.as_str().unwrap_or_default().to_string(),
+                    discovered_via: p.get("discovered_via")?.as_str().unwrap_or("").to_string(),
                 })
             })
             .collect();
@@ -250,7 +250,7 @@ impl TarpcRpcServer {
             total: v
                 .get("total")
                 .and_then(serde_json::Value::as_u64)
-                .unwrap_or_default() as usize,
+                .unwrap_or(0) as usize,
             peers,
             discovery_method: v
                 .get("discovery_method")
@@ -265,22 +265,22 @@ impl TarpcRpcServer {
             tool: v
                 .get("tool")
                 .and_then(|x| x.as_str())
-                .unwrap_or_default()
+                .unwrap_or("")
                 .to_string(),
             success: v
                 .get("success")
                 .and_then(serde_json::Value::as_bool)
-                .unwrap_or_default(),
+                .unwrap_or(false),
             output: v
                 .get("output")
                 .and_then(|x| x.as_str())
-                .unwrap_or_default()
+                .unwrap_or("")
                 .to_string(),
             error: v.get("error").and_then(|x| x.as_str()).map(String::from),
             timestamp: v
                 .get("timestamp")
                 .and_then(|x| x.as_str())
-                .unwrap_or_default()
+                .unwrap_or("")
                 .to_string(),
         }
     }
@@ -322,7 +322,7 @@ impl TarpcRpcServer {
             total: v
                 .get("total")
                 .and_then(serde_json::Value::as_u64)
-                .unwrap_or_default() as usize,
+                .unwrap_or(0) as usize,
             tools,
         }
     }
@@ -339,7 +339,7 @@ impl TarpcRpcServer {
             primal: v
                 .get("primal")
                 .and_then(|x| x.as_str())
-                .unwrap_or_default()
+                .unwrap_or("")
                 .to_string(),
             capabilities: v
                 .get("capabilities")
@@ -353,7 +353,7 @@ impl TarpcRpcServer {
             version: v
                 .get("version")
                 .and_then(|x| x.as_str())
-                .unwrap_or_default()
+                .unwrap_or("")
                 .to_string(),
             metadata,
         }
@@ -364,15 +364,15 @@ impl TarpcRpcServer {
             requests_handled: v
                 .get("requests_handled")
                 .and_then(serde_json::Value::as_u64)
-                .unwrap_or_default(),
+                .unwrap_or(0),
             errors: v
                 .get("errors")
                 .and_then(serde_json::Value::as_u64)
-                .unwrap_or_default(),
+                .unwrap_or(0),
             uptime_seconds: v
                 .get("uptime_seconds")
                 .and_then(serde_json::Value::as_u64)
-                .unwrap_or_default(),
+                .unwrap_or(0),
             avg_response_time_ms: v
                 .get("avg_response_time_ms")
                 .and_then(serde_json::Value::as_f64),

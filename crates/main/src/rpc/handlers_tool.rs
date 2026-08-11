@@ -335,7 +335,7 @@ mod tests {
         assert!(
             v.get("total")
                 .and_then(serde_json::Value::as_u64)
-                .unwrap_or_default()
+                .unwrap_or(0)
                 > 0
         );
     }

@@ -21,7 +21,7 @@ impl AiRouter {
     ///
     /// Vendor-specific adapters have been removed. All provider discovery is
     /// capability-based via `UniversalAiAdapter`.
-    pub(crate) async fn init_http_provider(
+    pub(crate) fn init_http_provider(
         config: &HttpAiProviderConfig,
     ) -> Result<Option<Arc<AiProvider>>, PrimalError> {
         if config.provider_id == "anthropic" || config.provider_id == "openai" {

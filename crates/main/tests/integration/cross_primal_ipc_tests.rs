@@ -68,7 +68,7 @@ mod unix_tests {
                         Ok(v) => v,
                         Err(_) => return,
                     };
-                    let method = request.get("method").and_then(Value::as_str).unwrap_or_default();
+                    let method = request.get("method").and_then(Value::as_str).unwrap_or("");
                     let id = request.get("id").cloned().unwrap_or(Value::Null);
 
                     let result = match method {

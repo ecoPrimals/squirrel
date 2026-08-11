@@ -408,7 +408,7 @@ impl SecurityMonitoringSystem {
                     history.retain(|event| {
                         now.duration_since(event.timestamp)
                             .map(|age| age < retention_period)
-                            .unwrap_or_default()
+                            .unwrap_or(false)
                     });
 
                     original_len - history.len()
@@ -422,7 +422,7 @@ impl SecurityMonitoringSystem {
                     alerts.retain(|_, alert| {
                         now.duration_since(alert.generated_at)
                             .map(|age| age < Duration::from_secs(24 * 3600))
-                            .unwrap_or_default()
+                            .unwrap_or(false)
                     });
 
                     original_len - alerts.len()

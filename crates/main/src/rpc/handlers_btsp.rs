@@ -39,7 +39,7 @@ use tracing::{debug, info, warn};
 
 impl JsonRpcServer {
     /// Handle `btsp.negotiate` — Phase 3 cipher negotiation with key derivation.
-    pub(crate) async fn handle_btsp_negotiate(
+    pub(crate) fn handle_btsp_negotiate(
         &self,
         params: Option<Value>,
     ) -> Result<Value, JsonRpcError> {
@@ -186,8 +186,7 @@ mod tests {
     async fn negotiate_requires_session_id() {
         let server = JsonRpcServer::new("/tmp/btsp-negotiate-test.sock".to_string());
         let result = server
-            .handle_btsp_negotiate(Some(json!({"preferred_cipher": "chacha20-poly1305"})))
-            .await;
+            .handle_btsp_negotiate(Some(json!({"preferred_cipher": "chacha20-poly1305"})));
         assert!(result.is_err());
     }
 
@@ -198,8 +197,7 @@ mod tests {
             .handle_btsp_negotiate(Some(json!({
                 "session_id": "nonexistent-session",
                 "preferred_cipher": "chacha20-poly1305"
-            })))
-            .await;
+            })));
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
@@ -222,7 +220,6 @@ mod tests {
                 "client_nonce": BASE64.encode([0xABu8; 32]),
                 "bond_type": "Covalent"
             })))
-            .await
             .expect("should succeed");
 
         assert_eq!(result["cipher"], "null");
@@ -246,7 +243,6 @@ mod tests {
                 "client_nonce": client_nonce,
                 "bond_type": "Covalent"
             })))
-            .await
             .expect("should succeed");
 
         assert_eq!(result["cipher"], "chacha20-poly1305");
@@ -271,7 +267,6 @@ mod tests {
                 "preferred_cipher": "chacha20-poly1305",
                 "bond_type": "Covalent"
             })))
-            .await
             .expect("should succeed");
 
         assert_eq!(result["cipher"], "null", "no client_nonce → null fallback");
@@ -292,7 +287,6 @@ mod tests {
                 "ciphers": ["chacha20-poly1305", "null"],
                 "client_nonce": client_nonce
             })))
-            .await
             .expect("should succeed");
 
         assert_eq!(
@@ -313,7 +307,6 @@ mod tests {
                 "session_id": "sess-5",
                 "preferred_cipher": "null"
             })))
-            .await
             .expect("should succeed");
 
         let nonce_b64 = result["server_nonce"].as_str().expect("server_nonce");

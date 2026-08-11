@@ -396,8 +396,8 @@ impl ErrorHandler {
         .await?;
 
         // Attempt recovery if strategy exists
-        if let Some(strategy) = self.get_recovery_strategy(&context.error_type).await {
-            self.attempt_recovery(&mut context, &strategy).await?;
+        if let Some(strategy) = self.get_recovery_strategy(&context.error_type) {
+            self.attempt_recovery(&mut context, &strategy)?;
         } else {
             warn!(
                 error_type = %context.error_type,
@@ -418,7 +418,7 @@ impl ErrorHandler {
     ///
     /// An optional recovery strategy if one exists for the error type
     #[instrument(skip(self))]
-    async fn get_recovery_strategy(&self, error_type: &str) -> Option<RecoveryStrategy> {
+    fn get_recovery_strategy(&self, error_type: &str) -> Option<RecoveryStrategy> {
         // Implementation of get_recovery_strategy method
         None
     }
@@ -434,7 +434,7 @@ impl ErrorHandler {
     ///
     /// Result indicating success or an error
     #[instrument(skip(self, _context, _strategy))]
-    async fn attempt_recovery(
+    fn attempt_recovery(
         &self,
         _context: &mut LocalErrorContext,
         _strategy: &RecoveryStrategy,

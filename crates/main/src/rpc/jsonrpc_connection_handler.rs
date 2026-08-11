@@ -289,7 +289,7 @@ impl JsonRpcServer {
         mut reader: BufReader<UniversalTransport>,
         first_line: String,
     ) -> Result<()> {
-        let switch_session_id = self.detect_btsp_switch(&first_line).await;
+        let switch_session_id = self.detect_btsp_switch(&first_line);
 
         if let Some(response_json) = self.handle_request_or_batch(&first_line).await {
             let mut out = response_json;
@@ -401,7 +401,7 @@ impl JsonRpcServer {
                     break;
                 }
                 Ok(_) => {
-                    let switch_session_id = self.detect_btsp_switch(&line).await;
+                    let switch_session_id = self.detect_btsp_switch(&line);
 
                     if let Some(response_json) = self.handle_request_or_batch(&line).await {
                         let mut out = response_json;
@@ -444,7 +444,7 @@ impl JsonRpcServer {
 
     /// Detect whether a line contains a `btsp.negotiate` request that will
     /// trigger a transport switch. Returns the session_id if so.
-    async fn detect_btsp_switch(&self, line: &str) -> Option<String> {
+    fn detect_btsp_switch(&self, line: &str) -> Option<String> {
         let parsed: serde_json::Value = serde_json::from_str(line.trim()).ok()?;
         let method = parsed.get("method")?.as_str()?;
         if method != "btsp.negotiate" {

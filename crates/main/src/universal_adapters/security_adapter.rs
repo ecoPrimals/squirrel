@@ -122,7 +122,7 @@ impl UniversalSecurityAdapter {
         response
             .get("authorized")
             .and_then(serde_json::Value::as_bool)
-            .unwrap_or_default()
+            .unwrap_or(false)
             .then_some(true)
             .ok_or_else(|| PrimalError::SecurityError("Authorization denied".to_string()))
             .map(|_| true)

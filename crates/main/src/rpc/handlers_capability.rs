@@ -83,7 +83,7 @@ impl JsonRpcServer {
     /// - `provided_capabilities`: structured grouping with descriptions for L3 composability
     /// - `consumed_capabilities`: cross-primal dependencies for composition validation
     /// - `cost_estimates` / `operation_dependencies`: AI planner metadata
-    pub(crate) async fn handle_capability_list(&self) -> Result<Value, JsonRpcError> {
+    pub(crate) fn handle_capability_list(&self) -> Result<Value, JsonRpcError> {
         debug!("capabilities.list request (Wire Standard L3)");
 
         let methods: Vec<&str> = niche::CAPABILITIES.to_vec();
@@ -178,7 +178,6 @@ mod direct_tests {
         let server = JsonRpcServer::new("/tmp/cap-l3-test.sock".to_string());
         let v = server
             .handle_capability_list()
-            .await
             .expect("should succeed");
 
         assert!(v.get("primal").is_some(), "L2: primal field required");

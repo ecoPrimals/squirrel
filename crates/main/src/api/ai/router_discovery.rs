@@ -89,7 +89,7 @@ async fn discover_http_providers(providers: &mut Vec<Arc<AiProvider>>) {
     );
 
     for provider_config in enabled {
-        match AiRouter::init_http_provider(&provider_config).await {
+        match AiRouter::init_http_provider(&provider_config) {
             Ok(Some(adapter)) => {
                 info!(
                     "{} adapter available (HTTP via capability discovery)",

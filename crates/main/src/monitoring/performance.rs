@@ -169,7 +169,7 @@ impl PerformanceTracker {
         // Collect current performance data
         let summary = self.collect_performance_summary().await?;
         let component_metrics = self.collect_component_performance().await?;
-        let resource_utilization = self.collect_resource_utilization().await?;
+        let resource_utilization = self.collect_resource_utilization()?;
 
         // Update metrics
         self.update_metrics(&summary, &component_metrics).await?;
@@ -432,8 +432,7 @@ impl PerformanceTracker {
 
         for component in components {
             let metrics = self
-                .collect_component_specific_performance(component)
-                .await?;
+                .collect_component_specific_performance(component)?;
             component_metrics.insert(component.to_string(), metrics);
         }
 
@@ -441,7 +440,7 @@ impl PerformanceTracker {
     }
 
     /// Collect performance metrics for a specific component
-    async fn collect_component_specific_performance(
+    fn collect_component_specific_performance(
         &self,
         component: &str,
     ) -> Result<HashMap<String, f64>, PrimalError> {
@@ -510,7 +509,7 @@ impl PerformanceTracker {
     }
 
     /// Collect resource utilization metrics
-    async fn collect_resource_utilization(&self) -> Result<ResourceUtilization, PrimalError> {
+    fn collect_resource_utilization(&self) -> Result<ResourceUtilization, PrimalError> {
         let time_factor = (Utc::now().timestamp_millis() % 8000) as f64 / 8000.0;
 
         Ok(ResourceUtilization {
@@ -533,30 +532,23 @@ impl PerformanceTracker {
         let mut metrics = self.metrics.write().await;
 
         // Update summary metrics
-        self.update_metric(&mut metrics, "cpu_usage", summary.cpu_usage)
-            .await;
-        self.update_metric(&mut metrics, "memory_usage", summary.memory_usage)
-            .await;
-        self.update_metric(&mut metrics, "network_io", summary.network_io)
-            .await;
-        self.update_metric(&mut metrics, "disk_io", summary.disk_io)
-            .await;
-        self.update_metric(&mut metrics, "avg_response_time", summary.avg_response_time)
-            .await;
+        self.update_metric(&mut metrics, "cpu_usage", summary.cpu_usage);
+        self.update_metric(&mut metrics, "memory_usage", summary.memory_usage);
+        self.update_metric(&mut metrics, "network_io", summary.network_io);
+        self.update_metric(&mut metrics, "disk_io", summary.disk_io);
+        self.update_metric(&mut metrics, "avg_response_time", summary.avg_response_time);
         self.update_metric(
             &mut metrics,
             "requests_per_second",
             summary.requests_per_second,
-        )
-        .await;
-        self.update_metric(&mut metrics, "error_rate", summary.error_rate)
-            .await;
+        );
+        self.update_metric(&mut metrics, "error_rate", summary.error_rate);
 
         // Update component metrics
         for (component, comp_metrics) in component_metrics {
             for (metric_name, value) in comp_metrics {
                 let key = format!("{component}_{metric_name}");
-                self.update_metric(&mut metrics, &key, *value).await;
+                self.update_metric(&mut metrics, &key, *value);
             }
         }
 
@@ -564,7 +556,7 @@ impl PerformanceTracker {
     }
 
     /// Update a specific metric
-    async fn update_metric(
+    fn update_metric(
         &self,
         metrics: &mut HashMap<String, PerformanceMetric>,
         name: &str,

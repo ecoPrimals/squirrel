@@ -103,8 +103,7 @@ monitoring = []  # Self-contained Prometheus exposition format in exporters.rs
 benchmarking = ["criterion"]             # Benchmarking tools
 ## enhanced_error_handling / optimizations removed — no cfg(feature) references;
 ## error handling and optimizations are always-on via workspace lint policy.
-# GPU probing (nvidia-smi / rocm-smi / lspci) — deep NVML metrics belong to ToadStool compute primal.
-gpu-detection = []
+# gpu-detection: excised Wave 157g — GPU detection belongs to compute primals (ToadStool/barraCuda)
 
 [dev-dependencies]
 bincode.workspace = true  # test-only serialize/deserialize roundtrips (production uses tokio-serde)

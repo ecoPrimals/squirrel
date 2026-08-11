@@ -43,11 +43,11 @@ impl JsonRpcServer {
                 self.handle_discover_capabilities().await
             }
             "capabilities.list" | "capability.list" | "primal.capabilities" => {
-                self.handle_capability_list().await
+                self.handle_capability_list()
             }
 
             // Identity domain — CAPABILITY_BASED_DISCOVERY_STANDARD v1.0
-            "identity.get" => self.handle_identity_get().await,
+            "identity.get" => self.handle_identity_get(),
 
             // Health domain — PRIMAL_IPC_PROTOCOL v3.0 (canonical)
             "health.check" | "system.health" | "system.status" => self.handle_health().await,
@@ -79,10 +79,10 @@ impl JsonRpcServer {
             "provider.deregister" => self.handle_provider_deregister(params).await,
 
             // BTSP Phase 3 — encrypted transport negotiation
-            "btsp.negotiate" => self.handle_btsp_negotiate(params).await,
+            "btsp.negotiate" => self.handle_btsp_negotiate(params),
 
             // Lifecycle domain — biomeOS registration
-            "lifecycle.register" => self.handle_lifecycle_register().await,
+            "lifecycle.register" => self.handle_lifecycle_register(),
             "lifecycle.status" => self.handle_lifecycle_status().await,
 
             // Graph domain — primalSpring BYOB coordination

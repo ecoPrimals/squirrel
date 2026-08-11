@@ -89,6 +89,9 @@ impl Default for ContextState {
 }
 
 pub mod error;
+// DEPRECATED(Wave 157g): RL/neural scaffold — compute belongs to neuralSpring/ToadStool.
+// Context lifecycle (create/update/summarize) stays in squirrel; learning/training delegates
+// to compute primals via capability IPC. Feature-gated OFF, zero production callers.
 #[cfg(feature = "context-learning")]
 pub mod learning;
 pub mod manager;
@@ -100,6 +103,7 @@ pub mod sync;
 mod sync_tests;
 mod sync_types;
 pub mod tracker;
+// DEPRECATED(Wave 157g): presentation belongs to petalTongue via visualization.render.* IPC.
 #[cfg(feature = "context-visualization")]
 pub mod visualization;
 pub use error::{ContextError, Result};
@@ -115,7 +119,7 @@ pub use visualization::{
     VisualizationSystem, VisualizationSystemConfig, VisualizationType,
 };
 
-// Re-export from learning module (feature-gated: planned but not runtime-wired)
+// DEPRECATED: see learning module deprecation note above
 #[cfg(feature = "context-learning")]
 pub use learning::{
     AdaptiveRuleSystem, ContextLearningManager, ExperienceReplay, LearningEngine,

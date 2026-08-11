@@ -11,7 +11,6 @@ use super::*;
 async fn test_adaptive_rule_system_new() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create adaptive rule system");
 
     let stats = system.get_stats().await;
@@ -23,7 +22,6 @@ async fn test_adaptive_rule_system_new() {
 async fn test_adaptive_rule_system_initialize() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     system.initialize().await.expect("Should initialize");
@@ -36,7 +34,6 @@ async fn test_adaptive_rule_system_initialize() {
 async fn test_add_rule() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -54,7 +51,6 @@ async fn test_add_rule() {
 async fn test_update_rule_performance() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -81,7 +77,6 @@ async fn test_update_rule_performance() {
 async fn test_rule_performance_multiple_updates() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -111,7 +106,6 @@ async fn test_rule_performance_multiple_updates() {
 async fn test_adapt_rules() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -210,7 +204,6 @@ async fn test_adaptation_type_variants() {
 async fn test_remove_rule() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -233,7 +226,6 @@ async fn test_remove_rule() {
 async fn test_clear_history() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -262,7 +254,6 @@ async fn test_clear_history() {
 async fn test_export_rules() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -304,7 +295,6 @@ async fn test_adaptive_rule_serialization() {
 async fn test_rule_effectiveness_calculation() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -331,7 +321,6 @@ async fn test_rule_effectiveness_calculation() {
 async fn test_adaptation_with_high_performance() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -356,7 +345,6 @@ async fn test_adaptation_with_high_performance() {
 async fn test_get_adaptations_empty() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let adaptations = system.get_adaptations().await;
@@ -385,7 +373,6 @@ async fn test_rule_performance_impact() {
 async fn test_update_performance_nonexistent_rule_no_panic() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     // Updating performance for non-existent rule should not panic
@@ -399,7 +386,6 @@ async fn test_update_performance_nonexistent_rule_no_panic() {
 async fn test_get_rule_performance_nonexistent_returns_none() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let performance = system.get_rule_performance("nonexistent_rule_id").await;
@@ -410,7 +396,6 @@ async fn test_get_rule_performance_nonexistent_returns_none() {
 async fn test_avg_execution_time_calculation() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -444,7 +429,6 @@ async fn test_avg_execution_time_calculation() {
 async fn test_adaptation_triggers_action_modification_for_slow_rules() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -478,7 +462,6 @@ async fn test_adaptation_triggers_action_modification_for_slow_rules() {
 async fn test_adaptation_triggers_condition_modification_for_low_success() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -511,7 +494,6 @@ async fn test_adaptation_triggers_condition_modification_for_low_success() {
 async fn test_adaptation_stats_updated_after_adaptation() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -537,7 +519,6 @@ async fn test_adaptation_stats_updated_after_adaptation() {
 async fn test_rule_adaptation_has_required_fields() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -566,7 +547,6 @@ async fn test_rule_adaptation_has_required_fields() {
 async fn test_rule_change_has_correct_structure() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();
@@ -592,7 +572,6 @@ async fn test_rule_change_has_correct_structure() {
 async fn test_multiple_rules_adapt_independently() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule1 = test_helpers::create_test_rule();
@@ -632,7 +611,6 @@ async fn test_multiple_rules_adapt_independently() {
 async fn test_adaptation_history_persists() {
     let config = test_helpers::create_test_learning_config();
     let system = AdaptiveRuleSystem::new(Arc::new(config))
-        .await
         .expect("Should create system");
 
     let rule = test_helpers::create_test_rule();

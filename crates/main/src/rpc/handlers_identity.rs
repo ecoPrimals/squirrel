@@ -12,7 +12,7 @@ impl JsonRpcServer {
     /// Handle `identity.get` — Wire Standard L2 per CAPABILITY_WIRE_STANDARD v1.0.
     ///
     /// Fields per spec: `primal` (canonical name), `version`, `domain`, `license`.
-    pub(crate) async fn handle_identity_get(&self) -> Result<Value, JsonRpcError> {
+    pub(crate) fn handle_identity_get(&self) -> Result<Value, JsonRpcError> {
         debug!("identity.get (Wire Standard L2)");
 
         Ok(serde_json::json!({
