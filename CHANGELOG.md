@@ -28,8 +28,8 @@ Pre-alpha history is preserved as fossil record in
 - **`Arc<Mutex<bool>>` → `AtomicBool`**: Replaced 3 mutex-guarded boolean run flags in MCP server, client, and client listener with lock-free `AtomicBool` + `Ordering::AcqRel`. Eliminates poison risk and contention on hot polling loops.
 - **`niche.rs` capability-domain evolution**: Replaced `DEPENDENCIES` array entries from primal identities (`beardog`, `songbird`, `toadstool`, `nestgate`, `primalspring`, `petaltongue`) to capability domains (`crypto`, `discovery`, `compute`, `storage`, `coordination`, `visualization`). Squirrel no longer encodes which primal fulfills each domain — providers are discovered at runtime via `capabilities.discover`.
 - **`unwrap_or(literal)` → `unwrap_or_default()`**: Batch-replaced 118 instances across 49 files — `unwrap_or(false)` (22), `unwrap_or(0)` (54), `unwrap_or("")` (42). Idiomatic Rust: `unwrap_or_default()` is clearer intent and consistent with `Default` trait.
-- **Tracked debt (not in this wave)**: 224 fake-async functions (no `.await` in body) — most are trait-imposed; `Arc<Mutex<CommandRegistry>>` double-lock in `factory.rs` — requires trait signature change.
-- 4,159 tests passing, 0 new failures, cross-arch (Windows) clean.
+- **Tracked debt (resolved later in 157g)**: `Arc<Mutex<CommandRegistry>>` double-lock — excised. Remaining: 224 fake-async functions (most trait-imposed).
+- 4,100+ tests passing, 0 new failures, cross-arch (Windows) clean.
 
 ### Summary (Aug 10, 2026 — Wave 157g: G72 Dependency Pandemic Tier 1)
 

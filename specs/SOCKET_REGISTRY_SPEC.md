@@ -89,18 +89,18 @@ When discovering a capability socket:
 
 ### Standard Capabilities
 
-| Capability | Description | Typical Provider |
-|------------|-------------|------------------|
-| `orchestration` | Service mesh coordination | Songbird |
-| `security` | Authentication & authorization | BearDog |
-| `storage` | Data persistence | NestGate |
-| `compute` | Workload execution | Toadstool |
-| `ai` | AI inference & intelligence | Squirrel |
-| `core` | Ecosystem coordination | biomeOS |
-| `communication` | Messaging & events | PetalTongue |
-| `encryption` | Cryptographic services | rhizoCrypt |
-| `distributed` | Distributed storage | LoamSpine |
-| `federation` | Cross-biome federation | SweetGrass |
+| Capability | Description | Discovery |
+|------------|-------------|-----------|
+| `orchestration` | Service mesh coordination | `capabilities.discover("orchestration")` |
+| `security` | Authentication & authorization | `capabilities.discover("security")` |
+| `storage` | Data persistence | `capabilities.discover("storage")` |
+| `compute` | Workload execution | `capabilities.discover("compute")` |
+| `ai` | AI inference & intelligence | `capabilities.discover("ai")` |
+| `core` | Ecosystem coordination | `capabilities.discover("core")` |
+| `communication` | Messaging & events | `capabilities.discover("communication")` |
+| `encryption` | Cryptographic services | `capabilities.discover("encryption")` |
+| `distributed` | Distributed storage | `capabilities.discover("distributed")` |
+| `federation` | Cross-biome federation | `capabilities.discover("federation")` |
 
 ### Custom Capabilities
 

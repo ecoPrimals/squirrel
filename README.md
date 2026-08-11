@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 4,100 passing (default features) | **Edition**: 2024 | **ecoBin**: 4.4 MB | **Methods**: 44 IPC
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 4,100+ passing (default features) | **Edition**: 2024 | **ecoBin**: 4.4 MB | **Methods**: 43 IPC
 
 ---
 
@@ -100,7 +100,7 @@ Runtime registration: any primal can call `inference.register_provider` to dynam
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   5,668 tests passing (0 failures, default features) | ~838 `.rs` files | ~257k lines | zero Box<dyn Error> in prod
+Fitness:   4,100+ tests passing (default features) | ~620 `.rs` files | ~190k lines | zero Box<dyn Error> in prod
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
@@ -142,12 +142,10 @@ squirrel/
 │   │   ├── mcp/              # MCP protocol + AI coordinator
 │   │   ├── auth/             # Auth delegation (capability-based client)
 │   │   ├── context/          # Context management + learning
-│   │   ├── interfaces/       # Core trait definitions (Plugin, DynPlugin, Context)
-│   │   └── auth/             # Auth delegation (capability-based client)
+│   │   └── interfaces/       # Core trait definitions (Plugin, DynPlugin, Context)
 │   ├── config/               # Unified configuration
 │   ├── tools/                # CLI, AI tools
 │   ├── services/             # Command services
-│   ├── ecosystem-api/        # Ecosystem API types
 │   ├── universal-constants/  # Shared constants, primal identity, sys_info
 │   ├── universal-error/      # Unified error types
 │   └── universal-patterns/   # Transport, security, federation traits
@@ -187,7 +185,7 @@ provider is discovered. No primal dependency is hard-gated.
 
 ## Code Standards
 
-- `unsafe_code = "forbid"` in workspace `[lints.rust]` — enforced across all 13 crates
+- `unsafe_code = "forbid"` in workspace `[lints.rust]` — enforced across all 12 crates
 - `clippy::expect_used` + `clippy::unwrap_used` = `deny` workspace-wide (test-only `cfg_attr` allows)
 - `#![warn(missing_docs)]` on all library crates
 - `cargo clippy` with `pedantic` + `nursery` + `cargo` lints — zero errors under `-D warnings`
@@ -196,7 +194,7 @@ provider is discovered. No primal dependency is hard-gated.
 - Pure Rust: zero C dependencies in default build (ecoBin v3.0 compliant — `sysinfo` removed)
 - Production files under 800 lines (test-only files may be larger)
 - SPDX `AGPL-3.0-or-later` license header on all `.rs` files
-- Edition 2024 across all 13 workspace crates
+- Edition 2024 across all 12 workspace crates
 - `tracing` for structured logging (no `println!` in production code)
 - Typed errors via `thiserror`; `.context()` on all key error paths
 - Zero-copy patterns: `Arc<str>`, `bytes::Bytes`, `Cow<str>` on hot paths

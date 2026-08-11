@@ -30,7 +30,7 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 - MCP protocol implementation and coordination.
 - Plugin interfaces and context plugin registry (via `squirrel-interfaces` and `squirrel-context`).
 - CLI and developer tools (`squirrel-cli`, `squirrel-ai-tools`).
-- Ecosystem integration (capability discovery, `ecosystem-api` client/types).
+- Ecosystem integration (capability discovery, runtime service resolution).
 
 ## Key crates (names)
 
@@ -43,7 +43,6 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 | `squirrel-cli` | Command-line interface |
 | `universal-patterns` | Transport, security, federation-style traits |
 | `universal-constants` | Shared constants, identity, sys_info |
-| `ecosystem-api` | Ecosystem API types and client |
 
 Other workspace crates include auth, context, interfaces, config, commands, `universal-error`.
 
@@ -73,7 +72,7 @@ Other workspace crates include auth, context, interfaces, config, commands, `uni
 
 ## Test suite
 
-- **4,090** tests passing (default features), 0 failures. Full suite ~38s. See `CURRENT_STATUS.md` for authoritative counts.
+- **4,100+** tests passing (default features), 1 env-dependent flaky test. Full suite ~21s. See `CURRENT_STATUS.md` for authoritative counts.
 - **Zero `.unwrap()`** and **zero `panic!()`** in production code — all error handling is typed.
 - **Property-based** tests (e.g. `proptest` for serialization invariants).
 - Coverage target: 90% (see `CURRENT_STATUS.md` for latest figures).

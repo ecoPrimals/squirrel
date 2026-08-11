@@ -1,6 +1,6 @@
 +++
 title = "squirrel Validation Summary"
-description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 4,159 tests (default features), 44 IPC methods."
+description = "AI inference routing, context management, capability discovery, signal graph dispatch, provenance proxy. 4,100+ tests (default features), 43 IPC methods."
 date = 2026-08-10
 
 [taxonomies]
@@ -246,42 +246,21 @@ springs = []
 - 260 emoji removed from log macros across 33 production files (grep-friendly tracing)
 - 7,241 tests passing, 0 warnings
 
-## Status
+## Status (as of Wave 157g — Aug 10, 2026)
 
-- **Gate**: CLEAR (stadial readiness confirmed May 17, 2026)
+- **Gate**: CLEAR
 - **Phase**: 3 (BTSP Phase 3 AEAD encrypted framing)
 - **Edition**: 2024 (Rust 1.94+)
-- **Tests**: **6,302** passing across 16 workspace crates (default features), full suite ~75s
-- **Source**: ~980 `.rs` files, ~300k lines
-- **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`, `--all-features`)
-- **Docs**: 0 warnings (`-D warnings`)
+- **Workspace**: 12 crates
+- **Tests**: **4,100+** passing (default features), 1 env-dependent flaky; full suite ~21s
+- **Source**: ~620 `.rs` files, ~190k lines
+- **Clippy**: 0 warnings (`pedantic` + `nursery` + `cargo`, `-D warnings`)
 - **deny.toml**: ring, openssl, reqwest, native-tls, aws-lc-sys all banned; pure Rust enforced
-- **Coverage**: 90.14% region / 89.67% line (cargo-llvm-cov)
+- **Coverage**: 90.1% region / 89.6% line (cargo-llvm-cov)
 - **Binary**: 4.4 MB static-pie musl, stripped, BLAKE3 checksummed, zero host paths
-- **Transport**: Full Phase 2 — `TRANSPORT_ENDPOINT` accepted + `connect_transport()` for all outbound IPC + Eukaryotic riboCipher: MitoBeacon (`0xEC`/`0xED`) accepted + outbound `[0xEC, 0x01]` preamble on all UDS
-- **HTTP IPC**: Raw TCP JSON-RPC delegation (zero external HTTP deps, uniBin compliant)
-- **Files >800L (prod)**: 0 — all production files under 800 lines
-- **Hardcoding**: Evolved — 14 production files migrated from literal localhost/ports to capability-based discovery
-- **TRUE PRIMAL**: `niche::REQUIRED_CAPABILITIES` replaces named-primal `DEPENDENCIES`; `capability_id` field on `EcosystemServiceRegistration`; all struct fields migrated from `EcosystemPrimalType` enum → `String` capability domains (Wave 156j); deprecated enum retained as fossil for serde compat
-- **Metrics**: Real `/proc` reads (CPU, memory, disk I/O, network I/O) replace simulated values; `RequestTracker` unified between `JsonRpcServer` and `MetricsCollector` — single `Arc` shared at startup. `context_state.active_sessions` live from `ContextManager`. Dead helpers (`get_cpu_usage`, `get_memory_usage`, `get_memory_percentage`) wired, `#[expect(dead_code)]` removed.
-- **Security Health**: Capability-discovery probe replaces simulated endpoint check
-- **BTSP Phase 3 Transport Switch**: Server auto-transitions to encrypted frame loop after `btsp.negotiate` with `chacha20-poly1305`; 3 integration tests on live Unix socket pairs (previously orphaned, now wired)
-- **Provenance Proxy**: `dag.*`, `anchoring.*`, `attribution.*`, `provenance.*` methods routed to discovered primals via capability-based socket discovery; `forward_jsonrpc` E2E-tested with mock UDS round-trips (happy path, remote error, invalid JSON, missing result)
-- **Context Persistence**: Shared `ContextManager` on `JsonRpcServer` — `context.create` → `context.update` → `context.summarize` persists across requests; session count synced to `MetricsCollector`
-- **tarpc Parity**: `provider.*` and `btsp.negotiate` tarpc stubs delegated to JSON-RPC handlers (mirrors lifecycle pattern)
-- **Identity**: Single canonical source (`universal_constants::capabilities::SELF_PRIMAL_NAME`); `niche::PRIMAL_ID` and `core::PRIMAL_TYPE` are re-exports. Zero hardcoded self-identity string literals in production.
-- **Feature gating**: Context learning subsystem (~14.6k lines, 625 tests) behind `context-learning` feature. Context visualization (~3.1k lines) behind `context-visualization`.
-- **SecretStore**: `InMemorySecretStore` (dev), `FileSecretStore` (explicit path), `PlatformSecretStore` (OS-native cache path), `SecurityProvider` (security capability IPC — production authority). Native credential stores are the security provider's domain; squirrel caches, security provider stores.
-- **Nuclear Lineage (0xEE)**: Protocol-aware; NDJSON clients receive JSON-RPC -32050 with `resolution:"awaiting_security_keys"`; BTSP closes silently. Full encrypted channel awaits security provider key material.
-- **Discovery**: Socket registry is canonical for LAN. DNS-SD and mDNS announce/register return explicit `MechanismFailed` errors (no more silent no-ops); discovery falls back to socket registry. Ready for `discovery-mdns` feature flag with hickory-dns.
-- **Security middleware**: `SecurityOrchestrator` wired as pre-dispatch middleware — rate limiting, input validation, and threat detection active when orchestrator attached. Method prefix → `EndpointType` tiering; denied requests receive JSON-RPC `-32003`.
-- **Constraint routing**: `ai.query` now parses routing constraints from raw request params (`privacy_level`, `cost_preference`, `quality`, `speed_preference`, `constraints[]`) and feeds them to `select_provider_with_constraints`.
-- **Feature gating (hygiene)**: Vestigial `capability-ai`, `ecosystem`, and `deprecated-adapters` features removed; `benchmarking` module gated behind its feature; defaults trimmed to `["tarpc-rpc"]`.
-- **Dead-code attrs narrowed**: 5 module-level `#![expect(dead_code)]` replaced with targeted per-item `#[expect(dead_code, reason)]` where code IS wired but specific fields/variants await downstream consumers.
-- **Lint policy**: `clippy::expect_used` + `clippy::unwrap_used` = `deny` workspace-wide (evolved from `warn`); zero `#[allow(` remaining (all converted to `#[expect(reason)]`); zero unfulfilled lint expectations
-- **CI**: `fmt` + `clippy -D warnings` + `test` + `cargo deny check` (supply-chain audit added)
-- **Dignity**: Configurable enforcement (`SQUIRREL_DIGNITY_ENFORCEMENT`: warn/enforce/audit)
-- **AuthService**: Complete standalone implementation (was missing module; now compiles under `--all-features`)
+- **Files >800L (prod)**: 0
+- **Cargo.lock**: 333 unique packages (G72 Tier 1: 51 transitive deps shed)
+- **TODO/FIXME/HACK in code**: 0
 
 ## Capabilities
 
