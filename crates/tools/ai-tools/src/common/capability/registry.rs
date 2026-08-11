@@ -240,14 +240,10 @@ impl ModelRegistry {
 
     /// Set the global model registry instance
     pub fn set_global(registry: Self) {
-        match GLOBAL_REGISTRY.write() {
-            Ok(mut global_registry) => {
-                *global_registry = registry;
-            }
-            Err(_) => {
-                warn!("Failed to set global model registry - global registry is poisoned");
-                // Cannot recover from this, but we don't panic
-            }
+        if let Ok(mut global_registry) = GLOBAL_REGISTRY.write() {
+            *global_registry = registry;
+        } else {
+            warn!("Failed to set global model registry - global registry is poisoned");
         }
     }
 
@@ -256,14 +252,10 @@ impl ModelRegistry {
     where
         F: FnOnce(&mut Self),
     {
-        match GLOBAL_REGISTRY.write() {
-            Ok(mut registry) => {
-                f(&mut registry);
-            }
-            Err(_) => {
-                warn!("Failed to update global model registry - global registry is poisoned");
-                // Cannot recover from this, but we don't panic
-            }
+        if let Ok(mut registry) = GLOBAL_REGISTRY.write() {
+            f(&mut registry);
+        } else {
+            warn!("Failed to update global model registry - global registry is poisoned");
         }
     }
 

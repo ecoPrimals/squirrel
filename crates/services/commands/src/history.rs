@@ -499,8 +499,7 @@ impl CommandHistory {
                 ))
             })?;
 
-        let entries_vec: Vec<HistoryEntry> = entries.iter().cloned().collect();
-        serde_json::to_writer_pretty(file, &entries_vec).map_err(|err| {
+        serde_json::to_writer_pretty(file, &*entries).map_err(|err| {
             CommandError::ResourceError(format!("Failed to write history entries to file: {err}"))
         })?;
 

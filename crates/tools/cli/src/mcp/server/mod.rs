@@ -154,16 +154,10 @@ impl MCPServer {
         F: Fn(MCPMessage) -> MCPResult<MCPMessage> + Send + Sync + 'static,
     {
         // Add the handler to the map under a lock
-        {
-            match self.command_handlers.lock() {
-                Ok(mut handlers) => {
-                    handlers.insert(command.to_string(), Box::new(handler));
-                }
-                Err(_) => {
-                    error!("Failed to acquire lock for command handlers - mutex poisoned");
-                    // Continue execution as this is a builder pattern
-                }
-            }
+        if let Ok(mut handlers) = self.command_handlers.lock() {
+            handlers.insert(command.to_string(), Box::new(handler));
+        } else {
+            error!("Failed to acquire lock for command handlers - mutex poisoned");
         }
 
         self

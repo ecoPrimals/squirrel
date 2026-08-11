@@ -133,7 +133,7 @@ fn test_help_command_empty_help_list() {
 
 #[test]
 fn test_help_command_new_with_empty_registry() {
-    let registry = Arc::new(Mutex::new(CommandRegistry::new()));
+    let registry = Arc::new(CommandRegistry::new());
     let cmd = HelpCommand::new(registry);
     assert_eq!(cmd.name(), "help");
     let result = cmd.execute(&[]).expect("should succeed");
@@ -142,15 +142,11 @@ fn test_help_command_new_with_empty_registry() {
 
 #[test]
 fn test_help_command_new_with_populated_registry() {
-    let registry = Arc::new(Mutex::new(CommandRegistry::new()));
+    let registry = Arc::new(CommandRegistry::new());
     registry
-        .lock()
-        .expect("should succeed")
         .register("version", Arc::new(VersionCommand::new()))
         .expect("should succeed");
     registry
-        .lock()
-        .expect("should succeed")
         .register("echo", Arc::new(EchoCommand::new()))
         .expect("should succeed");
 
@@ -162,19 +158,16 @@ fn test_help_command_new_with_populated_registry() {
 
 #[test]
 fn test_help_command_update() {
-    let registry = Arc::new(Mutex::new(CommandRegistry::new()));
+    let registry = Arc::new(CommandRegistry::new());
     let mut cmd = HelpCommand::new(Arc::clone(&registry));
     let initial = cmd.execute(&[]).expect("should succeed");
 
     registry
-        .lock()
-        .expect("should succeed")
         .register("newcmd", Arc::new(VersionCommand::new()))
         .expect("should succeed");
 
     cmd.update(&registry);
     let updated = cmd.execute(&[]).expect("should succeed");
-    // Help displays command.help() text; VersionCommand's help contains "version"
     assert!(updated.contains("version"));
     assert!(
         updated.len() > initial.len(),

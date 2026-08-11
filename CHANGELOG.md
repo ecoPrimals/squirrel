@@ -11,6 +11,18 @@ Pre-alpha history is preserved as fossil record in
 
 ## [Unreleased]
 
+### Summary (Aug 10, 2026 — Wave 157g: Deep Debt Sweep — Double-Lock + Idiom)
+
+- **`Arc<Mutex<CommandRegistry>>` double-lock excision**: `CommandRegistry` already provides interior mutability via `Arc<RwLock<...>>` and `Arc<Mutex<...>>` — all public methods are `&self`. Removed the redundant outer `Mutex` wrapping that blocked read concurrency and added poison risk. Changed `CommandRegistryFactory` trait, `create_command_registry()`, `RegistryWithPlugin` type alias, `CommandRegistryPluginAdapter`, and `HelpCommand::new`/`update` to use `Arc<CommandRegistry>` directly. Eliminated 12+ `.lock().map_err(...)` call sites in production code and simplified 8+ test functions. Files: `factory.rs`, `builtin.rs`, `builtin_tests.rs`, `cli/commands/mod.rs`.
+- **Clone-on-copy fix**: `TrendDirection` is `Copy` — removed `.clone()` in `performance.rs`.
+- **Redundant clone removal**: Removed unnecessary `.clone()` after `format!()` in `env_vars.rs` where the value is moved into a struct.
+- **Buffer-clone elimination**: `experience.rs` `sample_uniform()` was cloning the entire replay buffer into a `Vec` before sampling — replaced with `IteratorRandom::choose_multiple()` to sample directly from the `VecDeque` iterator, avoiding O(n) clone.
+- **VecDeque serialization**: `history.rs` was cloning VecDeque into Vec for serialization — `serde` serializes VecDeque directly, eliminated the intermediate allocation.
+- **`match` → `if let` for poison handlers**: Simplified 4 two-arm match expressions on mutex poison results in `registry.rs` (ai-tools), `client_listener.rs`, `server/mod.rs`.
+- **`Vec<&String>` → `Vec<&str>`**: Fixed `provider_names()` return type to idiomatic `Vec<&str>`.
+- 1,573 tests, 0 new failures, cross-arch (Windows) clean.
+- **Tracked debt resolved**: `Arc<Mutex<CommandRegistry>>` double-lock — done. Remaining: 224 fake-async functions (most trait-imposed).
+
 ### Summary (Aug 10, 2026 — Wave 157g: Deep Debt Sweep — Idiom + Sync + Capability)
 
 - **`Arc<Mutex<bool>>` → `AtomicBool`**: Replaced 3 mutex-guarded boolean run flags in MCP server, client, and client listener with lock-free `AtomicBool` + `Ordering::AcqRel`. Eliminates poison risk and contention on hot polling loops.

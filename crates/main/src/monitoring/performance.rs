@@ -309,7 +309,7 @@ impl PerformanceTracker {
         let mut trends = HashMap::new();
 
         for (name, metric) in metrics.iter() {
-            trends.insert(name.clone(), metric.trend.clone());
+            trends.insert(name.clone(), metric.trend);
         }
 
         Ok(trends)

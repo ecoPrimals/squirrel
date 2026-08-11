@@ -42,35 +42,27 @@ pub fn run_notification_listener(
                             let topic = message.command.clone();
 
                             // Find handlers for this topic
-                            let handlers = match subscriptions.lock() {
-                                Ok(subs) => {
-                                    if let Some(handler_ids) = subs.get(&topic) {
-                                        handler_ids.clone()
-                                    } else {
-                                        HashSet::new()
-                                    }
-                                }
-                                Err(_) => {
-                                    error!("Subscriptions mutex poisoned, skipping notification");
-                                    continue;
-                                }
+                            let Ok(subs) = subscriptions.lock() else {
+                                error!("Subscriptions mutex poisoned, skipping notification");
+                                continue;
                             };
+                            let handlers = subs
+                                .get(&topic)
+                                .cloned()
+                                .unwrap_or_default();
+                            drop(subs);
 
-                            // Call handlers
                             for handler_id in handlers {
-                                match notification_handlers.lock() {
-                                    Ok(handlers) => {
-                                        if let Some(handler) = handlers.get(&handler_id)
-                                            && let Err(e) = handler(&topic, &message)
-                                        {
-                                            error!("Error in notification handler: {}", e);
-                                        }
+                                if let Ok(handlers) = notification_handlers.lock() {
+                                    if let Some(handler) = handlers.get(&handler_id)
+                                        && let Err(e) = handler(&topic, &message)
+                                    {
+                                        error!("Error in notification handler: {}", e);
                                     }
-                                    Err(_) => {
-                                        error!(
-                                            "Notification handlers mutex poisoned, skipping handler"
-                                        );
-                                    }
+                                } else {
+                                    error!(
+                                        "Notification handlers mutex poisoned, skipping handler"
+                                    );
                                 }
                             }
                         } else {

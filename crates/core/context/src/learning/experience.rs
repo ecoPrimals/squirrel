@@ -105,11 +105,12 @@ impl ExperienceBuffer {
 
     /// Sample random experiences
     pub fn sample_uniform(&self, batch_size: usize) -> Vec<RLExperience> {
+        use rand::seq::IteratorRandom;
         let mut rng = rand::rng();
-        let experiences: Vec<_> = self.experiences.iter().cloned().collect();
-
-        experiences
+        self.experiences
+            .iter()
             .choose_multiple(&mut rng, batch_size.min(self.size))
+            .into_iter()
             .cloned()
             .collect()
     }

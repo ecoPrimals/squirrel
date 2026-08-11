@@ -5,11 +5,7 @@
 //!
 //! This module provides functionality for creating and configuring command registries.
 
-use std::{
-    fmt,
-    sync::{Arc, Mutex},
-    time::Instant,
-};
+use std::{fmt, sync::Arc, time::Instant};
 
 use crate::error::CommandError;
 use crate::{
@@ -22,10 +18,7 @@ use squirrel_interfaces::plugins::CommandsPlugin;
 use tracing::{debug, info};
 
 /// Type alias for a registry and plugin tuple
-pub type RegistryWithPlugin = (
-    Arc<Mutex<CommandRegistry>>,
-    Arc<CommandRegistryPluginAdapter>,
-);
+pub type RegistryWithPlugin = (Arc<CommandRegistry>, Arc<CommandRegistryPluginAdapter>);
 
 /// The command registry factory trait
 ///
@@ -33,33 +26,17 @@ pub type RegistryWithPlugin = (
 /// command registries.
 pub trait CommandRegistryFactory: fmt::Debug {
     /// Create a new command registry
-    ///
-    /// # Returns
-    ///
-    /// A Result containing an `Arc<Mutex<CommandRegistry>>` or an error
-    fn create_registry(&self) -> Result<Arc<Mutex<CommandRegistry>>, CommandError>;
+    fn create_registry(&self) -> Result<Arc<CommandRegistry>, CommandError>;
 
     /// Register built-in commands in the provided registry
-    ///
-    /// # Arguments
-    ///
-    /// * `registry` - The registry to register commands in
-    ///
-    /// # Returns
-    ///
-    /// A Result that is Ok if all commands were registered successfully, or an error
     fn register_builtin_commands(
         &self,
-        registry: &Arc<Mutex<CommandRegistry>>,
+        registry: &Arc<CommandRegistry>,
     ) -> Result<(), CommandError>;
 }
 
 /// Create a command registry with built-in commands
-///
-/// # Returns
-///
-/// A Result containing an `Arc<Mutex<CommandRegistry>>` or an error
-pub fn create_command_registry() -> Result<Arc<Mutex<CommandRegistry>>, CommandError> {
+pub fn create_command_registry() -> Result<Arc<CommandRegistry>, CommandError> {
     debug!("Factory: Creating command registry using DefaultCommandRegistryFactory");
     let factory = DefaultCommandRegistryFactory::new();
     factory.create_registry()
@@ -82,12 +59,12 @@ pub fn create_command_registry_with_plugin() -> Result<RegistryWithPlugin, Comma
 /// Bridges `CommandRegistry` into the `CommandsPlugin` trait interface.
 #[derive(Debug)]
 pub struct CommandRegistryPluginAdapter {
-    registry: Arc<Mutex<CommandRegistry>>,
+    registry: Arc<CommandRegistry>,
     metadata: squirrel_interfaces::plugins::PluginMetadata,
 }
 
 impl CommandRegistryPluginAdapter {
-    fn new(registry: Arc<Mutex<CommandRegistry>>) -> Self {
+    fn new(registry: Arc<CommandRegistry>) -> Self {
         Self {
             registry,
             metadata: squirrel_interfaces::plugins::PluginMetadata::new(
@@ -108,12 +85,7 @@ impl squirrel_interfaces::plugins::Plugin for CommandRegistryPluginAdapter {
 
 impl CommandsPlugin for CommandRegistryPluginAdapter {
     fn get_available_commands(&self) -> Vec<squirrel_interfaces::plugins::CommandMetadata> {
-        let names = self
-            .registry
-            .lock()
-            .ok()
-            .and_then(|r| r.list_commands().ok())
-            .unwrap_or_default();
+        let names = self.registry.list_commands().unwrap_or_default();
 
         names
             .into_iter()
@@ -135,8 +107,7 @@ impl CommandsPlugin for CommandRegistryPluginAdapter {
         &self,
         command_id: &str,
     ) -> Option<squirrel_interfaces::plugins::CommandMetadata> {
-        let reg = self.registry.lock().ok()?;
-        let cmd = reg.get_command(command_id).ok()?;
+        let cmd = self.registry.get_command(command_id).ok()?;
         Some(squirrel_interfaces::plugins::CommandMetadata {
             id: command_id.to_string(),
             name: cmd.name().to_string(),
@@ -161,18 +132,13 @@ impl CommandsPlugin for CommandRegistryPluginAdapter {
             _ => Vec::new(),
         };
 
-        let result = self
-            .registry
-            .lock()
-            .map_err(|e| anyhow::anyhow!("Lock poisoned: {e}"))?
-            .execute(command_id, &args)?;
+        let result = self.registry.execute(command_id, &args)?;
 
         Ok(serde_json::Value::String(result))
     }
 
     fn get_command_help(&self, command_id: &str) -> Option<String> {
-        let reg = self.registry.lock().ok()?;
-        let cmd = reg.get_command(command_id).ok()?;
+        let cmd = self.registry.get_command(command_id).ok()?;
         Some(cmd.help())
     }
 }
@@ -208,11 +174,11 @@ impl Default for DefaultCommandRegistryFactory {
 }
 
 impl CommandRegistryFactory for DefaultCommandRegistryFactory {
-    fn create_registry(&self) -> Result<Arc<Mutex<CommandRegistry>>, CommandError> {
+    fn create_registry(&self) -> Result<Arc<CommandRegistry>, CommandError> {
         debug!("Factory: Creating command registry");
         let start = Instant::now();
 
-        let registry = Arc::new(Mutex::new(CommandRegistry::new()));
+        let registry = Arc::new(CommandRegistry::new());
         self.register_builtin_commands(&registry)?;
 
         let duration = start.elapsed();
@@ -220,85 +186,37 @@ impl CommandRegistryFactory for DefaultCommandRegistryFactory {
         Ok(registry)
     }
 
-    /// Register built-in commands in the provided registry
-    ///
-    /// This implementation uses a deadlock-safe approach by:
-    /// 1. Registering non-help commands first
-    /// 2. Creating the HelpCommand with pre-loaded command information
-    /// 3. Registering the HelpCommand last
     fn register_builtin_commands(
         &self,
-        registry: &Arc<Mutex<CommandRegistry>>,
+        registry: &Arc<CommandRegistry>,
     ) -> Result<(), CommandError> {
         debug!("Factory: Registering built-in commands");
         let start = Instant::now();
 
-        // Create a history manager
         let history = Arc::new(CommandHistory::new()?);
 
-        // Add the history hook to Record command executions
-        {
-            let registry_guard = registry.lock().map_err(|e| {
-                CommandError::Lock(format!(
-                    "Failed to acquire lock on registry to register history hook: {e}"
-                ))
-            })?;
+        registry.add_post_hook(Arc::new(
+            |cmd_name: &str, result: &CommandResult<String>| {
+                debug!(
+                    "History post-hook executed for command '{}' with result: {:?}",
+                    cmd_name,
+                    result.is_ok()
+                );
+            },
+        ))?;
 
-            // Post-hook functionality now implemented
-            registry_guard.add_post_hook(Arc::new(
-                |cmd_name: &str, result: &CommandResult<String>| {
-                    debug!(
-                        "History post-hook executed for command '{}' with result: {:?}",
-                        cmd_name,
-                        result.is_ok()
-                    );
-                },
-            ))?;
-            debug!("Factory: History hook not added - function not implemented in CommandRegistry");
-        }
+        registry.register("version", Arc::new(VersionCommand::new()))?;
+        registry.register("echo", Arc::new(EchoCommand::new()))?;
+        registry.register("exit", Arc::new(ExitCommand::new()))?;
+        registry.register("kill", Arc::new(KillCommand::new()))?;
+        registry.register(
+            "history",
+            Arc::new(HistoryCommand::new(Arc::clone(&history))),
+        )?;
+        registry.set_resource("command_history", Box::new(Arc::clone(&history)))?;
 
-        // Step 1: Register non-help commands
-        {
-            debug!("Factory: Registering non-help commands (acquiring lock)");
-            let registry_guard = registry.lock().map_err(|e| {
-                CommandError::Lock(format!(
-                    "Failed to acquire lock on registry to register non-help commands: {e}"
-                ))
-            })?;
-
-            // Register basic commands
-            registry_guard.register("version", Arc::new(VersionCommand::new()))?;
-            registry_guard.register("echo", Arc::new(EchoCommand::new()))?;
-            registry_guard.register("exit", Arc::new(ExitCommand::new()))?;
-            registry_guard.register("kill", Arc::new(KillCommand::new()))?;
-
-            // Register the history command
-            registry_guard.register(
-                "history",
-                Arc::new(HistoryCommand::new(Arc::clone(&history))),
-            )?;
-
-            registry_guard.set_resource("command_history", Box::new(Arc::clone(&history)))?;
-
-            debug!("Factory: Non-help commands registered (releasing lock)");
-        }
-
-        // Step 2: Create HelpCommand with pre-loaded command information
         let help_command = HelpCommand::new(Arc::clone(registry));
-
-        // Step 3: Register the HelpCommand
-        {
-            debug!("Factory: Registering help command (acquiring lock)");
-            let registry_guard = registry.lock().map_err(|e| {
-                CommandError::Lock(format!(
-                    "Failed to acquire lock on registry to register help command: {e}"
-                ))
-            })?;
-
-            registry_guard.register("help", Arc::new(help_command))?;
-
-            debug!("Factory: Help command registered (releasing lock)");
-        }
+        registry.register("help", Arc::new(help_command))?;
 
         let duration = start.elapsed();
         info!("Factory: Built-in commands registered in {:?}", duration);
@@ -310,229 +228,62 @@ impl CommandRegistryFactory for DefaultCommandRegistryFactory {
 mod tests {
     use super::*;
     use crate::{Command, CommandResult};
-    use std::time::{Duration, Instant};
-    use tracing::{debug, info};
-
-    /// Helper structure to track lock timing in tests
-    struct TestLockTimer {
-        operation: String,
-        start_time: Instant,
-    }
-
-    impl TestLockTimer {
-        fn new(operation: &str) -> Self {
-            debug!("Test: Acquiring lock for operation '{}'", operation);
-            Self {
-                operation: operation.to_string(),
-                start_time: Instant::now(),
-            }
-        }
-
-        fn end(self) -> Duration {
-            let duration = self.start_time.elapsed();
-            debug!(
-                "Test: Lock operation '{}' completed in {:?}",
-                self.operation, duration
-            );
-            duration
-        }
-    }
+    use tracing::info;
 
     #[test]
     fn test_create_command_registry() -> Result<(), CommandError> {
-        // Initialize logging for tests
         let _ = tracing_subscriber::fmt::try_init();
-
-        info!("Test: Starting test_create_command_registry");
         let registry = create_command_registry()?;
 
-        // First, verify commands exist in the registry
-        let commands = {
-            let timer = TestLockTimer::new("list_commands");
-            let registry_lock = registry.lock().map_err(|e| {
-                CommandError::Lock(format!("Failed to acquire lock on command registry: {e}"))
-            })?;
+        let commands = registry.list_commands()?;
 
-            let cmds = registry_lock.list_commands()?;
-            timer.end();
-            cmds
-        }; // Lock is released here
+        assert!(commands.contains(&"version".to_string()));
+        assert!(commands.contains(&"help".to_string()));
+        assert!(commands.contains(&"echo".to_string()));
+        assert!(commands.contains(&"exit".to_string()));
+        assert!(commands.contains(&"kill".to_string()));
 
-        assert!(
-            commands.contains(&"version".to_string()),
-            "Registry should contain version command"
-        );
-        assert!(
-            commands.contains(&"help".to_string()),
-            "Registry should contain help command"
-        );
-        assert!(
-            commands.contains(&"echo".to_string()),
-            "Registry should contain echo command"
-        );
-        assert!(
-            commands.contains(&"exit".to_string()),
-            "Registry should contain exit command"
-        );
-        assert!(
-            commands.contains(&"kill".to_string()),
-            "Registry should contain kill command"
-        );
+        let cmd = registry.get_command("version")?;
+        let version_result = cmd.execute(&[]);
+        assert!(version_result.is_ok());
+        assert!(version_result.expect("should succeed").contains("Version"));
 
-        // Now, execute a command that doesn't have circular dependencies
-        let version_result = {
-            let timer = TestLockTimer::new("execute_version");
+        let cmd = registry.get_command("echo")?;
+        let echo_result = cmd.execute(&["hello".to_string(), "world".to_string()]);
+        assert!(echo_result.is_ok());
+        assert_eq!(echo_result.expect("should succeed"), "Echo: hello world");
 
-            // Get command with lock
-            let command = {
-                let registry_lock = registry.lock().map_err(|e| {
-                    CommandError::Lock(format!("Failed to acquire lock on command registry: {e}"))
-                })?;
-
-                // Clone the command while holding the lock
-                let cmd = registry_lock.get_command("version")?;
-                debug!("Test: Got version command, releasing lock");
-                cmd
-            }; // Lock is released here
-
-            // Execute command without holding the lock
-            debug!("Test: Executing version command without lock");
-            let result = command.execute(&[]);
-            timer.end();
-            result
-        };
-
-        assert!(
-            version_result.is_ok(),
-            "Version command should execute successfully"
-        );
-        assert!(
-            version_result.expect("should succeed").contains("Version"),
-            "Version command should return version info"
-        );
-
-        // Test echo command
-        let echo_result = {
-            let timer = TestLockTimer::new("execute_echo");
-
-            // Get command with lock
-            let command = {
-                let registry_lock = registry.lock().map_err(|e| {
-                    CommandError::Lock(format!("Failed to acquire lock on command registry: {e}"))
-                })?;
-
-                // Clone the command while holding the lock
-                let cmd = registry_lock.get_command("echo")?;
-                debug!("Test: Got echo command, releasing lock");
-                cmd
-            }; // Lock is released here
-
-            // Execute command without holding the lock
-            debug!("Test: Executing echo command without lock");
-            let result = command.execute(&["hello".to_string(), "world".to_string()]);
-            timer.end();
-            result
-        };
-
-        assert!(
-            echo_result.is_ok(),
-            "Echo command should execute successfully"
-        );
-        assert_eq!(
-            echo_result.expect("should succeed"),
-            "Echo: hello world",
-            "Echo command should return input"
-        );
-
-        info!("Test: Completed test_create_command_registry successfully");
         Ok(())
     }
 
     #[test]
     fn test_default_factory() -> Result<(), CommandError> {
-        // Initialize logging for tests
         let _ = tracing_subscriber::fmt::try_init();
-
-        info!("Test: Starting test_default_factory");
         let factory = DefaultCommandRegistryFactory;
         let registry = factory.create_registry()?;
 
-        // First, verify commands exist in the registry
-        let commands = {
-            let timer = TestLockTimer::new("list_commands");
-            let registry_lock = registry.lock().map_err(|e| {
-                CommandError::Lock(format!("Failed to acquire lock on command registry: {e}"))
-            })?;
+        let commands = registry.list_commands()?;
 
-            let cmds = registry_lock.list_commands()?;
-            timer.end();
-            cmds
-        }; // Lock is released here
+        assert!(commands.contains(&"version".to_string()));
+        assert!(commands.contains(&"help".to_string()));
+        assert!(commands.contains(&"echo".to_string()));
+        assert!(commands.contains(&"exit".to_string()));
+        assert!(commands.contains(&"kill".to_string()));
 
-        assert!(
-            commands.contains(&"version".to_string()),
-            "Registry should contain version command"
-        );
-        assert!(
-            commands.contains(&"help".to_string()),
-            "Registry should contain help command"
-        );
-        assert!(
-            commands.contains(&"echo".to_string()),
-            "Registry should contain echo command"
-        );
-        assert!(
-            commands.contains(&"exit".to_string()),
-            "Registry should contain exit command"
-        );
-        assert!(
-            commands.contains(&"kill".to_string()),
-            "Registry should contain kill command"
-        );
-
-        // Get all command help for multiple commands at once (batched operation)
-        let help_texts = {
-            let timer = TestLockTimer::new("get_command_help");
-            let registry_lock = registry.lock().map_err(|e| {
-                CommandError::Lock(format!("Failed to acquire lock on command registry: {e}"))
-            })?;
-
-            // Get help for multiple commands while holding the lock
-            let mut help_map = std::collections::HashMap::new();
-            for cmd_name in ["version", "echo", "help"] {
-                match registry_lock.get_help(cmd_name) {
-                    Ok(help) => {
-                        help_map.insert(cmd_name.to_string(), help);
-                    }
-                    Err(e) => {
-                        debug!("Test: Error getting help for {}: {}", cmd_name, e);
-                    }
-                }
+        let mut help_texts = std::collections::HashMap::new();
+        for cmd_name in ["version", "echo", "help"] {
+            if let Ok(help) = registry.get_help(cmd_name) {
+                help_texts.insert(cmd_name.to_string(), help);
             }
+        }
 
-            timer.end();
-            help_map
-        }; // Lock is released here
+        assert!(help_texts.contains_key("version"));
+        assert!(help_texts.contains_key("echo"));
+        assert!(help_texts.contains_key("help"));
 
-        // Verify help content without holding locks
-        assert!(
-            help_texts.contains_key("version"),
-            "Should have help for version command"
-        );
-        assert!(
-            help_texts.contains_key("echo"),
-            "Should have help for echo command"
-        );
-        assert!(
-            help_texts.contains_key("help"),
-            "Should have help for help command"
-        );
-
-        info!("Test: Completed test_default_factory successfully");
         Ok(())
     }
 
-    // New comprehensive test that checks factory creation with custom commands
     #[test]
     fn test_factory_with_custom_commands() -> Result<(), CommandError> {
         #[derive(Debug, Clone)]
@@ -542,89 +293,43 @@ mod tests {
             fn name(&self) -> &str {
                 "custom"
             }
-
             fn description(&self) -> &str {
                 "A custom test command"
             }
-
             fn execute(&self, _args: &[String]) -> CommandResult<String> {
                 Ok("Custom command executed".to_string())
             }
-
             fn parser(&self) -> clap::Command {
                 clap::Command::new("custom").about("A custom test command")
             }
-
             fn clone_box(&self) -> Box<dyn Command> {
                 Box::new(self.clone())
             }
         }
 
-        // Initialize logging for tests
         let _ = tracing_subscriber::fmt::try_init();
-        info!("Test: Starting test_factory_with_custom_commands");
-
-        // Create registry with factory
         let factory = DefaultCommandRegistryFactory;
         let registry = factory.create_registry()?;
 
-        // Register custom command
-        {
-            let timer = TestLockTimer::new("register_custom_command");
-            let registry_lock = registry.lock().map_err(|e| {
-                CommandError::Lock(format!("Failed to acquire lock on command registry: {e}"))
-            })?;
+        registry.register("custom", Arc::new(CustomCommand))?;
 
-            registry_lock.register("custom", Arc::new(CustomCommand))?;
-            timer.end();
-        } // Lock is released here
+        let cmd = registry.get_command("custom")?;
+        let result = cmd.execute(&[]);
+        assert!(result.is_ok());
+        assert_eq!(result.expect("should succeed"), "Custom command executed");
 
-        // Execute the custom command
-        let custom_result = {
-            let timer = TestLockTimer::new("execute_custom_command");
-
-            // Get command with lock
-            let command = {
-                let registry_lock = registry.lock().map_err(|e| {
-                    CommandError::Lock(format!("Failed to acquire lock on command registry: {e}"))
-                })?;
-
-                // Clone the command while holding the lock
-                let cmd = registry_lock.get_command("custom")?;
-                debug!("Test: Got custom command, releasing lock");
-                cmd
-            }; // Lock is released here
-
-            // Execute command without holding the lock
-            debug!("Test: Executing custom command without lock");
-            let result = command.execute(&[]);
-            timer.end();
-            result
-        };
-
-        assert!(
-            custom_result.is_ok(),
-            "Custom command should execute successfully"
-        );
-        assert_eq!(
-            custom_result.expect("should succeed"),
-            "Custom command executed",
-            "Custom command should return expected output"
-        );
-
-        info!("Test: Completed test_factory_with_custom_commands successfully");
         Ok(())
     }
 
     #[test]
     fn test_create_command_registry_with_plugin_produces_adapter() {
         let result = create_command_registry_with_plugin();
-        assert!(result.is_ok(), "should return a registry + plugin adapter");
+        assert!(result.is_ok());
         let (registry, adapter) = result.expect("tested above");
         let cmds = adapter.get_available_commands();
-        assert!(!cmds.is_empty(), "adapter should list built-in commands");
+        assert!(!cmds.is_empty());
 
-        let reg_cmds = registry.lock().expect("lock").list_commands().expect("ok");
+        let reg_cmds = registry.list_commands().expect("ok");
         assert_eq!(cmds.len(), reg_cmds.len());
     }
 

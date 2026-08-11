@@ -5,7 +5,7 @@
 //!
 //! This module provides basic built-in commands such as help and version.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Instant;
 use tracing::{debug, error, info, warn};
 
@@ -42,50 +42,35 @@ impl HelpCommand {
     /// This function acquires a lock on the registry only at creation time,
     /// allowing the execute method to run without acquiring locks.
     #[must_use]
-    pub fn new(registry: Arc<Mutex<CommandRegistry>>) -> Self {
+    pub fn new(registry: Arc<CommandRegistry>) -> Self {
         debug!("HelpCommand: Creating new instance with registry reference");
         let start = Instant::now();
 
-        // Acquire registry lock at construction time only
         let mut command_help = Vec::new();
 
-        // Only attempt to load commands if we can acquire the lock
-        match registry.lock() {
-            Ok(registry_lock) => {
-                debug!("HelpCommand: Acquired lock on registry to load command information");
-
-                // Get list of commands
-                match registry_lock.list_commands() {
-                    Ok(commands) => {
-                        debug!("HelpCommand: Found {} commands", commands.len());
-
-                        // Get help text for each command
-                        for cmd_name in commands {
-                            match registry_lock.get_help(&cmd_name) {
-                                Ok(help_text) => {
-                                    command_help.push((cmd_name.clone(), help_text));
-                                }
-                                Err(e) => {
-                                    warn!(
-                                        "HelpCommand: Failed to get help for command '{}': {}",
-                                        cmd_name, e
-                                    );
-                                    // Still include the command name, but with a generic message
-                                    command_help.push((
-                                        cmd_name.clone(),
-                                        format!("{cmd_name}: <error retrieving help>"),
-                                    ));
-                                }
-                            }
+        match registry.list_commands() {
+            Ok(commands) => {
+                debug!("HelpCommand: Found {} commands", commands.len());
+                for cmd_name in commands {
+                    match registry.get_help(&cmd_name) {
+                        Ok(help_text) => {
+                            command_help.push((cmd_name, help_text));
                         }
-                    }
-                    Err(e) => {
-                        error!("HelpCommand: Failed to list commands: {}", e);
+                        Err(e) => {
+                            warn!(
+                                "HelpCommand: Failed to get help for command '{}': {}",
+                                cmd_name, e
+                            );
+                            command_help.push((
+                                cmd_name.clone(),
+                                format!("{cmd_name}: <error retrieving help>"),
+                            ));
+                        }
                     }
                 }
             }
             Err(e) => {
-                error!("HelpCommand: Failed to acquire lock on registry: {}", e);
+                error!("HelpCommand: Failed to list commands: {}", e);
             }
         }
 
@@ -114,62 +99,45 @@ impl HelpCommand {
     /// # Arguments
     ///
     /// * `registry` - The command registry to extract updated information from
-    pub fn update(&mut self, registry: &Arc<Mutex<CommandRegistry>>) {
+    pub fn update(&mut self, registry: &Arc<CommandRegistry>) {
         debug!("HelpCommand: Updating command help information");
         let start = Instant::now();
 
-        // Only attempt to update if we can acquire the lock
-        match registry.lock() {
-            Ok(registry_lock) => {
-                debug!("HelpCommand: Acquired lock on registry to update command information");
-                let mut updated_help = Vec::new();
+        let mut updated_help = Vec::new();
 
-                // Get updated list of commands
-                match registry_lock.list_commands() {
-                    Ok(commands) => {
-                        debug!("HelpCommand: Found {} commands for update", commands.len());
-
-                        // Get help text for each command
-                        for cmd_name in commands {
-                            match registry_lock.get_help(&cmd_name) {
-                                Ok(help_text) => {
-                                    updated_help.push((cmd_name.clone(), help_text));
-                                }
-                                Err(e) => {
-                                    warn!(
-                                        "HelpCommand: Failed to get help for command '{}': {}",
-                                        cmd_name, e
-                                    );
-                                    // Still include the command name, but with a generic message
-                                    updated_help.push((
-                                        cmd_name.clone(),
-                                        format!("{cmd_name}: <error retrieving help>"),
-                                    ));
-                                }
-                            }
+        match registry.list_commands() {
+            Ok(commands) => {
+                debug!("HelpCommand: Found {} commands for update", commands.len());
+                for cmd_name in commands {
+                    match registry.get_help(&cmd_name) {
+                        Ok(help_text) => {
+                            updated_help.push((cmd_name, help_text));
                         }
-
-                        // Replace existing help information with updated data
-                        let old_count = self.command_help.len();
-                        self.command_help = updated_help;
-                        let new_count = self.command_help.len();
-
-                        let duration = start.elapsed();
-                        info!(
-                            "HelpCommand: Updated command information from {} to {} commands in {:?}",
-                            old_count, new_count, duration
-                        );
-                    }
-                    Err(e) => {
-                        error!("HelpCommand: Failed to list commands during update: {}", e);
+                        Err(e) => {
+                            warn!(
+                                "HelpCommand: Failed to get help for command '{}': {}",
+                                cmd_name, e
+                            );
+                            updated_help.push((
+                                cmd_name.clone(),
+                                format!("{cmd_name}: <error retrieving help>"),
+                            ));
+                        }
                     }
                 }
+
+                let old_count = self.command_help.len();
+                self.command_help = updated_help;
+                let new_count = self.command_help.len();
+
+                let duration = start.elapsed();
+                info!(
+                    "HelpCommand: Updated command information from {} to {} commands in {:?}",
+                    old_count, new_count, duration
+                );
             }
             Err(e) => {
-                error!(
-                    "HelpCommand: Failed to acquire lock on registry during update: {}",
-                    e
-                );
+                error!("HelpCommand: Failed to list commands during update: {}", e);
             }
         }
     }

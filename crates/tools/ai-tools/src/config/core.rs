@@ -203,8 +203,8 @@ impl AIToolsConfig {
 
     /// Get all available provider names
     #[must_use]
-    pub fn provider_names(&self) -> Vec<&String> {
-        self.providers.keys().collect()
+    pub fn provider_names(&self) -> Vec<&str> {
+        self.providers.keys().map(String::as_str).collect()
     }
 
     /// Validate the configuration

@@ -59,7 +59,7 @@ pub fn discover_all_from_env() -> Vec<DiscoveredService> {
                 services.push(DiscoveredService {
                     name: format!("{capability}-provider"),
                     endpoint: value,
-                    capabilities: vec![capability.clone()],
+                    capabilities: vec![capability],
                     metadata: HashMap::new(),
                     discovered_at: std::time::SystemTime::now(),
                     discovery_method: "environment_variable".to_string(),

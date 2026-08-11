@@ -19,19 +19,8 @@ pub fn register_commands() -> Result<()> {
     // Register commands successfully
     info!("Successfully registered built-in commands from services crate");
 
-    // Log available commands safely
-    match services_registry.lock() {
-        Ok(registry) => match registry.list_commands() {
-            Ok(commands) => {
-                debug!("Available commands: {:?}", commands);
-            }
-            Err(e) => {
-                debug!("Failed to list commands: {}", e);
-            }
-        },
-        Err(e) => {
-            debug!("Failed to access registry to list commands: {}", e);
-        }
+    if let Ok(commands) = services_registry.list_commands() {
+        debug!("Available commands: {:?}", commands);
     }
 
     Ok(())
